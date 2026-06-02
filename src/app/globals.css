@@ -1,26 +1,42 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Jost:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-primary:       #F08F25;
+  --color-primary-light: #F5A845;
+  --color-primary-dark:  #C06A10;
+  --color-black:         #1A1918;
+  --color-grey-mid:      #6B6560;
+  --color-grey-icon:     #A4A4A6;
+  --color-offwhite:      #F5F2EE;
+
+  --font-display: 'Cormorant Garamond', Georgia, serif;
+  --font-ui:      'Jost', 'Inter', sans-serif;
+
+  --radius-badge:  2px;
+  --radius-button: 4px;
+  --radius-modal:  8px;
+
+  --focus-ring: 0 0 0 3px rgba(240, 143, 37, 0.30);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-brand:        #F08F25;
+  --color-brand-light:  #F5A845;
+  --color-brand-dark:   #C06A10;
+  --color-ink:          #1A1918;
+  --color-muted:        #6B6560;
+  --color-icon:         #A4A4A6;
+  --color-surface:      #F5F2EE;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-offwhite);
+  color: var(--color-black);
+  font-family: var(--font-ui);
+}
+
+*:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
