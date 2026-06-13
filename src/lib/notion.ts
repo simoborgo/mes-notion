@@ -64,9 +64,10 @@ function notionUrl(pageId: string): string {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function queryAll(dbId: string, filter?: any, sorts?: any[]): Promise<any[]> {
+async function queryAll(dbId: string, filter?: any, sorts?: any[], maxPages = 5): Promise<any[]> {
   const results = [];
   let cursor: string | undefined;
+  let pages = 0;
   do {
     const res = await notion.databases.query({
       database_id: dbId,
@@ -77,7 +78,8 @@ async function queryAll(dbId: string, filter?: any, sorts?: any[]): Promise<any[
     });
     results.push(...res.results);
     cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined;
-  } while (cursor);
+    pages++;
+  } while (cursor && pages < maxPages);
   return results;
 }
 
@@ -174,9 +176,11 @@ function pageToArea(page: any): Area {
 }
 
 export async function getSchede(): Promise<Scheda[]> {
-  const pages = await queryAll(DB_SCHEDE, undefined, [
-    { property: "Data Scheda Ricevuta", direction: "descending" },
-  ]);
+  const pages = await queryAll(
+    DB_SCHEDE,
+    { property: "Tipologia", select: { equals: "Scheda" } },
+    [{ property: "ODP", direction: "descending" }],
+  );
   return pages.map(pageToScheda);
 }
 

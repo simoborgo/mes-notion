@@ -2,7 +2,7 @@ import { getCommesse } from "@/lib/notion";
 import Link from "next/link";
 import BadgeStato from "@/components/BadgeStato";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 function fmt(d: string | null) {
   if (!d) return "—";
