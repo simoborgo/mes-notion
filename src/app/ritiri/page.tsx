@@ -1,7 +1,7 @@
 import { getRitiri } from "@/lib/notion";
 import TabellaRitiri from "@/components/TabellaRitiri";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export default async function RitiriPage() {
   const ritiri = await getRitiri();

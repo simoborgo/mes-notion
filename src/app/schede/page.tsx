@@ -3,7 +3,7 @@ import TabellaSchede from "@/components/TabellaSchede";
 import RicaricaButton from "@/components/RicaricaButton";
 import { revalidateSchede } from "./actions";
 
-export const revalidate = 300; // 5 minuti
+export const dynamic = "force-dynamic";
 
 export default async function SchedePage() {
   const schede = await getSchede();
