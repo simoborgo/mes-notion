@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import type { Scheda } from "@/lib/types";
 import BadgeStato from "./BadgeStato";
 import FormModificaScheda from "./FormModificaScheda";
@@ -123,8 +124,8 @@ function CopertinaTooltip({ tooltip }: { tooltip: TooltipState | null }) {
     const { x, y } = tooltip;
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    const W = 220;
-    const H = 200;
+    const W = 380;
+    const H = 320;
     const left = x + 20 + W > vw ? x - W - 12 : x + 20;
     const top = y + 12 + H > vh ? vh - H - 12 : y + 12;
     setPos({ top, left });
@@ -136,7 +137,7 @@ function CopertinaTooltip({ tooltip }: { tooltip: TooltipState | null }) {
     <div
       ref={ref}
       className="fixed z-50 pointer-events-none rounded-lg shadow-2xl border border-gray-200 overflow-hidden"
-      style={{ top: pos.top, left: pos.left, width: 220, background: "white" }}
+      style={{ top: pos.top, left: pos.left, width: 380, background: "white" }}
     >
       {loading && (
         <div className="flex items-center justify-center" style={{ height: 100, background: "#f3f4f6" }}>
@@ -145,7 +146,7 @@ function CopertinaTooltip({ tooltip }: { tooltip: TooltipState | null }) {
       )}
       {imgUrl && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={imgUrl} alt="Copertina" className="block w-full" style={{ maxHeight: 220, objectFit: "contain" }} />
+        <img src={imgUrl} alt="Copertina" className="block w-full" style={{ maxHeight: 360, objectFit: "contain" }} />
       )}
       {!loading && !imgUrl && (
         <div className="flex items-center justify-center" style={{ height: 60 }}>
@@ -156,13 +157,24 @@ function CopertinaTooltip({ tooltip }: { tooltip: TooltipState | null }) {
   );
 }
 
-export default function TabellaSchede({ schede: initial }: { schede: Scheda[] }) {
+export default function TabellaSchede({ schede: initial, revalidate }: { schede: Scheda[]; revalidate?: () => Promise<void> }) {
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+
+  function handleReload() {
+    if (!revalidate) return;
+    startTransition(async () => { await revalidate(); router.refresh(); });
+  }
 
   const [schede, setSchede] = useState(initial);
   const [search, setSearch] = useState("");
-  const [filtroStato, setFiltroStato] = useState("");
-  const [filtroEsterna, setFiltroEsterna] = useState<"" | "si" | "no">("");
+  const [filtroFornitore, setFiltroFornitore] = useState("");
+  const [filtroCommessa, setFiltroCommessa] = useState("");
+  const [filtroStati, setFiltroStati] = useState<Set<string>>(
+    () => new Set(initial.map((s) => s.statoProduzione).filter((s): s is string => !!s && s !== "Completato"))
+  );
+  const [filtroEsterna, setFiltroEsterna] = useState(false);
   const [filtroRitardoProd, setFiltroRitardoProd] = useState(false);
   const [filtroRitardoRientro, setFiltroRitardoRientro] = useState(false);
   const [dateFrom, setDateFrom] = useState("");
@@ -179,13 +191,14 @@ export default function TabellaSchede({ schede: initial }: { schede: Scheda[] })
     [schede]
   );
 
-  const conteggioRitardoProd = useMemo(
-    () => schede.filter((s) => isInRitardo(s, today).produzione).length,
-    [schede, today]
+  const fornitoriUniq = useMemo(
+    () => Array.from(new Set(schede.map((s) => s.fornitore).filter(Boolean))).sort() as string[],
+    [schede]
   );
-  const conteggioRitardoRientro = useMemo(
-    () => schede.filter((s) => isInRitardo(s, today).rientro).length,
-    [schede, today]
+
+  const commesseUniq = useMemo(
+    () => Array.from(new Set(schede.map((s) => s.commessaNr).filter(Boolean))).sort() as string[],
+    [schede]
   );
 
   const filtered = useMemo(() => {
@@ -193,18 +206,44 @@ export default function TabellaSchede({ schede: initial }: { schede: Scheda[] })
     return schede
       .filter((s) => {
         if (q && !`${s.odp} ${s.clienteInfo} ${s.numeroScheda} ${s.commessaNr}`.toLowerCase().includes(q)) return false;
-        if (filtroStato && s.statoProduzione !== filtroStato) return false;
-        if (filtroEsterna === "si" && !s.produzioneEsterna) return false;
-        if (filtroEsterna === "no" && s.produzioneEsterna) return false;
+        if (filtroStati.size > 0 && !filtroStati.has(s.statoProduzione ?? "")) return false;
+        if (filtroEsterna && !s.produzioneEsterna) return false;
         if (filtroRitardoProd && !isInRitardo(s, today).produzione) return false;
         if (filtroRitardoRientro && !isInRitardo(s, today).rientro) return false;
+        if (filtroFornitore && s.fornitore !== filtroFornitore) return false;
+        if (filtroCommessa && s.commessaNr !== filtroCommessa) return false;
         const val = s[dateField] ?? "";
         if (dateFrom && val < dateFrom) return false;
         if (dateTo && val > dateTo) return false;
         return true;
       })
       .sort((a, b) => cmp(a, b, sortKey, sortDir));
-  }, [schede, search, filtroStato, filtroEsterna, filtroRitardoProd, filtroRitardoRientro, dateFrom, dateTo, dateField, sortKey, sortDir, today]);
+  }, [schede, search, filtroStati, filtroEsterna, filtroRitardoProd, filtroRitardoRientro, filtroFornitore, filtroCommessa, dateFrom, dateTo, dateField, sortKey, sortDir, today]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Contatori ritardo basati sui filtri attivi (esclusi i filtri ritardo stessi)
+  const filteredSenzaRitardo = useMemo(() => {
+    const q = search.toLowerCase();
+    return schede.filter((s) => {
+      if (q && !`${s.odp} ${s.clienteInfo} ${s.numeroScheda} ${s.commessaNr}`.toLowerCase().includes(q)) return false;
+      if (filtroStati.size > 0 && !filtroStati.has(s.statoProduzione ?? "")) return false;
+      if (filtroEsterna && !s.produzioneEsterna) return false;
+      if (filtroFornitore && s.fornitore !== filtroFornitore) return false;
+      if (filtroCommessa && s.commessaNr !== filtroCommessa) return false;
+      const val = s[dateField] ?? "";
+      if (dateFrom && val < dateFrom) return false;
+      if (dateTo && val > dateTo) return false;
+      return true;
+    });
+  }, [schede, search, filtroStati, filtroEsterna, filtroFornitore, filtroCommessa, dateFrom, dateTo, dateField, today]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const conteggioRitardoProd = useMemo(
+    () => filteredSenzaRitardo.filter((s) => isInRitardo(s, today).produzione).length,
+    [filteredSenzaRitardo, today]
+  );
+  const conteggioRitardoRientro = useMemo(
+    () => filteredSenzaRitardo.filter((s) => isInRitardo(s, today).rientro).length,
+    [filteredSenzaRitardo, today]
+  );
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages - 1);
@@ -262,6 +301,23 @@ export default function TabellaSchede({ schede: initial }: { schede: Scheda[] })
 
   return (
     <div className="space-y-3">
+      {/* Barra superiore: toggle ritardo + ricarica */}
+      <div className="flex flex-wrap gap-2 items-center justify-end">
+        <RitardoBtn label="Prod. in ritardo" count={conteggioRitardoProd} active={filtroRitardoProd} onToggle={() => setFiltroRitardoProd((v) => !v)} />
+        <RitardoBtn label="Rientro in ritardo" count={conteggioRitardoRientro} active={filtroRitardoRientro} onToggle={() => setFiltroRitardoRientro((v) => !v)} />
+        {revalidate && (
+          <button
+            onClick={handleReload}
+            disabled={pending}
+            className="flex items-center gap-2 px-3 py-1.5 rounded border text-sm font-medium transition-colors disabled:opacity-50"
+            style={{ borderColor: "var(--color-grey-icon)", color: "var(--color-grey-mid)" }}
+          >
+            <span className={pending ? "animate-spin inline-block" : "inline-block"}>↻</span>
+            {pending ? "Caricamento…" : "Ricarica dati"}
+          </button>
+        )}
+      </div>
+
       {/* Filtri riga 1 */}
       <div className="flex flex-wrap gap-3 items-center">
         <input
@@ -270,17 +326,55 @@ export default function TabellaSchede({ schede: initial }: { schede: Scheda[] })
           value={search}
           onChange={(e) => handleFilter(() => setSearch(e.target.value))}
         />
-        <select className={inputCls} value={filtroStato} onChange={(e) => handleFilter(() => setFiltroStato(e.target.value))}>
-          <option value="">Tutti gli stati</option>
-          {statiUniq.map((s) => <option key={s} value={s}>{s}</option>)}
+        <div className="flex flex-wrap gap-1.5 items-center">
+          {statiUniq.map((s) => {
+            const active = filtroStati.has(s);
+            return (
+              <button
+                key={s}
+                onClick={() => handleFilter(() => setFiltroStati((prev) => {
+                  const next = new Set(prev);
+                  active ? next.delete(s) : next.add(s);
+                  return next;
+                }))}
+                className="px-2.5 py-1 rounded-full text-xs font-medium border transition-colors"
+                style={{
+                  background: active ? "var(--color-primary)" : "white",
+                  color: active ? "white" : "var(--color-grey-mid)",
+                  borderColor: active ? "var(--color-primary)" : "#d1d5db",
+                }}
+              >
+                {s}
+              </button>
+            );
+          })}
+          {filtroStati.size > 0 && (
+            <button
+              onClick={() => handleFilter(() => setFiltroStati(new Set()))}
+              className="text-xs px-2 py-1 rounded border"
+              style={{ color: "var(--color-grey-mid)", borderColor: "#d1d5db" }}
+            >
+              ✕ Azzera
+            </button>
+          )}
+        </div>
+        <label className="flex items-center gap-2 cursor-pointer select-none text-sm" style={{ color: "var(--color-black)" }}>
+          <input
+            type="checkbox"
+            checked={filtroEsterna}
+            onChange={(e) => handleFilter(() => setFiltroEsterna(e.target.checked))}
+            className="w-4 h-4 cursor-pointer accent-orange-500"
+          />
+          Solo produzione esterna
+        </label>
+        <select className={inputCls} value={filtroFornitore} onChange={(e) => handleFilter(() => setFiltroFornitore(e.target.value))}>
+          <option value="">Tutti i fornitori</option>
+          {fornitoriUniq.map((f) => <option key={f} value={f}>{f}</option>)}
         </select>
-        <select className={inputCls} value={filtroEsterna} onChange={(e) => handleFilter(() => setFiltroEsterna(e.target.value as "" | "si" | "no"))}>
-          <option value="">Interna + Esterna</option>
-          <option value="si">Solo Esterna</option>
-          <option value="no">Solo Interna</option>
+        <select className={inputCls} value={filtroCommessa} onChange={(e) => handleFilter(() => setFiltroCommessa(e.target.value))}>
+          <option value="">Tutte le commesse</option>
+          {commesseUniq.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
-        <RitardoBtn label="Prod. in ritardo" count={conteggioRitardoProd} active={filtroRitardoProd} onToggle={() => setFiltroRitardoProd((v) => !v)} />
-        <RitardoBtn label="Rientro in ritardo" count={conteggioRitardoRientro} active={filtroRitardoRientro} onToggle={() => setFiltroRitardoRientro((v) => !v)} />
         <span className="ml-auto text-sm" style={{ color: "var(--color-grey-mid)" }}>
           {filtered.length} schede
         </span>
@@ -318,13 +412,14 @@ export default function TabellaSchede({ schede: initial }: { schede: Scheda[] })
             <tr className="border-b text-left text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-grey-mid)", background: "#faf9f7" }}>
               <Th label="ODP" sortable="odp" />
               <Th label="N° Scheda" sortable="numeroScheda" />
-              <Th label="Cliente / Commessa" sortable="clienteInfo" />
+              <Th label="Cliente / Commessa" sortable="clienteInfo" className="min-w-[200px]" />
               <Th label="Stato" sortable="statoProduzione" />
               <Th label="Data Prod. Prev." sortable="dataProduzionePrevista" />
               <th className="px-4 py-3 whitespace-nowrap">Esterna</th>
               <th className="px-4 py-3">Fornitore</th>
               <Th label="Rientro Prev." sortable="dataRientroPrevista" />
               <th className="px-4 py-3 whitespace-nowrap">PDF</th>
+              <th className="px-4 py-3 whitespace-nowrap">NAS</th>
               <th className="px-4 py-3 w-20"></th>
             </tr>
           </thead>
@@ -349,7 +444,7 @@ export default function TabellaSchede({ schede: initial }: { schede: Scheda[] })
                   >
                     {/* ODP con tooltip copertina */}
                     <td
-                      className="px-4 py-3 font-mono text-xs font-semibold whitespace-nowrap"
+                      className="px-4 py-3 font-mono text-sm font-bold whitespace-nowrap"
                       onMouseEnter={s.copertina ? (e) => setTooltip({ pageId: s.id, x: e.clientX, y: e.clientY }) : undefined}
                       onMouseMove={s.copertina ? (e) => setTooltip((t) => t ? { ...t, x: e.clientX, y: e.clientY } : null) : undefined}
                       onMouseLeave={s.copertina ? () => setTooltip(null) : undefined}
@@ -373,6 +468,21 @@ export default function TabellaSchede({ schede: initial }: { schede: Scheda[] })
                     <td className="px-4 py-3 text-xs">{s.fornitore || "—"}</td>
                     <td className="px-4 py-3"><DataCell date={s.dataRientroPrevista} inRitardo={ritardo.rientro} /></td>
                     <td className="px-4 py-3"><PdfLinks pageId={s.id} count={s.pdfAllegato.length} /></td>
+                    <td className="px-4 py-3">
+                      <a
+                        href={`#`}
+                        title="Apri cartella NAS"
+                        className="inline-flex items-center justify-center rounded transition-colors hover:opacity-70"
+                        style={{ color: "var(--color-grey-icon)" }}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="2" y="2" width="20" height="8" rx="2"/>
+                          <rect x="2" y="14" width="20" height="8" rx="2"/>
+                          <line x1="6" y1="6" x2="6.01" y2="6"/>
+                          <line x1="6" y1="18" x2="6.01" y2="18"/>
+                        </svg>
+                      </a>
+                    </td>
                     <td className="px-4 py-3">
                       <button
                         onClick={() => setEditing(s)}

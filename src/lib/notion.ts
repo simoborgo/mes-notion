@@ -18,6 +18,7 @@ function getText(p: ReturnType<typeof prop>): string {
   if (p.type === "title") return p.title?.map((t: { plain_text: string }) => t.plain_text).join("") ?? "";
   if (p.type === "rich_text") return p.rich_text?.map((t: { plain_text: string }) => t.plain_text).join("") ?? "";
   if (p.type === "select") return p.select?.name ?? "";
+  if (p.type === "status") return p.status?.name ?? "";
   if (p.type === "phone_number") return p.phone_number ?? "";
   if (p.type === "email") return p.email ?? "";
   if (p.type === "url") return p.url ?? "";
@@ -36,8 +37,10 @@ function getDate(p: ReturnType<typeof prop>): string | null {
 }
 
 function getNumber(p: ReturnType<typeof prop>): number | null {
-  if (!p || p.type !== "number") return null;
-  return p.number ?? null;
+  if (!p) return null;
+  if (p.type === "number") return p.number ?? null;
+  if (p.type === "formula") return p.formula?.number ?? null;
+  return null;
 }
 
 function getCheckbox(p: ReturnType<typeof prop>): boolean {
@@ -101,14 +104,14 @@ function pageToScheda(page: any): Scheda {
     pdfAllegato: getFiles(prop(page, "PDF Allegato")),
     produzioneEsterna: getCheckbox(prop(page, "Produzione Esterna")),
     statoProdEsterna: getText(prop(page, "Stato Produzione Esterna")),
-    fornitore: getText(prop(page, "Fornitore")),
+    fornitore: getText(prop(page, "Nome Fornitore")),
     ordineFornitore: getText(prop(page, "Ordine Fornitore")),
     dataRientroPrevista: getDate(prop(page, "Data Rientro Prevista")),
     dataUscitaMateriale: getDate(prop(page, "Data Uscita Materiale")),
     dataRientroEffettiva: getDate(prop(page, "Data Rientro Effettiva")),
     copertina: getFiles(prop(page, "Copertina"))[0]?.url ?? null,
     note: getText(prop(page, "Note")),
-    commessaId: getRelationId(prop(page, "Commessa")),
+    commessaId: getRelationId(prop(page, "Commessa Nr")),
     commessaNr: getText(prop(page, "Commessa Nr")),
     areaId: getRelationId(prop(page, "Area-Cartella Commessa")),
     areaLabel: getText(prop(page, "Area-Cartella Commessa")),
@@ -272,6 +275,14 @@ export async function getSchedeByArea(areaId: string): Promise<Scheda[]> {
   const pages = await queryAll(DB_SCHEDE, {
     property: "Area-Cartella Commessa",
     relation: { contains: areaId },
+  });
+  return pages.map(pageToScheda);
+}
+
+export async function getSchedeByCommessa(commessaId: string): Promise<Scheda[]> {
+  const pages = await queryAll(DB_SCHEDE, {
+    property: "Commessa Nr",
+    relation: { contains: commessaId },
   });
   return pages.map(pageToScheda);
 }

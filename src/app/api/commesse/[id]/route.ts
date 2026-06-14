@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCommessaById, getAreeByCommessa } from "@/lib/notion";
+import { getCommessaById, getAreeByCommessa, getSchedeByCommessa } from "@/lib/notion";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
-    const { id } = await params;
-    const [commessa, aree] = await Promise.all([
+    const [commessa, aree, schede] = await Promise.all([
       getCommessaById(id),
       getAreeByCommessa(id),
+      getSchedeByCommessa(id),
     ]);
-    return NextResponse.json({ commessa, aree });
+    return NextResponse.json({ commessa, aree, schede });
   } catch (e) {
-    console.error(e);
-    return NextResponse.json({ error: "Commessa non trovata" }, { status: 404 });
+    console.error("API commesse/[id] error:", e);
+    return NextResponse.json({ error: "Non trovato", detail: String(e) }, { status: 404 });
   }
 }

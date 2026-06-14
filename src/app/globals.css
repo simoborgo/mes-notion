@@ -40,3 +40,26 @@ body {
   outline: none;
   box-shadow: var(--focus-ring);
 }
+
+/* Navbar tab links */
+header a {
+  text-decoration: none;
+}
+
+.nav-tab {
+  color: white !important;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.nav-tab:hover {
+  color: white !important;
+  border-bottom: 2px solid #F08F25;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.nav-tab[data-active="true"] {
+  color: white !important;
+  border-bottom: 2px solid #F08F25;
+}
