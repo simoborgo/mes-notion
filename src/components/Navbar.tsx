@@ -90,8 +90,8 @@ export default function Navbar() {
 
         {/* Logout */}
         <button
-          onClick={async () => {
-            await fetch("/api/auth", { method: "DELETE" });
+          onClick={() => {
+            fetch("/api/auth", { method: "DELETE" });
             window.location.href = "/login";
           }}
           className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded font-medium transition-colors"

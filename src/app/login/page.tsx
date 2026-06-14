@@ -77,19 +77,11 @@ export default function LoginPage() {
             <input
               id="password"
               type="password"
-              autoFocus
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               required
-              className="rounded-md px-3 py-2 text-sm outline-none transition-all"
-              style={{
-                border: error ? "1.5px solid #991B1B" : "1.5px solid #e5e4e0",
-                color: "var(--color-black)",
-                background: "#faf9f7",
-              }}
-              onFocus={(e) => (e.target.style.borderColor = "var(--color-primary)")}
-              onBlur={(e) => (e.target.style.borderColor = error ? "#991B1B" : "#e5e4e0")}
+              className="login-input rounded-md px-3 py-2 text-sm outline-none"
             />
             {error && (
               <span className="text-xs" style={{ color: "#991B1B" }}>

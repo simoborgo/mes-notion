@@ -46,6 +46,16 @@ header a {
   text-decoration: none;
 }
 
+.login-input {
+  border: 1.5px solid #e5e4e0;
+  color: var(--color-black);
+  background: #faf9f7;
+  transition: border-color 0.15s;
+}
+.login-input:focus {
+  border-color: var(--color-primary);
+}
+
 .nav-tab {
   color: white !important;
   border-bottom: 2px solid transparent;

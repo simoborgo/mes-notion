@@ -25,6 +25,6 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE() {
   const res = NextResponse.json({ ok: true });
-  res.cookies.set("mes_session", "", { httpOnly: true, path: "/", maxAge: 0 });
+  res.cookies.set("mes_session", "", { httpOnly: true, path: "/", maxAge: 0, expires: new Date(0) });
   return res;
 }
