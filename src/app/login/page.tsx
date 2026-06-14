@@ -21,8 +21,7 @@ export default function LoginPage() {
         body: JSON.stringify({ password }),
       });
       if (res.ok) {
-        router.push("/");
-        router.refresh();
+        window.location.href = "/";
       } else {
         setError("Password errata");
       }
