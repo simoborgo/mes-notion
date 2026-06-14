@@ -10,7 +10,7 @@ export function middleware(req: NextRequest) {
   }
 
   const session = req.cookies.get("mes_session")?.value;
-  if (session !== process.env.SESSION_SECRET) {
+  if (session !== "authenticated") {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   }
 
   const res = NextResponse.json({ ok: true });
-  res.cookies.set("mes_session", process.env.SESSION_SECRET!, {
+  res.cookies.set("mes_session", "authenticated", {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
