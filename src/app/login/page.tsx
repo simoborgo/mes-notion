@@ -20,12 +20,17 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password }),
       });
+      console.log("[login] status:", res.status, "ok:", res.ok);
+      const body = await res.json();
+      console.log("[login] body:", body);
       if (res.ok) {
+        console.log("[login] redirect a /");
         window.location.href = "/";
       } else {
-        setError("Password errata");
+        setError(body.error || "Password errata");
       }
-    } catch {
+    } catch (e) {
+      console.error("[login] errore fetch:", e);
       setError("Errore di connessione");
     } finally {
       setLoading(false);
