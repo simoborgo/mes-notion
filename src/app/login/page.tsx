@@ -1,11 +1,9 @@
 "use client";
 
 import { useState, FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -17,6 +15,7 @@ export default function LoginPage() {
     try {
       const res = await fetch("/api/auth", {
         method: "POST",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password }),
       });
@@ -25,14 +24,14 @@ export default function LoginPage() {
       console.log("[login] body:", body);
       if (res.ok) {
         console.log("[login] redirect a /");
-        window.location.href = "/";
+        setTimeout(() => { window.location.replace("/"); }, 100);
       } else {
         setError(body.error || "Password errata");
+        setLoading(false);
       }
-    } catch (e) {
-      console.error("[login] errore fetch:", e);
+    } catch (err) {
+      console.error("[login] errore fetch:", err);
       setError("Errore di connessione");
-    } finally {
       setLoading(false);
     }
   }
@@ -40,19 +39,19 @@ export default function LoginPage() {
   return (
     <div
       className="min-h-screen flex items-center justify-center"
-      style={{ background: "var(--color-bg)" }}
+      style={{ background: "var(--color-offwhite)" }}
     >
       <div
         className="w-full max-w-sm rounded-xl shadow-lg p-8 flex flex-col gap-6"
         style={{ background: "white", border: "1px solid #e5e4e0" }}
       >
         {/* Logo */}
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-4">
           <div
-            className="flex items-center justify-center rounded-lg"
-            style={{ background: "#000", width: 56, height: 56 }}
+            className="flex items-center justify-center rounded-xl"
+            style={{ background: "#000", width: 180, height: 180 }}
           >
-            <Image src="/modar-logo.png" alt="Modar" width={44} height={44} />
+            <Image src="/modar-logo.png" alt="Modar" width={160} height={160} style={{ objectFit: "contain" }} />
           </div>
           <div className="text-center">
             <div className="text-lg font-bold tracking-tight" style={{ color: "var(--color-black)" }}>
@@ -67,11 +66,7 @@ export default function LoginPage() {
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
-            <label
-              htmlFor="password"
-              className="text-xs font-medium"
-              style={{ color: "var(--color-grey-mid)" }}
-            >
+            <label htmlFor="password" className="text-xs font-medium" style={{ color: "var(--color-grey-mid)" }}>
               Password
             </label>
             <input
@@ -84,16 +79,14 @@ export default function LoginPage() {
               className="login-input rounded-md px-3 py-2 text-sm outline-none"
             />
             {error && (
-              <span className="text-xs" style={{ color: "#991B1B" }}>
-                {error}
-              </span>
+              <span className="text-xs" style={{ color: "#991B1B" }}>{error}</span>
             )}
           </div>
 
           <button
             type="submit"
             disabled={loading || !password}
-            className="mt-1 rounded-md py-2 text-sm font-semibold transition-opacity disabled:opacity-50"
+            className="mt-1 rounded-md py-2.5 text-sm font-semibold transition-opacity disabled:opacity-50"
             style={{ background: "var(--color-primary)", color: "white" }}
           >
             {loading ? "Accesso in corso…" : "Accedi"}
