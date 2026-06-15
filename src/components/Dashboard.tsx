@@ -154,7 +154,11 @@ function GanttChart({ rows }: { rows: GanttRow[] }) {
               <span style={{ fontSize: 8, color: "#9ca3af", whiteSpace: "nowrap" }}>{w.d.getDate()}/{w.d.getMonth() + 1}</span>
             </div>
           ))}
-          {showToday && <div style={{ position: "absolute", left: `${todayPct}%`, top: 0, bottom: 0, width: 2, background: "#ef4444", opacity: .4 }} />}
+          {showToday && (
+            <div style={{ position: "absolute", left: `${todayPct}%`, top: 0, bottom: 0, width: 2, background: "#ef4444", zIndex: 10 }}>
+              <span style={{ position: "absolute", top: 1, left: 4, fontSize: 9, fontWeight: 700, color: "#ef4444", letterSpacing: "0.06em", whiteSpace: "nowrap" }}>OGGI</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -190,7 +194,7 @@ function GanttChart({ rows }: { rows: GanttRow[] }) {
               {weekLines.map((w, i) => (
                 <div key={i} style={{ position: "absolute", left: `${w.p}%`, top: 0, bottom: 0, width: 1, background: w.monthStart ? "#e5e7eb" : "#f9fafb" }} />
               ))}
-              {showToday && <div style={{ position: "absolute", left: `${todayPct}%`, top: 0, bottom: 0, width: 2, background: "#ef4444", opacity: .12, zIndex: 1 }} />}
+              {showToday && <div style={{ position: "absolute", left: `${todayPct}%`, top: 0, bottom: 0, width: 2, background: "#ef4444", opacity: 0.7, zIndex: 5 }} />}
 
               {/* Carico */}
               <div style={{ position: "absolute", top: 8, left: 0, right: 0, height: 16, display: "flex", alignItems: "center" }}>
