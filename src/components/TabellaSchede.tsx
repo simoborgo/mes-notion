@@ -7,7 +7,7 @@ import BadgeStato from "./BadgeStato";
 import FormModificaScheda from "./FormModificaScheda";
 
 const PAGE_SIZE = 100;
-const STATI_COMPLETATI = new Set(["Completato", "Completata", "Chiusa", "Annullato"]);
+const STATI_COMPLETATI = new Set(["Completato", "Annullato"]);
 
 type SortKey = "odp" | "numeroScheda" | "clienteInfo" | "statoProduzione" | "dataProduzionePrevista" | "dataRientroPrevista";
 type SortDir = "asc" | "desc";
@@ -414,6 +414,7 @@ export default function TabellaSchede({ schede: initial, revalidate }: { schede:
               <Th label="N° Scheda" sortable="numeroScheda" />
               <Th label="Cliente / Commessa" sortable="clienteInfo" className="min-w-[200px]" />
               <Th label="Stato" sortable="statoProduzione" />
+              <th className="px-4 py-3 whitespace-nowrap">Fase</th>
               <Th label="Data Prod. Prev." sortable="dataProduzionePrevista" />
               <th className="px-4 py-3 whitespace-nowrap">Esterna</th>
               <th className="px-4 py-3">Fornitore</th>
@@ -459,6 +460,7 @@ export default function TabellaSchede({ schede: initial, revalidate }: { schede:
                       {s.commessaNr && <div className="text-xs" style={{ color: "var(--color-grey-mid)" }}>{s.commessaNr}</div>}
                     </td>
                     <td className="px-4 py-3"><BadgeStato stato={s.statoProduzione} /></td>
+                    <td className="px-4 py-3">{s.faseCorrente ? <BadgeStato stato={s.faseCorrente} /> : <span style={{ color: "var(--color-grey-icon)" }}>—</span>}</td>
                     <td className="px-4 py-3"><DataCell date={s.dataProduzionePrevista} inRitardo={ritardo.produzione} /></td>
                     <td className="px-4 py-3">
                       {s.produzioneEsterna

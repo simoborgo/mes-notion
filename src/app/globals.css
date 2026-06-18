@@ -73,3 +73,23 @@ header a {
   color: white !important;
   border-bottom: 2px solid #F08F25;
 }
+
+/* Mobile: nav-tab nel menu a tendina */
+@media (max-width: 767px) {
+  .nav-tab {
+    display: flex;
+    padding: 14px 16px;
+    border-bottom: none !important;
+    border-left: 3px solid transparent;
+    margin-bottom: 0;
+  }
+  .nav-tab[data-active="true"] {
+    border-left: 3px solid #F08F25;
+    background: rgba(255, 255, 255, 0.06);
+    border-bottom: none !important;
+  }
+  .nav-tab:hover {
+    border-bottom: none !important;
+    border-left: 3px solid #F08F25;
+  }
+}

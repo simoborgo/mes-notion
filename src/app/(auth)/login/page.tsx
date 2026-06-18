@@ -47,17 +47,12 @@ export default function LoginPage() {
       >
         {/* Logo */}
         <div className="flex flex-col items-center gap-4">
-          <div
-            className="flex items-center justify-center rounded-xl"
-            style={{ background: "#000", width: 180, height: 180 }}
-          >
-            <Image src="/modar-logo.png" alt="Modar" width={160} height={160} style={{ objectFit: "contain" }} />
-          </div>
+          <Image src="/modar-logo.png" alt="Modar" width={200} height={200} style={{ objectFit: "contain" }} />
           <div className="text-center">
-            <div className="text-lg font-bold tracking-tight" style={{ color: "var(--color-black)" }}>
+            <div className="text-2xl font-bold tracking-tight" style={{ color: "var(--color-black)" }}>
               MES DASHBOARD
             </div>
-            <div className="text-xs" style={{ color: "var(--color-grey-mid)" }}>
+            <div className="text-sm mt-1" style={{ color: "var(--color-grey-mid)" }}>
               Accesso riservato
             </div>
           </div>

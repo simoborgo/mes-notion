@@ -9,6 +9,7 @@ export interface Scheda {
   quantita: number | null;
   tipologia: string;
   statoProduzione: string;
+  faseCorrente: string;
   dataSchedaRicevuta: string | null;
   dataProduzionePrevista: string | null;
   pdfAllegato: { name: string; url: string }[];

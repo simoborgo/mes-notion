@@ -250,7 +250,7 @@ export default function Dashboard({ schede, ritiri, commesse }: DashboardProps) 
     return d >= meseStart && d <= meseEnd;
   }).length;
   const commesseShopDrawing = commesse.filter((c) => c.stato === "ShopDrawing").length;
-  const STATI_ESCLUSI_ODP = new Set(["Completato", "Materiale Pronto", "Annullata", "Produzione Bloccata", "Da Iniziare"]);
+  const STATI_ESCLUSI_ODP = new Set(["Completato", "Materiale Pronto", "Annullato", "Da iniziare"]);
   const odpInLavorazione = schede.filter((s) => !STATI_ESCLUSI_ODP.has(s.statoProduzione)).length;
 
   const kpis: KpiCardProps[] = [
@@ -285,7 +285,7 @@ export default function Dashboard({ schede, ritiri, commesse }: DashboardProps) 
       </div>
 
       {/* KPI */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {kpis.map((k) => <KpiCard key={k.label} {...k} />)}
       </div>
 
@@ -301,7 +301,9 @@ export default function Dashboard({ schede, ritiri, commesse }: DashboardProps) 
             </span>
             <span className="text-xs ml-1" style={{ color: "var(--color-grey-mid)" }}>{ganttRows.length} commesse</span>
           </div>
-          <GanttChart rows={ganttRows} />
+          <div className="overflow-x-auto">
+            <GanttChart rows={ganttRows} />
+          </div>
         </div>
       )}
 
