@@ -26,6 +26,7 @@ export interface Scheda {
   commessaNr: string;
   areaId: string | null;
   areaLabel: string;
+  parentId: string | null;
   notionUrl: string;
 }
 

@@ -74,6 +74,79 @@ header a {
   border-bottom: 2px solid #F08F25;
 }
 
+/* Stampa: nascondi navbar, filtri, azioni — mostra solo la tabella dedicata */
+@media print {
+  header, .no-print {
+    display: none !important;
+  }
+  .print-header {
+    display: block !important;
+    margin-bottom: 10px;
+  }
+  .print-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .print-brand img {
+    height: 28px;
+    width: 28px;
+    object-fit: contain;
+    background: #000;
+    border-radius: 3px;
+    padding: 2px;
+  }
+  .print-brand span {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: #1A1918;
+  }
+  .print-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 16px;
+    border-bottom: 2px solid #1A1918;
+    padding-bottom: 6px;
+  }
+  .print-header-row h1 {
+    font-size: 18px;
+    font-weight: 700;
+    margin: 0;
+    white-space: nowrap;
+  }
+  .print-filters {
+    font-size: 10px;
+    color: #333;
+    text-align: right;
+  }
+  .print-meta {
+    font-size: 9px;
+    color: #666;
+    margin-top: 4px;
+  }
+  .print-table {
+    display: table !important;
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+  }
+  .print-table th, .print-table td {
+    border: 1px solid #ccc;
+    padding: 4px 6px;
+    text-align: left;
+  }
+  .print-table thead {
+    background: #f3f3f3;
+  }
+  @page {
+    size: landscape;
+    margin: 12mm;
+  }
+}
+
 /* Mobile: nav-tab nel menu a tendina */
 @media (max-width: 767px) {
   .nav-tab {

@@ -1,15 +1,15 @@
-import { getSchede } from "@/lib/notion";
+import { getSchede, getSottoschede, getCommesse } from "@/lib/notion";
 import TabellaSchede from "@/components/TabellaSchede";
 import { revalidateSchede } from "./actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function SchedePage() {
-  const schede = await getSchede();
+  const [schede, sottoschede, commesse] = await Promise.all([getSchede(), getSottoschede(), getCommesse()]);
 
   return (
     <div className="space-y-5">
-      <div>
+      <div className="no-print">
         <h1 className="text-2xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
           Schede di Produzione
         </h1>
@@ -17,7 +17,7 @@ export default async function SchedePage() {
           {schede.length} schede · aggiornato {new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
         </p>
       </div>
-      <TabellaSchede schede={schede} revalidate={revalidateSchede} />
+      <TabellaSchede schede={schede} sottoschede={sottoschede} commesse={commesse} revalidate={revalidateSchede} />
     </div>
   );
 }

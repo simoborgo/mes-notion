@@ -86,12 +86,18 @@ async function queryAll(dbId: string, filter?: any, sorts?: any[], maxPages = 5)
   return results;
 }
 
+function extractCommessaNr(clienteInfo: string): string {
+  const m = clienteInfo.match(/^\d+/);
+  return m ? m[0] : "";
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function pageToScheda(page: any): Scheda {
+  const clienteInfo = getText(prop(page, "Cliente Info"));
   return {
     id: page.id,
     odp: getText(prop(page, "ODP")),
-    clienteInfo: getText(prop(page, "Cliente Info")),
+    clienteInfo,
     numeroScheda: getText(prop(page, "Numero Scheda")),
     descrizioneFasi: getText(prop(page, "Descrizione/Fasi/Piano/Stanza")),
     codiceArticolo: getText(prop(page, "Codice Art.")),
@@ -113,9 +119,10 @@ function pageToScheda(page: any): Scheda {
     copertina: getFiles(prop(page, "Copertina"))[0]?.url ?? null,
     note: getText(prop(page, "Note")),
     commessaId: getRelationId(prop(page, "Commessa Nr")),
-    commessaNr: getText(prop(page, "Commessa Nr")),
+    commessaNr: extractCommessaNr(clienteInfo),
     areaId: getRelationId(prop(page, "Area-Cartella Commessa")),
     areaLabel: getText(prop(page, "Area-Cartella Commessa")),
+    parentId: getRelationId(prop(page, "Parent item")),
     notionUrl: notionUrl(page.id),
   };
 }
@@ -184,6 +191,14 @@ export async function getSchede(): Promise<Scheda[]> {
     DB_SCHEDE,
     { property: "Tipologia", select: { equals: "Scheda" } },
     [{ property: "ODP", direction: "descending" }],
+  );
+  return pages.map(pageToScheda);
+}
+
+export async function getSottoschede(): Promise<Scheda[]> {
+  const pages = await queryAll(
+    DB_SCHEDE,
+    { property: "Tipologia", select: { equals: "Sottoscheda" } },
   );
   return pages.map(pageToScheda);
 }
@@ -274,16 +289,20 @@ export async function getAreeByCommessa(commessaId: string): Promise<Area[]> {
 
 export async function getSchedeByArea(areaId: string): Promise<Scheda[]> {
   const pages = await queryAll(DB_SCHEDE, {
-    property: "Area-Cartella Commessa",
-    relation: { contains: areaId },
+    and: [
+      { property: "Area-Cartella Commessa", relation: { contains: areaId } },
+      { property: "Tipologia", select: { equals: "Scheda" } },
+    ],
   });
   return pages.map(pageToScheda);
 }
 
 export async function getSchedeByCommessa(commessaId: string): Promise<Scheda[]> {
   const pages = await queryAll(DB_SCHEDE, {
-    property: "Commessa Nr",
-    relation: { contains: commessaId },
+    and: [
+      { property: "Commessa Nr", relation: { contains: commessaId } },
+      { property: "Tipologia", select: { equals: "Scheda" } },
+    ],
   });
   return pages.map(pageToScheda);
 }
