@@ -1,7 +1,7 @@
 import { Client } from "@notionhq/client";
 import type { Scheda, SchedaUpdate, Ritiro, RitiroUpdate, Commessa, Area } from "./types";
 
-const notion = new Client({ auth: process.env.NOTION_TOKEN });
+const notion = new Client({ auth: process.env.NOTION_TOKEN, fetch: globalThis.fetch });
 
 const DB_SCHEDE = process.env.NOTION_DB_SCHEDE!;
 const DB_COMMESSE = process.env.NOTION_DB_COMMESSE!;
