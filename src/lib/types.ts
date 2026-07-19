@@ -56,7 +56,7 @@ export interface Ritiro {
   urgenza: boolean;
   nc: boolean;
   fornitore: string;
-  ordineFornitore: string;
+  ordineFornitore: { name: string; url: string }[];
   note: string;
   documentiAllegati: { name: string; url: string }[];
   pdfScheda: { name: string; url: string }[];
@@ -74,7 +74,6 @@ export interface RitiroUpdate {
   urgenza?: boolean;
   nc?: boolean;
   fornitore?: string;
-  ordineFornitore?: string;
   schedaId?: string | null;
   fornitoreId?: string | null;
 }

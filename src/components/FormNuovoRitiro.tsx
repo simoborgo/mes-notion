@@ -21,7 +21,6 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], onClose, 
     nc: false,
     schedaId: null as string | null,
     fornitoreId: null as string | null,
-    ordineFornitore: "",
   });
   const [schedaSearch, setSchedaSearch] = useState("");
   const [schedaOpen, setSchedaOpen] = useState(false);
@@ -74,7 +73,6 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], onClose, 
       ...prev,
       schedaId: s.id,
       fornitoreId: fornitoreMatch?.id ?? prev.fornitoreId,
-      ordineFornitore: s.ordineFornitore || prev.ordineFornitore,
       tipoMovimento: prev.tipoMovimento || tipo,
       causale: prev.causale || causaleAuto,
     }));
@@ -105,7 +103,6 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], onClose, 
           nc: form.nc,
           schedaId: form.schedaId,
           fornitoreId: form.fornitoreId,
-          ordineFornitore: form.ordineFornitore || undefined,
           foto_base64: foto.length ? foto : undefined,
         }),
       });
@@ -242,16 +239,6 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], onClose, 
                 <option value="">— nessuno —</option>
                 {fornitori.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
               </select>
-            </div>
-            <div>
-              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Ordine Fornitore</label>
-              <input
-                type="text"
-                className={inputCls}
-                placeholder="Es. OF-2024-001"
-                value={form.ordineFornitore}
-                onChange={e => set("ordineFornitore", e.target.value)}
-              />
             </div>
           </div>
 

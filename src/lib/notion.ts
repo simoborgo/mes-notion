@@ -172,7 +172,7 @@ function pageToRitiro(page: any, fornitoriMap?: Record<string, string>): Ritiro 
     urgenza,
     nc: getCheckbox(prop(page, "NC")),
     fornitore,
-    ordineFornitore: getText(prop(page, "Ordine Fornitore")),
+    ordineFornitore: getFiles(prop(page, "Ordine Fornitore")),
     note: descrizione,
     documentiAllegati: [],
     pdfScheda: [],
@@ -261,7 +261,6 @@ export async function createRitiro({
   nc,
   schedaId,
   fornitoreId,
-  ordineFornitore,
 }: {
   causale: string;
   tipoMovimento?: string;
@@ -270,7 +269,6 @@ export async function createRitiro({
   nc?: boolean;
   schedaId?: string | null;
   fornitoreId?: string | null;
-  ordineFornitore?: string;
 }): Promise<Ritiro> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const properties: Record<string, any> = {
@@ -283,7 +281,6 @@ export async function createRitiro({
   if (nc !== undefined) properties["NC"] = { checkbox: nc };
   if (schedaId) properties["Scheda"] = { relation: [{ id: schedaId }] };
   if (fornitoreId) properties["Fornitore"] = { relation: [{ id: fornitoreId }] };
-  if (ordineFornitore) properties["Ordine Fornitore"] = { rich_text: [{ text: { content: ordineFornitore } }] };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const page = await notion.pages.create({ parent: { database_id: DB_RITIRI }, properties }) as any;

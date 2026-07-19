@@ -403,11 +403,9 @@ export default function TabellaRitiri({ ritiri: initial, schede = [], fornitori 
                         </td>
                         <td className="px-4 py-4">
                           <div className="flex flex-col gap-1">
-                            {r.ordineFornitore && (
-                              <span className="text-sm font-medium">{r.ordineFornitore}</span>
-                            )}
+                            <DocLinks files={r.ordineFornitore} label="OF" />
                             <DocLinks files={scheda?.pdfOrdineFornitore ?? []} label="PDF OF" />
-                            {!r.ordineFornitore && !(scheda?.pdfOrdineFornitore?.length) && (
+                            {!r.ordineFornitore.length && !(scheda?.pdfOrdineFornitore?.length) && (
                               <span style={{ color: "var(--color-grey-icon)" }}>—</span>
                             )}
                           </div>
@@ -575,11 +573,9 @@ export default function TabellaRitiri({ ritiri: initial, schede = [], fornitori 
                       </td>
                       <td className="px-4 py-4">
                         <div className="flex flex-col gap-1">
-                          {r.ordineFornitore && (
-                            <span className="text-sm font-medium">{r.ordineFornitore}</span>
-                          )}
+                          <DocLinks files={r.ordineFornitore} label="OF" />
                           <DocLinks files={r.pdfOrdineFornitore} label="PDF OF" />
-                          {!r.ordineFornitore && !r.pdfOrdineFornitore.length && (
+                          {!r.ordineFornitore.length && !r.pdfOrdineFornitore.length && (
                             <span style={{ color: "var(--color-grey-icon)" }}>—</span>
                           )}
                         </div>
