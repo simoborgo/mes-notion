@@ -10,6 +10,8 @@ interface NotionPage {
     "Cliente Info"?: { rich_text: Array<{ plain_text: string }> };
     "Tipologia"?: { select: { name: string } | null };
     "Stato Produzione Esterna"?: { select: { name: string } | null };
+    "Stato"?: { status: { name: string } | null };
+    "Commessa Nr"?: { rollup: { array: Array<{ title: Array<{ plain_text: string }> }> } | null };
   };
 }
 
@@ -21,6 +23,8 @@ export interface OdpEntry {
   clienteInfo: string;
   tipologia: string;
   statoProdEsterna: string;
+  statoProduzione: string;
+  commessaNr: string;
 }
 
 export async function GET(req: NextRequest) {
@@ -68,8 +72,10 @@ export async function GET(req: NextRequest) {
         const clienteInfo = page.properties["Cliente Info"]?.rich_text?.[0]?.plain_text?.trim() ?? "";
         const tipologia = page.properties["Tipologia"]?.select?.name ?? "";
         const statoProdEsterna = page.properties["Stato Produzione Esterna"]?.select?.name ?? "";
+        const statoProduzione = page.properties["Stato"]?.status?.name ?? "";
+        const commessaNr = page.properties["Commessa Nr"]?.rollup?.array?.[0]?.title?.[0]?.plain_text ?? "";
 
-        entries.push({ id: page.id, odp: odp.toUpperCase(), label: numero, isChild, clienteInfo, tipologia, statoProdEsterna });
+        entries.push({ id: page.id, odp: odp.toUpperCase(), label: numero, isChild, clienteInfo, tipologia, statoProdEsterna, statoProduzione, commessaNr });
       }
 
       cursor = data.has_more && data.next_cursor ? data.next_cursor : undefined;

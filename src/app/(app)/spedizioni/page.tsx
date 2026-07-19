@@ -24,6 +24,8 @@ export default async function SpedizioniPage() {
         clienteInfo: s.clienteInfo,
         tipologia: s.tipologia,
         statoProdEsterna: s.statoProdEsterna,
+        statoProduzione: s.statoProduzione,
+        commessaNr: s.commessaNr,
       }));
 
   const odpList: OdpEntry[] = [

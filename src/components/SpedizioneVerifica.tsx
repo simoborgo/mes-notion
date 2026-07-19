@@ -65,7 +65,7 @@ function formatTime(iso: string) {
 
 // ── Componente ────────────────────────────────────────────────────────────────
 
-interface OdpEntry { id: string; odp: string; label: string; isChild: boolean; clienteInfo: string; tipologia: string; statoProdEsterna: string }
+interface OdpEntry { id: string; odp: string; label: string; isChild: boolean; clienteInfo: string; tipologia: string; statoProdEsterna: string; statoProduzione: string; commessaNr: string }
 
 export default function SpedizioneVerifica({ userName, userRole, odpList: initialOdpList = [] }: { userName: string; userRole?: string; odpList?: OdpEntry[] }) {
   // ── Vista ─────────────────────────────────────────────────────────────────
@@ -73,10 +73,10 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
 
   // ── Lista verifiche ───────────────────────────────────────────────────────
   const [lista, setLista] = useState<ListItem[]>([]);
-  const [odp, setOdp] = useState("");
   const [odpList] = useState<OdpEntry[]>(initialOdpList);
-  const [odpOpen, setOdpOpen] = useState(false);
-  const [selectedEntry, setSelectedEntry] = useState<OdpEntry | null>(null);
+  const [filtroCommessa, setFiltroCommessa] = useState("");
+  const [searchOdp, setSearchOdp] = useState("");
+  const [soloMaterialePronto, setSoloMaterialePronto] = useState(true);
   const [loadingLock, setLoadingLock] = useState(false);
   const [lockError, setLockError] = useState<string | null>(null);
   const [deletingScheda, setDeletingScheda] = useState<string | null>(null);
@@ -695,95 +695,113 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
           Spedizione Merci
         </h1>
 
-        {/* Form apertura scheda */}
-        <div style={{ background: "white", borderRadius: 8, padding: 20, marginBottom: 28, border: "1px solid #E5E4E0", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-          <p style={{ fontSize: 13, color: "#6B6560", marginBottom: 12 }}>Inserisci il numero ODP per aprire o riprendere una verifica</p>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <div style={{ flex: 1, minWidth: 180, position: "relative" }}>
-              <input
-                value={odp}
-                onChange={e => { setOdp(e.target.value.toUpperCase()); setOdpOpen(true); setSelectedEntry(null); }}
-                onFocus={() => setOdpOpen(true)}
-                onBlur={() => setTimeout(() => setOdpOpen(false), 150)}
-                onKeyDown={e => {
-                  if (e.key === "Enter") {
-                    setOdpOpen(false);
-                    const entry = selectedEntry ?? odpList.find(x => x.odp === odp.toUpperCase().trim());
-                    if (entry) apriScheda(entry.id, entry.odp);
-                    else setLockError("Seleziona un ODP dalla lista");
-                  }
-                  if (e.key === "Escape") setOdpOpen(false);
-                }}
-                placeholder="es. MP26-014"
-                autoComplete="off"
-                style={{
-                  width: "100%", padding: "9px 12px", borderRadius: 4, border: "1.5px solid #E5E4E0",
-                  background: "#FAF9F7", color: "#1A1918", fontSize: 15, fontFamily: "monospace",
-                  outline: "none", boxSizing: "border-box",
-                }}
-              />
-              {odpOpen && odpList.filter(e => {
-                const q = odp.toUpperCase().trim();
-                if (!q) return true;
-                return `${e.odp} ${e.label} ${e.clienteInfo}`.toUpperCase().includes(q);
-              }).length > 0 && (
-                <ul style={{
-                  position: "absolute", zIndex: 50, left: 0, right: 0, top: "100%", marginTop: 2,
-                  background: "white", border: "1px solid #d1d5db", borderRadius: 4,
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.10)", maxHeight: 220, overflowY: "auto",
-                  listStyle: "none", padding: 0, margin: 0,
-                }}>
-                  {odpList.filter(e => {
-                    const q = odp.toUpperCase().trim();
-                    if (!q) return true;
-                    return `${e.odp} ${e.label} ${e.clienteInfo}`.toUpperCase().includes(q);
-                  }).slice(0, 30).map(e => (
-                    <li
-                      key={e.id}
-                      onMouseDown={ev => { ev.preventDefault(); setOdp(e.odp); setSelectedEntry(e); setOdpOpen(false); }}
-                      style={{ padding: "8px 12px", fontSize: 13, cursor: "pointer", paddingLeft: e.isChild ? 24 : 12 }}
-                      onMouseEnter={ev => (ev.currentTarget.style.background = "#fff7ed")}
-                      onMouseLeave={ev => (ev.currentTarget.style.background = "white")}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                        {e.isChild && <span style={{ color: "#9ca3af", fontSize: 11 }}>↳</span>}
-                        <span style={{ fontWeight: e.isChild ? 400 : 600, color: "#1A1918" }}>{e.odp}</span>
-                        {e.label && <span style={{ fontSize: 11, color: "#6B6560" }}>{e.label}</span>}
-                        {e.clienteInfo && <span style={{ fontSize: 11, color: "#6B6560", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.clienteInfo}</span>}
-                        {e.isChild && e.tipologia && (
-                          <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 3, background: "#F3F4F6", color: "#6B7280" }}>{e.tipologia}</span>
-                        )}
-                        {e.statoProdEsterna && (
-                          <span style={{
-                            fontSize: 11, padding: "1px 6px", borderRadius: 3, fontWeight: 500,
-                            background: e.statoProdEsterna === "In Lavorazione" ? "#FEF3C7" : "#D1FAE5",
-                            color: e.statoProdEsterna === "In Lavorazione" ? "#92400E" : "#065F46",
-                          }}>{e.statoProdEsterna}</span>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            <button
-              onClick={() => {
-                setOdpOpen(false);
-                const entry = selectedEntry ?? odpList.find(x => x.odp === odp.toUpperCase().trim());
-                if (entry) { apriScheda(entry.id, entry.odp); }
-                else setLockError("Seleziona un ODP dalla lista");
-              }}
-              disabled={loadingLock || !odp.trim()}
-              style={{
-                padding: "9px 22px", borderRadius: 4, background: "#F08F25", color: "white",
-                fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer", whiteSpace: "nowrap",
-                opacity: loadingLock || !odp.trim() ? 0.6 : 1,
-              }}
+        {/* Tabella selezione schede */}
+        <div style={{ background: "white", borderRadius: 8, marginBottom: 28, border: "1px solid #E5E4E0", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", overflow: "hidden" }}>
+          {/* Filtri */}
+          <div style={{ padding: "14px 16px", borderBottom: "1px solid #E5E4E0", display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            <input
+              value={searchOdp}
+              onChange={e => setSearchOdp(e.target.value.toUpperCase())}
+              placeholder="Cerca ODP…"
+              style={{ padding: "7px 10px", borderRadius: 4, border: "1px solid #E5E4E0", background: "#FAF9F7", fontSize: 13, fontFamily: "monospace", minWidth: 120, outline: "none" }}
+            />
+            <select
+              value={filtroCommessa}
+              onChange={e => setFiltroCommessa(e.target.value)}
+              style={{ padding: "7px 10px", borderRadius: 4, border: "1px solid #E5E4E0", background: "#FAF9F7", fontSize: 13, minWidth: 140, outline: "none", color: "#1A1918" }}
             >
-              {loadingLock ? "Apertura…" : "Apri scheda"}
-            </button>
+              <option value="">Tutte le commesse</option>
+              {[...new Set(odpList.map(e => e.commessaNr).filter(Boolean))].sort().map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#6B6560", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={soloMaterialePronto}
+                onChange={e => setSoloMaterialePronto(e.target.checked)}
+                style={{ accentColor: "#F08F25" }}
+              />
+              Solo "Materiale Pronto"
+            </label>
+            <span style={{ marginLeft: "auto", fontSize: 12, color: "#A4A4A6" }}>
+              {odpList.filter(e => {
+                if (soloMaterialePronto && e.statoProduzione !== "Materiale Pronto") return false;
+                if (filtroCommessa && e.commessaNr !== filtroCommessa) return false;
+                if (searchOdp && !`${e.odp} ${e.label} ${e.clienteInfo}`.toUpperCase().includes(searchOdp)) return false;
+                return true;
+              }).length} schede
+            </span>
           </div>
-          {lockError && <p style={{ color: "#DC2626", fontSize: 13, marginTop: 10 }}>{lockError}</p>}
+
+          {/* Tabella */}
+          {lockError && <p style={{ color: "#DC2626", fontSize: 13, padding: "8px 16px", borderBottom: "1px solid #E5E4E0" }}>{lockError}</p>}
+          <div style={{ overflowX: "auto", maxHeight: 380, overflowY: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: "#FAF9F7", position: "sticky", top: 0 }}>
+                  <th style={{ padding: "8px 14px", textAlign: "left", fontWeight: 600, color: "#6B6560", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #E5E4E0" }}>ODP</th>
+                  <th style={{ padding: "8px 14px", textAlign: "left", fontWeight: 600, color: "#6B6560", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #E5E4E0" }}>Commessa</th>
+                  <th style={{ padding: "8px 14px", textAlign: "left", fontWeight: 600, color: "#6B6560", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #E5E4E0" }}>Cliente</th>
+                  <th style={{ padding: "8px 14px", textAlign: "left", fontWeight: 600, color: "#6B6560", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #E5E4E0" }}>Tipologia</th>
+                  <th style={{ padding: "8px 14px", textAlign: "left", fontWeight: 600, color: "#6B6560", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #E5E4E0" }}>Stato</th>
+                  <th style={{ padding: "8px 14px", borderBottom: "1px solid #E5E4E0" }} />
+                </tr>
+              </thead>
+              <tbody>
+                {odpList.filter(e => {
+                  if (soloMaterialePronto && e.statoProduzione !== "Materiale Pronto") return false;
+                  if (filtroCommessa && e.commessaNr !== filtroCommessa) return false;
+                  if (searchOdp && !`${e.odp} ${e.label} ${e.clienteInfo}`.toUpperCase().includes(searchOdp)) return false;
+                  return true;
+                }).map(e => (
+                  <tr
+                    key={e.id}
+                    style={{ borderBottom: "1px solid #F0EDE8" }}
+                    onMouseEnter={ev => (ev.currentTarget.style.background = "#FFF7ED")}
+                    onMouseLeave={ev => (ev.currentTarget.style.background = "white")}
+                  >
+                    <td style={{ padding: "9px 14px", paddingLeft: e.isChild ? 28 : 14 }}>
+                      <span style={{ fontFamily: "monospace", fontWeight: e.isChild ? 400 : 700, color: "#1A1918" }}>
+                        {e.isChild && <span style={{ color: "#A4A4A6", marginRight: 4 }}>↳</span>}
+                        {e.odp}
+                      </span>
+                      {e.label && <span style={{ fontSize: 11, color: "#9CA3AF", marginLeft: 6 }}>{e.label}</span>}
+                    </td>
+                    <td style={{ padding: "9px 14px", color: "#6B6560" }}>{e.commessaNr || "—"}</td>
+                    <td style={{ padding: "9px 14px", color: "#6B6560", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.clienteInfo || "—"}</td>
+                    <td style={{ padding: "9px 14px" }}>
+                      {e.tipologia && <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 3, background: "#F3F4F6", color: "#6B7280" }}>{e.tipologia}</span>}
+                    </td>
+                    <td style={{ padding: "9px 14px" }}>
+                      {e.statoProdEsterna ? (
+                        <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 3, fontWeight: 500, background: e.statoProdEsterna === "In Lavorazione" ? "#FEF3C7" : "#D1FAE5", color: e.statoProdEsterna === "In Lavorazione" ? "#92400E" : "#065F46" }}>{e.statoProdEsterna}</span>
+                      ) : e.statoProduzione ? (
+                        <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 3, background: "#F0FDF4", color: "#166534" }}>{e.statoProduzione}</span>
+                      ) : null}
+                    </td>
+                    <td style={{ padding: "9px 14px", textAlign: "right" }}>
+                      <button
+                        onClick={() => apriScheda(e.id, e.odp)}
+                        disabled={loadingLock}
+                        style={{ padding: "5px 14px", borderRadius: 4, background: "#F08F25", color: "white", fontWeight: 600, fontSize: 12, border: "none", cursor: "pointer", opacity: loadingLock ? 0.6 : 1, whiteSpace: "nowrap" }}
+                      >
+                        {loadingLock ? "…" : "Apri"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {odpList.filter(e => {
+                  if (soloMaterialePronto && e.statoProduzione !== "Materiale Pronto") return false;
+                  if (filtroCommessa && e.commessaNr !== filtroCommessa) return false;
+                  if (searchOdp && !`${e.odp} ${e.label} ${e.clienteInfo}`.toUpperCase().includes(searchOdp)) return false;
+                  return true;
+                }).length === 0 && (
+                  <tr><td colSpan={6} style={{ padding: "24px 14px", textAlign: "center", color: "#A4A4A6", fontSize: 13 }}>Nessuna scheda trovata</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* Lista verifiche in corso */}

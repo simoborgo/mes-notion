@@ -1,35 +1,14 @@
-// services/notionService.js
-// Aggiorna la riga ODP su Notion quando una verifica spedizione viene finalizzata:
-// - stato "Verificato"
-// - link al PDF su Drive (archivio ufficiale)
-// - IL PDF STESSO caricato come file nella property "PDF Verifica" (consultabile senza uscire da Notion)
-// - le FOTO caricate singolarmente nella property "Foto Verifica" (dettaglio zoomabile, non ricompresso
-//   dentro il layout del PDF)
-//
-// Richiede Node 18+ (fetch, FormData, Blob nativi). Usa chiamate dirette all'API REST di Notion
-// invece del SDK @notionhq/client per il file upload, perché il supporto nel SDK JS è più recente
-// e non sempre allineato — verifica comunque su developers.notion.com/reference/file-upload
-// se in futuro il SDK espone metodi dedicati, in tal caso semplifica questo file.
-
 const { Client } = require('@notionhq/client');
 
 const notion = new Client({ auth: process.env.NOTION_TOKEN ?? process.env.NOTION_API_KEY });
 
-// Versione API Notion che supporta il File Upload API — verifica sui docs se è cambiata
 const NOTION_VERSION = '2026-03-11';
 const NOTION_API_BASE = 'https://api.notion.com/v1';
 
-// Nomi delle property sulla database ODP — adatta ai nomi reali che crei su Notion
-const STATO_PROPERTY_NAME = 'Stato Verifica Spedizione'; // select
-const LINK_DRIVE_PROPERTY_NAME = 'Link PDF Drive';        // url — archivio ufficiale
-const PDF_FILE_PROPERTY_NAME = 'PDF Scheda Verificata';    // files & media — copia consultabile in Notion
-const FOTO_PROPERTY_NAME = 'Foto Verifica';                 // files & media, multi — foto singole
+// Property names sul database Schede di Produzione
+const STATO_PROPERTY_NAME = 'Stato';             // status type — valori: Materiale Pronto → Completato
+const PDF_FILE_PROPERTY_NAME = 'PDF Scheda Verificata'; // files & media — da aggiungere al DB Notion se non esiste
 
-/**
- * Step 1+2 del File Upload API Notion: crea l'oggetto file_upload, poi carica i byte.
- * Ritorna l'id da usare come { type: 'file_upload', file_upload: { id } } quando si
- * aggiorna la property della pagina. Il file va allegato entro 1 ora dalla creazione.
- */
 async function uploadFileToNotion(buffer, filename, contentType) {
   const createRes = await fetch(`${NOTION_API_BASE}/file_uploads`, {
     method: 'POST',
@@ -64,58 +43,36 @@ async function uploadFileToNotion(buffer, filename, contentType) {
 }
 
 /**
- * @param {string} pageId  notion_page_id della riga ODP
- * @param {object} opts
- * @param {string} opts.statoValue   es. "Verificato"
- * @param {string} [opts.pdfUrl]     link Drive del PDF finale (archivio ufficiale)
- * @param {Buffer} [opts.pdfBuffer]  bytes del PDF finale, per caricarlo anche come file su Notion
- * @param {string} [opts.pdfFilename]
- * @param {Buffer[]} [opts.fotoBuffers]  bytes delle singole foto (JPEG), già compresse lato client
+ * Aggiorna la riga ODP su Notion alla finalizzazione:
+ * - Stato → "Completato"
+ * - PDF Scheda Verificata → file caricato (richiede che la property esista nel DB Notion)
  */
-async function aggiornaStatoOdp(pageId, { statoValue, pdfUrl, pdfBuffer, pdfFilename, fotoBuffers } = {}) {
-  if (!pageId) return; // nessun page_id noto: skip silenzioso, non bloccare la finalizzazione
+async function aggiornaStatoOdp(pageId, { pdfBuffer, pdfFilename } = {}) {
+  if (!pageId) return;
 
+  // Imposta Stato → Completato (tipo status)
   const properties = {
-    [STATO_PROPERTY_NAME]: { select: { name: statoValue } },
+    [STATO_PROPERTY_NAME]: { status: { name: 'Completato' } },
   };
 
-  if (pdfUrl) {
-    properties[LINK_DRIVE_PROPERTY_NAME] = { url: pdfUrl };
-  }
-
+  // Carica il PDF come file nella property "PDF Scheda Verificata"
   if (pdfBuffer) {
-    const filename = pdfFilename || 'verifica-spedizione.pdf';
-    const fileUploadId = await uploadFileToNotion(pdfBuffer, filename, 'application/pdf');
-    properties[PDF_FILE_PROPERTY_NAME] = {
-      files: [{ type: 'file_upload', file_upload: { id: fileUploadId }, name: filename }],
-    };
-  }
-
-  if (fotoBuffers && fotoBuffers.length) {
-    const fotoFiles = [];
-    for (let i = 0; i < fotoBuffers.length; i++) {
-      const filename = `foto-materiale-${i + 1}.jpg`;
-      const fileUploadId = await uploadFileToNotion(fotoBuffers[i], filename, 'image/jpeg');
-      fotoFiles.push({ type: 'file_upload', file_upload: { id: fileUploadId }, name: filename });
+    try {
+      const filename = pdfFilename || 'verifica-spedizione.pdf';
+      const fileUploadId = await uploadFileToNotion(pdfBuffer, filename, 'application/pdf');
+      properties[PDF_FILE_PROPERTY_NAME] = {
+        files: [{ type: 'file_upload', file_upload: { id: fileUploadId }, name: filename }],
+      };
+    } catch (e) {
+      console.warn('[notionService] upload PDF Scheda Verificata fallito (property assente?):', e.message);
     }
-    properties[FOTO_PROPERTY_NAME] = { files: fotoFiles };
   }
 
   await notion.pages.update({ page_id: pageId, properties });
 }
 
-
-// Nome della property Files & media sulla database ODP che contiene il PDF
-// della scheda di spedizione originale (allegato all'ODP a monte del flusso)
 const PDF_ORIGINALE_PROPERTY_NAME = 'PDF Allegato';
 
-/**
- * Recupera i byte del PDF originale allegato alla riga ODP.
- * Gli URL dei file Notion sono firmati e scadono dopo ~1 ora: per questo NON
- * vengono mai salvati — a ogni ripresa si rilegge la property e si ottiene
- * un URL firmato fresco, dal quale si scaricano i byte.
- * @returns {Promise<Buffer|null>}  null se la property è vuota o mancante
- */
 async function getPdfOriginale(pageId) {
   if (!pageId) return null;
 

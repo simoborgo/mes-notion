@@ -56,11 +56,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ sch
 
     try {
       await notionSvc.aggiornaStatoOdp(scheda, {
-        statoValue: "Verificato",
-        pdfUrl: webViewLink,
         pdfBuffer,
         pdfFilename: `verifica-${schedaNumero}.pdf`,
-        fotoBuffers,
       });
       await repo.setNotionSyncOk(scheda, true);
     } catch (notionErr) {

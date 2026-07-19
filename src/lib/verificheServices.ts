@@ -21,7 +21,7 @@ export const repo: {
 } = require("../../verifiche-backend/verificheRepository");
 
 export const notionSvc: {
-  aggiornaStatoOdp: (pageId: string, opts: { statoValue: string; pdfUrl?: string; pdfBuffer?: Buffer; pdfFilename?: string; fotoBuffers?: Buffer[] }) => Promise<void>;
+  aggiornaStatoOdp: (pageId: string, opts: { pdfBuffer?: Buffer; pdfFilename?: string }) => Promise<void>;
   getPdfOriginale: (pageId: string) => Promise<Buffer | null>;
 } = require("../../verifiche-backend/notionService");
 
