@@ -2,7 +2,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
 
-export type Role = "admin" | "operatore" | "logistica" | "magazziniere" | "spedizioni" | "produzione";
+export type Role = "admin" | "operatore" | "logistica" | "spedizioni" | "produzione";
 
 export const WRITE_ROLES: Role[] = ["admin", "operatore", "logistica"];
 
@@ -32,7 +32,7 @@ export async function verifyToken(token: string): Promise<Session | null> {
   try {
     const { payload } = await jwtVerify(token, getSecret());
     const { username, name, role } = payload as Record<string, unknown>;
-    const ALL_ROLES: string[] = ["admin", "operatore", "logistica", "magazziniere", "spedizioni", "produzione"];
+    const ALL_ROLES: string[] = ["admin", "operatore", "logistica", "spedizioni", "produzione"];
     if (
       typeof username !== "string" ||
       typeof name !== "string" ||
