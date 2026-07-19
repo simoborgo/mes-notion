@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo, Fragment } from "react";
 
 // ── Tipi ─────────────────────────────────────────────────────────────────────
 
@@ -65,7 +65,7 @@ function formatTime(iso: string) {
 
 // ── Componente ────────────────────────────────────────────────────────────────
 
-interface OdpEntry { id: string; odp: string; label: string; isChild: boolean; clienteInfo: string; tipologia: string; statoProdEsterna: string; statoProduzione: string; commessaNr: string }
+interface OdpEntry { id: string; odp: string; label: string; isChild: boolean; parentId: string | null; clienteInfo: string; tipologia: string; statoProdEsterna: string; statoProduzione: string; commessaNr: string }
 
 export default function SpedizioneVerifica({ userName, userRole, odpList: initialOdpList = [] }: { userName: string; userRole?: string; odpList?: OdpEntry[] }) {
   // ── Vista ─────────────────────────────────────────────────────────────────
@@ -77,9 +77,26 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
   const [filtroCommessa, setFiltroCommessa] = useState("");
   const [searchOdp, setSearchOdp] = useState("");
   const [soloMaterialePronto, setSoloMaterialePronto] = useState(true);
+  const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
+  const [finalizedIds, setFinalizedIds] = useState<Set<string>>(new Set());
   const [loadingLock, setLoadingLock] = useState(false);
   const [lockError, setLockError] = useState<string | null>(null);
   const [deletingScheda, setDeletingScheda] = useState<string | null>(null);
+
+  const inVerificaSet = useMemo(() => new Set(lista.map(l => l.notion_page_id)), [lista]);
+
+  const childrenByParent = useMemo(() => {
+    const map = new Map<string, OdpEntry[]>();
+    for (const e of odpList) {
+      if (!e.isChild || !e.parentId) continue;
+      const arr = map.get(e.parentId) ?? [];
+      arr.push(e);
+      map.set(e.parentId, arr);
+    }
+    return map;
+  }, [odpList]);
+
+  const parentEntries = useMemo(() => odpList.filter(e => !e.isChild), [odpList]);
 
   // ── PDF + annotazioni ─────────────────────────────────────────────────────
   const [schedaPageId, setSchedaPageId] = useState(""); // notion_page_id — chiave routing
@@ -665,7 +682,9 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
       if (!r.ok) throw new Error(d.error ?? "Errore finalizzazione");
 
       setFinalDriveUrl(d.driveUrl ?? null);
+      setFinalizedIds(prev => { const n = new Set(prev); n.add(schedaPageId); return n; });
       setShowFinalModal(false);
+      setTimeout(() => chiudiScheda(), 2500);
     } catch (err) {
       setFinalError((err as Error).message);
     } finally {
@@ -695,110 +714,172 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
           Spedizione Merci
         </h1>
 
+        {/* keyframes per blink */}
+        <style>{`@keyframes blink{0%,100%{opacity:1}50%{opacity:0.25}}.sv-blink{animation:blink 1.2s ease-in-out infinite}`}</style>
+
         {/* Tabella selezione schede */}
         <div style={{ background: "white", borderRadius: 8, marginBottom: 28, border: "1px solid #E5E4E0", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", overflow: "hidden" }}>
           {/* Filtri */}
-          <div style={{ padding: "14px 16px", borderBottom: "1px solid #E5E4E0", display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ padding: "12px 16px", borderBottom: "1px solid #E5E4E0", display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
             <input
               value={searchOdp}
               onChange={e => setSearchOdp(e.target.value.toUpperCase())}
               placeholder="Cerca ODP…"
-              style={{ padding: "7px 10px", borderRadius: 4, border: "1px solid #E5E4E0", background: "#FAF9F7", fontSize: 13, fontFamily: "monospace", minWidth: 120, outline: "none" }}
+              style={{ padding: "6px 10px", borderRadius: 4, border: "1px solid #E5E4E0", background: "#FAF9F7", fontSize: 13, fontFamily: "monospace", minWidth: 120, outline: "none" }}
             />
             <select
               value={filtroCommessa}
               onChange={e => setFiltroCommessa(e.target.value)}
-              style={{ padding: "7px 10px", borderRadius: 4, border: "1px solid #E5E4E0", background: "#FAF9F7", fontSize: 13, minWidth: 140, outline: "none", color: "#1A1918" }}
+              style={{ padding: "6px 10px", borderRadius: 4, border: "1px solid #E5E4E0", background: "#FAF9F7", fontSize: 13, minWidth: 160, outline: "none", color: "#1A1918" }}
             >
               <option value="">Tutte le commesse</option>
-              {[...new Set(odpList.map(e => e.commessaNr).filter(Boolean))].sort().map(c => (
+              {[...new Set(parentEntries.map(e => e.commessaNr).filter(Boolean))].sort().map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#6B6560", cursor: "pointer" }}>
-              <input
-                type="checkbox"
-                checked={soloMaterialePronto}
-                onChange={e => setSoloMaterialePronto(e.target.checked)}
-                style={{ accentColor: "#F08F25" }}
-              />
+              <input type="checkbox" checked={soloMaterialePronto} onChange={e => setSoloMaterialePronto(e.target.checked)} style={{ accentColor: "#F08F25" }} />
               Solo "Materiale Pronto"
             </label>
-            <span style={{ marginLeft: "auto", fontSize: 12, color: "#A4A4A6" }}>
-              {odpList.filter(e => {
-                if (soloMaterialePronto && e.statoProduzione !== "Materiale Pronto") return false;
-                if (filtroCommessa && e.commessaNr !== filtroCommessa) return false;
-                if (searchOdp && !`${e.odp} ${e.label} ${e.clienteInfo}`.toUpperCase().includes(searchOdp)) return false;
-                return true;
-              }).length} schede
-            </span>
+            {lockError && <span style={{ color: "#DC2626", fontSize: 13 }}>{lockError}</span>}
           </div>
 
           {/* Tabella */}
-          {lockError && <p style={{ color: "#DC2626", fontSize: 13, padding: "8px 16px", borderBottom: "1px solid #E5E4E0" }}>{lockError}</p>}
-          <div style={{ overflowX: "auto", maxHeight: 380, overflowY: "auto" }}>
+          <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
-                <tr style={{ background: "#FAF9F7", position: "sticky", top: 0 }}>
-                  <th style={{ padding: "8px 14px", textAlign: "left", fontWeight: 600, color: "#6B6560", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #E5E4E0" }}>ODP</th>
-                  <th style={{ padding: "8px 14px", textAlign: "left", fontWeight: 600, color: "#6B6560", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #E5E4E0" }}>Commessa</th>
-                  <th style={{ padding: "8px 14px", textAlign: "left", fontWeight: 600, color: "#6B6560", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #E5E4E0" }}>Cliente</th>
-                  <th style={{ padding: "8px 14px", textAlign: "left", fontWeight: 600, color: "#6B6560", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #E5E4E0" }}>Tipologia</th>
-                  <th style={{ padding: "8px 14px", textAlign: "left", fontWeight: 600, color: "#6B6560", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #E5E4E0" }}>Stato</th>
-                  <th style={{ padding: "8px 14px", borderBottom: "1px solid #E5E4E0" }} />
+                <tr style={{ background: "#FAF9F7" }}>
+                  {(["ODP", "Commessa", "Cliente", "Tipologia", "Stato"] as const).map(h => (
+                    <th key={h} style={{ padding: "8px 14px", textAlign: "left", fontWeight: 600, color: "#6B6560", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #E5E4E0", whiteSpace: "nowrap" }}>{h}</th>
+                  ))}
+                  <th style={{ padding: "8px 14px", borderBottom: "1px solid #E5E4E0", minWidth: 110 }} />
                 </tr>
               </thead>
               <tbody>
-                {odpList.filter(e => {
-                  if (soloMaterialePronto && e.statoProduzione !== "Materiale Pronto") return false;
-                  if (filtroCommessa && e.commessaNr !== filtroCommessa) return false;
-                  if (searchOdp && !`${e.odp} ${e.label} ${e.clienteInfo}`.toUpperCase().includes(searchOdp)) return false;
-                  return true;
-                }).map(e => (
-                  <tr
-                    key={e.id}
-                    style={{ borderBottom: "1px solid #F0EDE8" }}
-                    onMouseEnter={ev => (ev.currentTarget.style.background = "#FFF7ED")}
-                    onMouseLeave={ev => (ev.currentTarget.style.background = "white")}
-                  >
-                    <td style={{ padding: "9px 14px", paddingLeft: e.isChild ? 28 : 14 }}>
-                      <span style={{ fontFamily: "monospace", fontWeight: e.isChild ? 400 : 700, color: "#1A1918" }}>
-                        {e.isChild && <span style={{ color: "#A4A4A6", marginRight: 4 }}>↳</span>}
-                        {e.odp}
-                      </span>
-                      {e.label && <span style={{ fontSize: 11, color: "#9CA3AF", marginLeft: 6 }}>{e.label}</span>}
-                    </td>
-                    <td style={{ padding: "9px 14px", color: "#6B6560" }}>{e.commessaNr || "—"}</td>
-                    <td style={{ padding: "9px 14px", color: "#6B6560", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.clienteInfo || "—"}</td>
-                    <td style={{ padding: "9px 14px" }}>
-                      {e.tipologia && <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 3, background: "#F3F4F6", color: "#6B7280" }}>{e.tipologia}</span>}
-                    </td>
-                    <td style={{ padding: "9px 14px" }}>
-                      {e.statoProdEsterna ? (
-                        <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 3, fontWeight: 500, background: e.statoProdEsterna === "In Lavorazione" ? "#FEF3C7" : "#D1FAE5", color: e.statoProdEsterna === "In Lavorazione" ? "#92400E" : "#065F46" }}>{e.statoProdEsterna}</span>
-                      ) : e.statoProduzione ? (
-                        <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 3, background: "#F0FDF4", color: "#166534" }}>{e.statoProduzione}</span>
-                      ) : null}
-                    </td>
-                    <td style={{ padding: "9px 14px", textAlign: "right" }}>
-                      <button
-                        onClick={() => apriScheda(e.id, e.odp)}
-                        disabled={loadingLock}
-                        style={{ padding: "5px 14px", borderRadius: 4, background: "#F08F25", color: "white", fontWeight: 600, fontSize: 12, border: "none", cursor: "pointer", opacity: loadingLock ? 0.6 : 1, whiteSpace: "nowrap" }}
+                {(() => {
+                  const matchParent = (e: OdpEntry) => {
+                    if (soloMaterialePronto && e.statoProduzione !== "Materiale Pronto" && !finalizedIds.has(e.id) && e.statoProduzione !== "Completato") return false;
+                    if (filtroCommessa && e.commessaNr !== filtroCommessa) return false;
+                    if (searchOdp && !`${e.odp} ${e.label} ${e.clienteInfo}`.toUpperCase().includes(searchOdp)) return false;
+                    return true;
+                  };
+                  const rows: React.ReactNode[] = [];
+                  for (const parent of parentEntries) {
+                    if (!matchParent(parent)) continue;
+                    const children = childrenByParent.get(parent.id) ?? [];
+                    const expanded = expandedParents.has(parent.id);
+                    const isInVerifica = inVerificaSet.has(parent.id);
+                    const isCompletato = finalizedIds.has(parent.id) || parent.statoProduzione === "Completato";
+
+                    const rowBg = isInVerifica ? "#FFF0F0" : isCompletato ? "#F0FDF4" : "white";
+                    const hoverBg = isInVerifica ? "#FFE4E4" : isCompletato ? "#DCFCE7" : "#FFF7ED";
+
+                    rows.push(
+                      <tr key={parent.id} style={{ borderBottom: "1px solid #F0EDE8", background: rowBg }}
+                        onMouseEnter={ev => (ev.currentTarget.style.background = hoverBg)}
+                        onMouseLeave={ev => (ev.currentTarget.style.background = rowBg)}
                       >
-                        {loadingLock ? "…" : "Apri"}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {odpList.filter(e => {
-                  if (soloMaterialePronto && e.statoProduzione !== "Materiale Pronto") return false;
-                  if (filtroCommessa && e.commessaNr !== filtroCommessa) return false;
-                  if (searchOdp && !`${e.odp} ${e.label} ${e.clienteInfo}`.toUpperCase().includes(searchOdp)) return false;
-                  return true;
-                }).length === 0 && (
-                  <tr><td colSpan={6} style={{ padding: "24px 14px", textAlign: "center", color: "#A4A4A6", fontSize: 13 }}>Nessuna scheda trovata</td></tr>
-                )}
+                        <td style={{ padding: "9px 14px", fontFamily: "monospace", fontWeight: 700, color: isInVerifica ? "#DC2626" : "#1A1918", whiteSpace: "nowrap" }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                            {children.length > 0 && (
+                              <button onClick={() => setExpandedParents(prev => { const n = new Set(prev); n.has(parent.id) ? n.delete(parent.id) : n.add(parent.id); return n; })}
+                                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "#F08F25", fontSize: 11, lineHeight: 1, display: "inline-flex", alignItems: "center" }}>
+                                <span style={{ display: "inline-block", transition: "transform 0.15s", transform: expanded ? "rotate(90deg)" : "rotate(0deg)" }}>▶</span>
+                              </button>
+                            )}
+                            {isInVerifica && <span className="sv-blink" style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "#DC2626" }} />}
+                            {isCompletato && <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "#22C55E" }} />}
+                            {parent.odp}
+                            {children.length > 0 && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 8, background: "rgba(240,143,37,0.12)", color: "#F08F25", fontFamily: "sans-serif", fontWeight: 700 }}>{children.length}</span>}
+                          </span>
+                          {parent.label && <span style={{ fontSize: 11, color: "#9CA3AF", marginLeft: 6, fontFamily: "sans-serif", fontWeight: 400 }}>{parent.label}</span>}
+                        </td>
+                        <td style={{ padding: "9px 14px", color: "#6B6560" }}>{parent.commessaNr || "—"}</td>
+                        <td style={{ padding: "9px 14px", color: "#6B6560", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{parent.clienteInfo || "—"}</td>
+                        <td style={{ padding: "9px 14px" }}>
+                          {parent.tipologia && <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 3, background: "#F3F4F6", color: "#6B7280" }}>{parent.tipologia}</span>}
+                        </td>
+                        <td style={{ padding: "9px 14px" }}>
+                          {isCompletato ? (
+                            <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 3, fontWeight: 600, background: "#DCFCE7", color: "#15803D" }}>Completato</span>
+                          ) : isInVerifica ? (
+                            <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 3, fontWeight: 600, background: "#FEE2E2", color: "#DC2626" }}>In verifica</span>
+                          ) : parent.statoProdEsterna ? (
+                            <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 3, fontWeight: 500, background: "#FEF3C7", color: "#92400E" }}>{parent.statoProdEsterna}</span>
+                          ) : (
+                            <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 3, background: "#F0FDF4", color: "#166534" }}>{parent.statoProduzione}</span>
+                          )}
+                        </td>
+                        <td style={{ padding: "9px 14px", textAlign: "right" }}>
+                          {isCompletato ? (
+                            <span style={{ fontSize: 12, color: "#15803D", fontWeight: 600 }}>✓ Verificato</span>
+                          ) : isInVerifica ? (
+                            <span style={{ fontSize: 12, color: "#DC2626", fontWeight: 500 }}>In verifica</span>
+                          ) : (
+                            <button onClick={() => apriScheda(parent.id, parent.odp)} disabled={loadingLock}
+                              style={{ padding: "5px 14px", borderRadius: 4, background: "#F08F25", color: "white", fontWeight: 600, fontSize: 12, border: "none", cursor: "pointer", opacity: loadingLock ? 0.6 : 1 }}>
+                              {loadingLock ? "…" : "Apri"}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+
+                    if (expanded) {
+                      for (const child of children) {
+                        const cInVerifica = inVerificaSet.has(child.id);
+                        const cCompletato = finalizedIds.has(child.id) || child.statoProduzione === "Completato";
+                        const cBg = cInVerifica ? "#FFF5F5" : cCompletato ? "#F7FEF9" : "#FAFAF9";
+                        rows.push(
+                          <tr key={child.id} style={{ borderBottom: "1px solid #F0EDE8", background: cBg }}
+                            onMouseEnter={ev => (ev.currentTarget.style.background = cInVerifica ? "#FFE4E4" : cCompletato ? "#DCFCE7" : "#FFF7ED")}
+                            onMouseLeave={ev => (ev.currentTarget.style.background = cBg)}
+                          >
+                            <td style={{ padding: "7px 14px 7px 32px", fontFamily: "monospace", fontSize: 12, color: cInVerifica ? "#DC2626" : "#6B6560", whiteSpace: "nowrap" }}>
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                                <span style={{ color: "#C4C4C6" }}>↳</span>
+                                {cInVerifica && <span className="sv-blink" style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#DC2626" }} />}
+                                {cCompletato && <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#22C55E" }} />}
+                                {child.odp}
+                              </span>
+                              {child.label && <span style={{ fontSize: 10, color: "#9CA3AF", marginLeft: 5 }}>{child.label}</span>}
+                            </td>
+                            <td style={{ padding: "7px 14px", fontSize: 12, color: "#9CA3AF" }}>{child.commessaNr || "—"}</td>
+                            <td style={{ padding: "7px 14px", fontSize: 12, color: "#9CA3AF", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{child.clienteInfo || "—"}</td>
+                            <td style={{ padding: "7px 14px" }}>
+                              {child.tipologia && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "#F3F4F6", color: "#9CA3AF" }}>{child.tipologia}</span>}
+                            </td>
+                            <td style={{ padding: "7px 14px" }}>
+                              {cCompletato ? (
+                                <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, fontWeight: 600, background: "#DCFCE7", color: "#15803D" }}>Completato</span>
+                              ) : cInVerifica ? (
+                                <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, fontWeight: 600, background: "#FEE2E2", color: "#DC2626" }}>In verifica</span>
+                              ) : (
+                                <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "#F0FDF4", color: "#166534" }}>{child.statoProduzione}</span>
+                              )}
+                            </td>
+                            <td style={{ padding: "7px 14px", textAlign: "right" }}>
+                              {cCompletato ? (
+                                <span style={{ fontSize: 11, color: "#15803D", fontWeight: 600 }}>✓</span>
+                              ) : cInVerifica ? (
+                                <span style={{ fontSize: 11, color: "#DC2626" }}>In verifica</span>
+                              ) : (
+                                <button onClick={() => apriScheda(child.id, child.odp)} disabled={loadingLock}
+                                  style={{ padding: "4px 12px", borderRadius: 4, background: "#F08F25", color: "white", fontWeight: 600, fontSize: 11, border: "none", cursor: "pointer", opacity: loadingLock ? 0.6 : 1 }}>
+                                  Apri
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      }
+                    }
+                  }
+                  if (rows.length === 0) {
+                    rows.push(<tr key="empty"><td colSpan={6} style={{ padding: "24px 14px", textAlign: "center", color: "#A4A4A6", fontSize: 13 }}>Nessuna scheda trovata</td></tr>);
+                  }
+                  return rows;
+                })()}
               </tbody>
             </table>
           </div>
@@ -864,9 +945,12 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
         <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 15, color: "#1A1918" }}>{schedaOdp || schedaPageId}</span>
         <span style={{ fontSize: 12, color: "#A4A4A6", flex: 1 }}>{userName}</span>
         {finalDriveUrl ? (
-          <a href={finalDriveUrl} target="_blank" rel="noreferrer" style={{ padding: "6px 14px", borderRadius: 4, background: "#2E8B4F", color: "white", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
-            ✅ Apri PDF Drive
-          </a>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 13, color: "#2E8B4F", fontWeight: 700 }}>✅ Completato! Ritorno alla lista…</span>
+            <a href={finalDriveUrl} target="_blank" rel="noreferrer" style={{ padding: "6px 14px", borderRadius: 4, background: "#2E8B4F", color: "white", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
+              Apri PDF
+            </a>
+          </div>
         ) : (
           <button
             onClick={() => setShowFinalModal(true)}

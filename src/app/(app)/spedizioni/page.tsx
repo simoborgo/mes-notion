@@ -21,6 +21,7 @@ export default async function SpedizioniPage() {
         odp: s.odp.toUpperCase(),
         label: s.numeroScheda,
         isChild,
+        parentId: s.parentId,
         clienteInfo: s.clienteInfo,
         tipologia: s.tipologia,
         statoProdEsterna: s.statoProdEsterna,

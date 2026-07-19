@@ -20,6 +20,7 @@ export interface OdpEntry {
   odp: string;
   label: string;
   isChild: boolean;
+  parentId: string | null;
   clienteInfo: string;
   tipologia: string;
   statoProdEsterna: string;
@@ -68,14 +69,16 @@ export async function GET(req: NextRequest) {
         if (!odp || !/^MP\d{2}-\d{3}$/i.test(odp)) continue;
 
         const numero = page.properties["Numero Scheda"]?.title?.[0]?.plain_text?.trim() ?? "";
-        const isChild = (page.properties["Parent item"]?.relation?.length ?? 0) > 0;
+        const parentRelation = page.properties["Parent item"]?.relation ?? [];
+        const isChild = parentRelation.length > 0;
+        const parentId = isChild ? (parentRelation[0]?.id ?? null) : null;
         const clienteInfo = page.properties["Cliente Info"]?.rich_text?.[0]?.plain_text?.trim() ?? "";
         const tipologia = page.properties["Tipologia"]?.select?.name ?? "";
         const statoProdEsterna = page.properties["Stato Produzione Esterna"]?.select?.name ?? "";
         const statoProduzione = page.properties["Stato"]?.status?.name ?? "";
         const commessaNr = page.properties["Commessa Nr"]?.rollup?.array?.[0]?.title?.[0]?.plain_text ?? "";
 
-        entries.push({ id: page.id, odp: odp.toUpperCase(), label: numero, isChild, clienteInfo, tipologia, statoProdEsterna, statoProduzione, commessaNr });
+        entries.push({ id: page.id, odp: odp.toUpperCase(), label: numero, isChild, parentId, clienteInfo, tipologia, statoProdEsterna, statoProduzione, commessaNr });
       }
 
       cursor = data.has_more && data.next_cursor ? data.next_cursor : undefined;
