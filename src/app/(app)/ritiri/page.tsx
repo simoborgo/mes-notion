@@ -1,10 +1,21 @@
-import { getRitiri } from "@/lib/notion";
+import { getRitiri, getSchede, getSottoschede, getFornitoriList } from "@/lib/notion";
+import { getSession } from "@/lib/auth";
 import TabellaRitiri from "@/components/TabellaRitiri";
 
 export const dynamic = "force-dynamic";
 
 export default async function RitiriPage() {
-  const ritiri = await getRitiri();
+  const [ritiri, schede, sottoschede, fornitori, session] = await Promise.all([
+    getRitiri(), getSchede(), getSottoschede(), getFornitoriList(), getSession(),
+  ]);
+  // Ordina: ogni parent seguito immediatamente dalle sue sottoschede
+  const childrenByParent = new Map<string, typeof sottoschede>();
+  for (const s of sottoschede) {
+    if (!s.parentId) continue;
+    if (!childrenByParent.has(s.parentId)) childrenByParent.set(s.parentId, []);
+    childrenByParent.get(s.parentId)!.push(s);
+  }
+  const tutteLeSchede = schede.flatMap(s => [s, ...(childrenByParent.get(s.id) ?? [])]);
 
   return (
     <div className="space-y-5">
@@ -16,7 +27,7 @@ export default async function RitiriPage() {
           {ritiri.length} movimenti totali
         </p>
       </div>
-      <TabellaRitiri ritiri={ritiri} />
+      <TabellaRitiri ritiri={ritiri} schede={tutteLeSchede} fornitori={fornitori} userRole={session?.role} />
     </div>
   );
 }

@@ -14,7 +14,7 @@ export default async function SchedePage() {
           Schede di Produzione
         </h1>
         <p className="text-sm mt-1" style={{ color: "var(--color-grey-mid)" }}>
-          {schede.length} schede · aggiornato {new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+          Aggiornato al {new Date().toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" })} alle {new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
         </p>
       </div>
       <TabellaSchede schede={schede} sottoschede={sottoschede} commesse={commesse} revalidate={revalidateSchede} />

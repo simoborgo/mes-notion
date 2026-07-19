@@ -4,6 +4,7 @@ import { useState, FormEvent } from "react";
 import Image from "next/image";
 
 export default function LoginPage() {
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -17,16 +18,13 @@ export default function LoginPage() {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ username, password }),
       });
-      console.log("[login] status:", res.status, "ok:", res.ok);
       const body = await res.json();
-      console.log("[login] body:", body);
       if (res.ok) {
-        console.log("[login] redirect a /");
-        setTimeout(() => { window.location.replace("/"); }, 100);
+        window.location.replace("/");
       } else {
-        setError(body.error || "Password errata");
+        setError(body.error || "Credenziali errate");
         setLoading(false);
       }
     } catch (err) {
@@ -61,6 +59,22 @@ export default function LoginPage() {
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
+            <label htmlFor="username" className="text-xs font-medium" style={{ color: "var(--color-grey-mid)" }}>
+              Username
+            </label>
+            <input
+              id="username"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="nome.cognome"
+              required
+              autoComplete="username"
+              className="login-input rounded-md px-3 py-2 text-sm outline-none"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
             <label htmlFor="password" className="text-xs font-medium" style={{ color: "var(--color-grey-mid)" }}>
               Password
             </label>
@@ -71,6 +85,7 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               required
+              autoComplete="current-password"
               className="login-input rounded-md px-3 py-2 text-sm outline-none"
             />
             {error && (
@@ -80,7 +95,7 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={loading || !password}
+            disabled={loading || !username || !password}
             className="mt-1 rounded-md py-2.5 text-sm font-semibold transition-opacity disabled:opacity-50"
             style={{ background: "var(--color-primary)", color: "white" }}
           >

@@ -1,10 +1,10 @@
-import { getCommesse } from "@/lib/notion";
+import { getCommesse, getSchede } from "@/lib/notion";
 import TabellaCommesse from "@/components/TabellaCommesse";
 
 export const dynamic = "force-dynamic";
 
 export default async function CommessePage() {
-  const commesse = await getCommesse();
+  const [commesse, schede] = await Promise.all([getCommesse(), getSchede()]);
 
   return (
     <div className="space-y-5">
@@ -16,7 +16,7 @@ export default async function CommessePage() {
           {commesse.length} commesse totali
         </p>
       </div>
-      <TabellaCommesse commesse={commesse} />
+      <TabellaCommesse commesse={commesse} schede={schede} />
     </div>
   );
 }

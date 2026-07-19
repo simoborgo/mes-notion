@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Commessa, Area, Scheda } from "@/lib/types";
+import type { Commessa, Area, Scheda, Carico } from "@/lib/types";
 import BadgeStato from "./BadgeStato";
 
 interface Props {
@@ -13,6 +13,7 @@ interface DettaglioData {
   commessa: Commessa;
   aree: Area[];
   schede: Scheda[];
+  carichi: Carico[];
 }
 
 function fmt(d: string | null) {
@@ -23,7 +24,7 @@ function fmt(d: string | null) {
 function InfoGrid({ commessa }: { commessa: Commessa }) {
   const items = [
     { label: "Responsabile", value: commessa.responsabile || "—" },
-    { label: "Data Carico", value: fmt(commessa.dataCarico) },
+    { label: "Data Inizio Carichi", value: fmt(commessa.dataCarico) },
     { label: "Inizio Montaggio", value: fmt(commessa.inizioMontaggio) },
     { label: "Fine Montaggio", value: fmt(commessa.fineMontaggio) },
     { label: "Giorni Montaggio", value: commessa.giorniMontaggio != null ? String(commessa.giorniMontaggio) : "—" },
@@ -37,6 +38,44 @@ function InfoGrid({ commessa }: { commessa: Commessa }) {
           <div className="text-sm font-medium" style={{ color: "var(--color-black)" }}>{value}</div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function odpProgressColor(pct: number): string {
+  if (pct <= 20) return "#EF4444";
+  if (pct <= 40) return "#F97316";
+  if (pct <= 60) return "#F59E0B";
+  if (pct <= 80) return "#84CC16";
+  if (pct <= 90) return "#22C55E";
+  return "#16A34A";
+}
+
+function OdpStats({ schede }: { schede: Scheda[] }) {
+  if (schede.length === 0) return null;
+  const total = schede.length;
+  const completati = schede.filter(s => s.statoProduzione === "Completato").length;
+  const inLavorazione = schede.filter(s => !["Completato", "Annullato", "Da iniziare"].includes(s.statoProduzione ?? "")).length;
+  const pct = Math.round((completati / total) * 100);
+  const color = odpProgressColor(pct);
+  return (
+    <div className="rounded-md px-3 py-2.5 space-y-2" style={{ background: "#faf9f7", border: "1px solid #e5e4e0" }}>
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-grey-mid)" }}>
+          Avanzamento ODP
+        </span>
+        <div className="flex items-center gap-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>
+          <span><span className="font-semibold tabular-nums" style={{ color: "var(--color-black)" }}>{inLavorazione}</span> in lavorazione</span>
+          <span><span className="font-semibold tabular-nums" style={{ color: "var(--color-black)" }}>{completati}</span>/{total} completati</span>
+          <span className="text-sm font-bold tabular-nums" style={{ color }}>{pct}%</span>
+        </div>
+      </div>
+      <div className="h-2 rounded-full overflow-hidden" style={{ background: "#e5e4e0" }}>
+        <div
+          className="h-full rounded-full transition-all"
+          style={{ width: `${pct}%`, background: color }}
+        />
+      </div>
     </div>
   );
 }
@@ -227,6 +266,69 @@ export default function DettaglioCommessaModal({ commessaId, onClose }: Props) {
               <section>
                 <InfoGrid commessa={data.commessa} />
               </section>
+
+              {/* Carichi */}
+              {data.carichi.length > 0 && (
+                <section>
+                  <h3 className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--color-grey-mid)" }}>
+                    Carichi previsti ({data.carichi.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {data.carichi
+                      .slice()
+                      .sort((a, b) => (a.dataCarico ?? "") < (b.dataCarico ?? "") ? -1 : 1)
+                      .map(c => {
+                        const odps = c.odpIds.map(id => data.schede.find(s => s.id === id)).filter(Boolean) as Scheda[];
+                        return (
+                          <div key={c.id} className="rounded-md border p-3 space-y-2" style={{ borderColor: "#e5e4e0" }}>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium text-sm" style={{ color: "var(--color-black)" }}>{c.titolo || "—"}</span>
+                              {c.modalita && <BadgeStato stato={c.modalita} />}
+                              {c.stato && <BadgeStato stato={c.stato} />}
+                              <span className="ml-auto text-xs tabular-nums font-medium" style={{ color: "var(--color-grey-mid)" }}>
+                                {c.dataCarico ? new Date(c.dataCarico).toLocaleDateString("it-IT") : "—"}
+                              </span>
+                            </div>
+                            {odps.length > 0 && (
+                              <div className="rounded border overflow-hidden" style={{ borderColor: "#e5e4e0" }}>
+                                <table className="w-full text-xs">
+                                  <thead>
+                                    <tr style={{ background: "#faf9f7", color: "var(--color-grey-mid)" }}>
+                                      <th className="px-2 py-1.5 text-left font-semibold">ODP</th>
+                                      <th className="px-2 py-1.5 text-left font-semibold">N° Scheda</th>
+                                      <th className="px-2 py-1.5 text-left font-semibold">Stato</th>
+                                      <th className="px-2 py-1.5 text-left font-semibold">Fase</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {odps.map(s => (
+                                      <tr key={s.id} className="border-t" style={{ borderColor: "#e5e4e0" }}>
+                                        <td className="px-2 py-1.5 tabular-nums font-medium">{s.odp || "—"}</td>
+                                        <td className="px-2 py-1.5">{s.numeroScheda || "—"}</td>
+                                        <td className="px-2 py-1.5">{s.statoProduzione ? <BadgeStato stato={s.statoProduzione} /> : "—"}</td>
+                                        <td className="px-2 py-1.5">{s.faseCorrente ? <BadgeStato stato={s.faseCorrente} /> : "—"}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                            {odps.length === 0 && c.odpIds.length === 0 && (
+                              <p className="text-xs" style={{ color: "var(--color-grey-mid)" }}>Nessuna scheda ODP collegata</p>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
+                </section>
+              )}
+
+              {/* ODP progress */}
+              {data.schede.length > 0 && (
+                <section>
+                  <OdpStats schede={data.schede} />
+                </section>
+              )}
 
               {/* Tutte le schede */}
               {data.schede.length > 0 && (

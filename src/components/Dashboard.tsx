@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Scheda, Ritiro, Commessa } from "@/lib/types";
+import { Scheda, Ritiro, Commessa, Carico } from "@/lib/types";
 import Link from "next/link";
 
 const STATI_COMPLETATI = ["Completato", "Completata", "Chiusa", "Annullato"];
@@ -41,7 +41,8 @@ function KpiCard({ label, value, accent, bg, sublabel }: KpiCardProps) {
   );
 }
 
-interface GanttRow { commessa: Commessa; caricoStart: Date | null; montaggioStart: Date | null; montaggioEnd: Date | null; }
+interface CaricoMark { date: Date; titolo: string; }
+interface GanttRow { commessa: Commessa; carichi: CaricoMark[]; montaggioStart: Date | null; montaggioEnd: Date | null; }
 
 function GanttChart({ rows }: { rows: GanttRow[] }) {
   const [selected, setSelected] = useState<string | null>(null);
@@ -49,7 +50,7 @@ function GanttChart({ rows }: { rows: GanttRow[] }) {
   const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
 
   const { viewStart, viewDays } = useMemo(() => {
-    const dates = rows.flatMap(r => [r.caricoStart, r.montaggioStart, r.montaggioEnd]).filter(Boolean) as Date[];
+    const dates = rows.flatMap(r => [...r.carichi.map(c => c.date), r.montaggioStart, r.montaggioEnd]).filter(Boolean) as Date[];
     if (!dates.length) return { viewStart: addDays(today, -14), viewDays: 90 };
     const min = new Date(Math.min(...dates.map(d => d.getTime())));
     const max = new Date(Math.max(...dates.map(d => d.getTime())));
@@ -126,6 +127,34 @@ function GanttChart({ rows }: { rows: GanttRow[] }) {
     );
   }
 
+  function DotCarico({ mark }: { mark: CaricoMark }) {
+    const p = pct(mark.date);
+    if (p === null || p < 0 || p > 100) return null;
+    const label = `${mark.titolo} — ${mark.date.toLocaleDateString("it-IT", { day: "2-digit", month: "short", year: "numeric" })}`;
+    return (
+      <div style={{ position: "absolute", top: "50%", left: `calc(${p}% - 6px)`, transform: "translateY(-50%)", zIndex: 4 }} className="group">
+        <div style={{ width: 12, height: 12, borderRadius: "50%", background: "#F08F25", border: "2px solid #fff", boxShadow: "0 1px 4px rgba(0,0,0,.25)" }} />
+        <div className="group-hover:opacity-100 opacity-0 pointer-events-none transition-opacity" style={{ position: "absolute", bottom: "calc(100% + 6px)", left: "50%", transform: "translateX(-50%)", background: "#1a1714", color: "#fff", fontSize: 10, fontWeight: 600, padding: "3px 7px", borderRadius: 4, whiteSpace: "nowrap", boxShadow: "0 2px 8px rgba(0,0,0,.2)", zIndex: 10 }}>
+          {label}
+        </div>
+      </div>
+    );
+  }
+
+  function CaricoSpan({ carichi }: { carichi: CaricoMark[] }) {
+    if (carichi.length < 2) return null;
+    const first = carichi[0].date;
+    const last = carichi[carichi.length - 1].date;
+    const s = pct(first), e = pct(last);
+    if (s === null || e === null) return null;
+    const left = Math.max(0, Math.min(s, 100));
+    const right = Math.max(0, Math.min(e, 100));
+    if (right <= left) return null;
+    return (
+      <div style={{ position: "absolute", left: `${left}%`, width: `${right - left}%`, top: "50%", transform: "translateY(-50%)", height: 3, background: "rgba(240,143,37,0.35)", borderRadius: 2, zIndex: 2 }} />
+    );
+  }
+
   const ROW_H = 64;
 
   return (
@@ -182,7 +211,13 @@ function GanttChart({ rows }: { rows: GanttRow[] }) {
               <div style={{ fontSize: 12, color: "#6b7280" }}>{r.commessa.localita}</div>
               {isSel && (
                 <div style={{ marginTop: 6, fontSize: 10, color: "#9ca3af", lineHeight: 1.8, borderTop: "1px solid #f3f4f6", paddingTop: 4 }}>
-                  <div>Carico: <strong style={{ color: "var(--color-black)" }}>{fmtShort(r.caricoStart)}</strong></div>
+                  <div>
+                    Carichi: <strong style={{ color: "var(--color-black)" }}>
+                      {r.carichi.length === 0 ? "—" : r.carichi.length === 1
+                        ? fmtShort(r.carichi[0].date)
+                        : `${fmtShort(r.carichi[0].date)} → ${fmtShort(r.carichi[r.carichi.length - 1].date)} (${r.carichi.length})`}
+                    </strong>
+                  </div>
                   {r.montaggioStart && <div>Montaggio: <strong style={{ color: "var(--color-black)" }}>{fmtShort(r.montaggioStart)} → {fmtShort(r.montaggioEnd)}</strong></div>}
                   <Link href={`/commesse/${r.commessa.id}`} className="underline" style={{ color: "var(--color-primary)" }}>Dettaglio →</Link>
                 </div>
@@ -196,10 +231,11 @@ function GanttChart({ rows }: { rows: GanttRow[] }) {
               ))}
               {showToday && <div style={{ position: "absolute", left: `${todayPct}%`, top: 0, bottom: 0, width: 2, background: "#ef4444", opacity: 0.7, zIndex: 5 }} />}
 
-              {/* Carico */}
+              {/* Carichi */}
               <div style={{ position: "absolute", top: 8, left: 0, right: 0, height: 16, display: "flex", alignItems: "center" }}>
                 <span style={{ position: "absolute", left: 4, fontSize: 10, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "#F08F25", opacity: .8, zIndex: 1 }}>Carico</span>
-                <Dot date={r.caricoStart} color="#F08F25" />
+                <CaricoSpan carichi={r.carichi} />
+                {r.carichi.map((c, i) => <DotCarico key={i} mark={c} />)}
               </div>
 
               {/* Montaggio */}
@@ -218,7 +254,11 @@ function GanttChart({ rows }: { rows: GanttRow[] }) {
       <div style={{ display: "flex", gap: 16, padding: "8px 12px", borderTop: "1px solid #f3f4f6", background: "#faf9f7", flexWrap: "wrap", alignItems: "center" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
           <div style={{ width: 12, height: 12, borderRadius: "50%", background: "#F08F25", border: "2px solid #fff", boxShadow: "0 1px 4px rgba(0,0,0,.2)" }} />
-          <span style={{ fontSize: 10, color: "#6b7280" }}>Data Carico</span>
+          <span style={{ fontSize: 10, color: "#6b7280" }}>Carico</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <div style={{ width: 20, height: 3, background: "rgba(240,143,37,0.35)", borderRadius: 2 }} />
+          <span style={{ fontSize: 10, color: "#6b7280" }}>Span carichi</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
           <div style={{ width: 20, height: 10, background: "rgba(59,130,246,.15)", border: "2px solid #3B82F6", borderRadius: 2 }} />
@@ -233,9 +273,9 @@ function GanttChart({ rows }: { rows: GanttRow[] }) {
   );
 }
 
-interface DashboardProps { schede: Scheda[]; ritiri: Ritiro[]; commesse: Commessa[]; }
+interface DashboardProps { schede: Scheda[]; ritiri: Ritiro[]; commesse: Commessa[]; carichi: Carico[]; }
 
-export default function Dashboard({ schede, ritiri, commesse }: DashboardProps) {
+export default function Dashboard({ schede, ritiri, commesse, carichi }: DashboardProps) {
   const oggi = new Date(); oggi.setHours(0, 0, 0, 0);
   const oggiStr = oggi.toISOString().slice(0, 10);
 
@@ -260,12 +300,30 @@ export default function Dashboard({ schede, ritiri, commesse }: DashboardProps) 
     { label: "ODP in lavorazione", value: odpInLavorazione, accent: "#059669", bg: "#ECFDF5", sublabel: "schede di produzione attive" },
   ];
 
+  const carichiPerCommessa = useMemo(() => {
+    const m = new Map<string, CaricoMark[]>();
+    carichi.forEach(c => {
+      if (!c.commessaId || !c.dataCarico) return;
+      const d = parseDate(c.dataCarico);
+      if (!d) return;
+      const arr = m.get(c.commessaId) ?? [];
+      arr.push({ date: d, titolo: c.titolo || "Carico" });
+      m.set(c.commessaId, arr);
+    });
+    m.forEach(arr => arr.sort((a, b) => a.date.getTime() - b.date.getTime()));
+    return m;
+  }, [carichi]);
+
   const ganttRows: GanttRow[] = commesse
     .filter((c) => c.stato === "In produzione")
-    .sort((a, b) => (a.dataCarico ?? "") < (b.dataCarico ?? "") ? -1 : 1)
+    .sort((a, b) => {
+      const aC = carichiPerCommessa.get(a.id)?.[0]?.date?.toISOString() ?? a.dataCarico ?? "";
+      const bC = carichiPerCommessa.get(b.id)?.[0]?.date?.toISOString() ?? b.dataCarico ?? "";
+      return aC < bC ? -1 : 1;
+    })
     .map((c) => ({
       commessa: c,
-      caricoStart: parseDate(c.dataCarico),
+      carichi: carichiPerCommessa.get(c.id) ?? [],
       montaggioStart: parseDate(c.inizioMontaggio),
       montaggioEnd: parseDate(c.fineMontaggio),
     }));

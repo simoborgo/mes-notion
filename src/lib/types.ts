@@ -17,6 +17,7 @@ export interface Scheda {
   statoProdEsterna: string;
   fornitore: string;
   ordineFornitore: string;
+  pdfOrdineFornitore: { name: string; url: string }[];
   dataRientroPrevista: string | null;
   dataUscitaMateriale: string | null;
   dataRientroEffettiva: string | null;
@@ -53,9 +54,14 @@ export interface Ritiro {
   tipoMovimento: string;
   stato: string;
   urgenza: boolean;
+  nc: boolean;
   fornitore: string;
+  ordineFornitore: string;
   note: string;
   documentiAllegati: { name: string; url: string }[];
+  pdfScheda: { name: string; url: string }[];
+  pdfOrdineFornitore: { name: string; url: string }[];
+  foto: { name: string; url: string }[];
   notionUrl: string;
 }
 
@@ -66,8 +72,11 @@ export interface RitiroUpdate {
   tipoMovimento?: string;
   stato?: string;
   urgenza?: boolean;
+  nc?: boolean;
   fornitore?: string;
-  note?: string;
+  ordineFornitore?: string;
+  schedaId?: string | null;
+  fornitoreId?: string | null;
 }
 
 export interface Commessa {
@@ -82,6 +91,19 @@ export interface Commessa {
   inizioMontaggio: string | null;
   fineMontaggio: string | null;
   giorniMontaggio: number | null;
+  notionUrl: string;
+}
+
+export interface Carico {
+  id: string;
+  titolo: string;
+  descrizione: string;
+  dataCarico: string | null;
+  commessaId: string | null;
+  odpIds: string[];
+  modalita: string;
+  stato: string;
+  documenti: { name: string; url: string }[];
   notionUrl: string;
 }
 

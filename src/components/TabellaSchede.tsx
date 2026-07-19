@@ -4,7 +4,7 @@ import { useState, useMemo, useRef, useEffect, useTransition, Fragment } from "r
 import { useRouter } from "next/navigation";
 import type { Scheda, Commessa } from "@/lib/types";
 import BadgeStato from "./BadgeStato";
-import FormModificaScheda from "./FormModificaScheda";
+import DettaglioSchedaModal from "./DettaglioSchedaModal";
 
 const PAGE_SIZE = 100;
 const STATI_COMPLETATI = new Set(["Completato", "Annullato"]);
@@ -157,6 +157,50 @@ function CopertinaTooltip({ tooltip }: { tooltip: TooltipState | null }) {
   );
 }
 
+function Th({
+  label, sortable, sortKey, sortDir, onSort, className = "",
+}: {
+  label: string;
+  sortable?: SortKey;
+  sortKey: SortKey;
+  sortDir: SortDir;
+  onSort: (k: SortKey) => void;
+  className?: string;
+}) {
+  const active = sortable === sortKey;
+  return (
+    <th
+      className={`px-4 py-3 whitespace-nowrap select-none ${sortable ? "cursor-pointer hover:bg-orange-50/50" : ""} ${className}`}
+      onClick={sortable ? () => onSort(sortable) : undefined}
+    >
+      {label}
+      {sortable && <SortIcon active={active} dir={active ? sortDir : "asc"} />}
+    </th>
+  );
+}
+
+function RitardoBtn({ label, count, active, onToggle }: { label: string; count: number; active: boolean; onToggle: () => void }) {
+  return (
+    <button
+      onClick={onToggle}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded border text-sm font-medium transition-colors"
+      style={active
+        ? { background: "#FEE2E2", color: "#991B1B", borderColor: "#FCA5A5" }
+        : { background: "white", color: "var(--color-grey-mid)", borderColor: "#d1d5db" }}
+    >
+      ⚠ {label}
+      {count > 0 && (
+        <span
+          className="inline-flex items-center justify-center rounded-full text-xs font-bold w-5 h-5"
+          style={active ? { background: "#991B1B", color: "white" } : { background: "#FEE2E2", color: "#991B1B" }}
+        >
+          {count}
+        </span>
+      )}
+    </button>
+  );
+}
+
 export default function TabellaSchede({ schede: initial, sottoschede = [], commesse = [], revalidate }: { schede: Scheda[]; sottoschede?: Scheda[]; commesse?: Commessa[]; revalidate?: () => Promise<void> }) {
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const router = useRouter();
@@ -203,7 +247,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
   const [sortKey, setSortKey] = useState<SortKey>("odp");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(0);
-  const [editing, setEditing] = useState<Scheda | null>(null);
+  const [viewing, setViewing] = useState<Scheda | null>(null);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
 
   const statiUniq = useMemo(
@@ -312,47 +356,8 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
 
   function handleFilter(fn: () => void) { fn(); setPage(0); }
 
-  function handleSave(updated: Scheda) {
-    setSchede((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
-    setEditing(null);
-  }
 
   const inputCls = "border rounded px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300";
-
-  function Th({ label, sortable, className = "" }: { label: string; sortable?: SortKey; className?: string }) {
-    const active = sortable === sortKey;
-    return (
-      <th
-        className={`px-4 py-3 whitespace-nowrap select-none ${sortable ? "cursor-pointer hover:bg-orange-50/50" : ""} ${className}`}
-        onClick={sortable ? () => handleSort(sortable) : undefined}
-      >
-        {label}
-        {sortable && <SortIcon active={active} dir={active ? sortDir : "asc"} />}
-      </th>
-    );
-  }
-
-  function RitardoBtn({ label, count, active, onToggle }: { label: string; count: number; active: boolean; onToggle: () => void }) {
-    return (
-      <button
-        onClick={() => handleFilter(onToggle)}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded border text-sm font-medium transition-colors"
-        style={active
-          ? { background: "#FEE2E2", color: "#991B1B", borderColor: "#FCA5A5" }
-          : { background: "white", color: "var(--color-grey-mid)", borderColor: "#d1d5db" }}
-      >
-        ⚠ {label}
-        {count > 0 && (
-          <span
-            className="inline-flex items-center justify-center rounded-full text-xs font-bold w-5 h-5"
-            style={active ? { background: "#991B1B", color: "white" } : { background: "#FEE2E2", color: "#991B1B" }}
-          >
-            {count}
-          </span>
-        )}
-      </button>
-    );
-  }
 
   return (
     <div className="space-y-3">
@@ -369,8 +374,8 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
 
       {/* Barra superiore: toggle ritardo + ricarica */}
       <div className="no-print flex flex-wrap gap-2 items-center justify-end">
-        <RitardoBtn label="Prod. in ritardo" count={conteggioRitardoProd} active={filtroRitardoProd} onToggle={() => setFiltroRitardoProd((v) => !v)} />
-        <RitardoBtn label="Rientro in ritardo" count={conteggioRitardoRientro} active={filtroRitardoRientro} onToggle={() => setFiltroRitardoRientro((v) => !v)} />
+        <RitardoBtn label="Prod. in ritardo" count={conteggioRitardoProd} active={filtroRitardoProd} onToggle={() => { handleFilter(() => setFiltroRitardoProd((v) => !v)); }} />
+        <RitardoBtn label="Rientro in ritardo" count={conteggioRitardoRientro} active={filtroRitardoRientro} onToggle={() => { handleFilter(() => setFiltroRitardoRientro((v) => !v)); }} />
         {revalidate && (
           <button
             onClick={handleReload}
@@ -489,23 +494,22 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b text-left text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-grey-mid)", background: "#faf9f7" }}>
-              <Th label="Cliente / Commessa" sortable="clienteInfo" className="min-w-[200px]" />
-              <Th label="ODP" sortable="odp" />
-              <Th label="N° Scheda" sortable="numeroScheda" />
+              <Th label="Cliente / Commessa" sortable="clienteInfo" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="min-w-[200px]" />
+              <Th label="ODP" sortable="odp" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              <Th label="N° Scheda" sortable="numeroScheda" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <th className="px-4 py-3 min-w-[180px]">Descrizione</th>
-              <Th label="Stato" sortable="statoProduzione" />
-              <th className="px-4 py-3 whitespace-nowrap">Fase</th>
-              <Th label="Data Prod. Prev." sortable="dataProduzionePrevista" />
-              <th className="px-4 py-3">Fornitore</th>
-              <Th label="Rientro Prev." sortable="dataRientroPrevista" />
-              <th className="px-4 py-3 whitespace-nowrap">PDF</th>
-              <th className="px-4 py-3 w-20"></th>
+              <Th label="Stato" sortable="statoProduzione" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="min-w-[120px]" />
+              <Th label="Data Prod. Prev." sortable="dataProduzionePrevista" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              <th className="px-4 py-3 whitespace-nowrap min-w-[100px]">Fornitore</th>
+              <Th label="Rientro Prev." sortable="dataRientroPrevista" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              <th className="px-4 py-3 whitespace-nowrap min-w-[60px]">PDF</th>
+              <th className="px-4 py-3 min-w-[80px]"></th>
             </tr>
           </thead>
           <tbody>
             {pageSlice.length === 0 ? (
               <tr>
-                <td colSpan={11} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
+                <td colSpan={10} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
                   Nessuna scheda trovata
                 </td>
               </tr>
@@ -553,19 +557,23 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">{s.numeroScheda || "—"}</td>
                     <td className="px-4 py-3 text-xs">{s.descrizioneFasi || "—"}</td>
-                    <td className="px-4 py-3"><BadgeStato stato={s.statoProduzione} /></td>
-                    <td className="px-4 py-3">{s.faseCorrente ? <BadgeStato stato={s.faseCorrente} /> : <span style={{ color: "var(--color-grey-icon)" }}>—</span>}</td>
+                    <td className="px-4 py-3">
+                      <BadgeStato stato={s.statoProduzione} />
+                      {s.faseCorrente && (
+                        <div className="text-xs mt-1" style={{ color: "var(--color-grey-mid)" }}>({s.faseCorrente})</div>
+                      )}
+                    </td>
                     <td className="px-4 py-3"><DataCell date={s.dataProduzionePrevista} inRitardo={ritardo.produzione} /></td>
-                    <td className="px-4 py-3 text-xs">{s.fornitore || "—"}</td>
+                    <td className="px-4 py-3 text-xs max-w-[180px] truncate" title={s.fornitore || ""}>{s.fornitore || "—"}</td>
                     <td className="px-4 py-3"><DataCell date={s.dataRientroPrevista} inRitardo={ritardo.rientro} /></td>
                     <td className="px-4 py-3"><PdfLinks pageId={s.id} count={s.pdfAllegato.length} /></td>
                     <td className="px-4 py-3">
                       <button
-                        onClick={() => setEditing(s)}
-                        className="text-xs px-2 py-1 rounded font-medium transition-colors"
+                        onClick={() => setViewing(s)}
+                        className="text-xs px-2 py-1 rounded font-medium transition-colors whitespace-nowrap"
                         style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)" }}
                       >
-                        Modifica
+                        Vedi scheda
                       </button>
                     </td>
                   </tr>
@@ -579,12 +587,15 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                         </td>
                         <td className="px-4 py-2 text-xs whitespace-nowrap">{f.numeroScheda || "—"}</td>
                         <td className="px-4 py-2 text-xs">{f.descrizioneFasi || "—"}</td>
-                        <td className="px-4 py-2"><BadgeStato stato={f.statoProduzione} /></td>
-                        <td className="px-4 py-2">{f.faseCorrente ? <BadgeStato stato={f.faseCorrente} /> : <span style={{ color: "var(--color-grey-icon)" }}>—</span>}</td>
+                        <td className="px-4 py-2">
+                          <BadgeStato stato={f.statoProduzione} />
+                          {f.faseCorrente && (
+                            <div className="text-xs mt-0.5" style={{ color: "var(--color-grey-mid)" }}>({f.faseCorrente})</div>
+                          )}
+                        </td>
                         <td className="px-4 py-2"><DataCell date={f.dataProduzionePrevista} inRitardo={fRitardo.produzione} /></td>
-                        <td className="px-4 py-2 text-xs">{f.fornitore || "—"}</td>
+                        <td className="px-4 py-2 text-xs max-w-[180px] truncate" title={f.fornitore || ""}>{f.fornitore || "—"}</td>
                         <td className="px-4 py-2"><DataCell date={f.dataRientroPrevista} inRitardo={fRitardo.rientro} /></td>
-                        <td className="px-4 py-2"></td>
                         <td className="px-4 py-2"></td>
                       </tr>
                     );
@@ -672,7 +683,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
         </tbody>
       </table>
 
-      {editing && <FormModificaScheda scheda={editing} onClose={() => setEditing(null)} onSave={handleSave} />}
+      {viewing && <DettaglioSchedaModal scheda={viewing} onClose={() => setViewing(null)} />}
       <CopertinaTooltip tooltip={tooltip} />
     </div>
   );

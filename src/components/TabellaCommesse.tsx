@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import type { Commessa } from "@/lib/types";
+import type { Commessa, Scheda } from "@/lib/types";
 import BadgeStato from "./BadgeStato";
 import DettaglioCommessaModal from "./DettaglioCommessaModal";
 
@@ -10,7 +10,28 @@ function fmt(d: string | null) {
   return new Date(d).toLocaleDateString("it-IT");
 }
 
-export default function TabellaCommesse({ commesse }: { commesse: Commessa[] }) {
+function completamentoColor(pct: number): string {
+  if (pct <= 20) return "#EF4444";
+  if (pct <= 40) return "#F97316";
+  if (pct <= 60) return "#F59E0B";
+  if (pct <= 80) return "#84CC16";
+  if (pct <= 90) return "#22C55E";
+  return "#16A34A";
+}
+
+function MiniBar({ pct }: { pct: number }) {
+  const color = completamentoColor(pct);
+  return (
+    <div className="flex items-center gap-2 min-w-24">
+      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "#e5e4e0" }}>
+        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
+      </div>
+      <span className="text-xs tabular-nums font-medium w-8 text-right" style={{ color }}>{pct}%</span>
+    </div>
+  );
+}
+
+export default function TabellaCommesse({ commesse, schede = [] }: { commesse: Commessa[]; schede?: Scheda[] }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const statiUniq = useMemo(
@@ -22,6 +43,23 @@ export default function TabellaCommesse({ commesse }: { commesse: Commessa[] }) 
     () => new Set(statiUniq.filter((s) => s !== "Chiusa"))
   );
   const [search, setSearch] = useState("");
+
+  const completamentoMap = useMemo(() => {
+    const m = new Map<string, { pct: number; total: number }>();
+    const byCommessa = new Map<string, Scheda[]>();
+    schede.forEach(s => {
+      if (!s.commessaId) return;
+      const arr = byCommessa.get(s.commessaId) ?? [];
+      arr.push(s);
+      byCommessa.set(s.commessaId, arr);
+    });
+    byCommessa.forEach((ss, id) => {
+      const total = ss.length;
+      const completati = ss.filter(s => s.statoProduzione === "Completato").length;
+      m.set(id, { pct: Math.round((completati / total) * 100), total });
+    });
+    return m;
+  }, [schede]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -92,17 +130,17 @@ export default function TabellaCommesse({ commesse }: { commesse: Commessa[] }) 
               <th className="px-4 py-3">Cliente</th>
               <th className="px-4 py-3">Località</th>
               <th className="px-4 py-3">Stato</th>
-              <th className="px-4 py-3">Data Carico</th>
+              <th className="px-4 py-3">Data Inizio Carichi</th>
               <th className="px-4 py-3">Inizio Mont.</th>
               <th className="px-4 py-3">Fine Mont.</th>
-              <th className="px-4 py-3">Giorni</th>
+              <th className="px-4 py-3">Completamento</th>
               <th className="px-4 py-3 w-20"></th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
+                <td colSpan={8} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
                   Nessuna commessa trovata
                 </td>
               </tr>
@@ -116,7 +154,12 @@ export default function TabellaCommesse({ commesse }: { commesse: Commessa[] }) 
                   <td className="px-4 py-3 tabular-nums">{fmt(c.dataCarico)}</td>
                   <td className="px-4 py-3 tabular-nums">{fmt(c.inizioMontaggio)}</td>
                   <td className="px-4 py-3 tabular-nums">{fmt(c.fineMontaggio)}</td>
-                  <td className="px-4 py-3 tabular-nums">{c.giorniMontaggio ?? "—"}</td>
+                  <td className="px-4 py-3">
+                    {completamentoMap.has(c.id)
+                      ? <MiniBar pct={completamentoMap.get(c.id)!.pct} />
+                      : <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>—</span>
+                    }
+                  </td>
                   <td className="px-4 py-3">
                     <button
                       onClick={() => setSelectedId(c.id)}

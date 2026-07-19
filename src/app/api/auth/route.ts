@@ -1,20 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
+import { signToken, COOKIE_NAME } from "@/lib/auth";
+import { validateCredentials } from "@/lib/users";
 
 export async function POST(req: NextRequest) {
-  const { password } = await req.json();
-
-  console.log("[auth] password ricevuta:", password);
-  console.log("[auth] APP_PASSWORD impostata:", !!process.env.APP_PASSWORD);
-  console.log("[auth] match:", password === process.env.APP_PASSWORD);
-
-  if (!process.env.APP_PASSWORD || password !== process.env.APP_PASSWORD) {
-    console.log("[auth] login fallita");
-    return NextResponse.json({ error: "Password errata" }, { status: 401 });
+  let body: { username?: string; password?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Payload non valido" }, { status: 400 });
   }
 
-  console.log("[auth] login ok, set cookie");
-  const res = NextResponse.json({ ok: true });
-  res.cookies.set("mes_session", "authenticated", {
+  const { username, password } = body;
+
+  if (!username || !password) {
+    return NextResponse.json({ error: "Username e password obbligatori" }, { status: 400 });
+  }
+
+  const session = await validateCredentials(username, password);
+  if (!session) {
+    return NextResponse.json({ error: "Credenziali errate" }, { status: 401 });
+  }
+
+  const token = await signToken(session);
+  const res = NextResponse.json({ ok: true, name: session.name, role: session.role });
+  res.cookies.set(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
@@ -25,6 +34,11 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE() {
   const res = NextResponse.json({ ok: true });
-  res.cookies.set("mes_session", "", { httpOnly: true, path: "/", maxAge: 0, expires: new Date(0) });
+  res.cookies.set(COOKIE_NAME, "", {
+    httpOnly: true,
+    path: "/",
+    maxAge: 0,
+    expires: new Date(0),
+  });
   return res;
 }

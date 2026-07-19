@@ -1,5 +1,6 @@
 import { Client } from "@notionhq/client";
-import type { Scheda, SchedaUpdate, Ritiro, RitiroUpdate, Commessa, Area } from "./types";
+import { unstable_cache } from "next/cache";
+import type { Scheda, SchedaUpdate, Ritiro, RitiroUpdate, Commessa, Area, Carico } from "./types";
 
 const notion = new Client({ auth: process.env.NOTION_TOKEN, fetch: globalThis.fetch });
 
@@ -7,6 +8,8 @@ const DB_SCHEDE = process.env.NOTION_DB_SCHEDE!;
 const DB_COMMESSE = process.env.NOTION_DB_COMMESSE!;
 const DB_AREE = process.env.NOTION_DB_AREE!;
 const DB_RITIRI = process.env.NOTION_DB_RITIRI!;
+const DB_CARICHI = process.env.NOTION_DB_CARICHI!;
+const DB_FORNITORI = process.env.NOTION_DB_FORNITORI!;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function prop(page: any, name: string): any {
@@ -49,17 +52,36 @@ function getCheckbox(p: ReturnType<typeof prop>): boolean {
 }
 
 function getFiles(p: ReturnType<typeof prop>): { name: string; url: string }[] {
-  if (!p || p.type !== "files") return [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (p.files ?? []).map((f: any) => ({
-    name: f.name,
-    url: f.type === "external" ? f.external?.url : f.file?.url ?? "",
-  }));
+  if (!p) return [];
+  if (p.type === "files") {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (p.files ?? []).map((f: any) => ({
+      name: f.name,
+      url: f.type === "external" ? f.external?.url : f.file?.url ?? "",
+    }));
+  }
+  if (p.type === "rollup") {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (p.rollup?.array ?? []).flatMap((item: any) => {
+      if (item.type !== "files") return [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (item.files ?? []).map((f: any) => ({
+        name: f.name,
+        url: f.type === "external" ? f.external?.url : f.file?.url ?? "",
+      }));
+    });
+  }
+  return [];
 }
 
 function getRelationId(p: ReturnType<typeof prop>): string | null {
   if (!p || p.type !== "relation") return null;
   return p.relation?.[0]?.id ?? null;
+}
+
+function getRelationIds(p: ReturnType<typeof prop>): string[] {
+  if (!p || p.type !== "relation") return [];
+  return (p.relation ?? []).map((r: { id: string }) => r.id);
 }
 
 function notionUrl(pageId: string): string {
@@ -105,7 +127,7 @@ function pageToScheda(page: any): Scheda {
     quantita: getNumber(prop(page, "Quantità")),
     tipologia: getText(prop(page, "Tipologia")),
     statoProduzione: getText(prop(page, "Stato")),
-    faseCorrente: getText(prop(page, "Fase corrente")),
+    faseCorrente: getText(prop(page, "Fase Corrente")),
     dataSchedaRicevuta: getDate(prop(page, "Data Scheda Ricevuta")),
     dataProduzionePrevista: getDate(prop(page, "Data Produzione Prevista")),
     pdfAllegato: getFiles(prop(page, "PDF Allegato")),
@@ -113,6 +135,7 @@ function pageToScheda(page: any): Scheda {
     statoProdEsterna: getText(prop(page, "Stato Produzione Esterna")),
     fornitore: getText(prop(page, "Nome Fornitore")),
     ordineFornitore: getText(prop(page, "Ordine Fornitore")),
+    pdfOrdineFornitore: getFiles(prop(page, "Ordine Fornitore")),
     dataRientroPrevista: getDate(prop(page, "Data Rientro Prevista")),
     dataUscitaMateriale: getDate(prop(page, "Data Uscita Materiale")),
     dataRientroEffettiva: getDate(prop(page, "Data Rientro Effettiva")),
@@ -128,20 +151,33 @@ function pageToScheda(page: any): Scheda {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function pageToRitiro(page: any): Ritiro {
+function pageToRitiro(page: any, fornitoriMap?: Map<string, string>): Ritiro {
+  const urgenzaProp = prop(page, "Urgenza");
+  const urgenza =
+    urgenzaProp?.type === "checkbox"
+      ? (urgenzaProp.checkbox ?? false)
+      : getText(urgenzaProp).toLowerCase().startsWith("s");
+  const descrizione = getText(prop(page, "Descrizione")); // title property
+  const fornitoreId = getRelationId(prop(page, "Fornitore"));
+  const fornitore = (fornitoreId && fornitoriMap?.get(fornitoreId)) ?? "";
   return {
     id: page.id,
-    causale: getText(prop(page, "Causale")),
-    numeroOrdine: getText(prop(page, "Numero d'ordine")),
-    numeroOrdineId: getRelationId(prop(page, "Numero d'ordine")),
-    descrizioneMerce: getText(prop(page, "Descrizione merce")),
+    causale: descrizione,
+    numeroOrdine: getText(prop(page, "ODP")),
+    numeroOrdineId: getRelationId(prop(page, "Scheda")),
+    descrizioneMerce: descrizione,
     dataTrasporto: getDate(prop(page, "Data Trasporto")),
     tipoMovimento: getText(prop(page, "Tipo movimento")),
     stato: getText(prop(page, "Stato")),
-    urgenza: getCheckbox(prop(page, "Urgenza")),
-    fornitore: getText(prop(page, "Fornitore")),
-    note: getText(prop(page, "Note")),
-    documentiAllegati: getFiles(prop(page, "Documenti allegati")),
+    urgenza,
+    nc: getCheckbox(prop(page, "NC")),
+    fornitore,
+    ordineFornitore: getText(prop(page, "Ordine Fornitore")),
+    note: descrizione,
+    documentiAllegati: [],
+    pdfScheda: [],
+    pdfOrdineFornitore: getFiles(prop(page, "PDF Ordine Fornitore")),
+    foto: getFiles(prop(page, "Foto")),
     notionUrl: notionUrl(page.id),
   };
 }
@@ -186,22 +222,186 @@ function pageToArea(page: any): Area {
   };
 }
 
-export async function getSchede(): Promise<Scheda[]> {
-  const pages = await queryAll(
-    DB_SCHEDE,
-    { property: "Tipologia", select: { equals: "Scheda" } },
-    [{ property: "ODP", direction: "descending" }],
-  );
-  return pages.map(pageToScheda);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function pageToCarico(page: any): Carico {
+  return {
+    id: page.id,
+    titolo: getText(prop(page, "Titolo")),
+    descrizione: getText(prop(page, "Descrizione")),
+    dataCarico: getDate(prop(page, "Data Carico")),
+    commessaId: getRelationId(prop(page, "Commessa")),
+    odpIds: getRelationIds(prop(page, "ODP")),
+    modalita: getText(prop(page, "Modalità")),
+    stato: getText(prop(page, "Stato")),
+    documenti: getFiles(prop(page, "Documenti")),
+    notionUrl: notionUrl(page.id),
+  };
 }
 
-export async function getSottoschede(): Promise<Scheda[]> {
-  const pages = await queryAll(
-    DB_SCHEDE,
-    { property: "Tipologia", select: { equals: "Sottoscheda" } },
-  );
-  return pages.map(pageToScheda);
+export async function getCarichi(): Promise<Carico[]> {
+  const pages = await queryAll(DB_CARICHI, undefined, [
+    { property: "Data Carico", direction: "ascending" },
+  ]);
+  return pages.map(pageToCarico);
 }
+
+export async function getCarichiByCommessa(commessaId: string): Promise<Carico[]> {
+  const pages = await queryAll(DB_CARICHI, {
+    property: "Commessa",
+    relation: { contains: commessaId },
+  });
+  return pages.map(pageToCarico);
+}
+
+export async function createRitiro({
+  causale,
+  tipoMovimento,
+  dataTrasporto,
+  urgenza,
+  nc,
+  schedaId,
+  fornitoreId,
+  ordineFornitore,
+}: {
+  causale: string;
+  tipoMovimento?: string;
+  dataTrasporto?: string | null;
+  urgenza?: boolean;
+  nc?: boolean;
+  schedaId?: string | null;
+  fornitoreId?: string | null;
+  ordineFornitore?: string;
+}): Promise<Ritiro> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const properties: Record<string, any> = {
+    Descrizione: { title: [{ text: { content: causale } }] },
+    Stato: { status: { name: "Da Fare" } },
+  };
+  if (dataTrasporto) properties["Data Trasporto"] = { date: { start: dataTrasporto } };
+  if (tipoMovimento) properties["Tipo movimento"] = { select: { name: tipoMovimento } };
+  if (urgenza !== undefined) properties["Urgenza"] = { select: { name: urgenza ? "Si" : "No" } };
+  if (nc !== undefined) properties["NC"] = { checkbox: nc };
+  if (schedaId) properties["Scheda"] = { relation: [{ id: schedaId }] };
+  if (fornitoreId) properties["Fornitore"] = { relation: [{ id: fornitoreId }] };
+  if (ordineFornitore) properties["Ordine Fornitore"] = { rich_text: [{ text: { content: ordineFornitore } }] };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const page = await notion.pages.create({ parent: { database_id: DB_RITIRI }, properties }) as any;
+  return pageToRitiro(page);
+}
+
+export async function createCarico({
+  titolo,
+  dataCarico,
+  commessaId,
+  odpId,
+  modalita,
+}: {
+  titolo: string;
+  dataCarico: string;
+  commessaId?: string | null;
+  odpId?: string | null;
+  modalita?: string;
+}): Promise<Carico> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const properties: Record<string, any> = {
+    Titolo: { title: [{ text: { content: titolo || "Carico" } }] },
+    "Data Carico": { date: { start: dataCarico } },
+    Stato: { status: { name: "Pianificato" } },
+  };
+  if (commessaId) properties["Commessa"] = { relation: [{ id: commessaId }] };
+  if (odpId) properties["ODP"] = { relation: [{ id: odpId }] };
+  if (modalita) properties["Modalità"] = { select: { name: modalita } };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const page = await notion.pages.create({ parent: { database_id: DB_CARICHI }, properties }) as any;
+  return pageToCarico(page);
+}
+
+export const getFornitori = unstable_cache(
+  async (): Promise<string[]> => {
+    const pages = await queryAll(DB_FORNITORI, undefined, [{ property: "Nome", direction: "ascending" }]);
+    return pages.map((p) => getText(prop(p, "Nome"))).filter(Boolean);
+  },
+  ["notion-fornitori"],
+  { revalidate: 300, tags: ["fornitori"] }
+);
+
+export const getFornitoriList = unstable_cache(
+  async (): Promise<{ id: string; nome: string }[]> => {
+    const pages = await queryAll(DB_FORNITORI, undefined, [{ property: "Nome", direction: "ascending" }]);
+    return pages.map((p) => ({ id: p.id, nome: getText(prop(p, "Nome")) })).filter((f) => f.nome);
+  },
+  ["notion-fornitori-list"],
+  { revalidate: 300, tags: ["fornitori"] }
+);
+
+const getFornitoriMap = unstable_cache(
+  async (): Promise<Map<string, string>> => {
+    const pages = await queryAll(DB_FORNITORI, undefined, [{ property: "Nome", direction: "ascending" }]);
+    const map = new Map<string, string>();
+    pages.forEach(p => map.set(p.id, getText(prop(p, "Nome"))));
+    return map;
+  },
+  ["notion-fornitori-map"],
+  { revalidate: 300, tags: ["fornitori"] }
+);
+
+export async function updateSchedaStato(pageId: string, stato: string): Promise<void> {
+  await notion.pages.update({
+    page_id: pageId,
+    properties: { Stato: { select: { name: stato } } },
+  });
+}
+
+// Ritiro → Fatto: materiale rientrato dal fornitore
+// - Stato → "In Lavorazione" (ODP torna in produzione interna)
+// - Stato Produzione Esterna → "Rientrato"
+export async function updateSchedaRientrato(pageId: string): Promise<void> {
+  await notion.pages.update({
+    page_id: pageId,
+    properties: {
+      Stato: { select: { name: "In Lavorazione" } },
+      "Stato Produzione Esterna": { select: { name: "Rientrato" } },
+    },
+  });
+}
+
+// Consegna → Fatto: materiale consegnato al fornitore, ora in lavorazione
+// - Solo Stato Produzione Esterna → "In Lavorazione" (Stato resta "In Lavorazione Esterna")
+export async function updateSchedaConsegnaFatta(pageId: string): Promise<void> {
+  await notion.pages.update({
+    page_id: pageId,
+    properties: {
+      "Stato Produzione Esterna": { select: { name: "In Lavorazione" } },
+    },
+  });
+}
+
+export const getSchede = unstable_cache(
+  async (): Promise<Scheda[]> => {
+    const pages = await queryAll(
+      DB_SCHEDE,
+      { property: "Tipologia", select: { equals: "Scheda" } },
+      [{ property: "ODP", direction: "descending" }],
+    );
+    return pages.map(pageToScheda);
+  },
+  ["notion-schede"],
+  { revalidate: 120, tags: ["schede"] }
+);
+
+export const getSottoschede = unstable_cache(
+  async (): Promise<Scheda[]> => {
+    const pages = await queryAll(
+      DB_SCHEDE,
+      { property: "Tipologia", select: { equals: "Sottoscheda" } },
+    );
+    return pages.map(pageToScheda);
+  },
+  ["notion-sottoschede"],
+  { revalidate: 120, tags: ["schede"] }
+);
 
 export async function getSchedaById(id: string): Promise<Scheda> {
   const page = await notion.pages.retrieve({ page_id: id });
@@ -236,43 +436,83 @@ export async function updateScheda(id: string, data: SchedaUpdate): Promise<Sche
   return pageToScheda(page);
 }
 
-export async function getRitiri(): Promise<Ritiro[]> {
-  const pages = await queryAll(DB_RITIRI, undefined, [
-    { property: "Data Trasporto", direction: "descending" },
+export const getRitiri = unstable_cache(
+  async (): Promise<Ritiro[]> => {
+    const [pages, fornitoriMap] = await Promise.all([
+      queryAll(DB_RITIRI, undefined, [{ property: "Data Trasporto", direction: "descending" }]),
+      getFornitoriMap(),
+    ]);
+    return pages.map(p => pageToRitiro(p, fornitoriMap));
+  },
+  ["notion-ritiri"],
+  { revalidate: 120, tags: ["ritiri"] }
+);
+
+export async function getRitiroById(id: string): Promise<Ritiro> {
+  const [page, fornitoriMap] = await Promise.all([
+    notion.pages.retrieve({ page_id: id }) as Promise<any>, // eslint-disable-line @typescript-eslint/no-explicit-any
+    getFornitoriMap(),
   ]);
-  return pages.map(pageToRitiro);
+  return pageToRitiro(page, fornitoriMap);
+}
+
+export async function getRitiriByScheda(schedaId: string): Promise<Ritiro[]> {
+  const pages = await queryAll(DB_RITIRI, {
+    property: "Scheda",
+    relation: { contains: schedaId },
+  });
+  return pages.map(p => pageToRitiro(p));
+}
+
+export async function deleteRitiro(id: string): Promise<void> {
+  await notion.pages.update({ page_id: id, archived: true });
 }
 
 export async function updateRitiro(id: string, data: RitiroUpdate): Promise<Ritiro> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const properties: Record<string, any> = {};
-  if (data.causale !== undefined)
-    properties["Causale"] = { rich_text: [{ text: { content: data.causale } }] };
-  if (data.descrizioneMerce !== undefined)
-    properties["Descrizione merce"] = { rich_text: [{ text: { content: data.descrizioneMerce } }] };
+  if (data.causale)
+    properties["Descrizione"] = { title: [{ text: { content: data.causale } }] };
+  else if (data.descrizioneMerce)
+    properties["Descrizione"] = { title: [{ text: { content: data.descrizioneMerce } }] };
   if (data.dataTrasporto !== undefined)
     properties["Data Trasporto"] = { date: data.dataTrasporto ? { start: data.dataTrasporto } : null };
   if (data.tipoMovimento !== undefined)
     properties["Tipo movimento"] = { select: data.tipoMovimento ? { name: data.tipoMovimento } : null };
-  if (data.stato !== undefined)
-    properties["Stato"] = { select: data.stato ? { name: data.stato } : null };
+  if (data.stato)
+    properties["Stato"] = { status: { name: data.stato } };
   if (data.urgenza !== undefined)
-    properties["Urgenza"] = { checkbox: data.urgenza };
-  if (data.fornitore !== undefined)
-    properties["Fornitore"] = { rich_text: [{ text: { content: data.fornitore } }] };
-  if (data.note !== undefined)
-    properties["Note"] = { rich_text: [{ text: { content: data.note } }] };
+    properties["Urgenza"] = { select: { name: data.urgenza ? "Si" : "No" } };
+  if (data.nc !== undefined)
+    properties["NC"] = { checkbox: data.nc };
+  if (data.schedaId !== undefined)
+    properties["Scheda"] = data.schedaId
+      ? { relation: [{ id: data.schedaId }] }
+      : { relation: [] };
+  if (data.fornitoreId !== undefined)
+    properties["Fornitore"] = data.fornitoreId
+      ? { relation: [{ id: data.fornitoreId }] }
+      : { relation: [] };
 
-  const page = await notion.pages.update({ page_id: id, properties });
-  return pageToRitiro(page);
-}
-
-export async function getCommesse(): Promise<Commessa[]> {
-  const pages = await queryAll(DB_COMMESSE, undefined, [
-    { property: "Numero Commessa", direction: "descending" },
+  const [, fornitoriMap] = await Promise.all([
+    notion.pages.update({ page_id: id, properties }),
+    getFornitoriMap(),
   ]);
-  return pages.map(pageToCommessa);
+  // Rilegge la pagina: la risposta del PATCH non include i rollup (PDF Scheda, ODP, ecc.)
+  const fresh = await notion.pages.retrieve({ page_id: id });
+  return pageToRitiro(fresh, fornitoriMap);
 }
+
+export const getCommesse = unstable_cache(
+  async (): Promise<Commessa[]> => {
+    const pages = await queryAll(DB_COMMESSE, undefined, [
+      { property: "Numero Commessa", direction: "descending" },
+    ]);
+    return pages.map(pageToCommessa);
+  },
+  ["notion-commesse"],
+  { revalidate: 300, tags: ["commesse"] }
+);
 
 export async function getCommessaById(id: string): Promise<Commessa> {
   const page = await notion.pages.retrieve({ page_id: id });
@@ -305,4 +545,73 @@ export async function getSchedeByCommessa(commessaId: string): Promise<Scheda[]>
     ],
   });
   return pages.map(pageToScheda);
+}
+
+const NOTION_VERSION = "2022-06-28";
+
+export async function appendFotoToPage(pageId: string, fotoBase64Array: string[]): Promise<void> {
+  if (!fotoBase64Array.length) return;
+  const token = process.env.NOTION_TOKEN!;
+  const uploadIds: { id: string; name: string }[] = [];
+
+  for (let i = 0; i < fotoBase64Array.length; i++) {
+    const base64 = fotoBase64Array[i];
+    const match = base64.match(/^data:([^;]+);base64,(.+)$/);
+    if (!match) continue;
+    const mimeType = match[1];
+    const ext = mimeType.split("/")[1]?.replace("jpeg", "jpg") ?? "jpg";
+    const fileName = `foto_${Date.now()}_${i}.${ext}`;
+    const raw = Buffer.from(match[2], "base64");
+    const arrayBuffer = raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength) as ArrayBuffer;
+
+    const createRes = await fetch("https://api.notion.com/v1/file_uploads", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Notion-Version": NOTION_VERSION, "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "single_part" }),
+    });
+    if (!createRes.ok) throw new Error(`file_upload create: ${createRes.status}`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { id: uploadId } = await createRes.json() as any;
+
+    const fd = new FormData();
+    fd.append("file", new Blob([arrayBuffer], { type: mimeType }), fileName);
+    const sendRes = await fetch(`https://api.notion.com/v1/file_uploads/${uploadId}/send`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Notion-Version": NOTION_VERSION },
+      body: fd,
+    });
+    if (!sendRes.ok) throw new Error(`file_upload send: ${sendRes.status}`);
+    uploadIds.push({ id: uploadId, name: fileName });
+  }
+
+  if (!uploadIds.length) return;
+
+  // Leggi le foto esistenti e fai append
+  const pageRes = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+    headers: { Authorization: `Bearer ${token}`, "Notion-Version": NOTION_VERSION },
+  });
+  if (!pageRes.ok) throw new Error(`get page: ${pageRes.status}`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const page = await pageRes.json() as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const existing = (page.properties?.["Foto"]?.files ?? []).map((f: any) => (
+    f.type === "external"
+      ? { type: "external", name: f.name, external: { url: f.external.url } }
+      : { type: "file", name: f.name, file: { url: f.file.url } }
+  ));
+
+  const updateRes = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${token}`, "Notion-Version": NOTION_VERSION, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      properties: {
+        Foto: { files: [...existing, ...uploadIds.map(u => ({ type: "file_upload", name: u.name, file_upload: { id: u.id } }))] },
+      },
+    }),
+  });
+  if (!updateRes.ok) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const err = await updateRes.json().catch(() => ({})) as any;
+    throw new Error(err.message ?? `update page: ${updateRes.status}`);
+  }
 }
