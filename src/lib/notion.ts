@@ -151,7 +151,7 @@ function pageToScheda(page: any): Scheda {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function pageToRitiro(page: any, fornitoriMap?: Map<string, string>): Ritiro {
+function pageToRitiro(page: any, fornitoriMap?: Record<string, string>): Ritiro {
   const urgenzaProp = prop(page, "Urgenza");
   const urgenza =
     urgenzaProp?.type === "checkbox"
@@ -159,7 +159,7 @@ function pageToRitiro(page: any, fornitoriMap?: Map<string, string>): Ritiro {
       : getText(urgenzaProp).toLowerCase().startsWith("s");
   const descrizione = getText(prop(page, "Descrizione")); // title property
   const fornitoreId = getRelationId(prop(page, "Fornitore"));
-  const fornitore = (fornitoreId && fornitoriMap?.get(fornitoreId)) ?? "";
+  const fornitore = (fornitoreId && fornitoriMap?.[fornitoreId]) ?? "";
   return {
     id: page.id,
     causale: descrizione,
@@ -337,10 +337,10 @@ export const getFornitoriList = unstable_cache(
 );
 
 const getFornitoriMap = unstable_cache(
-  async (): Promise<Map<string, string>> => {
+  async (): Promise<Record<string, string>> => {
     const pages = await queryAll(DB_FORNITORI, undefined, [{ property: "Nome", direction: "ascending" }]);
-    const map = new Map<string, string>();
-    pages.forEach(p => map.set(p.id, getText(prop(p, "Nome"))));
+    const map: Record<string, string> = {};
+    pages.forEach(p => { map[p.id] = getText(prop(p, "Nome")); });
     return map;
   },
   ["notion-fornitori-map"],
