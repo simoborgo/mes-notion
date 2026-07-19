@@ -690,7 +690,7 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
   // ── RENDER ────────────────────────────────────────────────────────────────
   if (view === "lista") {
     return (
-      <div style={{ padding: "24px 20px", maxWidth: 700, margin: "0 auto" }}>
+      <div style={{ padding: "24px 20px" }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 24, color: "#1A1918", fontFamily: "var(--font-display, Georgia, serif)" }}>
           Spedizione Merci
         </h1>
