@@ -1,4 +1,4 @@
-import { getSession } from "@/lib/auth";
+import { getSession, SPEDIZIONI_ROLES } from "@/lib/auth";
 import { getSchede, getSottoschede } from "@/lib/notion";
 import { redirect } from "next/navigation";
 import SpedizioneVerifica from "@/components/SpedizioneVerifica";
@@ -9,6 +9,7 @@ export const metadata = { title: "Spedizione Merci — MES Modar" };
 export default async function SpedizioniPage() {
   const session = await getSession();
   if (!session) redirect("/login");
+  if (!SPEDIZIONI_ROLES.includes(session.role)) redirect("/");
 
   const [schede, sottoschede] = await Promise.all([getSchede(), getSottoschede()]);
 

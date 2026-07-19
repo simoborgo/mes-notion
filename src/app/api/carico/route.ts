@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createRitiro, updateSchedaStato, getFornitoriList, appendFotoToPage } from "@/lib/notion";
-import { getSessionFromRequest } from "@/lib/auth";
+import { getSessionFromRequest, CARICO_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
 const DESTINAZIONI = new Set(["Magazzino interno", "Fornitore esterno"]);
@@ -13,6 +13,9 @@ const STATO_PER_DESTINAZIONE: Record<string, string> = {
 
 export async function POST(req: NextRequest) {
   const session = await getSessionFromRequest(req);
+  if (!session || !CARICO_ROLES.includes(session.role)) {
+    return NextResponse.json({ error: "Non autorizzato" }, { status: 403 });
+  }
   let body: Record<string, unknown>;
   try {
     body = await req.json();

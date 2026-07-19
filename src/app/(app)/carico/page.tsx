@@ -1,9 +1,15 @@
 import { getSchede, getSottoschede, getFornitori } from "@/lib/notion";
 import FormCaricoMagazzino from "@/components/FormCaricoMagazzino";
+import { getSession, CARICO_ROLES } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function CaricoMagazzinoPage() {
+  const session = await getSession();
+  if (!session) redirect("/login");
+  if (!CARICO_ROLES.includes(session.role)) redirect("/");
+
   const [schede, sottoschede, fornitori] = await Promise.all([getSchede(), getSottoschede(), getFornitori()]);
   return (
     <div className="max-w-2xl mx-auto py-6 px-4 space-y-6">

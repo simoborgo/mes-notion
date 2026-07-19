@@ -34,10 +34,15 @@ function NavTab({
   );
 }
 
+const ALL_ROLES = ["admin", "operatore", "logistica", "spedizioni", "produzione"];
+const CARICO_ROLES = ["admin", "produzione"];
+const SPEDIZIONI_ROLES = ["admin", "spedizioni"];
+
 const links = [
   {
     href: "/commesse",
     label: "Commesse",
+    roles: ALL_ROLES,
     icon: (
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
@@ -47,6 +52,7 @@ const links = [
   {
     href: "/schede",
     label: "Schede di Produzione (ODP)",
+    roles: ALL_ROLES,
     icon: (
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="3" width="18" height="18" rx="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="9" y1="21" x2="9" y2="9" />
@@ -56,6 +62,7 @@ const links = [
   {
     href: "/ritiri",
     label: "Ritiri e Consegne",
+    roles: ALL_ROLES,
     icon: (
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v3" /><rect x="9" y="11" width="14" height="10" rx="2" /><circle cx="12" cy="16" r="1" /><circle cx="20" cy="16" r="1" />
@@ -65,6 +72,7 @@ const links = [
   {
     href: "/carico",
     label: "Carico Magazzino",
+    roles: CARICO_ROLES,
     icon: (
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -76,6 +84,7 @@ const links = [
   {
     href: "/spedizioni",
     label: "Spedizione Merci",
+    roles: SPEDIZIONI_ROLES,
     icon: (
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="1" y="3" width="15" height="13" rx="1"/>
@@ -102,6 +111,7 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
   }
 
   const isAdmin = userRole === "admin";
+  const visibleLinks = links.filter(l => !userRole || l.roles.includes(userRole));
 
   return (
     <header className="sticky top-0 z-50 border-b" style={{ background: "var(--color-black)", borderColor: "#2a2724" }}>
@@ -124,7 +134,7 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
 
         {/* Tab nav — solo desktop */}
         <nav className="hidden md:flex items-stretch flex-1 self-stretch">
-          {links.map(({ href, label, icon }) => (
+          {visibleLinks.map(({ href, label, icon }) => (
             <NavTab key={href} href={href} active={pathname === href || pathname.startsWith(href + "/")} icon={icon}>
               {label}
             </NavTab>
@@ -182,7 +192,7 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
       {/* Menu mobile a tendina */}
       {menuOpen && (
         <div className="md:hidden border-t" style={{ background: "var(--color-black)", borderColor: "#2a2724" }}>
-          {links.map(({ href, label, icon }) => (
+          {visibleLinks.map(({ href, label, icon }) => (
             <NavTab key={href} href={href} active={pathname === href || pathname.startsWith(href + "/")} icon={icon} onClick={() => setMenuOpen(false)}>
               {label}
             </NavTab>

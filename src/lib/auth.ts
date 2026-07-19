@@ -4,7 +4,9 @@ import { NextRequest } from "next/server";
 
 export type Role = "admin" | "operatore" | "logistica" | "spedizioni" | "produzione";
 
-export const WRITE_ROLES: Role[] = ["admin", "operatore", "logistica"];
+export const WRITE_ROLES: Role[] = ["admin", "logistica"];
+export const CARICO_ROLES: Role[] = ["admin", "produzione"];
+export const SPEDIZIONI_ROLES: Role[] = ["admin", "spedizioni"];
 
 export interface Session {
   username: string;
