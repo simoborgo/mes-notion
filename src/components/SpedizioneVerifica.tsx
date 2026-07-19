@@ -723,11 +723,9 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
                         </td>
                         <td style={{ padding: "9px 14px" }}>
                           {isCompletato ? (
-                            <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 3, fontWeight: 600, background: "#DCFCE7", color: "#15803D" }}>Completato</span>
+                            <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 3, fontWeight: 600, background: "#DCFCE7", color: "#15803D" }}>Verificato</span>
                           ) : isInVerifica ? (
                             <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 3, fontWeight: 600, background: "#FEE2E2", color: "#DC2626" }}>In verifica</span>
-                          ) : parent.statoProdEsterna ? (
-                            <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 3, fontWeight: 500, background: "#FEF3C7", color: "#92400E" }}>{parent.statoProdEsterna}</span>
                           ) : (
                             <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 3, background: "#F0FDF4", color: "#166534" }}>{parent.statoProduzione}</span>
                           )}
@@ -775,7 +773,7 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
                             </td>
                             <td style={{ padding: "7px 14px" }}>
                               {cCompletato ? (
-                                <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, fontWeight: 600, background: "#DCFCE7", color: "#15803D" }}>Completato</span>
+                                <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, fontWeight: 600, background: "#DCFCE7", color: "#15803D" }}>Verificato</span>
                               ) : cInVerifica ? (
                                 <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, fontWeight: 600, background: "#FEE2E2", color: "#DC2626" }}>In verifica</span>
                               ) : (
