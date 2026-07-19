@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback, useMemo, Fragment } from "react";
+import { useRouter } from "next/navigation";
 
 // ── Tipi ─────────────────────────────────────────────────────────────────────
 
@@ -65,14 +66,17 @@ function formatTime(iso: string) {
 
 // ── Componente ────────────────────────────────────────────────────────────────
 
-interface OdpEntry { id: string; odp: string; label: string; isChild: boolean; parentId: string | null; clienteInfo: string; tipologia: string; statoProdEsterna: string; statoProduzione: string; commessaNr: string }
+interface OdpEntry { id: string; odp: string; label: string; isChild: boolean; parentId: string | null; clienteInfo: string; tipologia: string; statoProdEsterna: string; statoProduzione: string; commessaNr: string; hasPdfAllegato: boolean }
 
 export default function SpedizioneVerifica({ userName, userRole, odpList: initialOdpList = [] }: { userName: string; userRole?: string; odpList?: OdpEntry[] }) {
+  const router = useRouter();
+
   // ── Vista ─────────────────────────────────────────────────────────────────
   const [view, setView] = useState<"lista" | "annotatore">("lista");
 
   // ── Lista verifiche ───────────────────────────────────────────────────────
   const [lista, setLista] = useState<ListItem[]>([]);
+  const [verificate, setVerificate] = useState<{ notion_page_id: string }[]>([]);
   const [odpList] = useState<OdpEntry[]>(initialOdpList);
   const [filtroCommessa, setFiltroCommessa] = useState("");
   const [searchOdp, setSearchOdp] = useState("");
@@ -84,6 +88,7 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
   const [deletingScheda, setDeletingScheda] = useState<string | null>(null);
 
   const inVerificaSet = useMemo(() => new Set(lista.map(l => l.notion_page_id)), [lista]);
+  const verificateSet = useMemo(() => new Set(verificate.map(v => v.notion_page_id)), [verificate]);
 
   const childrenByParent = useMemo(() => {
     const map = new Map<string, OdpEntry[]>();
@@ -114,7 +119,7 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
   const [showFinalModal, setShowFinalModal] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [finalError, setFinalError] = useState<string | null>(null);
-  const [finalDriveUrl, setFinalDriveUrl] = useState<string | null>(null);
+  const [finalizeResult, setFinalizeResult] = useState<{ driveUrl: string; fotoCount: number; notionError?: string } | null>(null);
 
   // ── Refs ──────────────────────────────────────────────────────────────────
   const pdfCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -148,7 +153,11 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
   const fetchLista = useCallback(async () => {
     try {
       const r = await fetch("/api/verifiche");
-      if (r.ok) { const d = await r.json(); setLista(d.list ?? []); }
+      if (r.ok) {
+        const d = await r.json();
+        setLista(d.inVerifica ?? []);
+        setVerificate(d.verificate ?? []);
+      }
     } catch { /* ignore */ }
   }, []);
 
@@ -516,7 +525,7 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
     setSchedaOdp("");
     setStrokes({}); setStamps({}); setFotos([]); setFotoThumb([]);
     setCurrentPage(1); setTotalPages(0); setZoomFactor(1);
-    setFinalDriveUrl(null); setFinalError(null);
+    setFinalizeResult(null); setFinalError(null);
     setView("lista");
   }
 
@@ -580,111 +589,24 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
   }
 
   // ── Finalizzazione ────────────────────────────────────────────────────────
+  // Il PDF viene costruito server-side: include tutte le foto da Drive (anche
+  // sessioni precedenti) + annotazioni da PostgreSQL + PDF originale da Notion.
   async function finalizza() {
     setFinalizing(true);
     setFinalError(null);
 
     try {
-      const { PDFDocument, rgb, StandardFonts } = await import("pdf-lib");
-
-      if (!originalBytesRef.current) throw new Error("PDF originale non caricato");
-      const pdfDocLib = await PDFDocument.load(originalBytesRef.current);
-      const pages = pdfDocLib.getPages();
-      const helveticaBold = await pdfDocLib.embedFont(StandardFonts.HelveticaBold);
-      const helvetica = await pdfDocLib.embedFont(StandardFonts.Helvetica);
-
-      // Applica tratti e bolli a ogni pagina
-      for (const [pageNumStr, pageStrokes] of Object.entries(strokes)) {
-        const pageNum = parseInt(pageNumStr, 10);
-        if (pageNum < 1 || pageNum > pages.length) continue;
-        const page = pages[pageNum - 1];
-        const { width, height } = page.getSize();
-
-        for (const stroke of pageStrokes) {
-          if (stroke.length < 2) continue;
-          const lw = Math.max(10, width * 0.014);
-          for (let i = 1; i < stroke.length; i++) {
-            page.drawLine({
-              start: { x: stroke[i - 1].x * width, y: height - stroke[i - 1].y * height },
-              end: { x: stroke[i].x * width, y: height - stroke[i].y * height },
-              thickness: lw,
-              color: rgb(1, 0.88, 0.4),
-              opacity: 0.55,
-            });
-          }
-        }
-      }
-
-      for (const [pageNumStr, pageStamps] of Object.entries(stamps)) {
-        const pageNum = parseInt(pageNumStr, 10);
-        if (pageNum < 1 || pageNum > pages.length) continue;
-        const page = pages[pageNum - 1];
-        const { width, height } = page.getSize();
-        const r = Math.max(18, width * 0.028);
-
-        for (const s of pageStamps) {
-          const cx = s.x * width;
-          const cy = height - s.y * height;
-          const isOk = s.tipo === "ok";
-          page.drawEllipse({
-            x: cx, y: cy, xScale: r, yScale: r,
-            color: isOk ? rgb(0.18, 0.545, 0.31) : rgb(0.8, 0.2, 0.2),
-            opacity: 0.92,
-            borderColor: rgb(1, 1, 1), borderWidth: 2,
-          });
-          const label = isOk ? "OK" : "!";
-          const fs = Math.round(r * 0.7);
-          const tw = helveticaBold.widthOfTextAtSize(label, fs);
-          page.drawText(label, {
-            x: cx - tw / 2, y: cy - fs * 0.35,
-            size: fs, font: helveticaBold, color: rgb(1, 1, 1),
-          });
-        }
-      }
-
-      // Firma operatore sull'ultima pagina
-      const lastPage = pages[pages.length - 1];
-      const { width: lw2, height: lh2 } = lastPage.getSize();
-      const now = new Date().toLocaleString("it-IT");
-      const firma = `Verificato da: ${userName} — ${now}`;
-      lastPage.drawRectangle({ x: 20, y: 10, width: lw2 - 40, height: 20, color: rgb(0.95, 0.95, 0.95), opacity: 0.8 });
-      lastPage.drawText(firma, { x: 24, y: 15, size: 8, font: helvetica, color: rgb(0.3, 0.3, 0.3) });
-
-      // Pagine foto
-      for (let i = 0; i < fotoThumb.length; i++) {
-        // foto già caricate su Drive ma il thumb è ancora in mem
-        const dataUrl = fotoThumb[i]?.dataUrl;
-        if (!dataUrl) continue;
-        const jpegRes = await fetch(dataUrl);
-        const jpegBytes = new Uint8Array(await jpegRes.arrayBuffer());
-        const img = await pdfDocLib.embedJpg(jpegBytes);
-        const pg = pdfDocLib.addPage([595, 842]);
-        const margin = 40;
-        const maxW = 595 - margin * 2;
-        const maxH = 842 - margin * 2 - 20;
-        const scale = Math.min(maxW / img.width, maxH / img.height);
-        const iw = img.width * scale;
-        const ih = img.height * scale;
-        pg.drawText(`Foto ${i + 1} — ${schedaOdp || schedaPageId}`, { x: margin, y: 842 - margin - 14, size: 10, font: helvetica, color: rgb(0.3, 0.3, 0.3) });
-        pg.drawImage(img, { x: margin, y: (842 - margin - ih) / 2, width: iw, height: ih });
-      }
-
-      const pdfBytes = await pdfDocLib.save();
-      const pdfCopy = new Uint8Array(pdfBytes.length);
-      pdfCopy.set(pdfBytes);
-      const pdfBlob = new Blob([pdfCopy], { type: "application/pdf" });
-
-      const fd = new FormData();
-      fd.append("pdf", pdfBlob, `verifica-${schedaOdp || schedaPageId}.pdf`);
-
-      const r = await fetch(`/api/verifiche/${schedaPageId}/finalize`, { method: "POST", body: fd });
-      const d = await r.json();
+      const r = await fetch(`/api/verifiche/${schedaPageId}/finalize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ schedaOdp: schedaOdp || schedaPageId }),
+      });
+      const d = await r.json() as { ok: boolean; error?: string; driveUrl?: string; notionError?: string; fotoCount?: number };
       if (!r.ok) throw new Error(d.error ?? "Errore finalizzazione");
 
-      setFinalDriveUrl(d.driveUrl ?? null);
       setFinalizedIds(prev => { const n = new Set(prev); n.add(schedaPageId); return n; });
+      setFinalizeResult({ driveUrl: d.driveUrl ?? "", fotoCount: d.fotoCount ?? 0, notionError: d.notionError });
       setShowFinalModal(false);
-      setTimeout(() => chiudiScheda(), 2500);
     } catch (err) {
       setFinalError((err as Error).message);
     } finally {
@@ -758,7 +680,7 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
               <tbody>
                 {(() => {
                   const matchParent = (e: OdpEntry) => {
-                    if (soloMaterialePronto && e.statoProduzione !== "Materiale Pronto" && !finalizedIds.has(e.id) && e.statoProduzione !== "Completato") return false;
+                    if (soloMaterialePronto && e.statoProduzione !== "Materiale Pronto" && !finalizedIds.has(e.id) && !verificateSet.has(e.id)) return false;
                     if (filtroCommessa && e.commessaNr !== filtroCommessa) return false;
                     if (searchOdp && !`${e.odp} ${e.label} ${e.clienteInfo}`.toUpperCase().includes(searchOdp)) return false;
                     return true;
@@ -769,7 +691,7 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
                     const children = childrenByParent.get(parent.id) ?? [];
                     const expanded = expandedParents.has(parent.id);
                     const isInVerifica = inVerificaSet.has(parent.id);
-                    const isCompletato = finalizedIds.has(parent.id) || parent.statoProduzione === "Completato";
+                    const isCompletato = finalizedIds.has(parent.id) || verificateSet.has(parent.id);
 
                     const rowBg = isInVerifica ? "#FFF0F0" : isCompletato ? "#F0FDF4" : "white";
                     const hoverBg = isInVerifica ? "#FFE4E4" : isCompletato ? "#DCFCE7" : "#FFF7ED";
@@ -815,6 +737,8 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
                             <span style={{ fontSize: 12, color: "#15803D", fontWeight: 600 }}>✓ Verificato</span>
                           ) : isInVerifica ? (
                             <span style={{ fontSize: 12, color: "#DC2626", fontWeight: 500 }}>In verifica</span>
+                          ) : !parent.hasPdfAllegato ? (
+                            <span style={{ fontSize: 11, color: "#9CA3AF", fontStyle: "italic" }}>NO SCHEDA</span>
                           ) : (
                             <button onClick={() => apriScheda(parent.id, parent.odp)} disabled={loadingLock}
                               style={{ padding: "5px 14px", borderRadius: 4, background: "#F08F25", color: "white", fontWeight: 600, fontSize: 12, border: "none", cursor: "pointer", opacity: loadingLock ? 0.6 : 1 }}>
@@ -828,7 +752,7 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
                     if (expanded) {
                       for (const child of children) {
                         const cInVerifica = inVerificaSet.has(child.id);
-                        const cCompletato = finalizedIds.has(child.id) || child.statoProduzione === "Completato";
+                        const cCompletato = finalizedIds.has(child.id) || verificateSet.has(child.id);
                         const cBg = cInVerifica ? "#FFF5F5" : cCompletato ? "#F7FEF9" : "#FAFAF9";
                         rows.push(
                           <tr key={child.id} style={{ borderBottom: "1px solid #F0EDE8", background: cBg }}
@@ -863,6 +787,8 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
                                 <span style={{ fontSize: 11, color: "#15803D", fontWeight: 600 }}>✓</span>
                               ) : cInVerifica ? (
                                 <span style={{ fontSize: 11, color: "#DC2626" }}>In verifica</span>
+                              ) : !child.hasPdfAllegato ? (
+                                <span style={{ fontSize: 10, color: "#9CA3AF", fontStyle: "italic" }}>NO SCHEDA</span>
                               ) : (
                                 <button onClick={() => apriScheda(child.id, child.odp)} disabled={loadingLock}
                                   style={{ padding: "4px 12px", borderRadius: 4, background: "#F08F25", color: "white", fontWeight: 600, fontSize: 11, border: "none", cursor: "pointer", opacity: loadingLock ? 0.6 : 1 }}>
@@ -934,6 +860,57 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
   }
 
   // ── VISTA ANNOTATORE ──────────────────────────────────────────────────────
+
+  // Schermata di conferma post-finalizzazione (stile Carico Magazzino)
+  if (finalizeResult) {
+    return (
+      <div className="flex flex-col items-center gap-6 py-16 text-center" style={{ padding: "64px 24px" }}>
+        <div
+          className="flex items-center justify-center rounded-full"
+          style={{ width: 96, height: 96, background: "#D1FAE5" }}
+        >
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#065F46" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </div>
+        <div style={{ width: "100%", maxWidth: 420 }} className="space-y-4">
+          <div className="text-center">
+            <p className="text-2xl font-bold" style={{ color: "#065F46", fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Verifica completata</p>
+            <p style={{ color: "var(--color-black, #1A1918)", fontSize: 15, marginBottom: 4 }}>
+              ODP <strong>{schedaOdp || schedaPageId}</strong> — {finalizeResult.fotoCount} foto incluse nel PDF
+            </p>
+            <p style={{ color: "#6B7280", fontSize: 13 }}>Verificato da {userName}</p>
+          </div>
+
+          {finalizeResult.notionError && (
+            <div className="rounded-lg px-4 py-3 text-left" style={{ background: "#FFFBEB", border: "1px solid #FCD34D", borderRadius: 8, padding: "12px 16px" }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: "#92400E", marginBottom: 4 }}>⚠ PDF salvato su Drive, ma Notion non è stato aggiornato:</p>
+              <p style={{ fontSize: 12, color: "#92400E" }}>{finalizeResult.notionError}</p>
+            </div>
+          )}
+
+          {finalizeResult.driveUrl && (
+            <a
+              href={finalizeResult.driveUrl}
+              target="_blank"
+              rel="noreferrer"
+              style={{ display: "block", padding: "12px 0", borderRadius: 12, background: "#F0FDF4", border: "1px solid #BBF7D0", color: "#065F46", fontWeight: 600, fontSize: 14, textDecoration: "none", textAlign: "center" }}
+            >
+              Apri PDF su Drive →
+            </a>
+          )}
+
+          <button
+            onClick={() => { setFinalizeResult(null); chiudiScheda(); router.refresh(); }}
+            style={{ width: "100%", padding: "16px 0", borderRadius: 12, background: "var(--color-primary, #F08F25)", color: "white", fontWeight: 700, fontSize: 15, border: "none", cursor: "pointer" }}
+          >
+            Torna all&apos;elenco
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 64px)", overflow: "hidden", background: "#F5F2EE" }}>
 
@@ -944,22 +921,13 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
         </button>
         <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 15, color: "#1A1918" }}>{schedaOdp || schedaPageId}</span>
         <span style={{ fontSize: 12, color: "#A4A4A6", flex: 1 }}>{userName}</span>
-        {finalDriveUrl ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 13, color: "#2E8B4F", fontWeight: 700 }}>✅ Completato! Ritorno alla lista…</span>
-            <a href={finalDriveUrl} target="_blank" rel="noreferrer" style={{ padding: "6px 14px", borderRadius: 4, background: "#2E8B4F", color: "white", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
-              Apri PDF
-            </a>
-          </div>
-        ) : (
-          <button
-            onClick={() => setShowFinalModal(true)}
-            disabled={totalPages === 0}
-            style={{ padding: "6px 16px", borderRadius: 4, background: "#F08F25", color: "white", fontWeight: 700, fontSize: 13, border: "none", cursor: "pointer", opacity: totalPages === 0 ? 0.5 : 1 }}
-          >
-            Finalizza
-          </button>
-        )}
+        <button
+          onClick={() => setShowFinalModal(true)}
+          disabled={totalPages === 0}
+          style={{ padding: "6px 16px", borderRadius: 4, background: "#F08F25", color: "white", fontWeight: 700, fontSize: 13, border: "none", cursor: "pointer", opacity: totalPages === 0 ? 0.5 : 1 }}
+        >
+          Finalizza
+        </button>
       </div>
 
       {/* Toolbar */}

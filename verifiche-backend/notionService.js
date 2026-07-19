@@ -50,9 +50,9 @@ async function uploadFileToNotion(buffer, filename, contentType) {
 async function aggiornaStatoOdp(pageId, { pdfBuffer, pdfFilename } = {}) {
   if (!pageId) return;
 
-  // Imposta Stato → Completato (tipo status)
+  // Imposta Stato → Completato (tipo select, non status)
   const properties = {
-    [STATO_PROPERTY_NAME]: { status: { name: 'Completato' } },
+    [STATO_PROPERTY_NAME]: { select: { name: 'Completato' } },
   };
 
   // Carica il PDF come file nella property "PDF Scheda Verificata"

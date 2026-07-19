@@ -27,6 +27,7 @@ export default async function SpedizioniPage() {
         statoProdEsterna: s.statoProdEsterna,
         statoProduzione: s.statoProduzione,
         commessaNr: s.commessaNr,
+        hasPdfAllegato: s.pdfAllegato.length > 0,
       }));
 
   const odpList: OdpEntry[] = [

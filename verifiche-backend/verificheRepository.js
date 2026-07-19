@@ -129,6 +129,16 @@ async function listInSospeso() {
   return rows;
 }
 
+async function listVerificate() {
+  const { rows } = await pool.query(
+    `SELECT notion_page_id, scheda_numero, operatore, foto_count, pdf_drive_url, updated_at
+     FROM verifiche_spedizione
+     WHERE stato = 'verificato'
+     ORDER BY updated_at DESC`
+  );
+  return rows;
+}
+
 // ── Foto ─────────────────────────────────────────────────────────────────────
 async function addFoto({ notionPageId, schedaNumero, driveId, driveUrl, operatore }) {
   const { rows } = await pool.query(
@@ -219,6 +229,7 @@ module.exports = {
   findByNotionPageId,
   findBySchedaNumero,
   listInSospeso,
+  listVerificate,
   addFoto,
   removeFoto,
   listFoto,

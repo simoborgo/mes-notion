@@ -12,6 +12,7 @@ interface NotionPage {
     "Stato Produzione Esterna"?: { select: { name: string } | null };
     "Stato"?: { status: { name: string } | null };
     "Commessa Nr"?: { rollup: { array: Array<{ title: Array<{ plain_text: string }> }> } | null };
+    "PDF Allegato"?: { files: Array<{ type: string }> };
   };
 }
 
@@ -26,6 +27,7 @@ export interface OdpEntry {
   statoProdEsterna: string;
   statoProduzione: string;
   commessaNr: string;
+  hasPdfAllegato: boolean;
 }
 
 export async function GET(req: NextRequest) {
@@ -77,8 +79,9 @@ export async function GET(req: NextRequest) {
         const statoProdEsterna = page.properties["Stato Produzione Esterna"]?.select?.name ?? "";
         const statoProduzione = page.properties["Stato"]?.status?.name ?? "";
         const commessaNr = page.properties["Commessa Nr"]?.rollup?.array?.[0]?.title?.[0]?.plain_text ?? "";
+        const hasPdfAllegato = (page.properties["PDF Allegato"]?.files?.length ?? 0) > 0;
 
-        entries.push({ id: page.id, odp: odp.toUpperCase(), label: numero, isChild, parentId, clienteInfo, tipologia, statoProdEsterna, statoProduzione, commessaNr });
+        entries.push({ id: page.id, odp: odp.toUpperCase(), label: numero, isChild, parentId, clienteInfo, tipologia, statoProdEsterna, statoProduzione, commessaNr, hasPdfAllegato });
       }
 
       cursor = data.has_more && data.next_cursor ? data.next_cursor : undefined;
