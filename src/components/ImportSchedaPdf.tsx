@@ -35,20 +35,20 @@ async function getPdfjsLib() {
   return pdfjsLib;
 }
 
-async function extractPdfData(file: File): Promise<{ text: string; thumbnailBase64: string }> {
+async function extractPdfData(file: File): Promise<{ pageTexts: string[]; thumbnailBase64: string }> {
   const pdfjs = await getPdfjsLib();
   const buf = await file.arrayBuffer();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pdf = await pdfjs.getDocument({ data: new Uint8Array(buf) }).promise as any;
 
-  const textParts: string[] = [];
+  const pageTexts: string[] = [];
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const content = await page.getTextContent() as any;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const pageText = content.items.map((it: any) => it.str).join(" ");
-    textParts.push(pageText);
+    pageTexts.push(pageText);
   }
 
   // Render first page as thumbnail
@@ -65,7 +65,7 @@ async function extractPdfData(file: File): Promise<{ text: string; thumbnailBase
   await page1.render({ canvasContext: ctx, viewport: vp }).promise;
   const thumbnailBase64 = canvas.toDataURL("image/jpeg", 0.92);
 
-  return { text: textParts.join("\n\n"), thumbnailBase64 };
+  return { pageTexts, thumbnailBase64 };
 }
 
 function fieldRow(
@@ -126,7 +126,7 @@ export default function ImportSchedaPdf() {
       setPdfBase64(base64);
 
       // Extract text + thumbnail via pdfjs
-      const { text, thumbnailBase64: thumb } = await extractPdfData(file);
+      const { pageTexts, thumbnailBase64: thumb } = await extractPdfData(file);
       setThumbnailBase64(thumb);
 
       setStatus("parsing");
@@ -135,7 +135,7 @@ export default function ImportSchedaPdf() {
       const res = await fetch("/api/admin/import-scheda/parse", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pdfText: text }),
+        body: JSON.stringify({ pageTexts }),
       });
       const data = (await res.json()) as { ok: boolean; items?: ParsedItem[]; error?: string };
       if (!res.ok || !data.ok) throw new Error(data.error ?? "Errore parsing");

@@ -12,40 +12,47 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "ANTHROPIC_API_KEY non configurata" }, { status: 500 });
   }
 
-  const { pdfText } = (await req.json()) as { pdfText: string };
-  if (!pdfText?.trim()) {
+  const body = (await req.json()) as { pageTexts?: string[]; pdfText?: string };
+  const pageTexts: string[] = body.pageTexts ?? (body.pdfText ? [body.pdfText] : []);
+
+  if (!pageTexts.length || !pageTexts.some((t) => t.trim())) {
     return NextResponse.json({ ok: false, error: "Testo PDF mancante" }, { status: 400 });
   }
 
-  const prompt = `Sei un assistente per l'estrazione di metadati da schede di produzione tecniche in formato PDF.
+  // Build page sections (first 1500 chars per page is plenty for header data)
+  const pageSections = pageTexts
+    .map((t, i) => `[PAGINA ${i + 1}]\n${t.slice(0, 1500).trim()}`)
+    .join("\n\n---\n\n");
 
-TESTO PDF:
-${pdfText.slice(0, 8000)}
+  const prompt = `Sei un assistente per l'estrazione di metadati da schede di produzione tecniche in PDF.
 
-Estrai i dati e restituisci SOLO un JSON valido con questa struttura (nessun testo, nessun markdown):
+Il PDF ha ${pageTexts.length} pagina/e. Di seguito il testo estratto da ciascuna:
+
+${pageSections}
+
+COMPITO: estrai UN SOLO ITEM PER PAGINA PDF e restituisci SOLO un JSON valido:
 {
   "items": [
     {
-      "numeroScheda": "stringa: POSIZIONE + ' - ' + DESCRIZIONE principale (es: '01 - CORNICI VIP')",
-      "commessaNr": "stringa: SOLO la parte numerica del campo COMMESSA NR o simile. Esempio: da 'GGCT-25306-HXBP' estrai '25306'. NON mettere qui il codice articolo.",
-      "termineDiConsegna": "YYYY-MM-DD oppure null — dal campo TERMINE DI CONSEGNA o DATA CONSEGNA",
-      "dataOrdine": "YYYY-MM-DD oppure null — dal campo DATA ORDINE",
-      "codiceArticolo": "stringa: il CODICE ARTICOLO o CODICE PEZZO specifico dell'articolo (es: 'GGCT-VIP-001'). NON mettere qui il numero commessa. null se assente.",
-      "posizione": "stringa: il numero di POSIZIONE (es: '01') oppure null",
-      "fornitore": "stringa: nome del FORNITORE oppure null",
-      "quantita": "numero intero oppure null",
-      "otherFields": { "NOME_CAMPO": "valore stringa" }
+      "numeroScheda": "POSIZIONE + ' - ' + DESCRIZIONE PRINCIPALE della pagina (es: '01 - CORNICI VIP')",
+      "commessaNr": "SOLO la parte numerica della commessa (es: '25306' da 'GGCT-25306-HXBP')",
+      "termineDiConsegna": "YYYY-MM-DD oppure null",
+      "dataOrdine": "YYYY-MM-DD oppure null",
+      "codiceArticolo": "codice articolo/pezzo specifico oppure null. NON mettere il numero commessa.",
+      "posizione": "numero di posizione oppure null",
+      "fornitore": "nome fornitore principale della pagina oppure null",
+      "quantita": numero intero oppure null,
+      "otherFields": { "CAMPO": "valore stringa" }
     }
   ]
 }
 
 REGOLE CRITICHE:
-- "commessaNr": è SOLO il numero numerico della commessa (es: "25306"). Non è il codice articolo. Non è l'ODP (l'ODP viene generato automaticamente dal sistema, NON è nel PDF).
-- "codiceArticolo": è il codice specifico dell'articolo/pezzo, distinto dalla commessa. null se non trovato esplicitamente.
-- "numeroScheda": concatena POSIZIONE + ' - ' + DESCRIZIONE. Se manca la posizione usa solo la descrizione.
-- Se più righe hanno FORNITORE diverso: crea un item per ciascuna (il primo è il parent, gli altri le sottoschede).
-- Date in formato ISO YYYY-MM-DD; null se assenti o non leggibili.
-- "otherFields": tutti gli altri campi (FINITURA, MATERIALE, NOTE, DESCRIZIONE MACCHINA, ecc.) come stringhe piatte. Nessun oggetto annidato.
+- UN ITEM PER PAGINA PDF — non estrarre singole righe della distinta/BOM come item separati.
+- "commessaNr" è solo il numero numerico (es: "25306"). Non confonderlo con codiceArticolo.
+- "codiceArticolo" è il codice specifico dell'articolo, non la commessa. null se non trovato.
+- La lista componenti/distinta base della pagina va in otherFields come testo, non come item separati.
+- otherFields: solo valori stringa semplici, nessun oggetto annidato.
 - Restituisci SOLO il JSON grezzo senza \`\`\`json o altro testo.`;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -57,7 +64,7 @@ REGOLE CRITICHE:
     },
     body: JSON.stringify({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 4096,
+      max_tokens: 8192,
       messages: [{ role: "user", content: prompt }],
     }),
   });
