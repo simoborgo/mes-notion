@@ -81,35 +81,41 @@ export async function POST(req: NextRequest) {
 
   const warnings: string[] = [];
 
-  // 2. Chiama n8n e aspetta la conferma (Drive upload + Telegram)
+  // 2. Chiama n8n con payload minimale — solo notifica Telegram
   const webhookUrl = process.env.N8N_WEBHOOK_CARICO_PROD ?? process.env.N8N_WEBHOOK_CARICO;
   if (webhookUrl) {
+    const destLabel = dest === "Fornitore esterno" && ritiro_fornitore
+      ? String(ritiro_fornitore).trim()
+      : dest;
+    const telegramPayload = {
+      tipo: "carico",
+      operatore: session.name,
+      odp_label,
+      destinazione: destLabel,
+      stato_notion: statoNotion,
+      note: note ?? "",
+      timestamp: (body.timestamp as string | undefined) ?? new Date().toISOString(),
+      foto_base64: fotoArray.length > 0 ? [fotoArray[0]] : [],
+    };
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 60_000);
+    const timeout = setTimeout(() => controller.abort(), 15_000);
     try {
       const n8nRes = await fetch(webhookUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...body,
-          stato_notion: statoNotion,
-          // Per Fornitore esterno sostituisce "Fornitore esterno" con il nome reale del fornitore
-          destinazione: dest === "Fornitore esterno" && ritiro_fornitore
-            ? String(ritiro_fornitore).trim()
-            : dest,
-        }),
+        body: JSON.stringify(telegramPayload),
         signal: controller.signal,
       });
       clearTimeout(timeout);
       if (!n8nRes.ok) {
         console.warn(`[carico] n8n ${n8nRes.status}`);
-        warnings.push("Workflow n8n non completato (foto non caricate su Drive, notifica non inviata)");
+        warnings.push("Notifica Telegram non inviata");
       }
     } catch (e) {
       clearTimeout(timeout);
       const msg = e instanceof Error && e.name === "AbortError" ? "timeout" : (e instanceof Error ? e.message : String(e));
       console.warn("[carico] n8n:", msg);
-      warnings.push("Workflow n8n non raggiungibile — foto non caricate su Drive");
+      warnings.push("Notifica Telegram non inviata");
     }
   }
 
