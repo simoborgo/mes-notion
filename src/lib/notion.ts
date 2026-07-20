@@ -546,6 +546,121 @@ export async function getSchedeByCommessa(commessaId: string): Promise<Scheda[]>
 
 const NOTION_VERSION = "2022-06-28";
 
+export async function getNextOdp(): Promise<string> {
+  const year = new Date().getFullYear().toString().slice(2);
+  const prefix = `MP${year}-`;
+  const pages = await queryAll(
+    DB_SCHEDE,
+    { property: "Tipologia", select: { equals: "Scheda" } },
+    undefined,
+    5,
+  );
+  let maxNum = 0;
+  for (const p of pages) {
+    const odp = getText(prop(p, "ODP"));
+    if (odp.startsWith(prefix)) {
+      const num = parseInt(odp.slice(prefix.length));
+      if (!isNaN(num) && num > maxNum) maxNum = num;
+    }
+  }
+  return `${prefix}${String(maxNum + 1).padStart(3, "0")}`;
+}
+
+export async function findCommessaByNumber(numero: string): Promise<Commessa | null> {
+  const all = await getCommesse();
+  return all.find((c) => c.numeroCommessa === numero) ?? null;
+}
+
+export async function uploadFileToNotionRaw(buffer: Buffer, filename: string, mimeType: string): Promise<string> {
+  const token = process.env.NOTION_TOKEN!;
+  const createRes = await fetch("https://api.notion.com/v1/file_uploads", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Notion-Version": NOTION_VERSION,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ mode: "single_part" }),
+  });
+  if (!createRes.ok) throw new Error(`file_upload create: ${createRes.status}`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { id: uploadId } = await createRes.json() as any;
+
+  const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
+  const fd = new FormData();
+  fd.append("file", new Blob([arrayBuffer], { type: mimeType }), filename);
+  const sendRes = await fetch(`https://api.notion.com/v1/file_uploads/${uploadId}/send`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Notion-Version": NOTION_VERSION },
+    body: fd,
+  });
+  if (!sendRes.ok) throw new Error(`file_upload send: ${sendRes.status}`);
+  return uploadId;
+}
+
+export async function createSchedaPage({
+  numeroScheda,
+  commessaId,
+  odp,
+  tipologia = "Scheda",
+  codiceArticolo,
+  posizione,
+  fornitore,
+  quantita,
+  dataProduzionePrevista,
+  dataSchedaRicevuta,
+  parentId,
+  pdfBuffer,
+  pdfFilename,
+  thumbnailBuffer,
+  thumbnailFilename,
+}: {
+  numeroScheda: string;
+  commessaId: string;
+  odp: string;
+  tipologia?: string;
+  codiceArticolo?: string | null;
+  posizione?: string | null;
+  fornitore?: string | null;
+  quantita?: number | null;
+  dataProduzionePrevista?: string | null;
+  dataSchedaRicevuta?: string | null;
+  parentId?: string | null;
+  pdfBuffer?: Buffer;
+  pdfFilename?: string;
+  thumbnailBuffer?: Buffer;
+  thumbnailFilename?: string;
+}): Promise<Scheda> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const properties: Record<string, any> = {
+    "Numero Scheda": { title: [{ text: { content: numeroScheda } }] },
+    "Commessa Nr": { relation: [{ id: commessaId }] },
+    "Tipologia": { select: { name: tipologia } },
+  };
+
+  if (odp) properties["ODP"] = { rich_text: [{ text: { content: odp } }] };
+  if (codiceArticolo) properties["Codice Art."] = { rich_text: [{ text: { content: codiceArticolo } }] };
+  if (posizione) properties["Posizione"] = { rich_text: [{ text: { content: posizione } }] };
+  if (fornitore) properties["Nome Fornitore"] = { rich_text: [{ text: { content: fornitore } }] };
+  if (quantita != null) properties["Quantità"] = { number: quantita };
+  if (dataProduzionePrevista) properties["Data Produzione Prevista"] = { date: { start: dataProduzionePrevista } };
+  if (dataSchedaRicevuta) properties["Data Scheda Ricevuta"] = { date: { start: dataSchedaRicevuta } };
+  if (parentId) properties["Parent item"] = { relation: [{ id: parentId }] };
+
+  if (pdfBuffer && pdfFilename) {
+    const uploadId = await uploadFileToNotionRaw(pdfBuffer, pdfFilename, "application/pdf");
+    properties["PDF Allegato"] = { files: [{ type: "file_upload", name: pdfFilename, file_upload: { id: uploadId } }] };
+  }
+  if (thumbnailBuffer && thumbnailFilename) {
+    const uploadId = await uploadFileToNotionRaw(thumbnailBuffer, thumbnailFilename, "image/png");
+    properties["Copertina"] = { files: [{ type: "file_upload", name: thumbnailFilename, file_upload: { id: uploadId } }] };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const page = await notion.pages.create({ parent: { database_id: DB_SCHEDE }, properties }) as any;
+  return pageToScheda(page);
+}
+
 export async function appendFotoToPage(pageId: string, fotoBase64Array: string[]): Promise<void> {
   if (!fotoBase64Array.length) return;
   const token = process.env.NOTION_TOKEN!;
