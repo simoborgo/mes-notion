@@ -643,7 +643,6 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
       if (r.ok) {
         setFinalizedIds(prev => { const n = new Set(prev); n.add(pageId); return n; });
         await fetchLista();
-        router.refresh();
       }
     } finally {
       setForcingVerify(null);
