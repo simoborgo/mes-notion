@@ -39,7 +39,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ sch
   await repo.appendLog({
     schedaNumero: schedaNumero ?? scheda,
     operatore: session.name,
-    azione: "force-verify",
+    azione: "finalizzazione",
     dettaglio: { notionOk: !notionError },
   });
 

@@ -64,9 +64,10 @@ Regole:
   });
 
   if (!response.ok) {
-    const err = await response.text();
-    console.error("[parse] Claude API error:", err);
-    return NextResponse.json({ ok: false, error: "Errore Claude API" }, { status: 500 });
+    const errBody = await response.json().catch(() => ({})) as { error?: { message?: string } };
+    const msg = errBody?.error?.message ?? `HTTP ${response.status}`;
+    console.error("[parse] Claude API error:", msg);
+    return NextResponse.json({ ok: false, error: `Claude API: ${msg}` }, { status: 500 });
   }
 
   const result = (await response.json()) as { content: Array<{ type: string; text: string }> };
