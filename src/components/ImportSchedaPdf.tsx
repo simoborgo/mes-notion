@@ -12,6 +12,7 @@ interface ParsedItem {
   posizione?: string | null;
   fornitore?: string | null;
   quantita?: number | null;
+  stato?: string;
   otherFields?: Record<string, string>;
 }
 
@@ -53,7 +54,7 @@ async function extractPdfData(file: File): Promise<{ text: string; thumbnailBase
   const page1 = await pdf.getPage(1);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const vp0 = page1.getViewport({ scale: 1 }) as any;
-  const scale = 400 / vp0.width;
+  const scale = 1200 / vp0.width;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const vp = page1.getViewport({ scale }) as any;
   const canvas = document.createElement("canvas");
@@ -61,7 +62,7 @@ async function extractPdfData(file: File): Promise<{ text: string; thumbnailBase
   canvas.height = vp.height;
   const ctx = canvas.getContext("2d")!;
   await page1.render({ canvasContext: ctx, viewport: vp }).promise;
-  const thumbnailBase64 = canvas.toDataURL("image/png");
+  const thumbnailBase64 = canvas.toDataURL("image/jpeg", 0.92);
 
   return { text: textParts.join("\n\n"), thumbnailBase64 };
 }
@@ -138,7 +139,7 @@ export default function ImportSchedaPdf() {
       const data = (await res.json()) as { ok: boolean; items?: ParsedItem[]; error?: string };
       if (!res.ok || !data.ok) throw new Error(data.error ?? "Errore parsing");
 
-      setItems(data.items ?? []);
+      setItems((data.items ?? []).map((it: ParsedItem) => ({ ...it, stato: it.stato ?? "In Lavorazione" })));
       setStatus("preview");
     } catch (e) {
       setError((e as Error).message);
@@ -381,6 +382,23 @@ export default function ImportSchedaPdf() {
                       style={{ border: "1px solid #e5e4e0", background: "#fafaf9", color: "var(--color-black)" }}
                     />
                   </div>
+
+                  {idx === 0 && (
+                    <div className="flex gap-2 items-center">
+                      <label className="text-xs shrink-0 font-medium" style={{ color: "#6b6966", width: 180 }}>
+                        Stato iniziale *
+                      </label>
+                      <select
+                        value={item.stato ?? "In Lavorazione"}
+                        onChange={(e) => updateItem(idx, "stato", e.target.value)}
+                        className="text-xs px-2 py-1 rounded"
+                        style={{ border: "1px solid #e5e4e0", background: "#fafaf9", color: "var(--color-black)" }}
+                      >
+                        <option value="In Lavorazione">In Lavorazione</option>
+                        <option value="In Lavorazione Esterna">In Lavorazione Esterna</option>
+                      </select>
+                    </div>
+                  )}
 
                   {item.otherFields && Object.keys(item.otherFields).length > 0 && (
                     <details className="mt-2">

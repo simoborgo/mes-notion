@@ -13,6 +13,7 @@ interface ParsedItem {
   posizione?: string | null;
   fornitore?: string | null;
   quantita?: number | null;
+  stato?: string;
   otherFields?: Record<string, string>;
 }
 
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
   let thumbnailBuffer: Buffer | undefined;
   const thumbMatch = thumbnailBase64?.match(/^data:[^;]+;base64,(.+)$/);
   if (thumbMatch) thumbnailBuffer = Buffer.from(thumbMatch[1], "base64");
-  const thumbnailFilename = thumbnailBuffer ? `copertina-${odp}.png` : undefined;
+  const thumbnailFilename = thumbnailBuffer ? `copertina-${odp}.jpg` : undefined;
 
   const parent = items[0];
   const parentPage = await createSchedaPage({
@@ -63,6 +64,7 @@ export async function POST(req: NextRequest) {
     commessaId: commessa.id,
     odp,
     tipologia: "Scheda",
+    stato: parent.stato || "In Lavorazione",
     codiceArticolo: parent.codiceArticolo,
     posizione: parent.posizione,
     fornitore: parent.fornitore,

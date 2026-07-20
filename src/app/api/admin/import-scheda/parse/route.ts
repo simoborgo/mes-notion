@@ -17,37 +17,36 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Testo PDF mancante" }, { status: 400 });
   }
 
-  const prompt = `Sei un assistente per l'estrazione di metadati da schede di produzione PDF.
-
-Analizza il seguente testo estratto da una scheda di produzione e restituisci i dati strutturati.
+  const prompt = `Sei un assistente per l'estrazione di metadati da schede di produzione tecniche in formato PDF.
 
 TESTO PDF:
 ${pdfText.slice(0, 8000)}
 
-Estrai i campi e restituisci SOLO un JSON valido con questo formato (nessun testo aggiuntivo, nessun markdown):
+Estrai i dati e restituisci SOLO un JSON valido con questa struttura (nessun testo, nessun markdown):
 {
   "items": [
     {
-      "numeroScheda": "POSIZIONE + spazio + trattino + spazio + DESCRIZIONE (es: '01 - CORNICI VIP')",
-      "commessaNr": "solo il numero commessa senza prefissi letterali (es: '25306' da 'GGCT-25306-HXBP')",
-      "termineDiConsegna": "YYYY-MM-DD oppure null",
-      "dataOrdine": "YYYY-MM-DD oppure null",
-      "tipologia": "Scheda",
-      "codiceArticolo": "codice articolo oppure null",
-      "posizione": "posizione (es: '01') oppure null",
-      "fornitore": "nome fornitore oppure null",
-      "quantita": numero intero oppure null,
-      "otherFields": { "CAMPO": "valore" }
+      "numeroScheda": "stringa: POSIZIONE + ' - ' + DESCRIZIONE principale (es: '01 - CORNICI VIP')",
+      "commessaNr": "stringa: SOLO la parte numerica del campo COMMESSA NR o simile. Esempio: da 'GGCT-25306-HXBP' estrai '25306'. NON mettere qui il codice articolo.",
+      "termineDiConsegna": "YYYY-MM-DD oppure null — dal campo TERMINE DI CONSEGNA o DATA CONSEGNA",
+      "dataOrdine": "YYYY-MM-DD oppure null — dal campo DATA ORDINE",
+      "codiceArticolo": "stringa: il CODICE ARTICOLO o CODICE PEZZO specifico dell'articolo (es: 'GGCT-VIP-001'). NON mettere qui il numero commessa. null se assente.",
+      "posizione": "stringa: il numero di POSIZIONE (es: '01') oppure null",
+      "fornitore": "stringa: nome del FORNITORE oppure null",
+      "quantita": "numero intero oppure null",
+      "otherFields": { "NOME_CAMPO": "valore stringa" }
     }
   ]
 }
 
-Regole:
-- Se ci sono più righe con FORNITORE diverso, crea un item per ciascuna (il primo è parent, gli altri sottoschede)
-- "commessaNr" è solo la parte numerica (es: "25306")
-- Date: formato ISO YYYY-MM-DD, null se non presente
-- "otherFields": includi FINITURA, NOTE, MATERIALE, DESCRIZIONE MACCHINA e altri campi trovati
-- Restituisci SOLO il JSON grezzo, senza \`\`\`json o altro testo`;
+REGOLE CRITICHE:
+- "commessaNr": è SOLO il numero numerico della commessa (es: "25306"). Non è il codice articolo. Non è l'ODP (l'ODP viene generato automaticamente dal sistema, NON è nel PDF).
+- "codiceArticolo": è il codice specifico dell'articolo/pezzo, distinto dalla commessa. null se non trovato esplicitamente.
+- "numeroScheda": concatena POSIZIONE + ' - ' + DESCRIZIONE. Se manca la posizione usa solo la descrizione.
+- Se più righe hanno FORNITORE diverso: crea un item per ciascuna (il primo è il parent, gli altri le sottoschede).
+- Date in formato ISO YYYY-MM-DD; null se assenti o non leggibili.
+- "otherFields": tutti gli altri campi (FINITURA, MATERIALE, NOTE, DESCRIZIONE MACCHINA, ecc.) come stringhe piatte. Nessun oggetto annidato.
+- Restituisci SOLO il JSON grezzo senza \`\`\`json o altro testo.`;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",

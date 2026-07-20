@@ -603,6 +603,7 @@ export async function createSchedaPage({
   commessaId,
   odp,
   tipologia = "Scheda",
+  stato,
   codiceArticolo,
   posizione,
   fornitore,
@@ -619,6 +620,7 @@ export async function createSchedaPage({
   commessaId: string;
   odp: string;
   tipologia?: string;
+  stato?: string;
   codiceArticolo?: string | null;
   posizione?: string | null;
   fornitore?: string | null;
@@ -637,6 +639,8 @@ export async function createSchedaPage({
     "Commessa Nr": { relation: [{ id: commessaId }] },
     "Tipologia": { select: { name: tipologia } },
   };
+
+  if (stato) properties["Stato"] = { select: { name: stato } };
 
   if (odp) properties["ODP"] = { rich_text: [{ text: { content: odp } }] };
   if (codiceArticolo) properties["Codice Art."] = { rich_text: [{ text: { content: codiceArticolo } }] };
