@@ -91,6 +91,8 @@ export async function POST(req: NextRequest) {
       tipo: "carico",
       operatore: session.name,
       odp_label,
+      commessa_nr: body.commessa_nr ?? "",
+      cliente_info: body.cliente_info ?? "",
       destinazione: destLabel,
       stato_notion: statoNotion,
       note: note ?? "",
