@@ -390,7 +390,8 @@ export default function ImportSchedaPdf() {
                       <div className="mt-2 space-y-1 pl-2" style={{ borderLeft: "2px solid #e5e4e0" }}>
                         {Object.entries(item.otherFields).map(([k, v]) => (
                           <div key={k} className="text-xs" style={{ color: "#6b6966" }}>
-                            <span className="font-medium">{k}:</span> {v}
+                            <span className="font-medium">{k}:</span>{" "}
+                            {typeof v === "object" && v !== null ? JSON.stringify(v) : String(v ?? "")}
                           </div>
                         ))}
                       </div>
