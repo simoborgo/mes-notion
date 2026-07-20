@@ -139,7 +139,14 @@ export default function ImportSchedaPdf() {
       const data = (await res.json()) as { ok: boolean; items?: ParsedItem[]; error?: string };
       if (!res.ok || !data.ok) throw new Error(data.error ?? "Errore parsing");
 
-      setItems((data.items ?? []).map((it: ParsedItem) => ({ ...it, stato: it.stato ?? "In Lavorazione" })));
+      setItems((data.items ?? []).map((it: ParsedItem) => ({
+        ...it,
+        stato: it.stato ?? (
+          it.fornitore && it.fornitore.toUpperCase() !== "MODAR"
+            ? "In Lavorazione Esterna"
+            : "In Lavorazione"
+        ),
+      })));
       setStatus("preview");
     } catch (e) {
       setError((e as Error).message);
@@ -383,22 +390,20 @@ export default function ImportSchedaPdf() {
                     />
                   </div>
 
-                  {idx === 0 && (
-                    <div className="flex gap-2 items-center">
-                      <label className="text-xs shrink-0 font-medium" style={{ color: "#6b6966", width: 180 }}>
-                        Stato iniziale *
-                      </label>
-                      <select
-                        value={item.stato ?? "In Lavorazione"}
-                        onChange={(e) => updateItem(idx, "stato", e.target.value)}
-                        className="text-xs px-2 py-1 rounded"
-                        style={{ border: "1px solid #e5e4e0", background: "#fafaf9", color: "var(--color-black)" }}
-                      >
-                        <option value="In Lavorazione">In Lavorazione</option>
-                        <option value="In Lavorazione Esterna">In Lavorazione Esterna</option>
-                      </select>
-                    </div>
-                  )}
+                  <div className="flex gap-2 items-center">
+                    <label className="text-xs shrink-0 font-medium" style={{ color: "#6b6966", width: 180 }}>
+                      Stato iniziale *
+                    </label>
+                    <select
+                      value={item.stato ?? "In Lavorazione"}
+                      onChange={(e) => updateItem(idx, "stato", e.target.value)}
+                      className="text-xs px-2 py-1 rounded"
+                      style={{ border: "1px solid #e5e4e0", background: "#fafaf9", color: "var(--color-black)" }}
+                    >
+                      <option value="In Lavorazione">In Lavorazione</option>
+                      <option value="In Lavorazione Esterna">In Lavorazione Esterna</option>
+                    </select>
+                  </div>
 
                   {item.otherFields && Object.keys(item.otherFields).length > 0 && (
                     <details className="mt-2">

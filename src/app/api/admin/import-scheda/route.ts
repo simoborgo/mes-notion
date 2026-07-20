@@ -82,11 +82,17 @@ export async function POST(req: NextRequest) {
   ];
 
   for (const sub of items.slice(1)) {
+    const subStato = sub.stato ?? (
+      sub.fornitore && sub.fornitore.toUpperCase() !== "MODAR"
+        ? "In Lavorazione Esterna"
+        : "In Lavorazione"
+    );
     const subPage = await createSchedaPage({
       numeroScheda: sub.numeroScheda,
       commessaId: commessa.id,
       odp,
       tipologia: "Sottoscheda",
+      stato: subStato,
       codiceArticolo: sub.codiceArticolo,
       posizione: sub.posizione,
       fornitore: sub.fornitore,
