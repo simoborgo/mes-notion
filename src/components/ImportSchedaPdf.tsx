@@ -13,6 +13,7 @@ interface ParsedItem {
   fornitore?: string | null;
   quantita?: number | null;
   stato?: string;
+  includeAsSubitem?: boolean;
   otherFields?: Record<string, string>;
 }
 
@@ -139,14 +140,14 @@ export default function ImportSchedaPdf() {
       const data = (await res.json()) as { ok: boolean; items?: ParsedItem[]; error?: string };
       if (!res.ok || !data.ok) throw new Error(data.error ?? "Errore parsing");
 
-      setItems((data.items ?? []).map((it: ParsedItem) => ({
-        ...it,
-        stato: it.stato ?? (
-          it.fornitore && it.fornitore.toUpperCase() !== "MODAR"
-            ? "In Lavorazione Esterna"
-            : "In Lavorazione"
-        ),
-      })));
+      setItems((data.items ?? []).map((it: ParsedItem, idx: number) => {
+        const isExternal = !!(it.fornitore && it.fornitore.toUpperCase() !== "MODAR");
+        return {
+          ...it,
+          stato: it.stato ?? (isExternal ? "In Lavorazione Esterna" : "In Lavorazione"),
+          includeAsSubitem: idx === 0 ? undefined : isExternal,
+        };
+      }));
       setStatus("preview");
     } catch (e) {
       setError((e as Error).message);
@@ -174,7 +175,7 @@ export default function ImportSchedaPdf() {
   );
 
   const updateItem = useCallback(
-    (idx: number, field: keyof ParsedItem, value: string | number | null) => {
+    (idx: number, field: keyof ParsedItem, value: string | number | boolean | null) => {
       setItems((prev) =>
         prev.map((it, i) => (i === idx ? { ...it, [field]: value } : it)),
       );
@@ -190,7 +191,11 @@ export default function ImportSchedaPdf() {
       const res = await fetch("/api/admin/import-scheda", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items, pdfBase64, thumbnailBase64 }),
+        body: JSON.stringify({
+          items: [items[0], ...items.slice(1).filter((it) => it.includeAsSubitem === true)],
+          pdfBase64,
+          thumbnailBase64,
+        }),
       });
       const data = (await res.json()) as { ok: boolean; odp?: string; created?: ImportResult["created"]; error?: string; n8nError?: string };
       if (!res.ok || !data.ok) throw new Error(data.error ?? "Errore import");
@@ -351,22 +356,45 @@ export default function ImportSchedaPdf() {
 
           {/* Items form */}
           <div className="flex-1 min-w-0 space-y-6">
-            {items.map((item, idx) => (
+            {items.map((item, idx) => {
+              const excluded = idx > 0 && item.includeAsSubitem === false;
+              return (
               <div
                 key={idx}
                 className="rounded-lg p-4"
-                style={{ border: "1px solid #e5e4e0", background: "#fafaf9" }}
+                style={{
+                  border: `1px solid ${excluded ? "#f0efed" : "#e5e4e0"}`,
+                  background: excluded ? "#f8f7f5" : "#fafaf9",
+                  opacity: excluded ? 0.55 : 1,
+                }}
               >
                 <div className="flex items-center gap-2 mb-3">
-                  <span
-                    className="text-xs px-2 py-0.5 rounded font-medium"
-                    style={{
-                      background: idx === 0 ? "#e0e7ff" : "#fef9c3",
-                      color: idx === 0 ? "#3730a3" : "#854d0e",
-                    }}
-                  >
-                    {idx === 0 ? "Scheda principale" : `Sottoscheda ${idx}`}
-                  </span>
+                  {idx === 0 ? (
+                    <span
+                      className="text-xs px-2 py-0.5 rounded font-medium"
+                      style={{ background: "#e0e7ff", color: "#3730a3" }}
+                    >
+                      Scheda principale
+                    </span>
+                  ) : (
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={item.includeAsSubitem === true}
+                        onChange={(e) => updateItem(idx, "includeAsSubitem", e.target.checked)}
+                        style={{ accentColor: "#6366f1", width: 14, height: 14 }}
+                      />
+                      <span
+                        className="text-xs px-2 py-0.5 rounded font-medium"
+                        style={{
+                          background: item.includeAsSubitem ? "#fef9c3" : "#f3f4f6",
+                          color: item.includeAsSubitem ? "#854d0e" : "#9ca3af",
+                        }}
+                      >
+                        {item.includeAsSubitem ? `Sottoscheda ${idx}` : `Pagina ${idx} — esclusa`}
+                      </span>
+                    </label>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -422,7 +450,8 @@ export default function ImportSchedaPdf() {
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
