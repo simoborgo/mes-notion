@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getSessionFromRequest } from "@/lib/auth";
-import { findCommessaByNumber, getNextOdp, createSchedaPage } from "@/lib/notion";
+import { findCommessaByNumber, getNextOdp, createSchedaPage, findFornitoreIdByName } from "@/lib/notion";
 
 interface ParsedItem {
   numeroScheda: string;
@@ -58,6 +58,12 @@ export async function POST(req: NextRequest) {
   if (thumbMatch) thumbnailBuffer = Buffer.from(thumbMatch[1], "base64");
   const thumbnailFilename = thumbnailBuffer ? `copertina-${odp}.jpg` : undefined;
 
+  // Resolve fornitore names → Notion relation IDs (in parallel)
+  const allFornitoriNames = items.map((it) => it.fornitore ?? null);
+  const fornitoreIds = await Promise.all(
+    allFornitoriNames.map((name) => (name ? findFornitoreIdByName(name) : Promise.resolve(null))),
+  );
+
   const parent = items[0];
   const parentPage = await createSchedaPage({
     numeroScheda: parent.numeroScheda,
@@ -68,6 +74,7 @@ export async function POST(req: NextRequest) {
     codiceArticolo: parent.codiceArticolo,
     posizione: parent.posizione,
     fornitore: parent.fornitore,
+    fornitoreId: fornitoreIds[0],
     quantita: parent.quantita,
     dataProduzionePrevista: parent.termineDiConsegna,
     dataSchedaRicevuta: parent.dataOrdine,
@@ -81,7 +88,8 @@ export async function POST(req: NextRequest) {
     { odp, pageId: parentPage.id, numeroScheda: parentPage.numeroScheda, tipologia: "Scheda" },
   ];
 
-  for (const sub of items.slice(1)) {
+  for (let i = 0; i < items.slice(1).length; i++) {
+    const sub = items.slice(1)[i];
     const subStato = sub.stato ?? (
       sub.fornitore && sub.fornitore.toUpperCase() !== "MODAR"
         ? "In Lavorazione Esterna"
@@ -96,6 +104,7 @@ export async function POST(req: NextRequest) {
       codiceArticolo: sub.codiceArticolo,
       posizione: sub.posizione,
       fornitore: sub.fornitore,
+      fornitoreId: fornitoreIds[i + 1],
       quantita: sub.quantita,
       dataProduzionePrevista: sub.termineDiConsegna,
       dataSchedaRicevuta: sub.dataOrdine,

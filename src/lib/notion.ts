@@ -344,6 +344,16 @@ const getFornitoriMap = unstable_cache(
   { revalidate: 300, tags: ["fornitori"] }
 );
 
+export async function findFornitoreIdByName(name: string): Promise<string | null> {
+  if (!name) return null;
+  const list = await getFornitoriList();
+  const needle = name.trim().toLowerCase();
+  const exact = list.find((f) => f.nome.toLowerCase() === needle);
+  if (exact) return exact.id;
+  const partial = list.find((f) => f.nome.toLowerCase().includes(needle) || needle.includes(f.nome.toLowerCase()));
+  return partial?.id ?? null;
+}
+
 export async function updateSchedaStato(pageId: string, stato: string): Promise<void> {
   await notion.pages.update({
     page_id: pageId,
@@ -607,6 +617,7 @@ export async function createSchedaPage({
   codiceArticolo,
   posizione,
   fornitore,
+  fornitoreId,
   quantita,
   dataProduzionePrevista,
   dataSchedaRicevuta,
@@ -624,6 +635,7 @@ export async function createSchedaPage({
   codiceArticolo?: string | null;
   posizione?: string | null;
   fornitore?: string | null;
+  fornitoreId?: string | null;
   quantita?: number | null;
   dataProduzionePrevista?: string | null;
   dataSchedaRicevuta?: string | null;
@@ -646,6 +658,7 @@ export async function createSchedaPage({
   if (codiceArticolo) properties["Codice Art."] = { rich_text: [{ text: { content: codiceArticolo } }] };
   if (posizione) properties["Posizione"] = { rich_text: [{ text: { content: posizione } }] };
   if (fornitore) properties["Nome Fornitore"] = { rich_text: [{ text: { content: fornitore } }] };
+  if (fornitoreId) properties["Fornitore"] = { relation: [{ id: fornitoreId }] };
   if (quantita != null) properties["Quantità"] = { number: quantita };
   if (dataProduzionePrevista) properties["Data Produzione Prevista"] = { date: { start: dataProduzionePrevista } };
   if (dataSchedaRicevuta) properties["Data Scheda Ricevuta"] = { date: { start: dataSchedaRicevuta } };
