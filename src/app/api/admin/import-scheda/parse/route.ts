@@ -24,36 +24,45 @@ export async function POST(req: NextRequest) {
     .map((t, i) => `[PAGINA ${i + 1}]\n${t.slice(0, 1500).trim()}`)
     .join("\n\n---\n\n");
 
-  const prompt = `Sei un assistente per l'estrazione di metadati da schede di produzione tecniche in PDF.
-
-Il PDF ha ${pageTexts.length} pagina/e. Di seguito il testo estratto da ciascuna:
-
-${pageSections}
-
-COMPITO: estrai UN SOLO ITEM PER PAGINA PDF e restituisci SOLO un JSON valido:
-{
-  "items": [
+  const schemaExample = JSON.stringify(
     {
-      "numeroScheda": "POSIZIONE + ' - ' + DESCRIZIONE PRINCIPALE della pagina (es: '01 - CORNICI VIP')",
-      "commessaNr": "SOLO la parte numerica della commessa (es: '25306' da 'GGCT-25306-HXBP')",
-      "termineDiConsegna": "YYYY-MM-DD oppure null",
-      "dataOrdine": "YYYY-MM-DD oppure null",
-      "codiceArticolo": "codice articolo/pezzo specifico oppure null. NON mettere il numero commessa.",
-      "posizione": "numero di posizione oppure null",
-      "fornitore": "nome fornitore principale della pagina oppure null",
-      "quantita": numero intero oppure null,
-      "otherFields": { "CAMPO": "valore stringa" }
-    }
-  ]
-}
+      items: [
+        {
+          numeroScheda: "POSIZIONE + ' - ' + DESCRIZIONE PRINCIPALE della pagina (es: '01 - CORNICI VIP')",
+          commessaNr: "SOLO la parte numerica della commessa (es: '25306' da 'GGCT-25306-HXBP')",
+          termineDiConsegna: "YYYY-MM-DD oppure null",
+          dataOrdine: "YYYY-MM-DD oppure null",
+          codiceArticolo: "codice articolo/pezzo specifico oppure null. NON mettere il numero commessa.",
+          posizione: "numero di posizione oppure null",
+          fornitore: "subfornitore ESTERNO (es: 'Cattaneo'). NON 'MODAR'. null se lavorazione interna.",
+          quantita: "numero intero oppure null",
+          otherFields: { CAMPO: "valore stringa" },
+        },
+      ],
+    },
+    null,
+    2,
+  );
 
-REGOLE CRITICHE:
-- UN ITEM PER PAGINA PDF — non estrarre singole righe della distinta/BOM come item separati.
-- "commessaNr" è solo il numero numerico (es: "25306"). Non confonderlo con codiceArticolo.
-- "codiceArticolo" è il codice specifico dell'articolo, non la commessa. null se non trovato.
-- La lista componenti/distinta base della pagina va in otherFields come testo, non come item separati.
-- otherFields: solo valori stringa semplici, nessun oggetto annidato.
-- Restituisci SOLO il JSON grezzo senza \`\`\`json o altro testo.`;
+  const rules = [
+    "UN ITEM PER PAGINA PDF — non estrarre singole righe della distinta/BOM come item separati.",
+    "commessaNr è solo il numero numerico (es: '25306'). Non confonderlo con codiceArticolo.",
+    "codiceArticolo è il codice specifico dell'articolo, non la commessa. null se non trovato.",
+    "fornitore: MODAR è l'azienda committente/produttrice — NON va MAI messo in 'fornitore'. Cerca il subfornitore esterno specifico della pagina (es: Cattaneo, Rossi Srl, ecc.). Se non c'è, metti null.",
+    "La lista componenti/distinta base va in otherFields come testo, non come item separati.",
+    "otherFields: solo valori stringa semplici, nessun oggetto annidato.",
+    "Restituisci SOLO il JSON grezzo senza markdown, senza ```json, senza altro testo.",
+  ]
+    .map((r) => `- ${r}`)
+    .join("\n");
+
+  const prompt =
+    `Sei un assistente per l'estrazione di metadati da schede di produzione tecniche in PDF.\n\n` +
+    `Il PDF ha ${pageTexts.length} pagina/e. Di seguito il testo estratto da ciascuna:\n\n` +
+    `${pageSections}\n\n` +
+    `COMPITO: estrai UN SOLO ITEM PER PAGINA PDF e restituisci SOLO un JSON valido con questa struttura:\n` +
+    `${schemaExample}\n\n` +
+    `REGOLE CRITICHE:\n${rules}`;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
