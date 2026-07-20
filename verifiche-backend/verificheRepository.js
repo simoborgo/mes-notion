@@ -211,6 +211,22 @@ async function listNotionSyncFalliti() {
   return rows;
 }
 
+async function forceVerify({ notionPageId, schedaNumero, operatore }) {
+  const { rows } = await pool.query(
+    `INSERT INTO verifiche_spedizione (notion_page_id, scheda_numero, operatore, stato, data_apertura, data_chiusura)
+     VALUES ($1, $2, $3, 'verificato', now(), now())
+     ON CONFLICT (notion_page_id) DO UPDATE SET
+       stato          = 'verificato',
+       operatore      = $3,
+       data_chiusura  = now(),
+       lock_operatore = NULL,
+       lock_scadenza  = NULL
+     RETURNING *`,
+    [notionPageId, schedaNumero || null, operatore]
+  );
+  return rows[0];
+}
+
 async function deleteScheda(notionPageId) {
   const { rows } = await pool.query(
     `DELETE FROM verifiche_spedizione WHERE notion_page_id = $1 RETURNING notion_page_id`,
@@ -226,6 +242,7 @@ module.exports = {
   holdsLock,
   upsertProgress,
   finalize,
+  forceVerify,
   findByNotionPageId,
   findBySchedaNumero,
   listInSospeso,

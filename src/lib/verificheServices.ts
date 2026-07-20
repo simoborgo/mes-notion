@@ -11,6 +11,7 @@ export const repo: {
   findBySchedaNumero: (scheda: string) => Promise<Record<string, unknown> | null>;
   listInSospeso: () => Promise<Record<string, unknown>[]>;
   listVerificate: () => Promise<Record<string, unknown>[]>;
+  forceVerify: (args: { notionPageId: string; schedaNumero?: string | null; operatore: string }) => Promise<Record<string, unknown>>;
   addFoto: (args: { notionPageId: string; schedaNumero?: string | null; driveId: string; driveUrl: string; operatore: string }) => Promise<Record<string, unknown>>;
   removeFoto: (fotoId: string) => Promise<Record<string, unknown> | null>;
   listFoto: (notionPageId: string) => Promise<Record<string, unknown>[]>;

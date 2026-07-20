@@ -86,6 +86,9 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
   const [loadingLock, setLoadingLock] = useState(false);
   const [lockError, setLockError] = useState<string | null>(null);
   const [deletingScheda, setDeletingScheda] = useState<string | null>(null);
+  const [forcingVerify, setForcingVerify] = useState<string | null>(null);
+
+  const canForceVerify = userRole === "admin" || userRole === "spedizioni";
 
   const inVerificaSet = useMemo(() => new Set(lista.map(l => l.notion_page_id)), [lista]);
   const verificateSet = useMemo(() => new Set(verificate.map(v => v.notion_page_id)), [verificate]);
@@ -628,6 +631,25 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
     }
   }
 
+  async function forzaVerificato(pageId: string, odp: string, schedaNumero?: string) {
+    if (!confirm(`Forzare lo stato Verificato per ${odp}? Verrà aggiornato su Notion e PostgreSQL senza PDF.`)) return;
+    setForcingVerify(pageId);
+    try {
+      const r = await fetch(`/api/verifiche/${pageId}/force-verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ schedaNumero: schedaNumero ?? odp }),
+      });
+      if (r.ok) {
+        setFinalizedIds(prev => { const n = new Set(prev); n.add(pageId); return n; });
+        await fetchLista();
+        router.refresh();
+      }
+    } finally {
+      setForcingVerify(null);
+    }
+  }
+
   // ── RENDER ────────────────────────────────────────────────────────────────
   if (view === "lista") {
     return (
@@ -736,12 +758,28 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
                           ) : isInVerifica ? (
                             <span style={{ fontSize: 12, color: "#DC2626", fontWeight: 500 }}>In verifica</span>
                           ) : !parent.hasPdfAllegato ? (
-                            <span style={{ fontSize: 11, color: "#9CA3AF", fontStyle: "italic" }}>NO SCHEDA</span>
+                            canForceVerify ? (
+                              <button onClick={() => forzaVerificato(parent.id, parent.odp, parent.label)} disabled={forcingVerify === parent.id}
+                                style={{ padding: "5px 12px", borderRadius: 4, background: "#F0FDF4", color: "#15803D", fontWeight: 600, fontSize: 12, border: "1px solid #BBF7D0", cursor: "pointer", opacity: forcingVerify === parent.id ? 0.6 : 1 }}>
+                                {forcingVerify === parent.id ? "…" : "Forza ✓"}
+                              </button>
+                            ) : (
+                              <span style={{ fontSize: 11, color: "#9CA3AF", fontStyle: "italic" }}>NO SCHEDA</span>
+                            )
                           ) : (
-                            <button onClick={() => apriScheda(parent.id, parent.odp)} disabled={loadingLock}
-                              style={{ padding: "5px 14px", borderRadius: 4, background: "#F08F25", color: "white", fontWeight: 600, fontSize: 12, border: "none", cursor: "pointer", opacity: loadingLock ? 0.6 : 1 }}>
-                              {loadingLock ? "…" : "Apri"}
-                            </button>
+                            <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                              <button onClick={() => apriScheda(parent.id, parent.odp)} disabled={loadingLock}
+                                style={{ padding: "5px 14px", borderRadius: 4, background: "#F08F25", color: "white", fontWeight: 600, fontSize: 12, border: "none", cursor: "pointer", opacity: loadingLock ? 0.6 : 1 }}>
+                                {loadingLock ? "…" : "Apri"}
+                              </button>
+                              {canForceVerify && (
+                                <button onClick={() => forzaVerificato(parent.id, parent.odp, parent.label)} disabled={forcingVerify === parent.id}
+                                  style={{ padding: "5px 10px", borderRadius: 4, background: "#F0FDF4", color: "#15803D", fontWeight: 600, fontSize: 12, border: "1px solid #BBF7D0", cursor: "pointer", opacity: forcingVerify === parent.id ? 0.6 : 1 }}
+                                  title="Forza Verificato">
+                                  {forcingVerify === parent.id ? "…" : "✓"}
+                                </button>
+                              )}
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -786,12 +824,28 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
                               ) : cInVerifica ? (
                                 <span style={{ fontSize: 11, color: "#DC2626" }}>In verifica</span>
                               ) : !child.hasPdfAllegato ? (
-                                <span style={{ fontSize: 10, color: "#9CA3AF", fontStyle: "italic" }}>NO SCHEDA</span>
+                                canForceVerify ? (
+                                  <button onClick={() => forzaVerificato(child.id, child.odp, child.label)} disabled={forcingVerify === child.id}
+                                    style={{ padding: "4px 10px", borderRadius: 4, background: "#F0FDF4", color: "#15803D", fontWeight: 600, fontSize: 11, border: "1px solid #BBF7D0", cursor: "pointer", opacity: forcingVerify === child.id ? 0.6 : 1 }}>
+                                    {forcingVerify === child.id ? "…" : "Forza ✓"}
+                                  </button>
+                                ) : (
+                                  <span style={{ fontSize: 10, color: "#9CA3AF", fontStyle: "italic" }}>NO SCHEDA</span>
+                                )
                               ) : (
-                                <button onClick={() => apriScheda(child.id, child.odp)} disabled={loadingLock}
-                                  style={{ padding: "4px 12px", borderRadius: 4, background: "#F08F25", color: "white", fontWeight: 600, fontSize: 11, border: "none", cursor: "pointer", opacity: loadingLock ? 0.6 : 1 }}>
-                                  Apri
-                                </button>
+                                <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
+                                  <button onClick={() => apriScheda(child.id, child.odp)} disabled={loadingLock}
+                                    style={{ padding: "4px 12px", borderRadius: 4, background: "#F08F25", color: "white", fontWeight: 600, fontSize: 11, border: "none", cursor: "pointer", opacity: loadingLock ? 0.6 : 1 }}>
+                                    Apri
+                                  </button>
+                                  {canForceVerify && (
+                                    <button onClick={() => forzaVerificato(child.id, child.odp, child.label)} disabled={forcingVerify === child.id}
+                                      style={{ padding: "4px 8px", borderRadius: 4, background: "#F0FDF4", color: "#15803D", fontWeight: 600, fontSize: 11, border: "1px solid #BBF7D0", cursor: "pointer", opacity: forcingVerify === child.id ? 0.6 : 1 }}
+                                      title="Forza Verificato">
+                                      {forcingVerify === child.id ? "…" : "✓"}
+                                    </button>
+                                  )}
+                                </div>
                               )}
                             </td>
                           </tr>
