@@ -20,6 +20,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       fornitoreNome?: string;
       note?: string;
       dataRientro?: string;
+      quantita?: number | null;
     };
 
     if (!body.descrizione?.trim()) {
@@ -43,6 +44,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       fornitoreId,
       note: body.note ?? null,
       dataProduzionePrevista: body.dataRientro ?? null,
+      quantita: body.quantita ?? parent.quantita ?? null,
       parentId,
     });
 

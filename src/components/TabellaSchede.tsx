@@ -599,16 +599,27 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                   </tr>
                   {expanded && figlie.map((f) => {
                     const fRitardo = isInRitardo(f, today);
+                    const nipoti = sottoschedeByParent.get(f.id) ?? [];
+                    const fExpanded = expandedIds.has(f.id);
                     return (
-                      <tr key={f.id} className="border-b last:border-0" style={{ background: f.tipologia === "Rilavorazione" ? "#FFFBEB" : "#FAFAF9" }}>
+                      <Fragment key={f.id}>
+                      <tr className="border-b last:border-0" style={{ background: f.tipologia === "Rilavorazione" ? "#FFFBEB" : "#FAFAF9" }}>
                         <td className="px-4 py-2 text-xs" style={{ color: "var(--color-grey-mid)" }}>{f.clienteInfo || "—"}</td>
                         <td className="px-4 py-2 pl-10 font-mono text-xs whitespace-nowrap" style={{ color: "var(--color-grey-mid)" }}>
-                          <span className="inline-flex items-center gap-1.5">
-                            {f.tipologia === "Rilavorazione" ? "⚙" : "↳"} {f.odp || "—"}
-                            {f.tipologia === "Rilavorazione" && (
-                              <span className="text-xs px-1 py-0.5 rounded font-medium" style={{ background: "#FEF9C3", color: "#92400E" }}>Rilav.</span>
-                            )}
-                          </span>
+                          {nipoti.length > 0 ? (
+                            <button onClick={() => toggleExpand(f.id)} className="inline-flex items-center gap-1.5 hover:opacity-70 transition-opacity">
+                              <span className="inline-flex items-center justify-center w-3 h-3 text-[10px] transition-transform" style={{ color: "var(--color-primary)", transform: fExpanded ? "rotate(90deg)" : "rotate(0deg)" }}>▶</span>
+                              {f.tipologia === "Rilavorazione" ? "⚙" : "↳"} {f.odp || "—"}
+                              <span className="text-xs px-1 py-0.5 rounded font-bold" style={{ background: "#FEF9C3", color: "#92400E" }}>⚙ {nipoti.length}</span>
+                            </button>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5">
+                              {f.tipologia === "Rilavorazione" ? "⚙" : "↳"} {f.odp || "—"}
+                              {f.tipologia === "Rilavorazione" && (
+                                <span className="text-xs px-1 py-0.5 rounded font-medium" style={{ background: "#FEF9C3", color: "#92400E" }}>Rilav.</span>
+                              )}
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-2 text-xs whitespace-nowrap">
                           {f.numeroScheda ? (
@@ -637,6 +648,40 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                           </button>
                         </td>
                       </tr>
+                      {fExpanded && nipoti.map((n) => {
+                        const nRitardo = isInRitardo(n, today);
+                        return (
+                          <tr key={n.id} className="border-b last:border-0" style={{ background: "#FFFBEB" }}>
+                            <td className="px-4 py-2 text-xs" style={{ color: "var(--color-grey-mid)" }}>{n.clienteInfo || "—"}</td>
+                            <td className="px-4 py-2 pl-16 font-mono text-xs whitespace-nowrap" style={{ color: "#92400E" }}>
+                              <span className="inline-flex items-center gap-1.5">
+                                ⚙ {n.odp || "—"}
+                                <span className="text-xs px-1 py-0.5 rounded font-medium" style={{ background: "#FEF9C3", color: "#92400E" }}>Rilav.</span>
+                              </span>
+                            </td>
+                            <td className="px-4 py-2 text-xs whitespace-nowrap">
+                              {n.numeroScheda ? (
+                                <button onClick={() => setViewing(n)} className="hover:underline font-medium text-left" style={{ color: "var(--color-black)" }}>
+                                  {n.numeroScheda}
+                                </button>
+                              ) : "—"}
+                            </td>
+                            <td className="px-4 py-2 text-xs">{n.descrizioneFasi || "—"}</td>
+                            <td className="px-4 py-2"><BadgeStato stato={n.statoProduzione} /></td>
+                            <td className="px-4 py-2"><DataCell date={n.dataProduzionePrevista} inRitardo={nRitardo.produzione} /></td>
+                            <td className="px-4 py-2 text-xs max-w-[180px] truncate" title={n.fornitore || ""}>{n.fornitore || "—"}</td>
+                            <td className="px-4 py-2"><DataCell date={n.dataRientroPrevista} inRitardo={nRitardo.rientro} /></td>
+                            <td className="px-4 py-2">
+                              <button onClick={() => setViewing(n)}
+                                className="text-sm px-3 py-1.5 rounded-lg font-semibold transition-colors whitespace-nowrap border"
+                                style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)", borderColor: "rgba(240,143,37,0.3)" }}>
+                                Vedi scheda
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      </Fragment>
                     );
                   })}
                   </Fragment>

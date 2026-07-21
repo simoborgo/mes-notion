@@ -102,14 +102,26 @@ async function getPdfOriginale(pageId) {
 
 async function uploadPdfAllegato(pageId, pdfBuffer, filename) {
   const fileUploadId = await uploadFileToNotion(pdfBuffer, filename, 'application/pdf');
-  await notion.pages.update({
-    page_id: pageId,
-    properties: {
-      'PDF Allegato': {
-        files: [{ type: 'file_upload', file_upload: { id: fileUploadId }, name: filename }],
-      },
+  const token = process.env.NOTION_TOKEN ?? process.env.NOTION_API_KEY;
+  const res = await fetch(`${NOTION_API_BASE}/pages/${pageId}`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Notion-Version': NOTION_VERSION,
+      'Content-Type': 'application/json',
     },
+    body: JSON.stringify({
+      properties: {
+        'PDF Allegato': {
+          files: [{ type: 'file_upload', file_upload: { id: fileUploadId }, name: filename }],
+        },
+      },
+    }),
   });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Aggiornamento PDF Allegato fallito: ${res.status} — ${text.slice(0, 200)}`);
+  }
 }
 
 module.exports = { aggiornaStatoOdp, getPdfOriginale, uploadPdfAllegato };

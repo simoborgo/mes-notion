@@ -27,15 +27,17 @@ function InfoItem({ label, value }: { label: string; value: React.ReactNode }) {
 
 interface Fornitore { id: string; nome: string }
 
-function FormRilavorazione({ schedaId, schedaOdp, defaultFornitore, onSuccess, onCancel }: {
+function FormRilavorazione({ schedaId, schedaOdp, defaultFornitore, defaultQuantita, onSuccess, onCancel }: {
   schedaId: string;
   schedaOdp: string;
   defaultFornitore?: string;
+  defaultQuantita?: number | null;
   onSuccess: (result: { pageId: string; odp: string }) => void;
   onCancel: () => void;
 }) {
   const [descrizione, setDescrizione] = useState("");
   const [fornitoreNome, setFornitoreNome] = useState(defaultFornitore ?? "");
+  const [quantita, setQuantita] = useState<string>(defaultQuantita != null ? String(defaultQuantita) : "");
   const [dataRientro, setDataRientro] = useState("");
   const [note, setNote] = useState("");
   const [fornitori, setFornitori] = useState<Fornitore[]>([]);
@@ -55,7 +57,13 @@ function FormRilavorazione({ schedaId, schedaOdp, defaultFornitore, onSuccess, o
       const res = await fetch(`/api/schede/${schedaId}/rilavorazione`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ descrizione, fornitoreNome: fornitoreNome || undefined, dataRientro: dataRientro || undefined, note: note || undefined }),
+        body: JSON.stringify({
+          descrizione,
+          fornitoreNome: fornitoreNome || undefined,
+          dataRientro: dataRientro || undefined,
+          note: note || undefined,
+          quantita: quantita ? Number(quantita) : undefined,
+        }),
       });
       const data = await res.json() as { ok: boolean; error?: string; pageId?: string; odp?: string };
       if (!res.ok || !data.ok) throw new Error(data.error ?? "Errore creazione");
@@ -81,7 +89,12 @@ function FormRilavorazione({ schedaId, schedaOdp, defaultFornitore, onSuccess, o
           className={inputCls} style={inputStyle} required autoFocus />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <label className="text-xs font-semibold block mb-1" style={{ color: "#92400E" }}>Quantità</label>
+          <input type="number" min="1" value={quantita} onChange={(e) => setQuantita(e.target.value)}
+            placeholder="es. 2" className={inputCls} style={inputStyle} />
+        </div>
         <div>
           <label className="text-xs font-semibold block mb-1" style={{ color: "#92400E" }}>Fornitore</label>
           <select value={fornitoreNome} onChange={(e) => setFornitoreNome(e.target.value)} className={inputCls} style={inputStyle}>
@@ -267,6 +280,7 @@ export default function DettaglioSchedaModal({ scheda: s, onClose, onRilavorazio
               schedaId={s.id}
               schedaOdp={s.odp}
               defaultFornitore={s.fornitore || undefined}
+              defaultQuantita={s.quantita}
               onSuccess={handleRilavorazioneSuccess}
               onCancel={() => setShowRilavorazioneForm(false)}
             />
