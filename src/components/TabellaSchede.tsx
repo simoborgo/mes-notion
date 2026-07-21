@@ -638,6 +638,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                         <td className="px-4 py-2"><DataCell date={f.dataProduzionePrevista} inRitardo={fRitardo.produzione} /></td>
                         <td className="px-4 py-2 text-xs max-w-[180px] truncate" title={f.fornitore || ""}>{f.fornitore || "—"}</td>
                         <td className="px-4 py-2"><DataCell date={f.dataRientroPrevista} inRitardo={fRitardo.rientro} /></td>
+                        <td className="px-4 py-2"><PdfLinks pageId={f.id} count={f.pdfAllegato.length} /></td>
                         <td className="px-4 py-2">
                           <button
                             onClick={() => setViewing(f)}
@@ -671,6 +672,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                             <td className="px-4 py-2"><DataCell date={n.dataProduzionePrevista} inRitardo={nRitardo.produzione} /></td>
                             <td className="px-4 py-2 text-xs max-w-[180px] truncate" title={n.fornitore || ""}>{n.fornitore || "—"}</td>
                             <td className="px-4 py-2"><DataCell date={n.dataRientroPrevista} inRitardo={nRitardo.rientro} /></td>
+                            <td className="px-4 py-2"><PdfLinks pageId={n.id} count={n.pdfAllegato.length} /></td>
                             <td className="px-4 py-2">
                               <button onClick={() => setViewing(n)}
                                 className="text-sm px-3 py-1.5 rounded-lg font-semibold transition-colors whitespace-nowrap border"
@@ -767,7 +769,15 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
         </tbody>
       </table>
 
-      {viewing && <DettaglioSchedaModal scheda={viewing} onClose={() => setViewing(null)} onRilavorazioneCreata={handleReload} />}
+      {viewing && (
+        <DettaglioSchedaModal
+          scheda={viewing}
+          figlie={sottoschedeByParent.get(viewing.id) ?? []}
+          onClose={() => setViewing(null)}
+          onRilavorazioneCreata={handleReload}
+          onViewScheda={(s) => setViewing(s)}
+        />
+      )}
       <CopertinaTooltip tooltip={tooltip} />
     </div>
   );

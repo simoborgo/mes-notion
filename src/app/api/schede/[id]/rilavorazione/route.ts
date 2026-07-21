@@ -7,6 +7,7 @@ import {
   updateSchedaStato,
   findFornitoreIdByName,
   getNextRilavorazioneOdp,
+  createRitiro,
 } from "@/lib/notion";
 import { notionSvc } from "@/lib/verificheServices";
 
@@ -63,6 +64,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     });
 
     await updateSchedaStato(parentId, "In Attesa Rilavorazione");
+
+    // Crea ritiro "Consegna" verso fornitore (fire-and-forget, non blocca)
+    if (fornitoreId) {
+      createRitiro({
+        causale: `Rilavorazione — ${subOdp}`,
+        tipoMovimento: "Consegna",
+        dataTrasporto: body.dataRientro ?? new Date().toISOString().slice(0, 10),
+        schedaId: rilavorazione.id,
+        fornitoreId,
+      }).catch((e) => console.error("[rilavorazione] createRitiro:", e));
+    }
 
     // Build + upload flattened PDF (with optional annotations and photos)
     if (body.sourcePdfPageId) {

@@ -7,8 +7,10 @@ import PdfAnnotatoreModal, { type AnnotazioneData } from "./PdfAnnotatoreModal";
 
 interface Props {
   scheda: Scheda;
+  figlie?: Scheda[];
   onClose: () => void;
   onRilavorazioneCreata?: () => void;
+  onViewScheda?: (s: Scheda) => void;
 }
 
 function fmt(d: string | null) {
@@ -270,10 +272,13 @@ function RilavorazioneWizard({
   );
 }
 
-export default function DettaglioSchedaModal({ scheda: s, onClose, onRilavorazioneCreata }: Props) {
+export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, onRilavorazioneCreata, onViewScheda }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const [showWizard, setShowWizard] = useState(false);
   const [rilavorazioneCreata, setRilavorazioneCreata] = useState<{ pageId: string; odp: string } | null>(null);
+  const [rientrando, setRientrando] = useState(false);
+  const [rientroError, setRientroError] = useState<string | null>(null);
+  const [rientroFatto, setRientroFatto] = useState(false);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
@@ -296,6 +301,23 @@ export default function DettaglioSchedaModal({ scheda: s, onClose, onRilavorazio
     setShowWizard(false);
     setRilavorazioneCreata(result);
     onRilavorazioneCreata?.();
+  }
+
+  async function handleRientro() {
+    if (rientrando || rientroFatto) return;
+    setRientrando(true);
+    setRientroError(null);
+    try {
+      const res = await fetch(`/api/schede/${s.id}/rientro`, { method: "POST" });
+      const data = await res.json() as { ok: boolean; error?: string };
+      if (!res.ok || !data.ok) throw new Error(data.error ?? "Errore");
+      setRientroFatto(true);
+      onRilavorazioneCreata?.();
+    } catch (err) {
+      setRientroError((err as Error).message);
+    } finally {
+      setRientrando(false);
+    }
   }
 
   return (
@@ -390,6 +412,71 @@ export default function DettaglioSchedaModal({ scheda: s, onClose, onRilavorazio
               onSuccess={handleRilavorazioneSuccess}
               onCancel={() => setShowWizard(false)}
             />
+          )}
+
+          {/* ── Rientro rilavorazione ── */}
+          {s.tipologia === "Rilavorazione" && !["Completato", "Annullato"].includes(s.statoProduzione) && !rientroFatto && (
+            <div className="rounded-xl px-4 py-3 space-y-2" style={{ background: "#F0FDF4", border: "1px solid #86EFAC" }}>
+              <div className="text-sm font-semibold" style={{ color: "#14532D" }}>Rientro rilavorazione</div>
+              <p className="text-xs" style={{ color: "#166534" }}>
+                Quando il pezzo torna dalla rilavorazione, segna il rientro per sbloccare la scheda padre.
+              </p>
+              {rientroError && <p className="text-xs font-medium px-2 py-1 rounded" style={{ color: "#991B1B", background: "#FEE2E2" }}>{rientroError}</p>}
+              <button onClick={handleRientro} disabled={rientrando}
+                className="text-sm px-4 py-1.5 rounded-lg font-semibold disabled:opacity-50 transition-opacity hover:opacity-90"
+                style={{ background: "#16A34A", color: "white" }}>
+                {rientrando ? "Aggiornamento…" : "✓ Segna Rientrata"}
+              </button>
+            </div>
+          )}
+          {rientroFatto && (
+            <div className="rounded-xl px-4 py-3" style={{ background: "#F0FDF4", border: "1px solid #86EFAC" }}>
+              <span className="text-sm font-semibold" style={{ color: "#14532D" }}>✓ Rilavorazione completata — scheda padre sbloccata</span>
+            </div>
+          )}
+
+          {/* ── Sottoschede / Rilavorazioni ── */}
+          {figlie.length > 0 && (
+            <section className="space-y-2">
+              <h3 className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>
+                {figlie.some(f => f.tipologia === "Rilavorazione") ? "Sottoschede / Rilavorazioni" : "Sottoschede"}
+              </h3>
+              <div className="space-y-1.5">
+                {figlie.map((f) => (
+                  <div key={f.id} className="flex items-center justify-between gap-3 rounded-lg px-3 py-2.5"
+                    style={{
+                      background: f.tipologia === "Rilavorazione" ? "#FFFBEB" : "#f8f7f5",
+                      border: `1px solid ${f.tipologia === "Rilavorazione" ? "#FDE68A" : "#ebe9e5"}`,
+                    }}>
+                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                      <span className="font-mono text-sm font-bold shrink-0" style={{ color: f.tipologia === "Rilavorazione" ? "#92400E" : "var(--color-black)" }}>
+                        {f.tipologia === "Rilavorazione" ? "⚙ " : "↳ "}{f.odp || f.numeroScheda || "—"}
+                      </span>
+                      {f.numeroScheda && f.numeroScheda !== f.odp && (
+                        <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>{f.numeroScheda}</span>
+                      )}
+                      <BadgeStato stato={f.statoProduzione} />
+                      {f.pdfAllegato.length > 0 && (
+                        <a href={`/api/files/${f.id}?prop=${encodeURIComponent("PDF Allegato")}&index=0`}
+                          target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs font-medium hover:underline"
+                          style={{ color: "#DC2626" }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/></svg>
+                          PDF
+                        </a>
+                      )}
+                    </div>
+                    {onViewScheda && (
+                      <button onClick={() => { onViewScheda(f); }}
+                        className="shrink-0 text-xs px-2.5 py-1 rounded-lg font-semibold border transition-opacity hover:opacity-80"
+                        style={{ color: "var(--color-primary)", borderColor: "rgba(240,143,37,0.3)", background: "rgba(240,143,37,0.06)" }}>
+                        Apri →
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
           )}
 
           {(inRitardoProd || inRitardoRientro) && (
