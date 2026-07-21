@@ -569,7 +569,13 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">{s.numeroScheda || "—"}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {s.numeroScheda ? (
+                        <button onClick={() => setViewing(s)} className="hover:underline font-medium text-left" style={{ color: "var(--color-black)" }}>
+                          {s.numeroScheda}
+                        </button>
+                      ) : "—"}
+                    </td>
                     <td className="px-4 py-3 text-xs">{s.descrizioneFasi || "—"}</td>
                     <td className="px-4 py-3">
                       <BadgeStato stato={s.statoProduzione} />
@@ -604,7 +610,13 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                             )}
                           </span>
                         </td>
-                        <td className="px-4 py-2 text-xs whitespace-nowrap">{f.numeroScheda || "—"}</td>
+                        <td className="px-4 py-2 text-xs whitespace-nowrap">
+                          {f.numeroScheda ? (
+                            <button onClick={() => setViewing(f)} className="hover:underline font-medium text-left" style={{ color: "var(--color-black)" }}>
+                              {f.numeroScheda}
+                            </button>
+                          ) : "—"}
+                        </td>
                         <td className="px-4 py-2 text-xs">{f.descrizioneFasi || "—"}</td>
                         <td className="px-4 py-2">
                           <BadgeStato stato={f.statoProduzione} />
