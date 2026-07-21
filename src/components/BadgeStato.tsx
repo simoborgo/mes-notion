@@ -41,12 +41,12 @@ const colorMap: Record<string, { bg: string; text: string }> = {
 
 const fallback = { bg: "#F3F4F6", text: "#374151" };
 
-export default function BadgeStato({ stato }: { stato: string }) {
+export default function BadgeStato({ stato, className = "" }: { stato: string; className?: string }) {
   if (!stato) return null;
   const { bg, text } = colorMap[stato] ?? fallback;
   return (
     <span
-      className="inline-block px-2 py-0.5 text-xs font-medium rounded-sm whitespace-nowrap"
+      className={`inline-block px-2 py-0.5 text-xs font-medium rounded-sm whitespace-nowrap ${className}`}
       style={{ background: bg, color: text, borderRadius: "var(--radius-badge)" }}
     >
       {stato}
