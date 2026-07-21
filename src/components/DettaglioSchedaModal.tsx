@@ -160,7 +160,7 @@ export default function DettaglioSchedaModal({ scheda: s, onClose, onRilavorazio
         style={{ width: "min(680px, 100%)", maxHeight: "92vh", background: "white" }}
       >
         {/* Header */}
-        <div className="shrink-0 px-6 pt-5 pb-4" style={{ background: "linear-gradient(135deg, #1a1918 0%, #2d2b29 100%)" }}>
+        <div className="shrink-0 px-6 pt-5 pb-4" style={{ background: "linear-gradient(135deg, #F08F25 0%, #d4790f 100%)" }}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               {/* ODP + Numero scheda */}
@@ -169,20 +169,21 @@ export default function DettaglioSchedaModal({ scheda: s, onClose, onRilavorazio
                   {s.odp || "—"}
                 </span>
                 {s.numeroScheda && (
-                  <span className="text-sm px-2.5 py-0.5 rounded-full font-medium" style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.75)" }}>
+                  <span className="text-sm px-2.5 py-0.5 rounded-full font-medium" style={{ background: "rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.9)" }}>
                     {s.numeroScheda}
                   </span>
                 )}
               </div>
               {/* Cliente */}
-              <div className="text-sm mt-1 truncate" style={{ color: "rgba(255,255,255,0.55)" }}>
+              <div className="text-sm mt-1 truncate" style={{ color: "rgba(255,255,255,0.75)" }}>
                 {s.clienteInfo || "—"}
               </div>
               {/* Stato inline */}
               <div className="flex items-center gap-2 mt-2.5">
-                <BadgeStato stato={s.statoProduzione} />
+                <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.7)" }}>Stato di produzione</span>
+                <span className="text-base font-bold text-white">{s.statoProduzione}</span>
                 {s.faseCorrente && (
-                  <span className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>· {s.faseCorrente}</span>
+                  <span className="text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>· {s.faseCorrente}</span>
                 )}
               </div>
             </div>
@@ -192,7 +193,7 @@ export default function DettaglioSchedaModal({ scheda: s, onClose, onRilavorazio
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                style={{ background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.15)" }}
+                style={{ background: "rgba(255,255,255,0.2)", color: "white", border: "1px solid rgba(255,255,255,0.3)" }}
               >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
@@ -202,7 +203,7 @@ export default function DettaglioSchedaModal({ scheda: s, onClose, onRilavorazio
               <button
                 onClick={onClose}
                 className="flex items-center justify-center w-8 h-8 rounded-full transition-colors"
-                style={{ background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)" }}
+                style={{ background: "rgba(255,255,255,0.2)", color: "white" }}
                 aria-label="Chiudi"
               >
                 ✕
