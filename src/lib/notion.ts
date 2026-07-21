@@ -402,13 +402,19 @@ export const getSottoschede = unstable_cache(
   async (): Promise<Scheda[]> => {
     const pages = await queryAll(
       DB_SCHEDE,
-      { property: "Tipologia", select: { equals: "Sottoscheda" } },
+      { property: "Tipologia", select: { does_not_equal: "Scheda" } },
     );
     return pages.map(pageToScheda);
   },
   ["notion-sottoschede"],
   { revalidate: 120, tags: ["schede"] }
 );
+
+export async function getNextRilavorazioneOdp(parentId: string, parentOdp: string): Promise<string> {
+  const pages = await queryAll(DB_SCHEDE, { property: "Parent item", relation: { contains: parentId } });
+  const existing = pages.filter((p) => getText(prop(p, "Tipologia")) === "Rilavorazione").length;
+  return `${parentOdp}/R${String(existing + 1).padStart(2, "0")}`;
+}
 
 export async function getSchedaById(id: string): Promise<Scheda> {
   const page = await notion.pages.retrieve({ page_id: id });

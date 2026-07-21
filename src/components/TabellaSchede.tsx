@@ -8,6 +8,7 @@ import DettaglioSchedaModal from "./DettaglioSchedaModal";
 
 const PAGE_SIZE = 100;
 const STATI_COMPLETATI = new Set(["Completato", "Annullato"]);
+const STATI_RILAVORAZIONE_APERTA = new Set(["In Lavorazione Esterna", "In Lavorazione", "In Attesa Rilavorazione"]);
 
 type SortKey = "odp" | "numeroScheda" | "clienteInfo" | "statoProduzione" | "dataProduzionePrevista" | "dataRientroPrevista";
 type SortDir = "asc" | "desc";
@@ -518,6 +519,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                 const ritardo = isInRitardo(s, today);
                 const rowInRitardo = ritardo.produzione || ritardo.rientro;
                 const figlie = sottoschedeByParent.get(s.id) ?? [];
+                const rilavorazioniAperte = figlie.filter((f) => f.tipologia === "Rilavorazione" && STATI_RILAVORAZIONE_APERTA.has(f.statoProduzione));
                 const expanded = expandedIds.has(s.id);
                 return (
                   <Fragment key={s.id}>
@@ -548,10 +550,22 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                           <span className="text-xs px-1.5 py-0.5 rounded-full font-bold" style={{ background: "rgba(240,143,37,0.12)", color: "var(--color-primary)" }}>
                             {figlie.length}
                           </span>
+                          {rilavorazioniAperte.length > 0 && (
+                            <span className="text-xs px-1.5 py-0.5 rounded-full font-bold" style={{ background: "#FEF9C3", color: "#92400E" }}>
+                              ⚙ {rilavorazioniAperte.length}
+                            </span>
+                          )}
                         </button>
                       ) : (
-                        <span className={s.copertina ? "cursor-default underline decoration-dotted decoration-gray-400" : ""}>
-                          {s.odp || "—"}
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className={s.copertina ? "cursor-default underline decoration-dotted decoration-gray-400" : ""}>
+                            {s.odp || "—"}
+                          </span>
+                          {rilavorazioniAperte.length > 0 && (
+                            <span className="text-xs px-1.5 py-0.5 rounded-full font-bold" style={{ background: "#FEF9C3", color: "#92400E" }}>
+                              ⚙ {rilavorazioniAperte.length}
+                            </span>
+                          )}
                         </span>
                       )}
                     </td>
@@ -580,10 +594,15 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                   {expanded && figlie.map((f) => {
                     const fRitardo = isInRitardo(f, today);
                     return (
-                      <tr key={f.id} className="border-b last:border-0" style={{ background: "#FAFAF9" }}>
+                      <tr key={f.id} className="border-b last:border-0" style={{ background: f.tipologia === "Rilavorazione" ? "#FFFBEB" : "#FAFAF9" }}>
                         <td className="px-4 py-2 text-xs" style={{ color: "var(--color-grey-mid)" }}>{f.clienteInfo || "—"}</td>
                         <td className="px-4 py-2 pl-10 font-mono text-xs whitespace-nowrap" style={{ color: "var(--color-grey-mid)" }}>
-                          ↳ {f.odp || "—"}
+                          <span className="inline-flex items-center gap-1.5">
+                            {f.tipologia === "Rilavorazione" ? "⚙" : "↳"} {f.odp || "—"}
+                            {f.tipologia === "Rilavorazione" && (
+                              <span className="text-xs px-1 py-0.5 rounded font-medium" style={{ background: "#FEF9C3", color: "#92400E" }}>Rilav.</span>
+                            )}
+                          </span>
                         </td>
                         <td className="px-4 py-2 text-xs whitespace-nowrap">{f.numeroScheda || "—"}</td>
                         <td className="px-4 py-2 text-xs">{f.descrizioneFasi || "—"}</td>
@@ -683,7 +702,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
         </tbody>
       </table>
 
-      {viewing && <DettaglioSchedaModal scheda={viewing} onClose={() => setViewing(null)} />}
+      {viewing && <DettaglioSchedaModal scheda={viewing} onClose={() => setViewing(null)} onRilavorazioneCreata={handleReload} />}
       <CopertinaTooltip tooltip={tooltip} />
     </div>
   );

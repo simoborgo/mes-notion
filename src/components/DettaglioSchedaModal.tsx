@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Scheda } from "@/lib/types";
 import BadgeStato from "./BadgeStato";
 
 interface Props {
   scheda: Scheda;
   onClose: () => void;
+  onRilavorazioneCreata?: () => void;
 }
 
 function fmt(d: string | null) {
@@ -34,8 +35,129 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export default function DettaglioSchedaModal({ scheda: s, onClose }: Props) {
+interface Fornitore { id: string; nome: string }
+
+function FormRilavorazione({ schedaId, schedaOdp, onSuccess, onCancel }: {
+  schedaId: string;
+  schedaOdp: string;
+  onSuccess: () => void;
+  onCancel: () => void;
+}) {
+  const [descrizione, setDescrizione] = useState("");
+  const [fornitoreNome, setFornitoreNome] = useState("");
+  const [dataRientro, setDataRientro] = useState("");
+  const [note, setNote] = useState("");
+  const [fornitori, setFornitori] = useState<Fornitore[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/fornitori").then((r) => r.json()).then(setFornitori).catch(() => {});
+  }, []);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!descrizione.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/schede/${schedaId}/rilavorazione`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ descrizione, fornitoreNome: fornitoreNome || undefined, dataRientro: dataRientro || undefined, note: note || undefined }),
+      });
+      const data = await res.json() as { ok: boolean; error?: string; rilavorazione?: { odp: string } };
+      if (!res.ok || !data.ok) throw new Error(data.error ?? "Errore creazione");
+      onSuccess();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const inputCls = "w-full text-sm px-3 py-1.5 rounded border focus:outline-none focus:ring-1 focus:ring-orange-400";
+  const inputStyle = { border: "1px solid #e5e4e0", background: "#fafaf9", color: "var(--color-black)" };
+
+  return (
+    <form onSubmit={submit} className="rounded-lg p-4 space-y-3" style={{ background: "#FFF9F0", border: "1px solid #FED7AA" }}>
+      <div className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: "#92400E" }}>
+        Nuova Rilavorazione su {schedaOdp}
+      </div>
+
+      <div>
+        <label className="text-xs font-medium block mb-1" style={{ color: "var(--color-grey-mid)" }}>Descrizione pezzo *</label>
+        <input
+          type="text"
+          value={descrizione}
+          onChange={(e) => setDescrizione(e.target.value)}
+          placeholder="Es. Cornice sx rovinata durante assemblaggio"
+          className={inputCls}
+          style={inputStyle}
+          required
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs font-medium block mb-1" style={{ color: "var(--color-grey-mid)" }}>Fornitore</label>
+          <select
+            value={fornitoreNome}
+            onChange={(e) => setFornitoreNome(e.target.value)}
+            className={inputCls}
+            style={inputStyle}
+          >
+            <option value="">— nessuno —</option>
+            {fornitori.map((f) => <option key={f.id} value={f.nome}>{f.nome}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-medium block mb-1" style={{ color: "var(--color-grey-mid)" }}>Data rientro prevista</label>
+          <input
+            type="date"
+            value={dataRientro}
+            onChange={(e) => setDataRientro(e.target.value)}
+            className={inputCls}
+            style={inputStyle}
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="text-xs font-medium block mb-1" style={{ color: "var(--color-grey-mid)" }}>Note</label>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          rows={2}
+          placeholder="Motivazione, dettagli…"
+          className={inputCls}
+          style={{ ...inputStyle, resize: "vertical" }}
+        />
+      </div>
+
+      {error && <p className="text-xs font-medium" style={{ color: "#991B1B" }}>{error}</p>}
+
+      <div className="flex justify-end gap-2 pt-1">
+        <button type="button" onClick={onCancel} className="text-sm px-3 py-1.5 rounded border" style={{ color: "var(--color-grey-mid)", borderColor: "#e5e4e0" }}>
+          Annulla
+        </button>
+        <button
+          type="submit"
+          disabled={saving || !descrizione.trim()}
+          className="text-sm px-4 py-1.5 rounded font-semibold disabled:opacity-50"
+          style={{ background: "#D97706", color: "white" }}
+        >
+          {saving ? "Creazione…" : "Crea Rilavorazione"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+export default function DettaglioSchedaModal({ scheda: s, onClose, onRilavorazioneCreata }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null);
+  const [showRilavorazioneForm, setShowRilavorazioneForm] = useState(false);
+  const [rilavorazioneCreata, setRilavorazioneCreata] = useState<string | null>(null);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
@@ -50,6 +172,15 @@ export default function DettaglioSchedaModal({ scheda: s, onClose }: Props) {
   const today = new Date().toISOString().slice(0, 10);
   const inRitardoProd = !["Completato", "Annullato"].includes(s.statoProduzione) && !!s.dataProduzionePrevista && s.dataProduzionePrevista < today;
   const inRitardoRientro = !["Completato", "Annullato"].includes(s.statoProduzione) && s.produzioneEsterna && !!s.dataRientroPrevista && s.dataRientroPrevista < today;
+
+  const isParentScheda = s.tipologia === "Scheda";
+  const isInAttesaRilavorazione = s.statoProduzione === "In Attesa Rilavorazione";
+
+  function handleRilavorazioneSuccess() {
+    setShowRilavorazioneForm(false);
+    setRilavorazioneCreata(`${s.odp}/R__`);
+    onRilavorazioneCreata?.();
+  }
 
   return (
     <div
@@ -107,6 +238,15 @@ export default function DettaglioSchedaModal({ scheda: s, onClose }: Props) {
         {/* Body */}
         <div className="px-6 py-5 space-y-6">
 
+          {/* Avviso In Attesa Rilavorazione */}
+          {isInAttesaRilavorazione && (
+            <div className="rounded-md px-4 py-3" style={{ background: "#FEF9C3", border: "1px solid #FDE68A" }}>
+              <div className="text-sm font-medium" style={{ color: "#92400E" }}>
+                ⚙ ODP in attesa di rilavorazione — uno o più pezzi sono presso un fornitore esterno
+              </div>
+            </div>
+          )}
+
           {/* Avvisi ritardo */}
           {(inRitardoProd || inRitardoRientro) && (
             <div className="rounded-md px-4 py-3 space-y-1" style={{ background: "#FEF2F2", border: "1px solid #FCA5A5" }}>
@@ -120,6 +260,15 @@ export default function DettaglioSchedaModal({ scheda: s, onClose }: Props) {
                   ⚠ Rientro materiale in ritardo — previsto il {fmt(s.dataRientroPrevista)}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Successo rilavorazione */}
+          {rilavorazioneCreata && (
+            <div className="rounded-md px-4 py-3" style={{ background: "#D1FAE5", border: "1px solid #6EE7B7" }}>
+              <div className="text-sm font-medium" style={{ color: "#065F46" }}>
+                ✓ Rilavorazione creata — ODP aggiornato a "In Attesa Rilavorazione"
+              </div>
             </div>
           )}
 
@@ -232,6 +381,31 @@ export default function DettaglioSchedaModal({ scheda: s, onClose }: Props) {
               <div className="rounded-md px-3 py-2.5" style={{ background: "#faf9f7", border: "1px solid #e5e4e0" }}>
                 <p className="text-sm whitespace-pre-wrap" style={{ color: "var(--color-black)" }}>{s.note}</p>
               </div>
+            </Section>
+          )}
+
+          {/* Sezione Rilavorazione — solo per schede parent */}
+          {isParentScheda && (
+            <Section title="Rilavorazione">
+              {showRilavorazioneForm ? (
+                <FormRilavorazione
+                  schedaId={s.id}
+                  schedaOdp={s.odp}
+                  onSuccess={handleRilavorazioneSuccess}
+                  onCancel={() => setShowRilavorazioneForm(false)}
+                />
+              ) : (
+                <button
+                  onClick={() => setShowRilavorazioneForm(true)}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors hover:opacity-90"
+                  style={{ background: "#FEF3C7", color: "#92400E", border: "1px solid #FDE68A" }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 5v14M5 12h14"/>
+                  </svg>
+                  Invia pezzo in Rilavorazione
+                </button>
+              )}
             </Section>
           )}
 
