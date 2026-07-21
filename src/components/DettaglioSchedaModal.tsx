@@ -26,14 +26,15 @@ function InfoItem({ label, value }: { label: string; value: React.ReactNode }) {
 
 interface Fornitore { id: string; nome: string }
 
-function FormRilavorazione({ schedaId, schedaOdp, onSuccess, onCancel }: {
+function FormRilavorazione({ schedaId, schedaOdp, defaultFornitore, onSuccess, onCancel }: {
   schedaId: string;
   schedaOdp: string;
+  defaultFornitore?: string;
   onSuccess: () => void;
   onCancel: () => void;
 }) {
   const [descrizione, setDescrizione] = useState("");
-  const [fornitoreNome, setFornitoreNome] = useState("");
+  const [fornitoreNome, setFornitoreNome] = useState(defaultFornitore ?? "");
   const [dataRientro, setDataRientro] = useState("");
   const [note, setNote] = useState("");
   const [fornitori, setFornitori] = useState<Fornitore[]>([]);
@@ -134,7 +135,7 @@ export default function DettaglioSchedaModal({ scheda: s, onClose, onRilavorazio
   const today = new Date().toISOString().slice(0, 10);
   const inRitardoProd = !["Completato", "Annullato"].includes(s.statoProduzione) && !!s.dataProduzionePrevista && s.dataProduzionePrevista < today;
   const inRitardoRientro = !["Completato", "Annullato"].includes(s.statoProduzione) && s.produzioneEsterna && !!s.dataRientroPrevista && s.dataRientroPrevista < today;
-  const isParentScheda = s.tipologia === "Scheda";
+  const canHaveRilavorazione = s.tipologia === "Scheda" || s.tipologia === "Sottoscheda";
   const isInAttesaRilavorazione = s.statoProduzione === "In Attesa Rilavorazione";
 
   function handleRilavorazioneSuccess() {
@@ -214,8 +215,8 @@ export default function DettaglioSchedaModal({ scheda: s, onClose, onRilavorazio
                 </button>
               </div>
 
-              {/* Bottone rilavorazione nell'header — solo parent */}
-              {isParentScheda && !rilavorazioneCreata && !showRilavorazioneForm && (
+              {/* Bottone rilavorazione nell'header — scheda o sottoscheda */}
+              {canHaveRilavorazione && !rilavorazioneCreata && !showRilavorazioneForm && (
                 <button
                   onClick={() => setShowRilavorazioneForm(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-90"
@@ -249,6 +250,7 @@ export default function DettaglioSchedaModal({ scheda: s, onClose, onRilavorazio
             <FormRilavorazione
               schedaId={s.id}
               schedaOdp={s.odp}
+              defaultFornitore={s.fornitore || undefined}
               onSuccess={handleRilavorazioneSuccess}
               onCancel={() => setShowRilavorazioneForm(false)}
             />
