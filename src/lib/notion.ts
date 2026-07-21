@@ -140,7 +140,7 @@ function pageToScheda(page: any): Scheda {
     dataUscitaMateriale: getDate(prop(page, "Data Uscita Materiale")),
     dataRientroEffettiva: getDate(prop(page, "Data Rientro Effettiva")),
     copertina: getFiles(prop(page, "Copertina"))[0]?.url ?? null,
-    note: getText(prop(page, "Note")),
+    note: getText(prop(page, "Descrizione")),
     commessaId: getRelationId(prop(page, "Commessa Nr")),
     commessaNr: extractCommessaNr(clienteInfo),
     areaId: getRelationId(prop(page, "Area-Cartella Commessa")),
@@ -443,7 +443,7 @@ export async function updateScheda(id: string, data: SchedaUpdate): Promise<Sche
   if (data.dataRientroEffettiva !== undefined)
     properties["Data Rientro Effettiva"] = { date: data.dataRientroEffettiva ? { start: data.dataRientroEffettiva } : null };
   if (data.note !== undefined)
-    properties["Note"] = { rich_text: [{ text: { content: data.note } }] };
+    properties["Descrizione"] = { rich_text: [{ text: { content: data.note } }] };
 
   const page = await notion.pages.update({ page_id: id, properties });
   return pageToScheda(page);
@@ -667,7 +667,7 @@ export async function createSchedaPage({
   if (posizione) properties["Posizione"] = { rich_text: [{ text: { content: posizione } }] };
   if (fornitore) properties["Nome Fornitore"] = { rich_text: [{ text: { content: fornitore } }] };
   if (fornitoreId) properties["Fornitore"] = { relation: [{ id: fornitoreId }] };
-  if (note) properties["Note"] = { rich_text: [{ text: { content: note } }] };
+  if (note) properties["Descrizione"] = { rich_text: [{ text: { content: note } }] };
   if (quantita != null) properties["Quantità"] = { number: quantita };
   if (dataProduzionePrevista) properties["Data Produzione Prevista"] = { date: { start: dataProduzionePrevista } };
   if (dataSchedaRicevuta) properties["Data Scheda Ricevuta"] = { date: { start: dataSchedaRicevuta } };
