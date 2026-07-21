@@ -1,8 +1,27 @@
 const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
 
 /**
+ * Restituisce { x, y, width, height } del rettangolo di visualizzazione della pagina
+ * come lo interpreta pdf.js (CropBox intersecato con MediaBox, con offset).
+ * I coordinate di disegno in pdf-lib usano il sistema MediaBox (origine bottom-left),
+ * quindi dobbiamo aggiungere l'offset del CropBox.
+ */
+function getPageBounds(page) {
+  const size = page.getSize(); // { width, height } già gestisce rotazione e usa CropBox
+  let ox = 0, oy = 0;
+  try {
+    const mb = page.getMediaBox();   // { x, y, width, height }
+    const cb = page.getCropBox();    // { x, y, width, height }
+    if (mb && cb) {
+      ox = cb.x - mb.x;
+      oy = cb.y - mb.y;
+    }
+  } catch (_) { /* fallback silenzioso */ }
+  return { ox, oy, width: size.width, height: size.height };
+}
+
+/**
  * Costruisce il PDF verificato server-side.
- * Stessa logica della funzione flattenPdf nel client.
  *
  * @param {object} opts
  * @param {Buffer} opts.originalBytes  - PDF originale da Notion
@@ -10,7 +29,7 @@ const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
  * @param {Record<number, Array<{x,y,tipo}>>} opts.stamps   - bolli per pagina (coord 0-1)
  * @param {string} opts.userName   - nome operatore
  * @param {string} opts.schedaOdp  - ODP display (es. MP26-014)
- * @param {Buffer[]} opts.fotoBuffers - foto JPEG da Drive, in ordine
+ * @param {Buffer[]} opts.fotoBuffers - foto JPEG, una per pagina aggiuntiva
  * @returns {Promise<Buffer>}
  */
 async function buildVerificaPdf({ originalBytes, strokes = {}, stamps = {}, userName, schedaOdp, fotoBuffers = [] }) {
@@ -24,18 +43,18 @@ async function buildVerificaPdf({ originalBytes, strokes = {}, stamps = {}, user
     const pageNum = parseInt(pageNumStr, 10);
     if (pageNum < 1 || pageNum > pages.length) continue;
     const page = pages[pageNum - 1];
-    const { width, height } = page.getSize();
-    const lw = Math.max(10, width * 0.014);
+    const { ox, oy, width, height } = getPageBounds(page);
+    const lw = Math.max(12, width * 0.020);
 
     for (const stroke of pageStrokes) {
       if (stroke.length < 2) continue;
       for (let i = 1; i < stroke.length; i++) {
         page.drawLine({
-          start: { x: stroke[i - 1].x * width, y: height - stroke[i - 1].y * height },
-          end:   { x: stroke[i].x * width,     y: height - stroke[i].y * height },
+          start: { x: ox + stroke[i - 1].x * width, y: oy + height - stroke[i - 1].y * height },
+          end:   { x: ox + stroke[i].x * width,     y: oy + height - stroke[i].y * height },
           thickness: lw,
-          color: rgb(1, 0.88, 0.4),
-          opacity: 0.55,
+          color: rgb(1, 0.87, 0.2),
+          opacity: 0.60,
         });
       }
     }
@@ -46,24 +65,24 @@ async function buildVerificaPdf({ originalBytes, strokes = {}, stamps = {}, user
     const pageNum = parseInt(pageNumStr, 10);
     if (pageNum < 1 || pageNum > pages.length) continue;
     const page = pages[pageNum - 1];
-    const { width, height } = page.getSize();
-    const r = Math.max(18, width * 0.028);
+    const { ox, oy, width, height } = getPageBounds(page);
+    const r = Math.max(18, width * 0.030);
 
     for (const s of pageStamps) {
-      const cx = s.x * width;
-      const cy = height - s.y * height;
+      const cx = ox + s.x * width;
+      const cy = oy + height - s.y * height;
       const isOk = s.tipo === 'ok';
       page.drawEllipse({
         x: cx, y: cy, xScale: r, yScale: r,
-        color: isOk ? rgb(0.18, 0.545, 0.31) : rgb(0.8, 0.2, 0.2),
-        opacity: 0.92,
-        borderColor: rgb(1, 1, 1), borderWidth: 2,
+        color: isOk ? rgb(0.12, 0.60, 0.27) : rgb(0.80, 0.15, 0.15),
+        opacity: 0.95,
+        borderColor: rgb(1, 1, 1), borderWidth: 2.5,
       });
       const label = isOk ? 'OK' : '!';
-      const fs = Math.round(r * 0.7);
+      const fs = Math.round(r * 0.72);
       const tw = helveticaBold.widthOfTextAtSize(label, fs);
       page.drawText(label, {
-        x: cx - tw / 2, y: cy - fs * 0.35,
+        x: cx - tw / 2, y: cy - fs * 0.36,
         size: fs, font: helveticaBold, color: rgb(1, 1, 1),
       });
     }
@@ -82,11 +101,8 @@ async function buildVerificaPdf({ originalBytes, strokes = {}, stamps = {}, user
     try {
       const imgBytes = new Uint8Array(fotoBuffers[i]);
       let img;
-      try {
-        img = await pdfDocLib.embedJpg(imgBytes);
-      } catch {
-        img = await pdfDocLib.embedPng(imgBytes);
-      }
+      try { img = await pdfDocLib.embedJpg(imgBytes); }
+      catch { img = await pdfDocLib.embedPng(imgBytes); }
       const pg = pdfDocLib.addPage([595, 842]);
       const margin = 40;
       const maxW = 595 - margin * 2;

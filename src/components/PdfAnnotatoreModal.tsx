@@ -74,6 +74,8 @@ export default function PdfAnnotatoreModal({ sourcePdfPageId, schedaOdp, onClose
     if (!drawCanvas) return;
     const dpr = window.devicePixelRatio || 1;
     const ctx = drawCanvas.getContext("2d")!;
+    // Reset transform before clearing to guarantee we clear the full physical canvas
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
     ctx.save();
     ctx.scale(dpr, dpr);
@@ -297,15 +299,18 @@ export default function PdfAnnotatoreModal({ sourcePdfPageId, schedaOdp, onClose
           )}
         </div>
       </div>
-      <div ref={containerRef} className="flex-1 overflow-y-auto flex flex-col items-center py-6 px-4" style={{ background: "#1a1a1a" }}>
-        {pdfLoading && <div className="flex items-center justify-center h-40"><span className="text-sm animate-pulse" style={{ color: "#aaa" }}>Caricamento PDF…</span></div>}
-        {pdfError && <div className="rounded-xl px-4 py-3 text-sm" style={{ background: "#FEE2E2", color: "#991B1B" }}>{pdfError}</div>}
-        {!pdfLoading && !pdfError && (
-          <div className="relative shadow-2xl" style={{ touchAction: "none" }}>
-            <canvas ref={pdfCanvasRef} className="block" />
-            <canvas ref={drawCanvasRef} className="absolute inset-0 cursor-crosshair" style={{ touchAction: "none" }} />
-          </div>
-        )}
+      {/* px-4 sul wrapper esterno; containerRef punta all'inner div così clientWidth = larghezza content reale */}
+      <div className="flex-1 overflow-y-auto flex flex-col items-center py-6 px-4" style={{ background: "#1a1a1a" }}>
+        <div ref={containerRef} className="w-full flex flex-col items-center">
+          {pdfLoading && <div className="flex items-center justify-center h-40"><span className="text-sm animate-pulse" style={{ color: "#aaa" }}>Caricamento PDF…</span></div>}
+          {pdfError && <div className="rounded-xl px-4 py-3 text-sm" style={{ background: "#FEE2E2", color: "#991B1B" }}>{pdfError}</div>}
+          {!pdfLoading && !pdfError && (
+            <div className="relative shadow-2xl" style={{ touchAction: "none" }}>
+              <canvas ref={pdfCanvasRef} className="block" />
+              <canvas ref={drawCanvasRef} style={{ position: "absolute", top: 0, left: 0, touchAction: "none", cursor: "crosshair" }} />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

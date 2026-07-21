@@ -70,6 +70,7 @@ function RilavorazioneWizard({
   const [fornitori, setFornitori] = useState<Fornitore[]>([]);
   const [annotazioni, setAnnotazioni] = useState<AnnotazioneData>({ strokes: {}, stamps: {} });
   const [fotos, setFotos] = useState<string[]>([]);
+  const [creaRitiro, setCreaRitiro] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fotoInputRef = useRef<HTMLInputElement>(null);
@@ -106,6 +107,7 @@ function RilavorazioneWizard({
         dataRientro: dataRientro || undefined,
         note: note || undefined,
         quantita: quantita ? Number(quantita) : undefined,
+        creaRitiro: creaRitiro && !!fornitoreNome,
       };
       if (hasPdf && (hasAnnotation || fotos.length > 0)) {
         body.sourcePdfPageId = sourcePdfPageId;
@@ -195,6 +197,14 @@ function RilavorazioneWizard({
             <textarea value={note} onChange={e => setNote(e.target.value)} rows={2}
               placeholder="Motivazione, dettagli…" className={inputCls} style={{ ...inputStyle, resize: "vertical" }} />
           </div>
+          {/* Flag ritiro — visibile solo se c'è un fornitore */}
+          {fornitoreNome && (
+            <label className="flex items-center gap-2 cursor-pointer select-none text-xs" style={{ color: "#92400E" }}>
+              <input type="checkbox" checked={creaRitiro} onChange={e => setCreaRitiro(e.target.checked)}
+                className="w-4 h-4 accent-amber-600 cursor-pointer" />
+              Crea riga in <strong>Ritiri e Consegne</strong> + notifica Telegram
+            </label>
+          )}
           {error && <p className="text-xs font-medium px-2 py-1.5 rounded-lg" style={{ color: "#991B1B", background: "#FEE2E2" }}>{error}</p>}
           <div className="flex justify-end gap-2 pt-1">
             <button type="button" onClick={onCancel} className="text-sm px-3 py-1.5 rounded-lg border font-medium"

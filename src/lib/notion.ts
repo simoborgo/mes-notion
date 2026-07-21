@@ -411,9 +411,22 @@ export const getSottoschede = unstable_cache(
 );
 
 export async function getNextRilavorazioneOdp(parentId: string, parentOdp: string): Promise<string> {
-  const pages = await queryAll(DB_SCHEDE, { property: "Parent item", relation: { contains: parentId } });
-  const existing = pages.filter((p) => getText(prop(p, "Tipologia")) === "Rilavorazione").length;
-  return `${parentOdp}/R${String(existing + 1).padStart(2, "0")}`;
+  // Query per prefisso ODP — più affidabile del relation filter (che può avere delay di indicizzazione)
+  const prefix = `${parentOdp}/R`;
+  const pages = await queryAll(DB_SCHEDE, {
+    and: [
+      { property: "ODP", rich_text: { starts_with: prefix } },
+      { property: "Tipologia", select: { equals: "Rilavorazione" } },
+    ],
+  });
+  const maxN = pages.reduce((max, p) => {
+    const odp = getText(prop(p, "ODP"));
+    const m = odp.match(/\/R(\d+)$/);
+    return m ? Math.max(max, parseInt(m[1], 10)) : max;
+  }, 0);
+  return `${parentOdp}/R${String(maxN + 1).padStart(2, "0")}`;
+  // parentId unused but kept in signature for compatibility
+  void parentId;
 }
 
 export async function getSchedaById(id: string): Promise<Scheda> {

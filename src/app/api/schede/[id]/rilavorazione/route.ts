@@ -31,6 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       note?: string;
       dataRientro?: string;
       quantita?: number | null;
+      creaRitiro?: boolean;
       // PDF annotation (optional)
       sourcePdfPageId?: string;
       strokes?: Record<number, Point[][]>;
@@ -65,15 +66,40 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     await updateSchedaStato(parentId, "In Attesa Rilavorazione");
 
-    // Crea ritiro "Consegna" verso fornitore (fire-and-forget, non blocca)
-    if (fornitoreId) {
-      createRitiro({
-        causale: `Rilavorazione — ${subOdp}`,
-        tipoMovimento: "Consegna",
-        dataTrasporto: body.dataRientro ?? new Date().toISOString().slice(0, 10),
-        schedaId: rilavorazione.id,
-        fornitoreId,
-      }).catch((e) => console.error("[rilavorazione] createRitiro:", e));
+    // Crea ritiro "Consegna" + notifica Telegram (solo se flag esplicito e fornitore presente)
+    if (body.creaRitiro && fornitoreId) {
+      void (async () => {
+        try {
+          await createRitiro({
+            causale: `Rilavorazione — ${subOdp}`,
+            tipoMovimento: "Consegna",
+            dataTrasporto: body.dataRientro ?? new Date().toISOString().slice(0, 10),
+            schedaId: rilavorazione.id,
+            fornitoreId,
+          });
+
+          // Notifica Telegram via n8n
+          const webhookUrl = process.env.N8N_WEBHOOK_CARICO_PROD ?? process.env.N8N_WEBHOOK_CARICO;
+          if (webhookUrl) {
+            await fetch(webhookUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                tipo: "rilavorazione_consegna",
+                operatore: session.name,
+                odp_label: subOdp,
+                fornitore: body.fornitoreNome ?? "",
+                descrizione: body.descrizione.trim(),
+                data_rientro: body.dataRientro ?? "",
+                note: body.note ?? "",
+                timestamp: new Date().toISOString(),
+              }),
+            }).catch((e) => console.warn("[rilavorazione] n8n notify:", e.message));
+          }
+        } catch (e) {
+          console.error("[rilavorazione] createRitiro:", e);
+        }
+      })();
     }
 
     // Build + upload flattened PDF (with optional annotations and photos)
@@ -99,7 +125,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           await uploadPdfAllegato(rilavorazione.id, pdfBuffer, filename);
         }
       } catch (pdfErr) {
-        // Non bloccare la risposta se il PDF fallisce — la rilavorazione è già creata
+        // Non blocca la risposta — la rilavorazione è già creata
         console.error("[rilavorazione] PDF upload failed:", pdfErr);
       }
     }
