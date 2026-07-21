@@ -635,7 +635,7 @@ export async function createSchedaPage({
   thumbnailFilename,
 }: {
   numeroScheda: string;
-  commessaId: string;
+  commessaId: string | null;
   odp: string;
   tipologia?: string;
   stato?: string;
@@ -656,9 +656,9 @@ export async function createSchedaPage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const properties: Record<string, any> = {
     "Numero Scheda": { title: [{ text: { content: numeroScheda } }] },
-    "Commessa Nr": { relation: [{ id: commessaId }] },
     "Tipologia": { select: { name: tipologia } },
   };
+  if (commessaId) properties["Commessa Nr"] = { relation: [{ id: commessaId }] };
 
   if (stato) properties["Stato"] = { select: { name: stato } };
 

@@ -28,10 +28,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const parent = await getSchedaById(parentId);
 
-    if (!parent.commessaId) {
-      return NextResponse.json({ ok: false, error: "Scheda non collegata a una commessa" }, { status: 422 });
-    }
-
     const [subOdp, fornitoreId] = await Promise.all([
       getNextRilavorazioneOdp(parentId, parent.odp),
       body.fornitoreNome ? findFornitoreIdByName(body.fornitoreNome) : Promise.resolve(null),
