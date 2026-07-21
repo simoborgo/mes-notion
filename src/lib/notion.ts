@@ -627,6 +627,7 @@ export async function createSchedaPage({
   quantita,
   dataProduzionePrevista,
   dataSchedaRicevuta,
+  note,
   parentId,
   pdfBuffer,
   pdfFilename,
@@ -645,6 +646,7 @@ export async function createSchedaPage({
   quantita?: number | null;
   dataProduzionePrevista?: string | null;
   dataSchedaRicevuta?: string | null;
+  note?: string | null;
   parentId?: string | null;
   pdfBuffer?: Buffer;
   pdfFilename?: string;
@@ -665,6 +667,7 @@ export async function createSchedaPage({
   if (posizione) properties["Posizione"] = { rich_text: [{ text: { content: posizione } }] };
   if (fornitore) properties["Nome Fornitore"] = { rich_text: [{ text: { content: fornitore } }] };
   if (fornitoreId) properties["Fornitore"] = { relation: [{ id: fornitoreId }] };
+  if (note) properties["Note"] = { rich_text: [{ text: { content: note } }] };
   if (quantita != null) properties["Quantità"] = { number: quantita };
   if (dataProduzionePrevista) properties["Data Produzione Prevista"] = { date: { start: dataProduzionePrevista } };
   if (dataSchedaRicevuta) properties["Data Scheda Ricevuta"] = { date: { start: dataSchedaRicevuta } };
