@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Scheda } from "@/lib/types";
 import BadgeStato from "./BadgeStato";
+import PdfAnnotatoreModal from "./PdfAnnotatoreModal";
 
 interface Props {
   scheda: Scheda;
@@ -30,7 +31,7 @@ function FormRilavorazione({ schedaId, schedaOdp, defaultFornitore, onSuccess, o
   schedaId: string;
   schedaOdp: string;
   defaultFornitore?: string;
-  onSuccess: () => void;
+  onSuccess: (result: { pageId: string; odp: string }) => void;
   onCancel: () => void;
 }) {
   const [descrizione, setDescrizione] = useState("");
@@ -56,9 +57,9 @@ function FormRilavorazione({ schedaId, schedaOdp, defaultFornitore, onSuccess, o
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ descrizione, fornitoreNome: fornitoreNome || undefined, dataRientro: dataRientro || undefined, note: note || undefined }),
       });
-      const data = await res.json() as { ok: boolean; error?: string };
+      const data = await res.json() as { ok: boolean; error?: string; pageId?: string; odp?: string };
       if (!res.ok || !data.ok) throw new Error(data.error ?? "Errore creazione");
-      onSuccess();
+      onSuccess({ pageId: data.pageId ?? "", odp: data.odp ?? "" });
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -120,7 +121,8 @@ function FormRilavorazione({ schedaId, schedaOdp, defaultFornitore, onSuccess, o
 export default function DettaglioSchedaModal({ scheda: s, onClose, onRilavorazioneCreata }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const [showRilavorazioneForm, setShowRilavorazioneForm] = useState(false);
-  const [rilavorazioneCreata, setRilavorazioneCreata] = useState(false);
+  const [rilavorazioneCreata, setRilavorazioneCreata] = useState<{ pageId: string; odp: string } | null>(null);
+  const [showAnnotatore, setShowAnnotatore] = useState(false);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
@@ -138,9 +140,9 @@ export default function DettaglioSchedaModal({ scheda: s, onClose, onRilavorazio
   const canHaveRilavorazione = s.tipologia === "Scheda" || s.tipologia === "Sottoscheda";
   const isInAttesaRilavorazione = s.statoProduzione === "In Attesa Rilavorazione";
 
-  function handleRilavorazioneSuccess() {
+  function handleRilavorazioneSuccess(result: { pageId: string; odp: string }) {
     setShowRilavorazioneForm(false);
-    setRilavorazioneCreata(true);
+    setRilavorazioneCreata(result);
     onRilavorazioneCreata?.();
   }
 
@@ -234,9 +236,23 @@ export default function DettaglioSchedaModal({ scheda: s, onClose, onRilavorazio
                 </button>
               )}
               {rilavorazioneCreata && (
-                <span className="text-xs font-medium px-2 py-1 rounded-lg" style={{ background: "#D1FAE5", color: "#065F46" }}>
-                  ✓ Rilavorazione creata
-                </span>
+                <div className="flex flex-col items-end gap-1.5">
+                  <span className="text-xs font-medium px-2 py-1 rounded-lg" style={{ background: "#D1FAE5", color: "#065F46" }}>
+                    ✓ {rilavorazioneCreata.odp} creata
+                  </span>
+                  {s.pdfAllegato.length > 0 && (
+                    <button
+                      onClick={() => setShowAnnotatore(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-90"
+                      style={{ background: "#1E40AF", color: "white", boxShadow: "0 2px 6px rgba(30,64,175,0.3)" }}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                      </svg>
+                      Annota PDF
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -359,6 +375,17 @@ export default function DettaglioSchedaModal({ scheda: s, onClose, onRilavorazio
 
         </div>
       </div>
+
+      {/* Annotatore PDF — aperto sopra il modal corrente */}
+      {showAnnotatore && rilavorazioneCreata && (
+        <PdfAnnotatoreModal
+          rilavorazionePageId={rilavorazioneCreata.pageId}
+          sourcePdfPageId={s.id}
+          schedaOdp={rilavorazioneCreata.odp}
+          onClose={() => setShowAnnotatore(false)}
+          onSaved={() => setShowAnnotatore(false)}
+        />
+      )}
     </div>
   );
 }

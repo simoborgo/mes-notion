@@ -100,4 +100,16 @@ async function getPdfOriginale(pageId) {
   return Buffer.from(await pdfRes.arrayBuffer());
 }
 
-module.exports = { aggiornaStatoOdp, getPdfOriginale };
+async function uploadPdfAllegato(pageId, pdfBuffer, filename) {
+  const fileUploadId = await uploadFileToNotion(pdfBuffer, filename, 'application/pdf');
+  await notion.pages.update({
+    page_id: pageId,
+    properties: {
+      'PDF Allegato': {
+        files: [{ type: 'file_upload', file_upload: { id: fileUploadId }, name: filename }],
+      },
+    },
+  });
+}
+
+module.exports = { aggiornaStatoOdp, getPdfOriginale, uploadPdfAllegato };
