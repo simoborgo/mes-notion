@@ -584,8 +584,8 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                     <td className="px-4 py-3">
                       <button
                         onClick={() => setViewing(s)}
-                        className="text-xs px-2 py-1 rounded font-medium transition-colors whitespace-nowrap"
-                        style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)" }}
+                        className="text-sm px-3 py-1.5 rounded-lg font-semibold transition-colors whitespace-nowrap border"
+                        style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)", borderColor: "rgba(240,143,37,0.3)" }}
                       >
                         Vedi scheda
                       </button>
@@ -615,7 +615,15 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                         <td className="px-4 py-2"><DataCell date={f.dataProduzionePrevista} inRitardo={fRitardo.produzione} /></td>
                         <td className="px-4 py-2 text-xs max-w-[180px] truncate" title={f.fornitore || ""}>{f.fornitore || "—"}</td>
                         <td className="px-4 py-2"><DataCell date={f.dataRientroPrevista} inRitardo={fRitardo.rientro} /></td>
-                        <td className="px-4 py-2"></td>
+                        <td className="px-4 py-2">
+                          <button
+                            onClick={() => setViewing(f)}
+                            className="text-sm px-3 py-1.5 rounded-lg font-semibold transition-colors whitespace-nowrap border"
+                            style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)", borderColor: "rgba(240,143,37,0.3)" }}
+                          >
+                            Vedi scheda
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
