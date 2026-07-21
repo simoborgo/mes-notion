@@ -160,30 +160,29 @@ export default function DettaglioSchedaModal({ scheda: s, onClose, onRilavorazio
         style={{ width: "min(680px, 100%)", maxHeight: "92vh", background: "white" }}
       >
         {/* Header */}
-        <div className="shrink-0 px-6 pt-5 pb-4" style={{ background: "linear-gradient(135deg, #F08F25 0%, #d4790f 100%)" }}>
+        <div className="shrink-0 px-6 pt-5 pb-4 border-b" style={{ background: "#f3f2ef", borderColor: "#e5e4e0" }}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
-              {/* ODP + Numero scheda */}
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <span className="font-mono font-bold text-2xl tracking-tight text-white">
-                  {s.odp || "—"}
-                </span>
-                {s.numeroScheda && (
-                  <span className="text-sm px-2.5 py-0.5 rounded-full font-medium" style={{ background: "rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.9)" }}>
-                    {s.numeroScheda}
-                  </span>
-                )}
+              {/* ODP */}
+              <div className="font-mono font-bold text-2xl tracking-tight" style={{ color: "var(--color-black)" }}>
+                {s.odp || "—"}
               </div>
+              {/* Titolo scheda — stessa dimensione e font */}
+              {s.numeroScheda && (
+                <div className="font-mono font-bold text-2xl tracking-tight mt-0.5" style={{ color: "var(--color-black)" }}>
+                  {s.numeroScheda}
+                </div>
+              )}
               {/* Cliente */}
-              <div className="text-sm mt-1 truncate" style={{ color: "rgba(255,255,255,0.75)" }}>
+              <div className="text-sm mt-1.5 truncate" style={{ color: "var(--color-grey-mid)" }}>
                 {s.clienteInfo || "—"}
               </div>
-              {/* Stato inline */}
+              {/* Stato di produzione */}
               <div className="flex items-center gap-2 mt-2.5">
-                <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.7)" }}>Stato di produzione</span>
-                <span className="text-base font-bold text-white">{s.statoProduzione}</span>
+                <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>Stato di produzione</span>
+                <span className="text-sm font-semibold" style={{ color: "var(--color-black)" }}>{s.statoProduzione}</span>
                 {s.faseCorrente && (
-                  <span className="text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>· {s.faseCorrente}</span>
+                  <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>· {s.faseCorrente}</span>
                 )}
               </div>
             </div>
@@ -192,8 +191,8 @@ export default function DettaglioSchedaModal({ scheda: s, onClose, onRilavorazio
                 href={s.notionUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                style={{ background: "rgba(255,255,255,0.2)", color: "white", border: "1px solid rgba(255,255,255,0.3)" }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-gray-100"
+                style={{ color: "var(--color-grey-mid)", border: "1px solid #d1d5db", background: "white" }}
               >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
@@ -202,8 +201,8 @@ export default function DettaglioSchedaModal({ scheda: s, onClose, onRilavorazio
               </a>
               <button
                 onClick={onClose}
-                className="flex items-center justify-center w-8 h-8 rounded-full transition-colors"
-                style={{ background: "rgba(255,255,255,0.2)", color: "white" }}
+                className="flex items-center justify-center w-8 h-8 rounded-full transition-colors hover:bg-gray-200"
+                style={{ color: "var(--color-grey-mid)" }}
                 aria-label="Chiudi"
               >
                 ✕
@@ -214,47 +213,6 @@ export default function DettaglioSchedaModal({ scheda: s, onClose, onRilavorazio
 
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-
-          {/* Pulsante Rilavorazione — sempre in cima, solo per schede parent */}
-          {isParentScheda && (
-            <div>
-              {rilavorazioneCreata ? (
-                <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium" style={{ background: "#D1FAE5", color: "#065F46", border: "1px solid #6EE7B7" }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 6L9 17l-5-5"/></svg>
-                  Rilavorazione creata — ODP aggiornato a "In Attesa Rilavorazione"
-                </div>
-              ) : isInAttesaRilavorazione && !showRilavorazioneForm ? (
-                <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl" style={{ background: "#FEF9C3", border: "1px solid #FDE68A" }}>
-                  <span className="text-sm font-medium" style={{ color: "#92400E" }}>⚙ ODP in attesa di rilavorazione</span>
-                  <button
-                    onClick={() => setShowRilavorazioneForm(true)}
-                    className="text-xs px-3 py-1.5 rounded-lg font-semibold shrink-0"
-                    style={{ background: "#D97706", color: "white" }}
-                  >
-                    + Nuova rilavorazione
-                  </button>
-                </div>
-              ) : !showRilavorazioneForm ? (
-                <button
-                  onClick={() => setShowRilavorazioneForm(true)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all hover:shadow-md"
-                  style={{ background: "linear-gradient(135deg, #F59E0B, #D97706)", color: "white", boxShadow: "0 2px 8px rgba(217,119,6,0.3)" }}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
-                  Invia pezzo in Rilavorazione
-                </button>
-              ) : null}
-
-              {showRilavorazioneForm && (
-                <FormRilavorazione
-                  schedaId={s.id}
-                  schedaOdp={s.odp}
-                  onSuccess={handleRilavorazioneSuccess}
-                  onCancel={() => setShowRilavorazioneForm(false)}
-                />
-              )}
-            </div>
-          )}
 
           {/* Alert ritardi */}
           {(inRitardoProd || inRitardoRientro) && (
@@ -289,17 +247,72 @@ export default function DettaglioSchedaModal({ scheda: s, onClose, onRilavorazio
             )}
           </section>
 
-          {/* Date */}
+          {/* Date + Rilavorazione affiancati */}
           <section className="space-y-2">
             <h3 className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>Date</h3>
-            <div className="grid grid-cols-2 gap-2">
+            {!isParentScheda && (
+              <div className="grid grid-cols-2 gap-2">
+                <InfoItem label="Scheda ricevuta" value={fmt(s.dataSchedaRicevuta)} />
+                <InfoItem label="Produzione prevista" value={
+                  <span style={inRitardoProd ? { color: "#991B1B", fontWeight: 700 } : undefined}>
+                    {fmt(s.dataProduzionePrevista)}
+                  </span>
+                } />
+              </div>
+            )}
+            {isParentScheda && (
               <InfoItem label="Scheda ricevuta" value={fmt(s.dataSchedaRicevuta)} />
-              <InfoItem label="Produzione prevista" value={
-                <span style={inRitardoProd ? { color: "#991B1B", fontWeight: 700 } : undefined}>
-                  {fmt(s.dataProduzionePrevista)}
-                </span>
-              } />
-            </div>
+            )}
+
+            {/* Produzione prevista + Rilavorazione affiancati — solo parent */}
+            {isParentScheda && (
+              <div className="grid grid-cols-2 gap-2 items-stretch">
+                {/* Sinistra: box produzione prevista */}
+                <div className="rounded-lg px-3 py-2.5" style={{ background: "#f8f7f5", border: "1px solid #ebe9e5" }}>
+                  <div className="text-[11px] font-bold uppercase tracking-widest mb-1" style={{ color: "#9c9894" }}>Produzione prevista</div>
+                  <div className="text-sm font-medium" style={inRitardoProd ? { color: "#991B1B", fontWeight: 700 } : { color: "var(--color-black)" }}>
+                    {fmt(s.dataProduzionePrevista)}
+                  </div>
+                </div>
+
+                {/* Destra: pulsante / stato rilavorazione */}
+                {rilavorazioneCreata ? (
+                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium" style={{ background: "#D1FAE5", color: "#065F46", border: "1px solid #6EE7B7" }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                    Rilavorazione creata
+                  </div>
+                ) : isInAttesaRilavorazione && !showRilavorazioneForm ? (
+                  <div className="flex flex-col justify-between gap-2 px-3 py-2.5 rounded-lg" style={{ background: "#FEF9C3", border: "1px solid #FDE68A" }}>
+                    <span className="text-xs font-medium" style={{ color: "#92400E" }}>⚙ In attesa di rilavorazione</span>
+                    <button
+                      onClick={() => setShowRilavorazioneForm(true)}
+                      className="text-xs px-3 py-1.5 rounded-lg font-semibold self-start"
+                      style={{ background: "#D97706", color: "white" }}
+                    >
+                      + Nuova
+                    </button>
+                  </div>
+                ) : !showRilavorazioneForm ? (
+                  <button
+                    onClick={() => setShowRilavorazioneForm(true)}
+                    className="flex flex-col items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all hover:opacity-90 w-full"
+                    style={{ background: "linear-gradient(135deg, #F59E0B, #D97706)", color: "white", boxShadow: "0 2px 8px rgba(217,119,6,0.25)" }}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                    Invia in Rilavorazione
+                  </button>
+                ) : null}
+              </div>
+            )}
+
+            {showRilavorazioneForm && (
+              <FormRilavorazione
+                schedaId={s.id}
+                schedaOdp={s.odp}
+                onSuccess={handleRilavorazioneSuccess}
+                onCancel={() => setShowRilavorazioneForm(false)}
+              />
+            )}
           </section>
 
           {/* Produzione esterna */}
