@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { updateRitiro, deleteRitiro, getRitiriByScheda, updateSchedaRientrato, updateSchedaConsegnaFatta, updateRilavorazioneRientrata } from "@/lib/notion";
 import type { RitiroUpdate } from "@/lib/types";
 import { getSessionFromRequest, WRITE_ROLES } from "@/lib/auth";
@@ -48,6 +49,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         }
       })();
     }
+
+    revalidatePath("/ritiri");
 
     // Audit log — fire-and-forget, non blocca la risposta
     void logOperation(

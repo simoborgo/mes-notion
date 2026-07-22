@@ -13,6 +13,28 @@ function truncate(s: string, maxLen: number) {
   return s.length > maxLen ? s.slice(0, maxLen - 1) + "..." : s;
 }
 
+// Spezza il testo in righe che stanno dentro maxWidth (pt)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function wrapText(text: string, font: any, size: number, maxWidth: number): string[] {
+  const words = text.split(" ");
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    const test = current ? current + " " + word : word;
+    if (font.widthOfTextAtSize(test, size) <= maxWidth) {
+      current = test;
+    } else {
+      if (current) lines.push(current);
+      // Se la singola parola è troppo larga, la tronca
+      current = font.widthOfTextAtSize(word, size) > maxWidth
+        ? truncate(word, Math.floor(word.length * maxWidth / font.widthOfTextAtSize(word, size)))
+        : word;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getSessionFromRequest(req);
@@ -105,15 +127,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     });
     y = y - odpSize - 10;
 
-    // ── N Scheda (sotto ODP, 20% più piccolo) ────────────────
+    // ── N Scheda (sotto ODP, -40% rispetto ODP, con a-capo automatico) ──
     if (nScheda) {
-      const nSchedaSize = Math.round(odpSize * 0.8);
-      const nSchedaW = bold.widthOfTextAtSize(nScheda, nSchedaSize);
-      page.drawText(nScheda, {
-        x: (width - nSchedaW) / 2, y: y - nSchedaSize,
-        size: nSchedaSize, font: bold, color: hexToRgb("#374151"),
-      });
-      y = y - nSchedaSize - 10;
+      const nSchedaSize = Math.round(odpSize * 0.64); // 0.8 * 0.8 = -20% aggiuntivo
+      const maxW = width - margin * 2;
+      const lines = wrapText(nScheda, bold, nSchedaSize, maxW);
+      for (const line of lines) {
+        const lw = bold.widthOfTextAtSize(line, nSchedaSize);
+        page.drawText(line, {
+          x: (width - lw) / 2, y: y - nSchedaSize,
+          size: nSchedaSize, font: bold, color: hexToRgb("#374151"),
+        });
+        y = y - nSchedaSize - 6;
+      }
+      y -= 6;
     } else {
       y -= 4;
     }
@@ -208,25 +235,31 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     });
 
     // ── Footer con riferimenti scheda padre ──────────────────
-    const footerH = 36;
+    const footerH = clienteInfo ? 52 : 36;
     page.drawRectangle({ x: 0, y: 0, width, height: footerH, color: hexToRgb("#F3F4F6") });
 
-    // Sinistra: riferimenti scheda padre
+    // Sinistra: RIF. SCHEDA + clienteInfo
     const padreRef = schedaPadreOdp
       ? `Scheda: ${schedaPadreOdp}${schedaPadreNr ? " | " + schedaPadreNr : ""}`
       : schedaOdp
         ? `Scheda: ${schedaOdp}${nScheda ? " | " + nScheda : ""}`
         : "";
+    let footerY = footerH - 10;
+    page.drawText("RIF. SCHEDA", { x: margin, y: footerY, size: 6, font: bold, color: hexToRgb("#9CA3AF") });
+    footerY -= 13;
     if (padreRef) {
-      page.drawText("RIF. SCHEDA", { x: margin, y: footerH - 10, size: 6, font: bold, color: hexToRgb("#9CA3AF") });
-      page.drawText(padreRef, { x: margin, y: footerH - 22, size: 9, font: bold, color: hexToRgb("#374151") });
+      page.drawText(truncate(padreRef, 55), { x: margin, y: footerY, size: 9, font: bold, color: hexToRgb("#374151") });
+      footerY -= 13;
+    }
+    if (clienteInfo) {
+      page.drawText(truncate(clienteInfo, 55), { x: margin, y: footerY, size: 8, font: helvetica, color: hexToRgb("#6B7280") });
     }
 
     // Destra: MES info
     const footerTxt = `MES Modar | ${ritiro.tipoMovimento} | ID: ${ritiro.id.slice(0, 8).toUpperCase()}`;
     const footerTxtW = helvetica.widthOfTextAtSize(footerTxt, 7);
     page.drawText(footerTxt, {
-      x: width - margin - footerTxtW, y: footerH - 16,
+      x: width - margin - footerTxtW, y: footerH - 20,
       size: 7, font: helvetica, color: hexToRgb("#9CA3AF"),
     });
 

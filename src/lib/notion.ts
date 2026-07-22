@@ -478,17 +478,13 @@ export async function updateScheda(id: string, data: SchedaUpdate): Promise<Sche
   return pageToScheda(page);
 }
 
-export const getRitiri = unstable_cache(
-  async (): Promise<Ritiro[]> => {
-    const [pages, fornitoriMap] = await Promise.all([
-      queryAll(DB_RITIRI, undefined, [{ property: "Data Trasporto", direction: "descending" }]),
-      getFornitoriMap(),
-    ]);
-    return pages.map(p => pageToRitiro(p, fornitoriMap));
-  },
-  ["notion-ritiri"],
-  { revalidate: 120, tags: ["ritiri"] }
-);
+export async function getRitiri(): Promise<Ritiro[]> {
+  const [pages, fornitoriMap] = await Promise.all([
+    queryAll(DB_RITIRI, undefined, [{ property: "Data Trasporto", direction: "descending" }]),
+    getFornitoriMap(),
+  ]);
+  return pages.map(p => pageToRitiro(p, fornitoriMap));
+}
 
 export async function getRitiroById(id: string): Promise<Ritiro> {
   const [page, fornitoriMap] = await Promise.all([

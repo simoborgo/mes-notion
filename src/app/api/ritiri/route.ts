@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { getRitiri, createRitiro, getRitiroById, appendFotoToPage } from "@/lib/notion";
 import { getSessionFromRequest, WRITE_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
@@ -54,6 +55,7 @@ export async function POST(req: NextRequest) {
       { causale: causale.trim(), tipoMovimento, dataTrasporto, urgenza, schedaId, fornitoreId }
     );
 
+    revalidatePath("/ritiri");
     return NextResponse.json(ritiroFinale, { status: 201 });
   } catch (e) {
     console.error(e);

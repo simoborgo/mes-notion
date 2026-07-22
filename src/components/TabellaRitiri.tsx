@@ -94,6 +94,7 @@ export default function TabellaRitiri({ ritiri: initial, schede = [], fornitori 
   const [completedAt, setCompletedAt] = useState<Map<string, Date>>(new Map());
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Auto-dismiss toast dopo 4 secondi
   useEffect(() => {
@@ -101,6 +102,21 @@ export default function TabellaRitiri({ ritiri: initial, schede = [], fornitori 
     const t = setTimeout(() => setToast(null), 4000);
     return () => clearTimeout(t);
   }, [toast]);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    try {
+      const res = await fetch("/api/ritiri");
+      if (res.ok) {
+        setRitiri(await res.json());
+        setToast("Dati aggiornati");
+      }
+    } catch {
+      setToast("Errore durante l'aggiornamento");
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   async function handleStatoChange(id: string, nuovoStato: string) {
     const vecchioStato = ritiri.find((r) => r.id === id)?.stato ?? "";
@@ -259,15 +275,27 @@ export default function TabellaRitiri({ ritiri: initial, schede = [], fornitori 
           {filteredAttivi.length} attivi · {filteredFatti.length} completati
           {filteredFattiOggi.length > 0 && ` · ${filteredFattiOggi.length} completati oggi`}
         </span>
-        {canWrite && (
+        <div className="ml-auto flex items-center gap-2">
           <button
-            onClick={() => setCreando(true)}
-            className="ml-auto flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold text-white rounded transition-colors hover:opacity-90"
-            style={{ background: "var(--color-primary)", borderRadius: "var(--radius-button)" }}
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded transition-colors hover:opacity-80 disabled:opacity-40 border"
+            style={{ color: "var(--color-grey-mid)", background: "white", borderColor: "#E5E7EB", borderRadius: "var(--radius-button)" }}
+            title="Ricarica dati da Notion"
           >
-            <span className="text-base leading-none">+</span> Nuovo ritiro
+            <span className={refreshing ? "inline-block animate-spin" : ""}>↻</span>
+            {refreshing ? "Aggiornamento…" : "Aggiorna"}
           </button>
-        )}
+          {canWrite && (
+            <button
+              onClick={() => setCreando(true)}
+              className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold text-white rounded transition-colors hover:opacity-90"
+              style={{ background: "var(--color-primary)", borderRadius: "var(--radius-button)" }}
+            >
+              <span className="text-base leading-none">+</span> Nuovo ritiro
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
