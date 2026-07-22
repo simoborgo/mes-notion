@@ -21,18 +21,29 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const { id } = await params;
     const ritiro = await getRitiroById(id);
 
-    // Fetch scheda per cliente/commessa (non bloccante se non disponibile)
+    // Fetch scheda collegata per ODP, nScheda, clienteInfo
+    // Se la scheda è una rilavorazione (no clienteInfo), risale al parent
     let schedaOdp = ritiro.numeroOrdine;
     let nScheda = "";
-    let cliente = "";
-    let commessa = "";
+    let clienteInfo = "";
+    let schedaPadreOdp = "";
+    let schedaPadreNr = "";
+
     if (ritiro.numeroOrdineId) {
       try {
         const scheda = await getSchedaById(ritiro.numeroOrdineId);
         schedaOdp = scheda.odp || ritiro.numeroOrdine;
         nScheda = scheda.numeroScheda || "";
-        cliente = scheda.clienteInfo || "";
-        commessa = scheda.commessaNr || "";
+        clienteInfo = scheda.clienteInfo || "";
+
+        // Se la scheda non ha clienteInfo (es. è una rilavorazione), risale al parent
+        if (!clienteInfo && scheda.parentId) {
+          const parent = await getSchedaById(scheda.parentId);
+          clienteInfo = parent.clienteInfo || "";
+          // I riferimenti scheda padre = la scheda root
+          schedaPadreOdp = parent.odp || "";
+          schedaPadreNr = parent.numeroScheda || "";
+        }
       } catch { /* fallback ai dati ritiro */ }
     }
 
@@ -66,21 +77,23 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const margin = 36;
     let y = height - margin;
 
-    // ── Header ───────────────────────────────────────────────
-    page.drawRectangle({ x: 0, y: height - 56, width, height: 56, color: hexToRgb("#111827") });
+    // ── Header grigio ────────────────────────────────────────
+    const headerH = 60;
+    page.drawRectangle({ x: 0, y: height - headerH, width, height: headerH, color: hexToRgb("#78716C") });
     page.drawText("MODAR", {
-      x: margin, y: height - 38,
-      size: 22, font: bold, color: rgb(1, 1, 1),
+      x: margin, y: height - headerH + (headerH - 26) / 2 + 2,
+      size: 26, font: bold, color: rgb(1, 1, 1),
     });
     const dataStr = ritiro.dataTrasporto
       ? new Date(ritiro.dataTrasporto).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" })
       : "—";
-    const dataW = helvetica.widthOfTextAtSize(dataStr, 13);
-    page.drawText(dataStr, {
-      x: width - margin - dataW, y: height - 36,
-      size: 13, font: helvetica, color: rgb(0.7, 0.7, 0.7),
+    const dataLabel = `Data trasporto: ${dataStr}`;
+    const dataW = helvetica.widthOfTextAtSize(dataLabel, 11);
+    page.drawText(dataLabel, {
+      x: width - margin - dataW, y: height - headerH + (headerH - 11) / 2 + 2,
+      size: 11, font: helvetica, color: rgb(0.9, 0.88, 0.86),
     });
-    y = height - 56 - 20;
+    y = height - headerH - 20;
 
     // ── ODP ──────────────────────────────────────────────────
     const odpStr = schedaOdp || "—";
@@ -123,25 +136,24 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     page.drawLine({ start: { x: margin, y }, end: { x: width - margin, y }, thickness: 1, color: hexToRgb("#E5E7EB") });
     y -= 18;
 
+    // ── Cliente Info ─────────────────────────────────────────
+    if (clienteInfo) {
+      page.drawText("CLIENTE", { x: margin, y, size: 9, font: helvetica, color: hexToRgb("#6B7280") });
+      y -= 20;
+      page.drawText(truncate(clienteInfo, 50), {
+        x: margin, y, size: 18, font: bold, color: hexToRgb("#111827"),
+      });
+      y -= 28;
+    }
+
     // ── Fornitore ────────────────────────────────────────────
     if (ritiro.fornitore) {
       page.drawText("FORNITORE", { x: margin, y, size: 9, font: helvetica, color: hexToRgb("#6B7280") });
-      y -= 28;
-      page.drawText(truncate(ritiro.fornitore.toUpperCase(), 40), {
-        x: margin, y, size: 28, font: bold, color: hexToRgb("#111827"),
+      y -= 24;
+      page.drawText(truncate(ritiro.fornitore.toUpperCase(), 38), {
+        x: margin, y, size: 24, font: bold, color: hexToRgb("#111827"),
       });
-      y -= 38;
-    }
-
-    // ── Cliente / Commessa ───────────────────────────────────
-    if (cliente || commessa) {
-      const clienteStr = [commessa, cliente].filter(Boolean).join(" — ");
-      page.drawText("CLIENTE / COMMESSA", { x: margin, y, size: 9, font: helvetica, color: hexToRgb("#6B7280") });
-      y -= 20;
-      page.drawText(truncate(clienteStr, 50), {
-        x: margin, y, size: 16, font: bold, color: hexToRgb("#374151"),
-      });
-      y -= 26;
+      y -= 34;
     }
 
     // ── Descrizione ──────────────────────────────────────────
@@ -165,10 +177,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       y -= 20;
     }
 
-    // ── Foto + QR (affiancati) ───────────────────────────────
+    // ── Separatore ───────────────────────────────────────────
     page.drawLine({ start: { x: margin, y }, end: { x: width - margin, y }, thickness: 1, color: hexToRgb("#E5E7EB") });
     y -= 16;
 
+    // ── Foto + QR (affiancati) ───────────────────────────────
     const qrImg = await doc.embedPng(qrPng);
     const qrSize = 110;
     const qrX = width - margin - qrSize;
@@ -194,12 +207,26 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       size: 8, font: helvetica, color: hexToRgb("#9CA3AF"),
     });
 
-    // ── Footer ───────────────────────────────────────────────
-    const footerY = 18;
-    page.drawRectangle({ x: 0, y: 0, width, height: footerY + 6, color: hexToRgb("#F3F4F6") });
+    // ── Footer con riferimenti scheda padre ──────────────────
+    const footerH = 36;
+    page.drawRectangle({ x: 0, y: 0, width, height: footerH, color: hexToRgb("#F3F4F6") });
+
+    // Sinistra: riferimenti scheda padre
+    const padreRef = schedaPadreOdp
+      ? `Scheda: ${schedaPadreOdp}${schedaPadreNr ? " | " + schedaPadreNr : ""}`
+      : schedaOdp
+        ? `Scheda: ${schedaOdp}${nScheda ? " | " + nScheda : ""}`
+        : "";
+    if (padreRef) {
+      page.drawText("RIF. SCHEDA", { x: margin, y: footerH - 10, size: 6, font: bold, color: hexToRgb("#9CA3AF") });
+      page.drawText(padreRef, { x: margin, y: footerH - 22, size: 9, font: bold, color: hexToRgb("#374151") });
+    }
+
+    // Destra: MES info
     const footerTxt = `MES Modar | ${ritiro.tipoMovimento} | ID: ${ritiro.id.slice(0, 8).toUpperCase()}`;
+    const footerTxtW = helvetica.widthOfTextAtSize(footerTxt, 7);
     page.drawText(footerTxt, {
-      x: margin, y: footerY - 4,
+      x: width - margin - footerTxtW, y: footerH - 16,
       size: 7, font: helvetica, color: hexToRgb("#9CA3AF"),
     });
 
