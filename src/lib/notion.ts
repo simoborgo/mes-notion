@@ -165,6 +165,7 @@ function pageToRitiro(page: any, fornitoriMap?: Record<string, string>): Ritiro 
     causale: descrizione,
     numeroOrdine: getText(prop(page, "ODP")),
     numeroOrdineId: getRelationId(prop(page, "Scheda")),
+    rilavorazioneId: getRelationId(prop(page, "Rilavorazione")),
     descrizioneMerce: descrizione,
     dataTrasporto: getDate(prop(page, "Data Trasporto")),
     tipoMovimento: getText(prop(page, "Tipo movimento")),
@@ -261,6 +262,7 @@ export async function createRitiro({
   nc,
   schedaId,
   fornitoreId,
+  rilavorazioneId,
 }: {
   causale: string;
   tipoMovimento?: string;
@@ -269,6 +271,7 @@ export async function createRitiro({
   nc?: boolean;
   schedaId?: string | null;
   fornitoreId?: string | null;
+  rilavorazioneId?: string | null;
 }): Promise<Ritiro> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const properties: Record<string, any> = {
@@ -281,6 +284,7 @@ export async function createRitiro({
   if (nc !== undefined) properties["NC"] = { checkbox: nc };
   if (schedaId) properties["Scheda"] = { relation: [{ id: schedaId }] };
   if (fornitoreId) properties["Fornitore"] = { relation: [{ id: fornitoreId }] };
+  if (rilavorazioneId) properties["Rilavorazione"] = { relation: [{ id: rilavorazioneId }] };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const page = await notion.pages.create({ parent: { database_id: DB_RITIRI }, properties }) as any;
@@ -369,6 +373,18 @@ export async function updateSchedaRientrato(pageId: string): Promise<void> {
     page_id: pageId,
     properties: {
       Stato: { select: { name: "In Lavorazione" } },
+      "Stato Produzione Esterna": { select: { name: "Rientrato" } },
+    },
+  });
+}
+
+// Ritiro rilavorazione → Fatto: pezzo tornato fisicamente, in attesa di verifica
+// - Solo Stato Produzione Esterna → "Rientrato" (Stato resta "In Lavorazione Esterna")
+// - Il parent rimane "In Attesa Rilavorazione" fino a "Segna Rientrata" manuale
+export async function updateRilavorazioneRientrata(pageId: string): Promise<void> {
+  await notion.pages.update({
+    page_id: pageId,
+    properties: {
       "Stato Produzione Esterna": { select: { name: "Rientrato" } },
     },
   });

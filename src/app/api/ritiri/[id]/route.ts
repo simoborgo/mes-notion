@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { updateRitiro, deleteRitiro, getRitiriByScheda, updateSchedaRientrato, updateSchedaConsegnaFatta } from "@/lib/notion";
+import { updateRitiro, deleteRitiro, getRitiriByScheda, updateSchedaRientrato, updateSchedaConsegnaFatta, updateRilavorazioneRientrata } from "@/lib/notion";
 import type { RitiroUpdate } from "@/lib/types";
 import { getSessionFromRequest, WRITE_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
@@ -16,21 +16,32 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     console.log("[PATCH /api/ritiri/%s] operatore:%s payload:", id, session?.name, JSON.stringify(body));
     const updated = await updateRitiro(id, body!);
 
-    // Quando il movimento è completato e collegato a una scheda ODP →
-    // aggiorna la scheda solo se TUTTI i ritiri collegati a quell'ODP sono "Fatto"
-    if (updated.stato === "Fatto" && updated.numeroOrdineId) {
-      const schedaId = updated.numeroOrdineId;
-      const tipoMovimento = updated.tipoMovimento;
+    if (updated.stato === "Fatto") {
       void (async () => {
         try {
-          const tuttiRitiri = await getRitiriByScheda(schedaId);
-          const tuttiCompleti = tuttiRitiri.every(r => r.stato === "Fatto");
-          if (!tuttiCompleti) return;
+          // Ritiri/Consegne legati a una rilavorazione: logica dedicata
+          if (updated.rilavorazioneId) {
+            if (updated.tipoMovimento === "Ritiro") {
+              // Pezzo tornato fisicamente: Stato Produzione Esterna = "Rientrato"
+              // Parent rimane "In Attesa Rilavorazione" fino a "Segna Rientrata" manuale
+              await updateRilavorazioneRientrata(updated.rilavorazioneId);
+            }
+            // Consegna → Fatto: nessun cambio stato (solo tracking logistico)
+            return;
+          }
 
-          if (tipoMovimento === "Ritiro") {
-            await updateSchedaRientrato(schedaId);
-          } else if (tipoMovimento === "Consegna") {
-            await updateSchedaConsegnaFatta(schedaId);
+          // Flusso standard schede: aggiorna solo se TUTTI i ritiri di quella scheda sono Fatto
+          if (updated.numeroOrdineId) {
+            const schedaId = updated.numeroOrdineId;
+            const tuttiRitiri = await getRitiriByScheda(schedaId);
+            const tuttiCompleti = tuttiRitiri.every(r => r.stato === "Fatto");
+            if (!tuttiCompleti) return;
+
+            if (updated.tipoMovimento === "Ritiro") {
+              await updateSchedaRientrato(schedaId);
+            } else if (updated.tipoMovimento === "Consegna") {
+              await updateSchedaConsegnaFatta(schedaId);
+            }
           }
         } catch (e) {
           console.error("[PATCH ritiri] aggiornamento scheda post-completamento:", e);

@@ -76,6 +76,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             dataTrasporto: body.dataRientro ?? new Date().toISOString().slice(0, 10),
             schedaId: parent.parentId ?? parentId,
             fornitoreId,
+            rilavorazioneId: rilavorazione.id,
           });
 
           // Notifica Telegram via n8n

@@ -49,6 +49,7 @@ export interface Ritiro {
   causale: string;
   numeroOrdine: string;
   numeroOrdineId: string | null;
+  rilavorazioneId: string | null;
   descrizioneMerce: string;
   dataTrasporto: string | null;
   tipoMovimento: string;

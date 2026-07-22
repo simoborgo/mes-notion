@@ -435,6 +435,16 @@ export default function TabellaRitiri({ ritiri: initial, schede = [], fornitori 
                         </td>
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-2">
+                            <a
+                              href={`/api/ritiri/${r.id}/etichetta`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-semibold px-3 py-1 rounded transition-colors hover:opacity-80 inline-flex items-center gap-1"
+                              style={{ color: "#1D4ED8", background: "rgba(29,78,216,0.07)", fontSize: "0.8rem", borderRadius: "var(--radius-badge)" }}
+                              title="Stampa etichetta PDF"
+                            >
+                              🖨️ Etichetta
+                            </a>
                             {canWrite && (
                               <button
                                 onClick={() => setEditing(r)}
@@ -605,14 +615,25 @@ export default function TabellaRitiri({ ritiri: initial, schede = [], fornitori 
                         )}
                       </td>
                       <td className="px-4 py-4 tabular-nums text-sm" style={{ color: ts ? "var(--color-black)" : "var(--color-grey-icon)" }}>
-                        {ts ? (
-                          <div>
-                            <div>{ts.toLocaleDateString("it-IT")}</div>
-                            <div className="text-xs mt-0.5" style={{ color: "var(--color-grey-mid)" }}>
-                              {ts.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+                        <div className="flex flex-col gap-1.5">
+                          {ts ? (
+                            <div>
+                              <div>{ts.toLocaleDateString("it-IT")}</div>
+                              <div className="text-xs mt-0.5" style={{ color: "var(--color-grey-mid)" }}>
+                                {ts.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+                              </div>
                             </div>
-                          </div>
-                        ) : "—"}
+                          ) : "—"}
+                          <a
+                            href={`/api/ritiri/${r.id}/etichetta`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-semibold hover:opacity-80 inline-flex items-center gap-0.5"
+                            style={{ color: "#1D4ED8" }}
+                          >
+                            🖨️ Etichetta
+                          </a>
+                        </div>
                       </td>
                     </tr>
                   );
