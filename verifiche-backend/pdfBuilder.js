@@ -1,23 +1,44 @@
 const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
 
 /**
- * Restituisce { x, y, width, height } del rettangolo di visualizzazione della pagina
- * come lo interpreta pdf.js (CropBox intersecato con MediaBox, con offset).
- * I coordinate di disegno in pdf-lib usano il sistema MediaBox (origine bottom-left),
- * quindi dobbiamo aggiungere l'offset del CropBox.
+ * Restituisce i bounds della pagina e una funzione normToPdf che converte
+ * coordinate normalizzate (0-1, sistema pdf.js: origine top-left) in
+ * coordinate pdf-lib (origine bottom-left), tenendo conto della rotazione.
+ *
+ * Per pagine ruotate pdf-lib vede W/H come se fossero scambiate (getSize() swap),
+ * ma le coordinate di disegno restano nel sistema non-ruotato del MediaBox.
+ * Le formule derivano dalla matrice di viewport di pdf.js per ogni angolo di rotazione.
  */
 function getPageBounds(page) {
-  const size = page.getSize(); // { width, height } già gestisce rotazione e usa CropBox
-  let ox = 0, oy = 0;
+  let rotation = 0;
+  try { rotation = (page.getRotation().angle ?? 0 + 360) % 360; } catch (_) {}
+
+  // Dimensioni originali (non-ruotate) del CropBox
+  let W, H, ox = 0, oy = 0;
   try {
-    const mb = page.getMediaBox();   // { x, y, width, height }
-    const cb = page.getCropBox();    // { x, y, width, height }
-    if (mb && cb) {
-      ox = cb.x - mb.x;
-      oy = cb.y - mb.y;
+    const mb = page.getMediaBox();
+    const cb = page.getCropBox();
+    if (rotation === 90 || rotation === 270) {
+      W = cb.height; H = cb.width;
+    } else {
+      W = cb.width;  H = cb.height;
     }
-  } catch (_) { /* fallback silenzioso */ }
-  return { ox, oy, width: size.width, height: size.height };
+    if (mb && cb) { ox = cb.x - mb.x; oy = cb.y - mb.y; }
+  } catch (_) {
+    const size = page.getSize();
+    W = size.width; H = size.height;
+  }
+
+  function normToPdf(nx, ny) {
+    switch (rotation) {
+      case 90:  return { x: ox + ny * W,       y: oy + H * (1 - nx) };
+      case 180: return { x: ox + W * (1 - nx), y: oy + ny * H       };
+      case 270: return { x: ox + W * (1 - ny), y: oy + nx * H       };
+      default:  return { x: ox + nx * W,       y: oy + H * (1 - ny) };
+    }
+  }
+
+  return { ox, oy, W, H, normToPdf };
 }
 
 /**
@@ -43,15 +64,15 @@ async function buildVerificaPdf({ originalBytes, strokes = {}, stamps = {}, user
     const pageNum = parseInt(pageNumStr, 10);
     if (pageNum < 1 || pageNum > pages.length) continue;
     const page = pages[pageNum - 1];
-    const { ox, oy, width, height } = getPageBounds(page);
-    const lw = Math.max(12, width * 0.020);
+    const { W, normToPdf } = getPageBounds(page);
+    const lw = Math.max(12, W * 0.020);
 
     for (const stroke of pageStrokes) {
       if (stroke.length < 2) continue;
       for (let i = 1; i < stroke.length; i++) {
         page.drawLine({
-          start: { x: ox + stroke[i - 1].x * width, y: oy + height - stroke[i - 1].y * height },
-          end:   { x: ox + stroke[i].x * width,     y: oy + height - stroke[i].y * height },
+          start: normToPdf(stroke[i - 1].x, stroke[i - 1].y),
+          end:   normToPdf(stroke[i].x,     stroke[i].y),
           thickness: lw,
           color: rgb(1, 0.87, 0.2),
           opacity: 0.60,
@@ -65,12 +86,11 @@ async function buildVerificaPdf({ originalBytes, strokes = {}, stamps = {}, user
     const pageNum = parseInt(pageNumStr, 10);
     if (pageNum < 1 || pageNum > pages.length) continue;
     const page = pages[pageNum - 1];
-    const { ox, oy, width, height } = getPageBounds(page);
-    const r = Math.max(18, width * 0.030);
+    const { W, normToPdf } = getPageBounds(page);
+    const r = Math.max(18, W * 0.030);
 
     for (const s of pageStamps) {
-      const cx = ox + s.x * width;
-      const cy = oy + height - s.y * height;
+      const { x: cx, y: cy } = normToPdf(s.x, s.y);
       const isOk = s.tipo === 'ok';
       page.drawEllipse({
         x: cx, y: cy, xScale: r, yScale: r,

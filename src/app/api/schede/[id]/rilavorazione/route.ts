@@ -74,7 +74,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             causale: `Rilavorazione — ${subOdp}`,
             tipoMovimento: "Consegna",
             dataTrasporto: body.dataRientro ?? new Date().toISOString().slice(0, 10),
-            schedaId: rilavorazione.id,
+            schedaId: parent.parentId ?? parentId,
             fornitoreId,
           });
 

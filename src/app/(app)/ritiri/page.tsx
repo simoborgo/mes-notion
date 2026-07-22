@@ -8,14 +8,18 @@ export default async function RitiriPage() {
   const [ritiri, schede, sottoschede, fornitori, session] = await Promise.all([
     getRitiri(), getSchede(), getSottoschede(), getFornitoriList(), getSession(),
   ]);
-  // Ordina: ogni parent seguito immediatamente dalle sue sottoschede
+  // Costruisce mappa parentId → figli (include sottoschede e rilavorazioni)
   const childrenByParent = new Map<string, typeof sottoschede>();
   for (const s of sottoschede) {
     if (!s.parentId) continue;
     if (!childrenByParent.has(s.parentId)) childrenByParent.set(s.parentId, []);
     childrenByParent.get(s.parentId)!.push(s);
   }
-  const tutteLeSchede = schede.flatMap(s => [s, ...(childrenByParent.get(s.id) ?? [])]);
+  // Tutti i livelli: scheda → sottoschede → rilavorazioni
+  const tutteLeSchede = schede.flatMap(s => {
+    const ss = childrenByParent.get(s.id) ?? [];
+    return [s, ...ss, ...ss.flatMap(sub => childrenByParent.get(sub.id) ?? [])];
+  });
 
   return (
     <div className="space-y-5">

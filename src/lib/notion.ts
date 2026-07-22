@@ -175,7 +175,7 @@ function pageToRitiro(page: any, fornitoriMap?: Record<string, string>): Ritiro 
     ordineFornitore: getFiles(prop(page, "Ordine Fornitore")),
     note: descrizione,
     documentiAllegati: [],
-    pdfScheda: [],
+    pdfScheda: getFiles(prop(page, "PDF Allegato")),
     pdfOrdineFornitore: getFiles(prop(page, "PDF Ordine Fornitore")),
     foto: getFiles(prop(page, "Foto")),
     notionUrl: notionUrl(page.id),
