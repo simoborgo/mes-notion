@@ -603,9 +603,9 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                     const fExpanded = expandedIds.has(f.id);
                     return (
                       <Fragment key={f.id}>
-                      <tr className="border-b last:border-0" style={{ background: f.tipologia === "Rilavorazione" ? "#FFFBEB" : "#FAFAF9" }}>
+                      <tr className="border-b last:border-0" style={{ background: f.tipologia === "Rilavorazione" ? (f.statoProduzione === "Completato" ? "#F0FDF4" : "#FFFBEB") : "#FAFAF9" }}>
                         <td className="px-4 py-2 text-xs" style={{ color: "var(--color-grey-mid)" }}>{f.clienteInfo || "—"}</td>
-                        <td className="px-4 py-2 pl-10 font-mono text-xs whitespace-nowrap" style={{ color: "var(--color-grey-mid)" }}>
+                        <td className="px-4 py-2 pl-10 font-mono text-xs whitespace-nowrap" style={{ color: f.tipologia === "Rilavorazione" && f.statoProduzione === "Completato" ? "#14532D" : "var(--color-grey-mid)" }}>
                           {nipoti.length > 0 ? (
                             <button onClick={() => toggleExpand(f.id)} className="inline-flex items-center gap-1.5 hover:opacity-70 transition-opacity">
                               <span className="inline-flex items-center justify-center w-3 h-3 text-[10px] transition-transform" style={{ color: "var(--color-primary)", transform: fExpanded ? "rotate(90deg)" : "rotate(0deg)" }}>▶</span>
@@ -652,9 +652,9 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                       {fExpanded && nipoti.map((n) => {
                         const nRitardo = isInRitardo(n, today);
                         return (
-                          <tr key={n.id} className="border-b last:border-0" style={{ background: "#FFFBEB" }}>
+                          <tr key={n.id} className="border-b last:border-0" style={{ background: n.statoProduzione === "Completato" ? "#F0FDF4" : "#FFFBEB" }}>
                             <td className="px-4 py-2 text-xs" style={{ color: "var(--color-grey-mid)" }}>{n.clienteInfo || "—"}</td>
-                            <td className="px-4 py-2 pl-16 font-mono text-xs whitespace-nowrap" style={{ color: "#92400E" }}>
+                            <td className="px-4 py-2 pl-16 font-mono text-xs whitespace-nowrap" style={{ color: n.statoProduzione === "Completato" ? "#14532D" : "#92400E" }}>
                               <span className="inline-flex items-center gap-1.5">
                                 ⚙ {n.odp || "—"}
                                 <span className="text-xs px-1 py-0.5 rounded font-medium" style={{ background: "#FEF9C3", color: "#92400E" }}>Rilav.</span>

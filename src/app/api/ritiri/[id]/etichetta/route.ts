@@ -10,7 +10,7 @@ function hexToRgb(hex: string) {
 }
 
 function truncate(s: string, maxLen: number) {
-  return s.length > maxLen ? s.slice(0, maxLen - 1) + "…" : s;
+  return s.length > maxLen ? s.slice(0, maxLen - 1) + "..." : s;
 }
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -23,12 +23,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // Fetch scheda per cliente/commessa (non bloccante se non disponibile)
     let schedaOdp = ritiro.numeroOrdine;
+    let nScheda = "";
     let cliente = "";
     let commessa = "";
     if (ritiro.numeroOrdineId) {
       try {
         const scheda = await getSchedaById(ritiro.numeroOrdineId);
         schedaOdp = scheda.odp || ritiro.numeroOrdine;
+        nScheda = scheda.numeroScheda || "";
         cliente = scheda.clienteInfo || "";
         commessa = scheda.commessaNr || "";
       } catch { /* fallback ai dati ritiro */ }
@@ -60,7 +62,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const isRitiro = ritiro.tipoMovimento === "Ritiro";
     const badgeBg = isRitiro ? hexToRgb("#166534") : hexToRgb("#9A3412");
-    const badgeText = isRitiro ? "◄  RITIRO" : "►  CONSEGNA";
+    const badgeText = isRitiro ? "<  RITIRO" : ">  CONSEGNA";
     const margin = 36;
     let y = height - margin;
 
@@ -88,7 +90,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       x: (width - odpW) / 2, y: y - odpSize,
       size: odpSize, font: bold, color: hexToRgb("#111827"),
     });
-    y = y - odpSize - 14;
+    y = y - odpSize - 10;
+
+    // ── N Scheda (sotto ODP, 20% più piccolo) ────────────────
+    if (nScheda) {
+      const nSchedaSize = Math.round(odpSize * 0.8);
+      const nSchedaW = bold.widthOfTextAtSize(nScheda, nSchedaSize);
+      page.drawText(nScheda, {
+        x: (width - nSchedaW) / 2, y: y - nSchedaSize,
+        size: nSchedaSize, font: bold, color: hexToRgb("#374151"),
+      });
+      y = y - nSchedaSize - 10;
+    } else {
+      y -= 4;
+    }
 
     // ── Badge Tipo ────────────────────────────────────────────
     const badgeH = 48;
@@ -182,7 +197,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // ── Footer ───────────────────────────────────────────────
     const footerY = 18;
     page.drawRectangle({ x: 0, y: 0, width, height: footerY + 6, color: hexToRgb("#F3F4F6") });
-    const footerTxt = `MES Modar — ${ritiro.tipoMovimento} — ID: ${ritiro.id.slice(0, 8).toUpperCase()}`;
+    const footerTxt = `MES Modar | ${ritiro.tipoMovimento} | ID: ${ritiro.id.slice(0, 8).toUpperCase()}`;
     page.drawText(footerTxt, {
       x: margin, y: footerY - 4,
       size: 7, font: helvetica, color: hexToRgb("#9CA3AF"),
