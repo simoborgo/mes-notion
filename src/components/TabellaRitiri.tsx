@@ -137,6 +137,8 @@ export default function TabellaRitiri({
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [showRiassegnaModal, setShowRiassegnaModal] = useState(false);
+  const [reassigning, setReassigning] = useState(false);
 
   // Filtri archivio (separati)
   const [archSearch, setArchSearch] = useState("");
@@ -189,6 +191,63 @@ export default function TabellaRitiri({
         return next;
       });
     }
+  }
+
+  // Data di oggi in timezone locale — usata per riassegna e badge scaduti
+  const todayStr = useMemo(() => {
+    const d = new Date();
+    const p = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+  }, []);
+
+  // Ritiri attivi (non Fatto) con data trasporto precedente a oggi
+  const scadutiAttivi = useMemo(() =>
+    ritiri.filter(r => r.stato !== "Fatto" && r.dataTrasporto && getDatePart(r.dataTrasporto) < todayStr),
+    [ritiri, todayStr]
+  );
+
+  async function handleRiassegnaOggi() {
+    setReassigning(true);
+    const oggi = new Date();
+    const p = (n: number) => String(n).padStart(2, "0");
+    const todayPrefix = `${oggi.getFullYear()}-${p(oggi.getMonth()+1)}-${p(oggi.getDate())}`;
+
+    const results = await Promise.allSettled(
+      scadutiAttivi.map(r => {
+        // Mantieni l'ora se presente, cambia solo la data
+        let newDate: string;
+        if (r.dataTrasporto && r.dataTrasporto.includes("T")) {
+          const dt = new Date(r.dataTrasporto);
+          const h = dt.getHours(), m = dt.getMinutes();
+          newDate = new Date(`${todayPrefix}T${p(h)}:${p(m)}`).toISOString();
+        } else {
+          newDate = new Date(`${todayPrefix}T00:00`).toISOString();
+        }
+        return fetch(`/api/ritiri/${r.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dataTrasporto: newDate }),
+        }).then(res => res.ok ? res.json() : Promise.reject(res.status));
+      })
+    );
+
+    const aggiornati = results
+      .filter((r): r is PromiseFulfilledResult<Ritiro> => r.status === "fulfilled")
+      .map(r => r.value);
+
+    if (aggiornati.length > 0) {
+      setRitiri(prev => prev.map(r => {
+        const upd = aggiornati.find(u => u.id === r.id);
+        return upd ?? r;
+      }));
+    }
+    const falliti = results.filter(r => r.status === "rejected").length;
+    setToast(falliti > 0
+      ? `${aggiornati.length} riassegnati, ${falliti} errori`
+      : `${aggiornati.length} moviment${aggiornati.length === 1 ? "o riassegnato" : "i riassegnati"} a oggi`
+    );
+    setShowRiassegnaModal(false);
+    setReassigning(false);
   }
 
   const statiUniq = ["Da Fare", "In corso", "Fatto"];
@@ -317,6 +376,16 @@ export default function TabellaRitiri({
           {filteredAttivi.length} attivi · {allFatti.length} completati
         </span>
         <div className="ml-auto flex items-center gap-2">
+          {canWrite && scadutiAttivi.length > 0 && (
+            <button
+              onClick={() => setShowRiassegnaModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded transition-colors hover:opacity-90 border"
+              style={{ color: "#92400E", background: "#FEF3C7", borderColor: "#F59E0B", borderRadius: "var(--radius-button)" }}
+              title={`${scadutiAttivi.length} movimenti con data passata`}
+            >
+              ⏰ Riassegna a oggi ({scadutiAttivi.length})
+            </button>
+          )}
           <button
             onClick={handleRefresh}
             disabled={refreshing}
@@ -729,6 +798,66 @@ export default function TabellaRitiri({
           </div>
         )}
       </div>
+
+      {/* ── Modal Riassegna a oggi ── */}
+      {showRiassegnaModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => !reassigning && setShowRiassegnaModal(false)}>
+          <div
+            className="w-full max-w-md bg-white rounded-lg shadow-2xl"
+            style={{ borderRadius: "var(--radius-modal)" }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b flex items-start gap-3">
+              <span className="text-2xl leading-none mt-0.5">⏰</span>
+              <div>
+                <h2 className="font-semibold text-base">Riassegna movimenti scaduti</h2>
+                <p className="text-xs mt-0.5" style={{ color: "var(--color-grey-mid)" }}>
+                  {scadutiAttivi.length} moviment{scadutiAttivi.length === 1 ? "o" : "i"} con data precedente a oggi
+                </p>
+              </div>
+            </div>
+            <div className="px-6 py-4">
+              <p className="text-sm mb-3" style={{ color: "var(--color-grey-mid)" }}>
+                La data trasporto verrà aggiornata a <strong style={{ color: "var(--color-black)" }}>{new Date().toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })}</strong>.
+                {scadutiAttivi.some(r => r.dataTrasporto?.includes("T") && (() => { const dt = new Date(r.dataTrasporto!); return dt.getHours() !== 0 || dt.getMinutes() !== 0; })()) &&
+                  " Gli orari esistenti verranno mantenuti."
+                }
+              </p>
+              <ul className="space-y-1.5 max-h-48 overflow-y-auto">
+                {scadutiAttivi.map(r => (
+                  <li key={r.id} className="flex items-center gap-2 text-sm px-3 py-2 rounded" style={{ background: "#FEF3C7" }}>
+                    <span className="font-semibold tabular-nums" style={{ color: "#92400E" }}>
+                      {r.numeroOrdine || r.commessaNr || "—"}
+                    </span>
+                    <span style={{ color: "#78716C" }}>{r.descrizioneMerce || r.causale || ""}</span>
+                    <span className="ml-auto tabular-nums text-xs" style={{ color: "#92400E" }}>
+                      {fmt(r.dataTrasporto)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="px-6 py-4 border-t flex justify-end gap-3">
+              <button
+                onClick={() => setShowRiassegnaModal(false)}
+                disabled={reassigning}
+                className="px-4 py-2 text-sm rounded border font-medium hover:bg-gray-50 transition-colors disabled:opacity-40"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={handleRiassegnaOggi}
+                disabled={reassigning}
+                className="px-4 py-2 text-sm rounded font-semibold text-white transition-colors disabled:opacity-60 flex items-center gap-2"
+                style={{ background: reassigning ? "var(--color-grey-mid)" : "#D97706", borderRadius: "var(--radius-button)" }}
+              >
+                {reassigning && <span className="inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                {reassigning ? "Aggiornamento…" : `Riassegna ${scadutiAttivi.length} moviment${scadutiAttivi.length === 1 ? "o" : "i"}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {creando && (
         <FormNuovoRitiro
