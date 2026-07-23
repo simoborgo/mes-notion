@@ -1,36 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PDFDocument, rgb, StandardFonts, PageSizes } from "pdf-lib";
+import puppeteer from "puppeteer";
 import QRCode from "qrcode";
+import fs from "fs";
+import path from "path";
 import { getRitiroById, getSchedaById, getCommessaById } from "@/lib/notion";
 import { getSessionFromRequest } from "@/lib/auth";
 
-function hexToRgb(hex: string) {
-  const n = parseInt(hex.replace("#", ""), 16);
-  return rgb(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
+function esc(s: string) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-function truncate(s: string, maxLen: number) {
-  return s.length > maxLen ? s.slice(0, maxLen - 1) + "..." : s;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function wrapText(text: string, font: any, size: number, maxWidth: number): string[] {
-  const words = text.split(" ");
-  const lines: string[] = [];
-  let current = "";
-  for (const word of words) {
-    const test = current ? current + " " + word : word;
-    if (font.widthOfTextAtSize(test, size) <= maxWidth) {
-      current = test;
-    } else {
-      if (current) lines.push(current);
-      current = font.widthOfTextAtSize(word, size) > maxWidth
-        ? truncate(word, Math.floor(word.length * maxWidth / font.widthOfTextAtSize(word, size)))
-        : word;
-    }
+function fmtData(d: string | null): string {
+  if (!d) return "—";
+  const dt = new Date(d);
+  const dateStr = dt.toLocaleDateString("it-IT", {
+    weekday: "long", day: "2-digit", month: "2-digit", year: "numeric",
+  });
+  if (d.includes("T")) {
+    const h = dt.getHours(), m = dt.getMinutes();
+    if (h !== 0 || m !== 0)
+      return `${dateStr} · ${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
   }
-  if (current) lines.push(current);
-  return lines;
+  return dateStr;
+}
+
+// Logo Modar letto da /public e convertito in data URI (evita dipendenze URL in Puppeteer)
+function getLogoDataUri(): string {
+  try {
+    const p = path.join(process.cwd(), "public", "modar-logo.png");
+    if (fs.existsSync(p)) return `data:image/png;base64,${fs.readFileSync(p).toString("base64")}`;
+    const pjpg = path.join(process.cwd(), "public", "modar-logo.jpg");
+    if (fs.existsSync(pjpg)) return `data:image/jpeg;base64,${fs.readFileSync(pjpg).toString("base64")}`;
+  } catch { /* skip */ }
+  return "";
 }
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -41,11 +43,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const { id } = await params;
     const ritiro = await getRitiroById(id);
 
+    // Fetch scheda / commessa
     let schedaOdp = ritiro.numeroOrdine;
     let nScheda = "";
     let clienteInfo = "";
     let clienteLocalita = "";
-    let clienteInfoExtra = "";
 
     if (ritiro.numeroOrdineId) {
       try {
@@ -64,229 +66,141 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         schedaOdp = commessa.numeroCommessa;
         clienteInfo = commessa.cliente || "";
         clienteLocalita = commessa.localita || "";
-        clienteInfoExtra = commessa.info || "";
       } catch { /* fallback */ }
     } else if (!schedaOdp && ritiro.commessaNr) {
       schedaOdp = ritiro.commessaNr;
     }
 
-    // QR code
-    const qrPng = await QRCode.toBuffer(ritiro.notionUrl, {
-      type: "png", width: 200, margin: 1,
+    const isRitiro = ritiro.tipoMovimento === "Ritiro";
+    const badgeClass = isRitiro ? "ritiro" : "consegna";
+    const badgeText = isRitiro ? "&#8592; RICEVUTO DA FORNITORE" : "IN USCITA &#8594; FORNITORE";
+    const tipoLabel = isRitiro ? "RITIRO" : "CONSEGNA";
+    const idShort = id.replace(/-/g, "").slice(0, 8).toUpperCase();
+
+    // QR code come SVG inline
+    const qrSvg = await QRCode.toString(ritiro.notionUrl, {
+      type: "svg", width: 120, margin: 1,
       color: { dark: "#1A1918", light: "#ffffff" },
     });
 
-    // Prima foto (opzionale)
-    let firstPhoto: Uint8Array | null = null;
-    if (ritiro.foto.length > 0) {
-      try {
-        const res = await fetch(ritiro.foto[0].url);
-        if (res.ok) firstPhoto = new Uint8Array(await res.arrayBuffer());
-      } catch { /* skip */ }
-    }
+    const logoUri = getLogoDataUri();
+    const codeStr = esc(schedaOdp || "—");
+    const clienteDisplay = [clienteInfo, clienteLocalita].filter(Boolean).join(" — ");
 
-    const doc = await PDFDocument.create();
-    const page = doc.addPage(PageSizes.A4);
-    const { width, height } = page.getSize(); // 595 × 842 pt
-    const helvetica = await doc.embedFont(StandardFonts.Helvetica);
-    const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+    // Righe dati extra (oltre data trasporto)
+    const extraRows: string[] = [];
 
-    const isRitiro = ritiro.tipoMovimento === "Ritiro";
-    const badgeBg = isRitiro ? hexToRgb("#3F8F5B") : hexToRgb("#7A2E3A");
-    // Helvetica non ha frecce unicode — usiamo < > ASCII
-    const badgeText = isRitiro ? "< RIENTRATO DA FORNITORE" : "IN USCITA AL FORNITORE >";
-    const margin = 36;
-
-    // ── Striscia superiore (#8B7B6B, ~7mm) ──────────────────
-    const stripH = 20;
-    page.drawRectangle({ x: 0, y: height - stripH, width, height: stripH, color: hexToRgb("#8B7B6B") });
-
-    // ── Header: MODAR a sx, badge tipo a dx ─────────────────
-    const headerH = 56;
-    const headerY = height - stripH - headerH;
-    page.drawText("MODAR", {
-      x: margin,
-      y: headerY + (headerH - 28) / 2,
-      size: 28, font: bold, color: hexToRgb("#1A1918"),
-    });
-
-    const badgeTxtSize = 12;
-    const badgePadX = 12;
-    const badgePadY = 8;
-    const badgeTxtW = bold.widthOfTextAtSize(badgeText, badgeTxtSize);
-    const badgeW = badgeTxtW + badgePadX * 2;
-    const badgeH2 = badgeTxtSize + badgePadY * 2;
-    const badgeX = width - margin - badgeW;
-    const badgeY = headerY + (headerH - badgeH2) / 2;
-    page.drawRectangle({ x: badgeX, y: badgeY, width: badgeW, height: badgeH2, color: badgeBg });
-    page.drawText(badgeText, {
-      x: badgeX + badgePadX, y: badgeY + badgePadY + 1,
-      size: badgeTxtSize, font: bold, color: rgb(1, 1, 1),
-    });
-
-    // Linea separatrice sotto header
-    page.drawLine({
-      start: { x: 0, y: headerY }, end: { x: width, y: headerY },
-      thickness: 0.5, color: hexToRgb("#E4E0DA"),
-    });
-
-    // ── Banda data trasporto (crema) ─────────────────────────
-    const dataBandH = 44;
-    const dataBandY = headerY - dataBandH;
-    page.drawRectangle({ x: 0, y: dataBandY, width, height: dataBandH, color: hexToRgb("#FFFBEB") });
-
-    const dataStr = (() => {
-      if (!ritiro.dataTrasporto) return "--";
-      const dt = new Date(ritiro.dataTrasporto);
-      const dateStr = dt.toLocaleDateString("it-IT", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" });
-      if (ritiro.dataTrasporto.includes("T")) {
-        const h = dt.getHours(), m = dt.getMinutes();
-        if (h !== 0 || m !== 0) return `${dateStr}   ${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
-      }
-      return dateStr;
-    })();
-
-    page.drawText("DATA TRASPORTO PREVISTO", {
-      x: margin, y: dataBandY + dataBandH - 14,
-      size: 7, font: bold, color: hexToRgb("#92400E"),
-    });
-    page.drawText(dataStr, {
-      x: margin, y: dataBandY + 10,
-      size: 16, font: bold, color: hexToRgb("#78350F"),
-    });
-
-    // Collo N / Tot (destra nella banda data)
     if (ritiro.nrCollo != null || ritiro.totColli != null) {
-      const colloVal = `${ritiro.nrCollo ?? "--"} / ${ritiro.totColli ?? "--"}`;
-      const colloValSize = 18;
-      const colloLabelStr = "COLLO";
-      const colloValW = bold.widthOfTextAtSize(colloVal, colloValSize);
-      const colloLabelW = bold.widthOfTextAtSize(colloLabelStr, 7);
-      const colloX = width - margin - Math.max(colloValW, colloLabelW);
-      page.drawText(colloLabelStr, {
-        x: colloX, y: dataBandY + dataBandH - 14,
-        size: 7, font: bold, color: hexToRgb("#92400E"),
-      });
-      page.drawText(colloVal, {
-        x: colloX, y: dataBandY + 10,
-        size: colloValSize, font: bold, color: hexToRgb("#78350F"),
-      });
+      const colloVal = `${ritiro.nrCollo ?? "—"} / ${ritiro.totColli ?? "—"}`;
+      extraRows.push(`<div class="row"><div class="lbl">Collo</div><div class="val">${esc(colloVal)}</div></div>`);
     }
-
-    let y = dataBandY - 14;
-
-    // ── ODP / Codice ─────────────────────────────────────────
-    const odpStr = schedaOdp || "--";
-    const odpSize = 64;
-    const odpW = bold.widthOfTextAtSize(odpStr, odpSize);
-    page.drawText(odpStr, {
-      x: (width - odpW) / 2, y: y - odpSize,
-      size: odpSize, font: bold, color: hexToRgb("#1A1918"),
-    });
-    y = y - odpSize - 8;
-
-    // N Scheda
-    if (nScheda) {
-      const nSchedaSize = Math.round(odpSize * 0.5);
-      const maxW = width - margin * 2;
-      const lines = wrapText(nScheda, bold, nSchedaSize, maxW);
-      for (const line of lines) {
-        const lw = bold.widthOfTextAtSize(line, nSchedaSize);
-        page.drawText(line, {
-          x: (width - lw) / 2, y: y - nSchedaSize,
-          size: nSchedaSize, font: bold, color: hexToRgb("#374151"),
-        });
-        y = y - nSchedaSize - 6;
-      }
-      y -= 4;
-    } else {
-      y -= 4;
+    if (clienteDisplay) {
+      extraRows.push(`<div class="row"><div class="lbl">Cliente</div><div class="val">${esc(clienteDisplay)}</div></div>`);
     }
-
-    // ── Separatore ───────────────────────────────────────────
-    page.drawLine({
-      start: { x: margin, y }, end: { x: width - margin, y },
-      thickness: 1.5, color: hexToRgb("#1A1918"),
-    });
-    y -= 14;
-
-    // ── Helper: disegna una riga label + valore ──────────────
-    function drawRow(label: string, value: string, truncLen = 52) {
-      page.drawText(label.toUpperCase(), {
-        x: margin, y,
-        size: 7, font: bold, color: hexToRgb("#A4A4A6"),
-      });
-      y -= 20;
-      page.drawText(truncate(value, truncLen), {
-        x: margin, y,
-        size: 16, font: helvetica, color: hexToRgb("#1A1918"),
-      });
-      y -= 10;
-      page.drawLine({
-        start: { x: 0, y }, end: { x: width, y },
-        thickness: 0.5, color: hexToRgb("#E4E0DA"),
-      });
-      y -= 12;
+    if (ritiro.fornitore) {
+      extraRows.push(`<div class="row"><div class="lbl">Fornitore</div><div class="val">${esc(ritiro.fornitore)}</div></div>`);
     }
-
-    // ── Righe dati ───────────────────────────────────────────
-    const clienteDisplay = [clienteInfo, clienteLocalita, clienteInfoExtra].filter(Boolean).join("  |  ");
-    if (clienteDisplay) drawRow("Cliente", clienteDisplay, 58);
-    if (ritiro.fornitore) drawRow("Fornitore", ritiro.fornitore);
     const desc = ritiro.causale || ritiro.descrizioneMerce || "";
-    if (desc) drawRow("Descrizione", desc);
-    if (ritiro.note && ritiro.note !== ritiro.causale && ritiro.note !== ritiro.descrizioneMerce) {
-      drawRow("Note", ritiro.note, 70);
+    if (desc) {
+      extraRows.push(`<div class="row"><div class="lbl">Descrizione</div><div class="val">${esc(desc)}</div></div>`);
     }
 
-    // ── QR + foto ────────────────────────────────────────────
-    y -= 4;
-    const qrImg = await doc.embedPng(qrPng);
-    const qrSize = 100;
-    const qrX = width - margin - qrSize;
+    const html = `<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Etichetta ${codeStr}</title>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Jost',sans-serif;background:#fff;display:flex;justify-content:center;padding:0}
+.page{font-family:'Jost',sans-serif;background:#fff;color:#1A1918;display:flex;flex-direction:column;width:100mm;min-height:148mm}
+.strip{height:7mm;flex-shrink:0;background:#8B7B6B}
+.hd{display:flex;justify-content:space-between;align-items:flex-start;padding:5mm 6mm 0}
+.logo img{height:52px;width:auto;object-fit:contain}
+.logo-fallback{font-size:22px;font-weight:700;color:#1A1918;letter-spacing:-.02em;line-height:52px}
+.dir{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:3px;font-weight:700;font-size:10.5px;letter-spacing:.1em;margin-top:10px;white-space:nowrap}
+.dir.ritiro{background:#3F8F5B;color:#fff}
+.dir.consegna{background:#7A2E3A;color:#fff}
+.lbl{font-size:7.5px;font-weight:600;letter-spacing:.2em;color:#A4A4A6;text-transform:uppercase}
+.code-section{padding:5mm 6mm 0}
+.code{font-family:'Jost',sans-serif;font-weight:700;font-size:46px;line-height:.95;color:#1A1918;letter-spacing:-.01em;margin-top:1.5mm}
+.sub{font-size:14px;font-weight:600;color:#374151;margin-top:2mm;line-height:1.2}
+.rule{border-top:1.5px solid #1A1918;margin:4mm 6mm 0}
+.row{padding:2.5mm 6mm;border-bottom:1px solid #E4E0DA}
+.row .lbl{margin-bottom:1.5px}
+.row .val{font-size:16px;font-weight:500;color:#1A1918;line-height:1.25}
+.qrwrap{display:flex;align-items:center;gap:10px;padding:3mm 6mm;margin-top:auto}
+.qrbox{border:1px solid #E4E0DA;border-radius:4px;padding:4px;flex-shrink:0;line-height:0}
+.qrbox svg{display:block}
+.qr-apri{font-size:14px;font-weight:600;color:#1A1918}
+.qr-rif{font-size:9.5px;color:#A4A4A6;margin-top:2px}
+.ft{display:flex;justify-content:space-between;align-items:center;padding:2.5mm 6mm 3.5mm;border-top:1px solid #E4E0DA;margin-top:auto}
+.ft span{font-size:8px;color:#A4A4A6;letter-spacing:.05em}
+@media print{@page{size:A4;margin:12mm}body{padding:0}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="strip"></div>
+  <div class="hd">
+    <div class="logo">
+      ${logoUri
+        ? `<img src="${logoUri}" alt="Modar">`
+        : `<span class="logo-fallback">MODAR</span>`}
+    </div>
+    <div class="dir ${badgeClass}">${badgeText}</div>
+  </div>
+  <div class="code-section">
+    <div class="lbl">Scheda / Commessa</div>
+    <div class="code">${codeStr}</div>
+    ${nScheda ? `<div class="sub">${esc(nScheda)}</div>` : ""}
+  </div>
+  <div class="rule"></div>
+  <div class="row">
+    <div class="lbl">Data Trasporto Previsto</div>
+    <div class="val">${esc(fmtData(ritiro.dataTrasporto))}</div>
+  </div>
+  ${extraRows.join("\n  ")}
+  <div class="qrwrap">
+    <div class="qrbox">${qrSvg}</div>
+    <div>
+      <div class="qr-apri">Apri Scheda</div>
+      <div class="qr-rif">Rif. ${codeStr}</div>
+    </div>
+  </div>
+  <div class="ft">
+    <span>MES MODAR · ${tipoLabel}</span>
+    <span>ID ${idShort}</span>
+  </div>
+</div>
+</body>
+</html>`;
 
-    if (firstPhoto) {
-      try {
-        let img;
-        try { img = await doc.embedJpg(firstPhoto); } catch { img = await doc.embedPng(firstPhoto); }
-        const maxPhotoW = qrX - margin - 12;
-        const maxPhotoH = Math.max(qrSize, 120);
-        const scale = Math.min(maxPhotoW / img.width, maxPhotoH / img.height);
-        page.drawImage(img, { x: margin, y: y - img.height * scale, width: img.width * scale, height: img.height * scale });
-      } catch { /* skip */ }
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+    });
+    try {
+      const browserPage = await browser.newPage();
+      await browserPage.setContent(html, { waitUntil: "load" });
+      // Attende caricamento font Google Fonts
+      await browserPage.evaluateHandle("document.fonts.ready");
+      const pdfBuffer = await browserPage.pdf({
+        format: "A4",
+        printBackground: true,
+        margin: { top: "12mm", right: "12mm", bottom: "12mm", left: "12mm" },
+      });
+      return new NextResponse(Buffer.from(pdfBuffer), {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="etichetta-${(schedaOdp || id).replace(/\//g, "-")}.pdf"`,
+          "Cache-Control": "no-store",
+        },
+      });
+    } finally {
+      await browser.close();
     }
-
-    page.drawImage(qrImg, { x: qrX, y: y - qrSize, width: qrSize, height: qrSize });
-    const apriW = helvetica.widthOfTextAtSize("Apri in Notion", 8);
-    page.drawText("Apri in Notion", {
-      x: qrX + (qrSize - apriW) / 2, y: y - qrSize - 10,
-      size: 8, font: helvetica, color: hexToRgb("#A4A4A6"),
-    });
-
-    // ── Footer ───────────────────────────────────────────────
-    const footerH = 28;
-    page.drawRectangle({ x: 0, y: 0, width, height: footerH, color: hexToRgb("#F3F4F6") });
-    const tipoLabel = isRitiro ? "RITIRO" : "CONSEGNA";
-    const idShort = id.replace(/-/g, "").slice(0, 8).toUpperCase();
-    page.drawText(`MES MODAR  ·  ${tipoLabel}`, {
-      x: margin, y: footerH - 18,
-      size: 8.5, font: bold, color: hexToRgb("#A4A4A6"),
-    });
-    const idStr = `ID ${idShort}`;
-    const idW = helvetica.widthOfTextAtSize(idStr, 8.5);
-    page.drawText(idStr, {
-      x: width - margin - idW, y: footerH - 18,
-      size: 8.5, font: helvetica, color: hexToRgb("#A4A4A6"),
-    });
-
-    const pdfBytes = await doc.save();
-    return new NextResponse(Buffer.from(pdfBytes), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="etichetta-${(schedaOdp || id).replace(/\//g, "-")}.pdf"`,
-        "Cache-Control": "no-store",
-      },
-    });
   } catch (e) {
     console.error("[etichetta]", e);
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
