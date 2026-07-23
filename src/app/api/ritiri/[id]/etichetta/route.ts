@@ -113,30 +113,30 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Jost',sans-serif;background:#fff;display:flex;justify-content:center;padding:0}
-.page{font-family:'Jost',sans-serif;background:#fff;color:#1A1918;display:flex;flex-direction:column;width:100mm;min-height:148mm}
-.strip{height:7mm;flex-shrink:0;background:#8B7B6B}
-.hd{display:flex;justify-content:space-between;align-items:flex-start;padding:5mm 6mm 0}
-.logo img{height:52px;width:auto;object-fit:contain}
-.logo-fallback{font-size:22px;font-weight:700;color:#1A1918;letter-spacing:-.02em;line-height:52px}
-.dir{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:3px;font-weight:700;font-size:10.5px;letter-spacing:.1em;margin-top:10px;white-space:nowrap}
+body{font-family:'Jost',sans-serif;background:#fff;margin:0;padding:0;width:100%}
+.page{font-family:'Jost',sans-serif;background:#fff;color:#1A1918;display:flex;flex-direction:column;width:100%;min-height:calc(297mm - 24mm)}
+.strip{height:10mm;flex-shrink:0;background:#8B7B6B}
+.hd{display:flex;justify-content:space-between;align-items:center;padding:7mm 10mm 0}
+.logo img{height:70px;width:auto;object-fit:contain}
+.logo-fallback{font-size:32px;font-weight:700;color:#1A1918;letter-spacing:-.02em}
+.dir{display:flex;align-items:center;padding:8px 16px;border-radius:4px;font-weight:700;font-size:13px;letter-spacing:.12em;white-space:nowrap}
 .dir.ritiro{background:#3F8F5B;color:#fff}
 .dir.consegna{background:#7A2E3A;color:#fff}
-.lbl{font-size:7.5px;font-weight:600;letter-spacing:.2em;color:#A4A4A6;text-transform:uppercase}
-.code-section{padding:5mm 6mm 0}
-.code{font-family:'Jost',sans-serif;font-weight:700;font-size:46px;line-height:.95;color:#1A1918;letter-spacing:-.01em;margin-top:1.5mm}
-.sub{font-size:14px;font-weight:600;color:#374151;margin-top:2mm;line-height:1.2}
-.rule{border-top:1.5px solid #1A1918;margin:4mm 6mm 0}
-.row{padding:2.5mm 6mm;border-bottom:1px solid #E4E0DA}
-.row .lbl{margin-bottom:1.5px}
-.row .val{font-size:16px;font-weight:500;color:#1A1918;line-height:1.25}
-.qrwrap{display:flex;align-items:center;gap:10px;padding:3mm 6mm;margin-top:auto}
-.qrbox{border:1px solid #E4E0DA;border-radius:4px;padding:4px;flex-shrink:0;line-height:0}
-.qrbox svg{display:block}
-.qr-apri{font-size:14px;font-weight:600;color:#1A1918}
-.qr-rif{font-size:9.5px;color:#A4A4A6;margin-top:2px}
-.ft{display:flex;justify-content:space-between;align-items:center;padding:2.5mm 6mm 3.5mm;border-top:1px solid #E4E0DA;margin-top:auto}
-.ft span{font-size:8px;color:#A4A4A6;letter-spacing:.05em}
+.lbl{font-size:9px;font-weight:600;letter-spacing:.2em;color:#A4A4A6;text-transform:uppercase}
+.code-section{padding:7mm 10mm 0}
+.code{font-family:'Jost',sans-serif;font-weight:700;font-size:80px;line-height:.95;color:#1A1918;letter-spacing:-.02em;margin-top:2mm}
+.sub{font-size:20px;font-weight:600;color:#374151;margin-top:3mm;line-height:1.2}
+.rule{border-top:2px solid #1A1918;margin:6mm 10mm 0}
+.row{padding:4mm 10mm;border-bottom:1px solid #E4E0DA}
+.row .lbl{margin-bottom:2px}
+.row .val{font-size:20px;font-weight:500;color:#1A1918;line-height:1.3}
+.qrwrap{display:flex;align-items:center;gap:16px;padding:6mm 10mm;margin-top:auto}
+.qrbox{border:1px solid #E4E0DA;border-radius:6px;padding:6px;flex-shrink:0;line-height:0}
+.qrbox svg{display:block;width:100px;height:100px}
+.qr-apri{font-size:18px;font-weight:600;color:#1A1918}
+.qr-rif{font-size:12px;color:#A4A4A6;margin-top:3px}
+.ft{display:flex;justify-content:space-between;align-items:center;padding:4mm 10mm 5mm;border-top:1px solid #E4E0DA;margin-top:auto}
+.ft span{font-size:10px;color:#A4A4A6;letter-spacing:.06em}
 @media print{@page{size:A4;margin:12mm}body{padding:0}}
 </style>
 </head>
