@@ -362,23 +362,23 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], commesse 
               )}
             </div>
             <div>
+              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Fornitore</label>
+              <select className={inputCls} value={form.fornitoreId ?? ""} onChange={e => set("fornitoreId", e.target.value || null)}>
+                <option value="">— nessuno —</option>
+                {fornitori.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
+              </select>
+            </div>
+            <div className="col-span-2">
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Data Trasporto</label>
               <div className="flex gap-2 items-center">
                 <input type="date" className={inputCls} style={{ flex: 1 }} value={form.dataData} onChange={e => set("dataData", e.target.value)} />
-                <input type="time" className={inputCls} style={{ flex: "0 0 110px" }} value={form.dataOra} onChange={e => set("dataOra", e.target.value)} placeholder="Orario" />
+                <input type="time" className={inputCls} style={{ flex: "0 0 130px" }} value={form.dataOra} onChange={e => set("dataOra", e.target.value)} />
                 {form.dataOra && (
                   <button type="button" onClick={() => set("dataOra", "")} className="text-xs px-2 py-1.5 rounded border hover:bg-gray-50" style={{ color: "#6B7280", borderColor: "#E5E7EB", whiteSpace: "nowrap" }} title="Rimuovi orario">
                     ✕ ora
                   </button>
                 )}
               </div>
-            </div>
-            <div>
-              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Fornitore</label>
-              <select className={inputCls} value={form.fornitoreId ?? ""} onChange={e => set("fornitoreId", e.target.value || null)}>
-                <option value="">— nessuno —</option>
-                {fornitori.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
-              </select>
             </div>
           </div>
 

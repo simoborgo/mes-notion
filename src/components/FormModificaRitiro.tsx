@@ -267,11 +267,11 @@ export default function FormModificaRitiro({ ritiro, schede = [], fornitori = []
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Descrizione</label>
               <input type="text" className={inputCls} value={form.causale} onChange={e => set("causale", e.target.value)} />
             </div>
-            <div>
+            <div className="col-span-2">
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Data Trasporto</label>
               <div className="flex gap-2 items-center">
                 <input type="date" className={inputCls} style={{ flex: 1 }} value={form.dataData} onChange={e => set("dataData", e.target.value)} />
-                <input type="time" className={inputCls} style={{ flex: "0 0 110px" }} value={form.dataOra} onChange={e => set("dataOra", e.target.value)} placeholder="Orario" />
+                <input type="time" className={inputCls} style={{ flex: "0 0 130px" }} value={form.dataOra} onChange={e => set("dataOra", e.target.value)} />
                 {form.dataOra && (
                   <button type="button" onClick={() => set("dataOra", "")} className="text-xs px-2 py-1.5 rounded border hover:bg-gray-50" style={{ color: "#6B7280", borderColor: "#E5E7EB", whiteSpace: "nowrap" }} title="Rimuovi orario">
                     ✕ ora
