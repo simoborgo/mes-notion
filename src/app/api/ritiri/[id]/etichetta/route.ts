@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PDFDocument, rgb, StandardFonts, PageSizes } from "pdf-lib";
 import QRCode from "qrcode";
-import { getRitiroById, getSchedaById } from "@/lib/notion";
+import { getRitiroById, getSchedaById, getCommessaById } from "@/lib/notion";
 import { getSessionFromRequest } from "@/lib/auth";
 
 function hexToRgb(hex: string) {
@@ -43,8 +43,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const { id } = await params;
     const ritiro = await getRitiroById(id);
 
-    // Fetch scheda collegata per ODP, nScheda, clienteInfo
-    // Se la scheda è una rilavorazione (no clienteInfo), risale al parent
+    // Fetch scheda / commessa per ODP, nScheda, clienteInfo
     let schedaOdp = ritiro.numeroOrdine;
     let nScheda = "";
     let clienteInfo = "";
@@ -58,15 +57,25 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         nScheda = scheda.numeroScheda || "";
         clienteInfo = scheda.clienteInfo || "";
 
-        // Se la scheda non ha clienteInfo (es. è una rilavorazione), risale al parent
         if (!clienteInfo && scheda.parentId) {
           const parent = await getSchedaById(scheda.parentId);
           clienteInfo = parent.clienteInfo || "";
-          // I riferimenti scheda padre = la scheda root
           schedaPadreOdp = parent.odp || "";
           schedaPadreNr = parent.numeroScheda || "";
         }
       } catch { /* fallback ai dati ritiro */ }
+    } else if (!schedaOdp && ritiro.commessaId) {
+      // Nessun ODP: usa commessa come riferimento principale
+      try {
+        const commessa = await getCommessaById(ritiro.commessaId);
+        schedaOdp = commessa.numeroCommessa;
+        // nScheda mostra cliente + località + info
+        const parts = [commessa.cliente, commessa.localita, commessa.info].filter(Boolean);
+        nScheda = parts.join(" · ");
+        clienteInfo = commessa.cliente || "";
+      } catch { /* fallback */ }
+    } else if (!schedaOdp && ritiro.commessaNr) {
+      schedaOdp = ritiro.commessaNr;
     }
 
     // QR code verso Notion (PNG buffer)
@@ -106,9 +115,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       x: margin, y: height - headerH + (headerH - 26) / 2 + 2,
       size: 26, font: bold, color: rgb(1, 1, 1),
     });
-    const dataStr = ritiro.dataTrasporto
-      ? new Date(ritiro.dataTrasporto).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" })
-      : "—";
+    const dataStr = (() => {
+      if (!ritiro.dataTrasporto) return "—";
+      const dt = new Date(ritiro.dataTrasporto);
+      const dateStr = dt.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
+      if (ritiro.dataTrasporto.includes("T")) {
+        const h = dt.getHours(), m = dt.getMinutes();
+        if (h !== 0 || m !== 0) return `${dateStr}  ${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+      }
+      return dateStr;
+    })();
     const dataLabel = `Data trasporto: ${dataStr}`;
     const dataW = helvetica.widthOfTextAtSize(dataLabel, 11);
     page.drawText(dataLabel, {

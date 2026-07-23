@@ -170,6 +170,7 @@ function pageToRitiro(page: any, fornitoriMap?: Record<string, string>): Ritiro 
     commessaNr: getText(prop(page, "Nr Commessa")),
     descrizioneMerce: descrizione,
     dataTrasporto: getDate(prop(page, "Data Trasporto")),
+    dataFatto: getDate(prop(page, "Data Fatto")),
     tipoMovimento: getText(prop(page, "Tipo movimento")),
     stato: getText(prop(page, "Stato")),
     urgenza,
@@ -522,8 +523,14 @@ export async function updateRitiro(id: string, data: RitiroUpdate): Promise<Riti
     properties["Data Trasporto"] = { date: data.dataTrasporto ? { start: data.dataTrasporto } : null };
   if (data.tipoMovimento !== undefined)
     properties["Tipo movimento"] = { select: data.tipoMovimento ? { name: data.tipoMovimento } : null };
-  if (data.stato)
+  if (data.stato) {
     properties["Stato"] = { status: { name: data.stato } };
+    if (data.stato === "Fatto") {
+      properties["Data Fatto"] = { date: { start: new Date().toISOString() } };
+    } else {
+      properties["Data Fatto"] = { date: null };
+    }
+  }
   if (data.urgenza !== undefined)
     properties["Urgenza"] = { select: { name: data.urgenza ? "Si" : "No" } };
   if (data.nc !== undefined)

@@ -54,6 +54,7 @@ export interface Ritiro {
   commessaNr: string;
   descrizioneMerce: string;
   dataTrasporto: string | null;
+  dataFatto: string | null;
   tipoMovimento: string;
   stato: string;
   urgenza: boolean;

@@ -71,9 +71,25 @@ function TipoBadge({ tipo }: { tipo: string }) {
   );
 }
 
-function fmt(d: string | null) {
+function getDatePart(d: string | null): string {
+  if (!d) return "";
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return d.slice(0, 10);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())}`;
+}
+
+function fmt(d: string | null, showTime = true) {
   if (!d) return "—";
-  return new Date(d).toLocaleDateString("it-IT");
+  const dt = new Date(d);
+  const dateStr = dt.toLocaleDateString("it-IT");
+  if (showTime && d.includes("T")) {
+    const h = dt.getHours(), m = dt.getMinutes();
+    if (h !== 0 || m !== 0) {
+      return `${dateStr} ${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+    }
+  }
+  return dateStr;
 }
 
 // Colonna ODP / Commessa
@@ -184,7 +200,7 @@ export default function TabellaRitiri({
       if (q && !`${r.causale} ${r.numeroOrdine} ${r.commessaNr} ${r.fornitore} ${r.descrizioneMerce}`.toLowerCase().includes(q)) return false;
       if (filtroStato && r.stato !== filtroStato) return false;
       if (filtroTipo && r.tipoMovimento !== filtroTipo) return false;
-      if (filtroDataAbilitato && filtroData && r.dataTrasporto !== filtroData) return false;
+      if (filtroDataAbilitato && filtroData && getDatePart(r.dataTrasporto) !== filtroData) return false;
       if (filtroUrgente && !r.urgenza) return false;
       return true;
     });
@@ -207,8 +223,8 @@ export default function TabellaRitiri({
       if (q && !`${r.causale} ${r.numeroOrdine} ${r.commessaNr} ${r.fornitore} ${r.descrizioneMerce}`.toLowerCase().includes(q)) return false;
       if (archTipo && r.tipoMovimento !== archTipo) return false;
       if (archFornitore && r.fornitore !== archFornitore) return false;
-      if (archDa && r.dataTrasporto && r.dataTrasporto < archDa) return false;
-      if (archA && r.dataTrasporto && r.dataTrasporto > archA) return false;
+      if (archDa && getDatePart(r.dataTrasporto) < archDa) return false;
+      if (archA && getDatePart(r.dataTrasporto) > archA) return false;
       return true;
     });
   }, [allFatti, archSearch, archTipo, archFornitore, archDa, archA]);
@@ -352,7 +368,7 @@ export default function TabellaRitiri({
               (() => {
                 const groupMap = new Map<string, { dateKey: string; label: string; items: Ritiro[] }>();
                 for (const r of filteredAttivi) {
-                  const dateKey = r.dataTrasporto ?? "senza-data";
+                  const dateKey = r.dataTrasporto ? getDatePart(r.dataTrasporto) : "senza-data";
                   if (!groupMap.has(dateKey)) {
                     let label: string;
                     if (dateKey === "senza-data") {
@@ -410,7 +426,18 @@ export default function TabellaRitiri({
                           </div>
                         </td>
                         <td className="px-4 py-4">
-                          <RifCell r={r} schedeMap={schedeMap} />
+                          <div>
+                            <RifCell r={r} schedeMap={schedeMap} />
+                            {r.dataTrasporto && r.dataTrasporto.includes("T") && (() => {
+                              const dt = new Date(r.dataTrasporto);
+                              const h = dt.getHours(), m = dt.getMinutes();
+                              return (h !== 0 || m !== 0) ? (
+                                <div className="text-xs mt-0.5 font-medium tabular-nums" style={{ color: "#6B7280" }}>
+                                  ⏱ {String(h).padStart(2,"0")}:{String(m).padStart(2,"0")}
+                                </div>
+                              ) : null;
+                            })()}
+                          </div>
                         </td>
                         <td className="px-4 py-4">
                           {scheda ? (
@@ -595,7 +622,8 @@ export default function TabellaRitiri({
               <thead>
                 <tr className="border-b text-left text-xs font-bold uppercase tracking-wide" style={{ color: "var(--color-grey-mid)", background: "#faf9f7" }}>
                   <th className="px-3 py-3"></th>
-                  <th className="px-4 py-3">Data</th>
+                  <th className="px-4 py-3">Data trasporto</th>
+                  <th className="px-4 py-3">Completato il</th>
                   <th className="px-4 py-3">ODP / Commessa</th>
                   <th className="px-4 py-3">Scheda</th>
                   <th className="px-4 py-3">Descrizione</th>
@@ -608,7 +636,7 @@ export default function TabellaRitiri({
               <tbody>
                 {archivioFatti.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-10 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
+                    <td colSpan={10} className="py-10 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
                       Nessun risultato per i filtri selezionati
                     </td>
                   </tr>
@@ -626,6 +654,13 @@ export default function TabellaRitiri({
                         </td>
                         <td className="px-4 py-3 tabular-nums text-sm whitespace-nowrap" style={{ color: "var(--color-grey-mid)" }}>
                           {fmt(r.dataTrasporto)}
+                        </td>
+                        <td className="px-4 py-3 tabular-nums text-sm whitespace-nowrap">
+                          {r.dataFatto ? (
+                            <span style={{ color: "#065F46" }}>{fmt(r.dataFatto)}</span>
+                          ) : (
+                            <span style={{ color: "var(--color-grey-icon)" }}>—</span>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <RifCell r={r} schedeMap={schedeMap} />

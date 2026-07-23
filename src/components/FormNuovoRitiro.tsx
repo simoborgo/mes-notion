@@ -5,6 +5,19 @@ import type { Ritiro, Scheda, Commessa } from "@/lib/types";
 
 const TIPI = ["Ritiro", "Consegna"];
 
+// Datetime-local helpers
+function nowLocal(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function toNotionDatetime(v: string | null): string | null {
+  if (!v) return null;
+  // datetime-local ("YYYY-MM-DDTHH:mm") → UTC ISO string for Notion
+  return new Date(v).toISOString();
+}
+
 interface Props {
   schede?: Scheda[];
   fornitori?: { id: string; nome: string }[];
@@ -18,7 +31,7 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], commesse 
   const [form, setForm] = useState({
     causale: "",
     tipoMovimento: "",
-    dataTrasporto: new Date().toISOString().slice(0, 10),
+    dataTrasporto: nowLocal(),
     urgenza: false,
     nc: false,
     schedaId: null as string | null,
@@ -132,7 +145,7 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], commesse 
         body: JSON.stringify({
           causale: form.causale.trim(),
           tipoMovimento: form.tipoMovimento || undefined,
-          dataTrasporto: form.dataTrasporto || null,
+          dataTrasporto: toNotionDatetime(form.dataTrasporto || null),
           urgenza: form.urgenza,
           nc: form.nc,
           schedaId: form.schedaId,
@@ -345,7 +358,7 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], commesse 
             </div>
             <div>
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Data Trasporto</label>
-              <input type="date" className={inputCls} value={form.dataTrasporto} onChange={e => set("dataTrasporto", e.target.value)} />
+              <input type="datetime-local" className={inputCls} value={form.dataTrasporto} onChange={e => set("dataTrasporto", e.target.value)} />
             </div>
             <div>
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Fornitore</label>

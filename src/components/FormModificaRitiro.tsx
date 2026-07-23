@@ -6,6 +6,21 @@ import type { Ritiro, RitiroUpdate, Scheda, Commessa } from "@/lib/types";
 const STATI = ["Da Fare", "In corso", "Fatto"];
 const TIPI  = ["Ritiro", "Consegna"];
 
+function fromNotionToDatetimeLocal(d: string | null): string {
+  if (!d) return "";
+  if (d.includes("T")) {
+    const dt = new Date(d);
+    const p = (n: number) => String(n).padStart(2, "0");
+    return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())}T${p(dt.getHours())}:${p(dt.getMinutes())}`;
+  }
+  return d + "T00:00"; // date-only legacy: mostra mezzanotte locale
+}
+
+function toNotionDatetime(v: string | null): string | null {
+  if (!v) return null;
+  return new Date(v).toISOString();
+}
+
 interface Props {
   ritiro: Ritiro;
   schede?: Scheda[];
@@ -19,7 +34,7 @@ export default function FormModificaRitiro({ ritiro, schede = [], fornitori = []
   const [form, setForm] = useState<RitiroUpdate & { schedaId: string | null; fornitoreId: string | null; commessaId: string | null }>({
     causale:         ritiro.causale,
     descrizioneMerce: ritiro.descrizioneMerce,
-    dataTrasporto:   ritiro.dataTrasporto ?? "",
+    dataTrasporto:   fromNotionToDatetimeLocal(ritiro.dataTrasporto),
     tipoMovimento:   ritiro.tipoMovimento,
     stato:           ritiro.stato,
     urgenza:         ritiro.urgenza,
@@ -91,7 +106,7 @@ export default function FormModificaRitiro({ ritiro, schede = [], fornitori = []
     try {
       const payload: RitiroUpdate = {
         ...form,
-        dataTrasporto: form.dataTrasporto || null,
+        dataTrasporto: toNotionDatetime(form.dataTrasporto || null),
         schedaId: form.schedaId,
         fornitoreId: form.fornitoreId,
         commessaId: form.commessaId,
@@ -246,7 +261,7 @@ export default function FormModificaRitiro({ ritiro, schede = [], fornitori = []
             </div>
             <div>
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Data Trasporto</label>
-              <input type="date" className={inputCls} value={form.dataTrasporto ?? ""} onChange={e => set("dataTrasporto", e.target.value)} />
+              <input type="datetime-local" className={inputCls} value={form.dataTrasporto ?? ""} onChange={e => set("dataTrasporto", e.target.value)} />
             </div>
             <div className="col-span-2">
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Fornitore</label>
