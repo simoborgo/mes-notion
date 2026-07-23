@@ -105,16 +105,29 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const isRitiro = ritiro.tipoMovimento === "Ritiro";
     const badgeBg = isRitiro ? hexToRgb("#166534") : hexToRgb("#9A3412");
-    const badgeText = isRitiro ? "<  RITIRO" : ">  CONSEGNA";
+    const badgeText = isRitiro ? "RIENTRATO DAL FORNITORE" : "IN USCITA AL FORNITORE";
     const margin = 36;
     let y = height - margin;
 
-    // ── Header grigio (solo MODAR) ───────────────────────────
+    // ── Header grigio (MODAR a sx, badge tipo a dx) ──────────
     const headerH = 50;
     page.drawRectangle({ x: 0, y: height - headerH, width, height: headerH, color: hexToRgb("#78716C") });
     page.drawText("MODAR", {
       x: margin, y: height - headerH + (headerH - 26) / 2 + 2,
       size: 26, font: bold, color: rgb(1, 1, 1),
+    });
+
+    // Badge tipo — allineato a destra nell'header
+    const badgeTxtSize = 14;
+    const badgePadX = 16;
+    const badgeTxtW = bold.widthOfTextAtSize(badgeText, badgeTxtSize);
+    const badgeW = badgeTxtW + badgePadX * 2;
+    const badgeX = width - badgeW;
+    page.drawRectangle({ x: badgeX, y: height - headerH, width: badgeW, height: headerH, color: badgeBg });
+    page.drawText(badgeText, {
+      x: badgeX + badgePadX,
+      y: height - headerH + (headerH - badgeTxtSize) / 2 + 2,
+      size: badgeTxtSize, font: bold, color: rgb(1, 1, 1),
     });
 
     // ── Band Data Trasporto ──────────────────────────────────
@@ -190,20 +203,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     } else {
       y -= 4;
     }
-
-    // ── Badge Tipo ────────────────────────────────────────────
-    const badgeH = 48;
-    const badgePadX = 32;
-    const badgeTxtSize = 26;
-    const badgeTxtW = bold.widthOfTextAtSize(badgeText, badgeTxtSize);
-    const badgeW = badgeTxtW + badgePadX * 2;
-    const badgeX = (width - badgeW) / 2;
-    page.drawRectangle({ x: badgeX, y: y - badgeH, width: badgeW, height: badgeH, color: badgeBg });
-    page.drawText(badgeText, {
-      x: badgeX + badgePadX, y: y - badgeH + (badgeH - badgeTxtSize) / 2 + 2,
-      size: badgeTxtSize, font: bold, color: rgb(1, 1, 1),
-    });
-    y = y - badgeH - 20;
 
     // ── Separatore ───────────────────────────────────────────
     page.drawLine({ start: { x: margin, y }, end: { x: width - margin, y }, thickness: 1, color: hexToRgb("#E5E7EB") });
