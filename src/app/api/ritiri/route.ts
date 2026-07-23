@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
     }
     const body = await req.json();
-    const { causale, tipoMovimento, dataTrasporto, urgenza, schedaId, fornitoreId, commessaId, foto_base64 } = body;
+    const { causale, tipoMovimento, dataTrasporto, urgenza, nrCollo, totColli, schedaId, fornitoreId, commessaId, foto_base64 } = body;
     if (!causale?.trim()) {
       return NextResponse.json({ error: "Descrizione obbligatoria" }, { status: 400 });
     }
@@ -30,6 +30,8 @@ export async function POST(req: NextRequest) {
       tipoMovimento,
       dataTrasporto: dataTrasporto || null,
       urgenza: urgenza ?? false,
+      nrCollo: nrCollo != null ? Number(nrCollo) : null,
+      totColli: totColli != null ? Number(totColli) : null,
       schedaId: schedaId || null,
       fornitoreId: fornitoreId || null,
       commessaId: commessaId || null,

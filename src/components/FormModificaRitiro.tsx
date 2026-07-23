@@ -45,6 +45,8 @@ export default function FormModificaRitiro({ ritiro, schede = [], fornitori = []
     stato:           ritiro.stato,
     urgenza:         ritiro.urgenza,
     nc:              ritiro.nc,
+    nrCollo:         ritiro.nrCollo,
+    totColli:        ritiro.totColli,
     schedaId:        ritiro.numeroOrdineId,
     fornitoreId:     fornitori.find(f => f.nome === ritiro.fornitore)?.id ?? null,
     commessaId:      ritiro.commessaId,
@@ -303,6 +305,30 @@ export default function FormModificaRitiro({ ritiro, schede = [], fornitori = []
                 className="w-4 h-4 accent-red-600"
               />
               <label htmlFor="nc" className="text-sm font-medium">NC (Non Conformità)</label>
+            </div>
+            <div className="col-span-2">
+              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Colli</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  className={inputCls}
+                  placeholder="Collo N°"
+                  style={{ flex: "0 0 90px" }}
+                  value={form.nrCollo ?? ""}
+                  onChange={e => set("nrCollo", e.target.value ? Number(e.target.value) : null)}
+                />
+                <span className="text-sm font-medium" style={{ color: "var(--color-grey-mid)" }}>di</span>
+                <input
+                  type="number"
+                  min={1}
+                  className={inputCls}
+                  placeholder="Tot."
+                  style={{ flex: "0 0 90px" }}
+                  value={form.totColli ?? ""}
+                  onChange={e => set("totColli", e.target.value ? Number(e.target.value) : null)}
+                />
+              </div>
             </div>
           </div>
 

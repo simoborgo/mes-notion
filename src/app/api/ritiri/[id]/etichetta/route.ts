@@ -139,6 +139,28 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       x: margin, y: height - headerH - 13 - 18,
       size: 16, font: bold, color: hexToRgb("#78350F"),
     });
+
+    // Collo N / Tot — destra della banda data
+    if (ritiro.nrCollo != null || ritiro.totColli != null) {
+      const colloValStr = ritiro.nrCollo != null && ritiro.totColli != null
+        ? `${ritiro.nrCollo} / ${ritiro.totColli}`
+        : ritiro.nrCollo != null ? String(ritiro.nrCollo) : `— / ${ritiro.totColli}`;
+      const colloLabelStr = "COLLO";
+      const colloValSize = 20;
+      const colloLabelSize = 7;
+      const colloValW = bold.widthOfTextAtSize(colloValStr, colloValSize);
+      const colloLabelW = bold.widthOfTextAtSize(colloLabelStr, colloLabelSize);
+      const colloX = width - margin - Math.max(colloValW, colloLabelW);
+      page.drawText(colloLabelStr, {
+        x: colloX, y: height - headerH - 13,
+        size: colloLabelSize, font: bold, color: hexToRgb("#92400E"),
+      });
+      page.drawText(colloValStr, {
+        x: colloX, y: height - headerH - 13 - 18,
+        size: colloValSize, font: bold, color: hexToRgb("#78350F"),
+      });
+    }
+
     y = height - headerH - dataBandH - 14;
 
     // ── ODP ──────────────────────────────────────────────────

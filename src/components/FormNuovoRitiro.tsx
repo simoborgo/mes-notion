@@ -35,6 +35,8 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], commesse 
     dataOra: "",
     urgenza: false,
     nc: false,
+    nrCollo: null as number | null,
+    totColli: null as number | null,
     schedaId: null as string | null,
     fornitoreId: null as string | null,
     commessaId: null as string | null,
@@ -149,6 +151,8 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], commesse 
           dataTrasporto: buildNotionDate(form.dataData, form.dataOra),
           urgenza: form.urgenza,
           nc: form.nc,
+          nrCollo: form.nrCollo,
+          totColli: form.totColli,
           schedaId: form.schedaId,
           fornitoreId: form.fornitoreId,
           commessaId: form.commessaId,
@@ -398,6 +402,37 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], commesse 
                 className="w-4 h-4 accent-red-600"
               />
               <label htmlFor="nc-new" className="text-sm font-medium">NC (Non Conformità)</label>
+            </div>
+          </div>
+
+          {/* Colli */}
+          <div>
+            <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>
+              Colli <span className="font-normal">(opzionale)</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <div style={{ flex: "0 0 90px" }}>
+                <input
+                  type="number"
+                  min={1}
+                  className={inputCls}
+                  placeholder="Collo N°"
+                  value={form.nrCollo ?? ""}
+                  onChange={e => set("nrCollo", e.target.value ? Number(e.target.value) : null)}
+                />
+              </div>
+              <span className="text-sm font-medium" style={{ color: "var(--color-grey-mid)" }}>di</span>
+              <div style={{ flex: "0 0 90px" }}>
+                <input
+                  type="number"
+                  min={1}
+                  className={inputCls}
+                  placeholder="Tot."
+                  value={form.totColli ?? ""}
+                  onChange={e => set("totColli", e.target.value ? Number(e.target.value) : null)}
+                />
+              </div>
+              <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>es. "1 di 3"</span>
             </div>
           </div>
 

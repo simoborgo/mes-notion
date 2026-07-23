@@ -59,6 +59,8 @@ export interface Ritiro {
   stato: string;
   urgenza: boolean;
   nc: boolean;
+  nrCollo: number | null;
+  totColli: number | null;
   fornitore: string;
   ordineFornitore: { name: string; url: string }[];
   note: string;
@@ -77,6 +79,8 @@ export interface RitiroUpdate {
   stato?: string;
   urgenza?: boolean;
   nc?: boolean;
+  nrCollo?: number | null;
+  totColli?: number | null;
   commessaId?: string | null;
   fornitore?: string;
   schedaId?: string | null;

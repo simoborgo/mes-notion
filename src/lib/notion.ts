@@ -175,6 +175,8 @@ function pageToRitiro(page: any, fornitoriMap?: Record<string, string>): Ritiro 
     stato: getText(prop(page, "Stato")),
     urgenza,
     nc: getCheckbox(prop(page, "NC")),
+    nrCollo: getNumber(prop(page, "Nr Collo")),
+    totColli: getNumber(prop(page, "Tot Colli")),
     fornitore,
     ordineFornitore: getFiles(prop(page, "Ordine Fornitore")),
     note: descrizione,
@@ -263,6 +265,8 @@ export async function createRitiro({
   dataTrasporto,
   urgenza,
   nc,
+  nrCollo,
+  totColli,
   schedaId,
   fornitoreId,
   rilavorazioneId,
@@ -273,6 +277,8 @@ export async function createRitiro({
   dataTrasporto?: string | null;
   urgenza?: boolean;
   nc?: boolean;
+  nrCollo?: number | null;
+  totColli?: number | null;
   schedaId?: string | null;
   fornitoreId?: string | null;
   rilavorazioneId?: string | null;
@@ -287,6 +293,8 @@ export async function createRitiro({
   if (tipoMovimento) properties["Tipo movimento"] = { select: { name: tipoMovimento } };
   if (urgenza !== undefined) properties["Urgenza"] = { select: { name: urgenza ? "Si" : "No" } };
   if (nc !== undefined) properties["NC"] = { checkbox: nc };
+  if (nrCollo != null) properties["Nr Collo"] = { number: nrCollo };
+  if (totColli != null) properties["Tot Colli"] = { number: totColli };
   if (schedaId) properties["Scheda"] = { relation: [{ id: schedaId }] };
   if (fornitoreId) properties["Fornitore"] = { relation: [{ id: fornitoreId }] };
   if (rilavorazioneId) properties["Rilavorazione"] = { relation: [{ id: rilavorazioneId }] };
@@ -535,6 +543,10 @@ export async function updateRitiro(id: string, data: RitiroUpdate): Promise<Riti
     properties["Urgenza"] = { select: { name: data.urgenza ? "Si" : "No" } };
   if (data.nc !== undefined)
     properties["NC"] = { checkbox: data.nc };
+  if (data.nrCollo !== undefined)
+    properties["Nr Collo"] = { number: data.nrCollo ?? null };
+  if (data.totColli !== undefined)
+    properties["Tot Colli"] = { number: data.totColli ?? null };
   if (data.schedaId !== undefined)
     properties["Scheda"] = data.schedaId
       ? { relation: [{ id: data.schedaId }] }
