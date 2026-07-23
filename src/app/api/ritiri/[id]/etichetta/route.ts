@@ -47,6 +47,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     let schedaOdp = ritiro.numeroOrdine;
     let nScheda = "";
     let clienteInfo = "";
+    let clienteLocalita = "";
+    let clienteInfoExtra = "";
     let schedaPadreOdp = "";
     let schedaPadreNr = "";
 
@@ -65,14 +67,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         }
       } catch { /* fallback ai dati ritiro */ }
     } else if (!schedaOdp && ritiro.commessaId) {
-      // Nessun ODP: usa commessa come riferimento principale
       try {
         const commessa = await getCommessaById(ritiro.commessaId);
         schedaOdp = commessa.numeroCommessa;
-        // nScheda mostra cliente + località + info
-        const parts = [commessa.cliente, commessa.localita, commessa.info].filter(Boolean);
-        nScheda = parts.join(" · ");
+        nScheda = commessa.numeroCommessa; // nel sottotitolo ODP non serve ripetere
         clienteInfo = commessa.cliente || "";
+        clienteLocalita = commessa.localita || "";
+        clienteInfoExtra = commessa.info || "";
       } catch { /* fallback */ }
     } else if (!schedaOdp && ritiro.commessaNr) {
       schedaOdp = ritiro.commessaNr;
@@ -108,30 +109,37 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const margin = 36;
     let y = height - margin;
 
-    // ── Header grigio ────────────────────────────────────────
-    const headerH = 60;
+    // ── Header grigio (solo MODAR) ───────────────────────────
+    const headerH = 50;
     page.drawRectangle({ x: 0, y: height - headerH, width, height: headerH, color: hexToRgb("#78716C") });
     page.drawText("MODAR", {
       x: margin, y: height - headerH + (headerH - 26) / 2 + 2,
       size: 26, font: bold, color: rgb(1, 1, 1),
     });
+
+    // ── Band Data Trasporto ──────────────────────────────────
+    const dataBandH = 44;
+    page.drawRectangle({ x: 0, y: height - headerH - dataBandH, width, height: dataBandH, color: hexToRgb("#FFFBEB") });
     const dataStr = (() => {
       if (!ritiro.dataTrasporto) return "—";
       const dt = new Date(ritiro.dataTrasporto);
-      const dateStr = dt.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
+      const dateStr = dt.toLocaleDateString("it-IT", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" });
       if (ritiro.dataTrasporto.includes("T")) {
         const h = dt.getHours(), m = dt.getMinutes();
-        if (h !== 0 || m !== 0) return `${dateStr}  ${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+        if (h !== 0 || m !== 0) return `${dateStr}   ${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
       }
       return dateStr;
     })();
-    const dataLabel = `Data trasporto: ${dataStr}`;
-    const dataW = helvetica.widthOfTextAtSize(dataLabel, 11);
-    page.drawText(dataLabel, {
-      x: width - margin - dataW, y: height - headerH + (headerH - 11) / 2 + 2,
-      size: 11, font: helvetica, color: rgb(0.9, 0.88, 0.86),
+    const labelTrasporto = "DATA TRASPORTO PREVISTO";
+    page.drawText(labelTrasporto, {
+      x: margin, y: height - headerH - 13,
+      size: 7, font: bold, color: hexToRgb("#92400E"),
     });
-    y = height - headerH - 20;
+    page.drawText(dataStr, {
+      x: margin, y: height - headerH - 13 - 18,
+      size: 16, font: bold, color: hexToRgb("#78350F"),
+    });
+    y = height - headerH - dataBandH - 14;
 
     // ── ODP ──────────────────────────────────────────────────
     const odpStr = schedaOdp || "—";
@@ -145,7 +153,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // ── N Scheda (sotto ODP, -40% rispetto ODP, con a-capo automatico) ──
     if (nScheda) {
-      const nSchedaSize = Math.round(odpSize * 0.64); // 0.8 * 0.8 = -20% aggiuntivo
+      const nSchedaSize = Math.round(odpSize * 0.5);
       const maxW = width - margin * 2;
       const lines = wrapText(nScheda, bold, nSchedaSize, maxW);
       for (const line of lines) {
@@ -179,14 +187,42 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     page.drawLine({ start: { x: margin, y }, end: { x: width - margin, y }, thickness: 1, color: hexToRgb("#E5E7EB") });
     y -= 18;
 
-    // ── Cliente Info ─────────────────────────────────────────
-    if (clienteInfo) {
-      page.drawText("CLIENTE", { x: margin, y, size: 9, font: helvetica, color: hexToRgb("#6B7280") });
-      y -= 20;
-      page.drawText(truncate(clienteInfo, 50), {
-        x: margin, y, size: 18, font: bold, color: hexToRgb("#111827"),
+    // ── Cliente · Località · Info (centrato) ─────────────────
+    if (clienteInfo || clienteLocalita || clienteInfoExtra) {
+      const clienteLabelStr = ["CLIENTE", clienteLocalita ? "LOCALITA'" : "", clienteInfoExtra ? "INFO" : ""]
+        .filter(Boolean).join("   |   ");
+      const clLabelW = bold.widthOfTextAtSize(clienteLabelStr, 9);
+      page.drawText(clienteLabelStr, {
+        x: (width - clLabelW) / 2, y,
+        size: 9, font: bold, color: hexToRgb("#6B7280"),
       });
-      y -= 28;
+      y -= 22;
+
+      // Riga 1: Cliente (sempre presente se siamo qui)
+      if (clienteInfo) {
+        const clW = bold.widthOfTextAtSize(truncate(clienteInfo, 40), 20);
+        page.drawText(truncate(clienteInfo, 40), {
+          x: (width - clW) / 2, y, size: 20, font: bold, color: hexToRgb("#111827"),
+        });
+        y -= 26;
+      }
+      // Riga 2: Località
+      if (clienteLocalita) {
+        const locW = helvetica.widthOfTextAtSize(truncate(clienteLocalita, 50), 14);
+        page.drawText(truncate(clienteLocalita, 50), {
+          x: (width - locW) / 2, y, size: 14, font: helvetica, color: hexToRgb("#374151"),
+        });
+        y -= 20;
+      }
+      // Riga 3: Info
+      if (clienteInfoExtra) {
+        const infoW = helvetica.widthOfTextAtSize(truncate(clienteInfoExtra, 60), 12);
+        page.drawText(truncate(clienteInfoExtra, 60), {
+          x: (width - infoW) / 2, y, size: 12, font: helvetica, color: hexToRgb("#6B7280"),
+        });
+        y -= 18;
+      }
+      y -= 8;
     }
 
     // ── Fornitore ────────────────────────────────────────────
