@@ -6,19 +6,22 @@ import type { Ritiro, RitiroUpdate, Scheda, Commessa } from "@/lib/types";
 const STATI = ["Da Fare", "In corso", "Fatto"];
 const TIPI  = ["Ritiro", "Consegna"];
 
-function fromNotionToDatetimeLocal(d: string | null): string {
-  if (!d) return "";
+function parseNotionDate(d: string | null): { date: string; ora: string } {
+  if (!d) return { date: "", ora: "" };
   if (d.includes("T")) {
     const dt = new Date(d);
     const p = (n: number) => String(n).padStart(2, "0");
-    return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())}T${p(dt.getHours())}:${p(dt.getMinutes())}`;
+    const date = `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())}`;
+    const h = dt.getHours(), m = dt.getMinutes();
+    return { date, ora: (h !== 0 || m !== 0) ? `${p(h)}:${p(m)}` : "" };
   }
-  return d + "T00:00"; // date-only legacy: mostra mezzanotte locale
+  return { date: d, ora: "" };
 }
 
-function toNotionDatetime(v: string | null): string | null {
-  if (!v) return null;
-  return new Date(v).toISOString();
+function buildNotionDate(date: string, ora: string): string | null {
+  if (!date) return null;
+  if (!ora) return date;
+  return new Date(`${date}T${ora}`).toISOString();
 }
 
 interface Props {
@@ -31,10 +34,13 @@ interface Props {
 }
 
 export default function FormModificaRitiro({ ritiro, schede = [], fornitori = [], commesse = [], onClose, onSave }: Props) {
-  const [form, setForm] = useState<RitiroUpdate & { schedaId: string | null; fornitoreId: string | null; commessaId: string | null }>({
+  const parsedDate = parseNotionDate(ritiro.dataTrasporto);
+  const [form, setForm] = useState<RitiroUpdate & { schedaId: string | null; fornitoreId: string | null; commessaId: string | null; dataData: string; dataOra: string }>({
     causale:         ritiro.causale,
     descrizioneMerce: ritiro.descrizioneMerce,
-    dataTrasporto:   fromNotionToDatetimeLocal(ritiro.dataTrasporto),
+    dataTrasporto:   ritiro.dataTrasporto,
+    dataData:        parsedDate.date,
+    dataOra:         parsedDate.ora,
     tipoMovimento:   ritiro.tipoMovimento,
     stato:           ritiro.stato,
     urgenza:         ritiro.urgenza,
@@ -106,7 +112,7 @@ export default function FormModificaRitiro({ ritiro, schede = [], fornitori = []
     try {
       const payload: RitiroUpdate = {
         ...form,
-        dataTrasporto: toNotionDatetime(form.dataTrasporto || null),
+        dataTrasporto: buildNotionDate(form.dataData, form.dataOra),
         schedaId: form.schedaId,
         fornitoreId: form.fornitoreId,
         commessaId: form.commessaId,
@@ -261,7 +267,15 @@ export default function FormModificaRitiro({ ritiro, schede = [], fornitori = []
             </div>
             <div>
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Data Trasporto</label>
-              <input type="datetime-local" className={inputCls} value={form.dataTrasporto ?? ""} onChange={e => set("dataTrasporto", e.target.value)} />
+              <div className="flex gap-2 items-center">
+                <input type="date" className={inputCls} style={{ flex: 1 }} value={form.dataData} onChange={e => set("dataData", e.target.value)} />
+                <input type="time" className={inputCls} style={{ flex: "0 0 110px" }} value={form.dataOra} onChange={e => set("dataOra", e.target.value)} placeholder="Orario" />
+                {form.dataOra && (
+                  <button type="button" onClick={() => set("dataOra", "")} className="text-xs px-2 py-1.5 rounded border hover:bg-gray-50" style={{ color: "#6B7280", borderColor: "#E5E7EB", whiteSpace: "nowrap" }} title="Rimuovi orario">
+                    ✕ ora
+                  </button>
+                )}
+              </div>
             </div>
             <div className="col-span-2">
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Fornitore</label>

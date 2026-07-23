@@ -139,6 +139,7 @@ export default function TabellaRitiri({
   const [refreshing, setRefreshing] = useState(false);
   const [showRiassegnaModal, setShowRiassegnaModal] = useState(false);
   const [reassigning, setReassigning] = useState(false);
+  const [confermaStato, setConfermaStato] = useState<{ id: string; nuovoStato: string; dataTrasportoOriginale: string | null } | null>(null);
 
   // Filtri archivio (separati)
   const [archSearch, setArchSearch] = useState("");
@@ -168,15 +169,17 @@ export default function TabellaRitiri({
     }
   }
 
-  async function handleStatoChange(id: string, nuovoStato: string) {
+  async function doStatoChange(id: string, nuovoStato: string, newDataTrasporto?: string) {
     const vecchioStato = ritiri.find((r) => r.id === id)?.stato ?? "";
     setRitiri((prev) => prev.map((r) => (r.id === id ? { ...r, stato: nuovoStato } : r)));
     setLoadingIds((prev) => new Set(prev).add(id));
     try {
+      const body: Record<string, unknown> = { stato: nuovoStato };
+      if (newDataTrasporto !== undefined) body.dataTrasporto = newDataTrasporto;
       const res = await fetch(`/api/ritiri/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stato: nuovoStato }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error("Errore aggiornamento");
       const updated: Ritiro = await res.json();
@@ -185,12 +188,19 @@ export default function TabellaRitiri({
       setRitiri((prev) => prev.map((r) => (r.id === id ? { ...r, stato: vecchioStato } : r)));
       setToast("Errore durante l'aggiornamento dello stato. Riprova.");
     } finally {
-      setLoadingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
+      setLoadingIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
     }
+  }
+
+  function handleStatoChange(id: string, nuovoStato: string) {
+    const r = ritiri.find(r => r.id === id);
+    if (!r) return;
+    // Se il ritiro non è di oggi, chiedi conferma prima di modificare lo stato
+    if (r.dataTrasporto && getDatePart(r.dataTrasporto) !== todayStr) {
+      setConfermaStato({ id, nuovoStato, dataTrasportoOriginale: r.dataTrasporto });
+      return;
+    }
+    doStatoChange(id, nuovoStato);
   }
 
   // Data di oggi in timezone locale — usata per riassegna e badge scaduti
@@ -642,8 +652,15 @@ export default function TabellaRitiri({
         </table>
       </div>
 
+      {/* ── Separatore archivio ── */}
+      <div className="mt-10 mb-6 flex items-center gap-4">
+        <hr className="flex-1" style={{ borderColor: "#D1D5DB" }} />
+        <span className="text-xs font-bold uppercase tracking-widest px-2" style={{ color: "var(--color-grey-mid)" }}>Archivio</span>
+        <hr className="flex-1" style={{ borderColor: "#D1D5DB" }} />
+      </div>
+
       {/* ── Archivio Completati ── */}
-      <div className="mt-8 pb-4">
+      <div className="pb-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-bold uppercase tracking-wide" style={{ color: "var(--color-grey-mid)" }}>
             Archivio Completati ({archivioFatti.length}{archivioFatti.length !== allFatti.length ? ` di ${allFatti.length}` : ""})
@@ -858,6 +875,75 @@ export default function TabellaRitiri({
           </div>
         </div>
       )}
+
+      {/* ── Modal conferma stato su data non odierna ── */}
+      {confermaStato && (() => {
+        const r = ritiri.find(r => r.id === confermaStato.id);
+        const dataFmt = r?.dataTrasporto ? fmt(r.dataTrasporto) : "—";
+        const todayFmt = new Date().toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
+
+        function buildTodayDate(orig: string | null): string {
+          const p = (n: number) => String(n).padStart(2, "0");
+          const today = new Date();
+          const prefix = `${today.getFullYear()}-${p(today.getMonth()+1)}-${p(today.getDate())}`;
+          if (orig && orig.includes("T")) {
+            const dt = new Date(orig);
+            const h = dt.getHours(), m = dt.getMinutes();
+            if (h !== 0 || m !== 0) return new Date(`${prefix}T${p(h)}:${p(m)}`).toISOString();
+          }
+          return prefix;
+        }
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setConfermaStato(null)}>
+            <div
+              className="w-full max-w-sm bg-white rounded-lg shadow-2xl"
+              style={{ borderRadius: "var(--radius-modal)" }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="px-6 py-4 border-b">
+                <h2 className="font-semibold text-base">Movimento non di oggi</h2>
+                <p className="text-xs mt-1" style={{ color: "var(--color-grey-mid)" }}>
+                  Data trasporto: <strong>{dataFmt}</strong>
+                </p>
+              </div>
+              <div className="px-6 py-4 text-sm" style={{ color: "var(--color-grey-mid)" }}>
+                Vuoi spostare il movimento a <strong style={{ color: "var(--color-black)" }}>{todayFmt}</strong>?
+              </div>
+              <div className="px-6 py-4 border-t flex flex-col gap-2">
+                <button
+                  onClick={() => {
+                    const newDate = buildTodayDate(confermaStato.dataTrasportoOriginale);
+                    doStatoChange(confermaStato.id, confermaStato.nuovoStato, newDate);
+                    setConfermaStato(null);
+                  }}
+                  className="w-full px-4 py-2 text-sm rounded font-semibold text-white transition-colors"
+                  style={{ background: "var(--color-primary)", borderRadius: "var(--radius-button)" }}
+                >
+                  Sì, sposta a oggi e aggiorna stato
+                </button>
+                <button
+                  onClick={() => {
+                    doStatoChange(confermaStato.id, confermaStato.nuovoStato);
+                    setConfermaStato(null);
+                  }}
+                  className="w-full px-4 py-2 text-sm rounded font-medium border transition-colors hover:bg-gray-50"
+                  style={{ borderRadius: "var(--radius-button)" }}
+                >
+                  Solo aggiorna stato (mantieni data)
+                </button>
+                <button
+                  onClick={() => setConfermaStato(null)}
+                  className="w-full px-4 py-2 text-sm rounded font-medium transition-colors hover:bg-gray-50"
+                  style={{ color: "var(--color-grey-mid)", borderRadius: "var(--radius-button)" }}
+                >
+                  Annulla
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {creando && (
         <FormNuovoRitiro
