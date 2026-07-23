@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import type { Ritiro, Scheda } from "@/lib/types";
+import type { Ritiro, Scheda, Commessa } from "@/lib/types";
 import BadgeStato from "./BadgeStato";
 import FormModificaRitiro from "./FormModificaRitiro";
 import FormNuovoRitiro from "./FormNuovoRitiro";
@@ -26,18 +26,16 @@ function DocLinks({ files, label }: { files: { name: string; url: string }[]; la
   );
 }
 
-
-// Transizioni di stato valide per ogni stato corrente
 const TRANSIZIONI: Record<string, string[]> = {
   "Da Fare":  ["In corso", "Fatto"],
   "In corso": ["Fatto", "Da Fare"],
   "Fatto":    ["Da Fare"],
 };
 
-const TRANSIZIONE_BTN: Record<string, { bg: string; hoverBg: string; icon: string }> = {
-  "Da Fare":  { bg: "#F59E0B", hoverBg: "#D97706", icon: "○" },
-  "In corso": { bg: "#3B82F6", hoverBg: "#2563EB", icon: "▶" },
-  "Fatto":    { bg: "#10B981", hoverBg: "#059669", icon: "✓" },
+const TRANSIZIONE_BTN: Record<string, { bg: string; icon: string }> = {
+  "Da Fare":  { bg: "#F59E0B", icon: "○" },
+  "In corso": { bg: "#3B82F6", icon: "▶" },
+  "Fatto":    { bg: "#10B981", icon: "✓" },
 };
 
 const STATO_BADGE: Record<string, { bg: string; text: string; border: string; blink?: boolean }> = {
@@ -78,7 +76,36 @@ function fmt(d: string | null) {
   return new Date(d).toLocaleDateString("it-IT");
 }
 
-export default function TabellaRitiri({ ritiri: initial, schede = [], fornitori = [], userRole }: { ritiri: Ritiro[]; schede?: Scheda[]; fornitori?: { id: string; nome: string }[]; userRole?: string }) {
+// Colonna ODP / Commessa
+function RifCell({ r, schedeMap }: { r: Ritiro; schedeMap: Map<string, Scheda> }) {
+  const odp = r.numeroOrdine || r.commessaNr;
+  const sub = r.numeroOrdine && r.commessaNr ? r.commessaNr : null;
+  return (
+    <div>
+      <span className="font-semibold tabular-nums" style={{ color: "var(--color-black)" }}>{odp || "—"}</span>
+      {!r.numeroOrdine && r.commessaNr && (
+        <div className="text-xs mt-0.5 font-medium" style={{ color: "#6B7280" }}>Commessa</div>
+      )}
+      {sub && (
+        <div className="text-xs mt-0.5 tabular-nums" style={{ color: "var(--color-grey-mid)" }}>{sub}</div>
+      )}
+    </div>
+  );
+}
+
+export default function TabellaRitiri({
+  ritiri: initial,
+  schede = [],
+  fornitori = [],
+  commesse = [],
+  userRole,
+}: {
+  ritiri: Ritiro[];
+  schede?: Scheda[];
+  fornitori?: { id: string; nome: string }[];
+  commesse?: Commessa[];
+  userRole?: string;
+}) {
   const canWrite = userRole === "admin" || userRole === "operatore";
   const canDelete = userRole === "admin";
   const [ritiri, setRitiri] = useState(initial);
@@ -91,12 +118,17 @@ export default function TabellaRitiri({ ritiri: initial, schede = [], fornitori 
   const [editing, setEditing] = useState<Ritiro | null>(null);
   const [creando, setCreando] = useState(false);
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
-  const [completedAt, setCompletedAt] = useState<Map<string, Date>>(new Map());
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Auto-dismiss toast dopo 4 secondi
+  // Filtri archivio (separati)
+  const [archSearch, setArchSearch] = useState("");
+  const [archTipo, setArchTipo] = useState("");
+  const [archFornitore, setArchFornitore] = useState("");
+  const [archDa, setArchDa] = useState("");
+  const [archA, setArchA] = useState("");
+
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 4000);
@@ -120,9 +152,7 @@ export default function TabellaRitiri({ ritiri: initial, schede = [], fornitori 
 
   async function handleStatoChange(id: string, nuovoStato: string) {
     const vecchioStato = ritiri.find((r) => r.id === id)?.stato ?? "";
-    // Aggiornamento ottimistico immediato
     setRitiri((prev) => prev.map((r) => (r.id === id ? { ...r, stato: nuovoStato } : r)));
-    if (nuovoStato === "Fatto") setCompletedAt((prev) => new Map(prev).set(id, new Date()));
     setLoadingIds((prev) => new Set(prev).add(id));
     try {
       const res = await fetch(`/api/ritiri/${id}`, {
@@ -134,7 +164,6 @@ export default function TabellaRitiri({ ritiri: initial, schede = [], fornitori 
       const updated: Ritiro = await res.json();
       setRitiri((prev) => prev.map((r) => (r.id === id ? updated : r)));
     } catch {
-      // Ripristina lo stato precedente in caso di errore
       setRitiri((prev) => prev.map((r) => (r.id === id ? { ...r, stato: vecchioStato } : r)));
       setToast("Errore durante l'aggiornamento dello stato. Riprova.");
     } finally {
@@ -152,7 +181,7 @@ export default function TabellaRitiri({ ritiri: initial, schede = [], fornitori 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return ritiri.filter((r) => {
-      if (q && !`${r.causale} ${r.numeroOrdine} ${r.fornitore} ${r.descrizioneMerce}`.toLowerCase().includes(q)) return false;
+      if (q && !`${r.causale} ${r.numeroOrdine} ${r.commessaNr} ${r.fornitore} ${r.descrizioneMerce}`.toLowerCase().includes(q)) return false;
       if (filtroStato && r.stato !== filtroStato) return false;
       if (filtroTipo && r.tipoMovimento !== filtroTipo) return false;
       if (filtroDataAbilitato && filtroData && r.dataTrasporto !== filtroData) return false;
@@ -164,23 +193,25 @@ export default function TabellaRitiri({ ritiri: initial, schede = [], fornitori 
   const schedeMap = useMemo(() => new Map(schede.map(s => [s.id, s])), [schede]);
 
   const filteredAttivi = useMemo(() => filtered.filter(r => r.stato !== "Fatto"), [filtered]);
-  const filteredFatti  = useMemo(() => filtered.filter(r => r.stato === "Fatto"),  [filtered]);
+  const allFatti       = useMemo(() => ritiri.filter(r => r.stato === "Fatto"), [ritiri]);
 
-  // Solo quelli marcati come "Fatto" oggi in questa sessione
-  const filteredFattiOggi = useMemo(() => {
-    const oggi = new Date();
-    oggi.setHours(0, 0, 0, 0);
-    return filteredFatti.filter(r => {
-      const ts = completedAt.get(r.id);
-      if (!ts) return false;
-      const tsDay = new Date(ts);
-      tsDay.setHours(0, 0, 0, 0);
-      return tsDay.getTime() === oggi.getTime();
+  // Fornitori unici nell'archivio
+  const archFornitori = useMemo(() => {
+    const set = new Set(allFatti.map(r => r.fornitore).filter(Boolean));
+    return Array.from(set).sort();
+  }, [allFatti]);
+
+  const archivioFatti = useMemo(() => {
+    const q = archSearch.toLowerCase();
+    return allFatti.filter(r => {
+      if (q && !`${r.causale} ${r.numeroOrdine} ${r.commessaNr} ${r.fornitore} ${r.descrizioneMerce}`.toLowerCase().includes(q)) return false;
+      if (archTipo && r.tipoMovimento !== archTipo) return false;
+      if (archFornitore && r.fornitore !== archFornitore) return false;
+      if (archDa && r.dataTrasporto && r.dataTrasporto < archDa) return false;
+      if (archA && r.dataTrasporto && r.dataTrasporto > archA) return false;
+      return true;
     });
-  }, [filteredFatti, completedAt]);
-
-  // Archivio: tutti i Fatto dal filtro attivo
-  const archivioFatti = useMemo(() => filtered.filter(r => r.stato === "Fatto"), [filtered]);
+  }, [allFatti, archSearch, archTipo, archFornitore, archDa, archA]);
 
   function handleSave(updated: Ritiro) {
     setRitiri((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
@@ -217,7 +248,7 @@ export default function TabellaRitiri({ ritiri: initial, schede = [], fornitori 
         }
         .ritiro-blink { animation: ritiro-blink 2s step-start infinite; }
       `}</style>
-      {/* Toast errore */}
+
       {toast && (
         <div
           className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium border"
@@ -226,20 +257,15 @@ export default function TabellaRitiri({ ritiri: initial, schede = [], fornitori 
         >
           <span className="text-base leading-none">⚠</span>
           {toast}
-          <button
-            onClick={() => setToast(null)}
-            className="ml-auto text-base leading-none opacity-60 hover:opacity-100"
-            aria-label="Chiudi"
-          >
-            ×
-          </button>
+          <button onClick={() => setToast(null)} className="ml-auto text-base leading-none opacity-60 hover:opacity-100" aria-label="Chiudi">×</button>
         </div>
       )}
 
+      {/* Filtri attivi */}
       <div className="flex flex-wrap gap-3">
         <input
           className={inputCls + " min-w-48"}
-          placeholder="Cerca descrizione, fornitore…"
+          placeholder="Cerca descrizione, ODP, fornitore…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -272,8 +298,7 @@ export default function TabellaRitiri({ ritiri: initial, schede = [], fornitori 
           Solo urgenti
         </label>
         <span className="text-sm self-center" style={{ color: "var(--color-grey-mid)" }}>
-          {filteredAttivi.length} attivi · {filteredFatti.length} completati
-          {filteredFattiOggi.length > 0 && ` · ${filteredFattiOggi.length} completati oggi`}
+          {filteredAttivi.length} attivi · {allFatti.length} completati
         </span>
         <div className="ml-auto flex items-center gap-2">
           <button
@@ -298,12 +323,13 @@ export default function TabellaRitiri({ ritiri: initial, schede = [], fornitori 
         </div>
       </div>
 
+      {/* ── Tabella attivi ── */}
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table className="min-w-full" style={{ fontSize: "0.95rem" }}>
           <thead>
             <tr className="border-b text-left text-xs font-bold uppercase tracking-wide" style={{ color: "var(--color-grey-mid)", background: "#faf9f7" }}>
               <th className="px-3 py-4"></th>
-              <th className="px-4 py-4">ODP</th>
+              <th className="px-4 py-4">ODP / Commessa</th>
               <th className="px-4 py-4">Scheda</th>
               <th className="px-4 py-4">Descrizione</th>
               <th className="px-4 py-4">Tipo</th>
@@ -362,14 +388,14 @@ export default function TabellaRitiri({ ritiri: initial, schede = [], fornitori 
                         <td className="px-3 py-4">
                           <div className="flex flex-col gap-1.5">
                             {canWrite && transizioniPossibili.map((stato) => {
-                              const btn = TRANSIZIONE_BTN[stato] ?? { bg: "#6B7280", hoverBg: "#4B5563", icon: "→" };
+                              const btn = TRANSIZIONE_BTN[stato] ?? { bg: "#6B7280", icon: "→" };
                               return (
                                 <button
                                   key={stato}
                                   disabled={isLoading}
                                   onClick={() => handleStatoChange(r.id, stato)}
                                   className="inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold text-white shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-md active:scale-95"
-                                  style={{ background: btn.bg, minWidth: 80, letterSpacing: "0.01em" }}
+                                  style={{ background: btn.bg, minWidth: 80 }}
                                   title={`Segna come ${stato}`}
                                 >
                                   {isLoading ? (
@@ -383,7 +409,9 @@ export default function TabellaRitiri({ ritiri: initial, schede = [], fornitori 
                             })}
                           </div>
                         </td>
-                        <td className="px-4 py-4 tabular-nums font-medium whitespace-nowrap">{r.numeroOrdine || "—"}</td>
+                        <td className="px-4 py-4">
+                          <RifCell r={r} schedeMap={schedeMap} />
+                        </td>
                         <td className="px-4 py-4">
                           {scheda ? (
                             <div>
@@ -402,12 +430,7 @@ export default function TabellaRitiri({ ritiri: initial, schede = [], fornitori 
                           {statoBadge ? (
                             <span
                               className="inline-flex items-center px-3 py-1 rounded-full border font-semibold whitespace-nowrap"
-                              style={{
-                                background: statoBadge.bg,
-                                color: statoBadge.text,
-                                borderColor: statoBadge.border,
-                                fontSize: "0.85rem",
-                              }}
+                              style={{ background: statoBadge.bg, color: statoBadge.text, borderColor: statoBadge.border, fontSize: "0.85rem" }}
                             >
                               <span className={statoBadge.blink ? "ritiro-blink" : ""}>{r.stato}</span>
                             </span>
@@ -523,204 +546,152 @@ export default function TabellaRitiri({ ritiri: initial, schede = [], fornitori 
         </table>
       </div>
 
-      {/* ── Movimenti completati oggi ── */}
-      {filteredFattiOggi.length > 0 && (
-        <div className="mt-14">
-          <h2 className="text-sm font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-grey-mid)" }}>
-            Completati oggi ({filteredFattiOggi.length})
+      {/* ── Archivio Completati ── */}
+      <div className="mt-8 pb-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-bold uppercase tracking-wide" style={{ color: "var(--color-grey-mid)" }}>
+            Archivio Completati ({archivioFatti.length}{archivioFatti.length !== allFatti.length ? ` di ${allFatti.length}` : ""})
           </h2>
+        </div>
+
+        {/* Filtri archivio */}
+        <div className="flex flex-wrap gap-2 mb-3">
+          <input
+            className={inputCls}
+            placeholder="Cerca nell'archivio…"
+            value={archSearch}
+            onChange={e => setArchSearch(e.target.value)}
+            style={{ minWidth: 180 }}
+          />
+          <select className={inputCls} value={archTipo} onChange={e => setArchTipo(e.target.value)}>
+            <option value="">Tutti i tipi</option>
+            {tipiUniq.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+          {archFornitori.length > 0 && (
+            <select className={inputCls} value={archFornitore} onChange={e => setArchFornitore(e.target.value)}>
+              <option value="">Tutti i fornitori</option>
+              {archFornitori.map(f => <option key={f} value={f}>{f}</option>)}
+            </select>
+          )}
+          <input type="date" className={inputCls} value={archDa} onChange={e => setArchDa(e.target.value)} title="Da data" />
+          <span className="self-center text-xs" style={{ color: "var(--color-grey-mid)" }}>→</span>
+          <input type="date" className={inputCls} value={archA} onChange={e => setArchA(e.target.value)} title="A data" />
+          {(archSearch || archTipo || archFornitore || archDa || archA) && (
+            <button
+              onClick={() => { setArchSearch(""); setArchTipo(""); setArchFornitore(""); setArchDa(""); setArchA(""); }}
+              className="text-xs px-2 py-1.5 rounded border font-medium hover:bg-gray-50 transition-colors"
+              style={{ color: "#6B7280", borderColor: "#E5E7EB" }}
+            >
+              ✕ Pulisci
+            </button>
+          )}
+        </div>
+
+        {allFatti.length === 0 ? (
+          <p className="text-sm" style={{ color: "var(--color-grey-mid)" }}>Nessun movimento completato.</p>
+        ) : (
           <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-            <table className="min-w-full" style={{ fontSize: "0.95rem" }}>
+            <table className="min-w-full" style={{ fontSize: "0.9rem" }}>
               <thead>
                 <tr className="border-b text-left text-xs font-bold uppercase tracking-wide" style={{ color: "var(--color-grey-mid)", background: "#faf9f7" }}>
-                  <th className="px-3 py-4"></th>
-                  <th className="px-4 py-4">ODP</th>
-                  <th className="px-4 py-4">Scheda</th>
-                  <th className="px-4 py-4">Descrizione</th>
-                  <th className="px-4 py-4">Tipo</th>
-                  <th className="px-4 py-4">Stato</th>
-                      <th className="px-4 py-4">Fornitore</th>
-                  <th className="px-4 py-4">Ordine OF</th>
-                  <th className="px-4 py-4">PDF Scheda</th>
-                  <th className="px-4 py-4">Foto</th>
-                  <th className="px-4 py-4">Completato il</th>
+                  <th className="px-3 py-3"></th>
+                  <th className="px-4 py-3">Data</th>
+                  <th className="px-4 py-3">ODP / Commessa</th>
+                  <th className="px-4 py-3">Scheda</th>
+                  <th className="px-4 py-3">Descrizione</th>
+                  <th className="px-4 py-3">Tipo</th>
+                  <th className="px-4 py-3">Fornitore</th>
+                  <th className="px-4 py-3">Foto</th>
+                  <th className="px-4 py-3">Azioni</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredFattiOggi.map((r) => {
-                  const statoBadge = STATO_BADGE[r.stato];
-                  const scheda = r.numeroOrdineId ? schedeMap.get(r.numeroOrdineId) : null;
-                  const ts = completedAt.get(r.id);
-                  return (
-                    <tr key={r.id} className="border-b last:border-0 hover:bg-orange-50/30 transition-colors">
-                      <td className="px-3 py-4">
-                        <div className="flex items-center justify-center gap-1.5">
+                {archivioFatti.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="py-10 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
+                      Nessun risultato per i filtri selezionati
+                    </td>
+                  </tr>
+                ) : (
+                  archivioFatti.map((r) => {
+                    const scheda = r.numeroOrdineId ? schedeMap.get(r.numeroOrdineId) : null;
+                    const isLoading = loadingIds.has(r.id);
+                    return (
+                      <tr key={r.id} className="border-b last:border-0 hover:bg-green-50/30 transition-colors" style={{ opacity: 0.92 }}>
+                        <td className="px-3 py-3">
                           <span
-                            className="inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-bold"
+                            className="inline-flex items-center justify-center w-6 h-6 rounded-full text-sm font-bold"
                             style={{ background: "#D1FAE5", color: "#065F46" }}
                           >✓</span>
-                          {canWrite && (
-                            <button
-                              onClick={() => handleStatoChange(r.id, "In corso")}
-                              disabled={loadingIds.has(r.id)}
-                              title="Riapri — annulla completamento"
-                              className="inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-bold transition-colors hover:opacity-80 disabled:opacity-40"
-                              style={{ background: "#FEF3C7", color: "#92400E" }}
-                            >↩</button>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 tabular-nums font-medium">{r.numeroOrdine || "—"}</td>
-                      <td className="px-4 py-4">
-                        {scheda ? (
-                          <div>
-                            <span className="font-semibold tabular-nums" style={{ color: "var(--color-black)" }}>
-                              {scheda.numeroScheda || scheda.odp}
-                            </span>
-                            {scheda.clienteInfo && <div className="text-xs mt-0.5" style={{ color: "var(--color-grey-mid)" }}>{scheda.clienteInfo}</div>}
-                          </div>
-                        ) : "—"}
-                      </td>
-                      <td className="px-4 py-4 font-semibold" style={{ color: "var(--color-black)" }}>{r.descrizioneMerce || "—"}</td>
-                      <td className="px-4 py-4">
-                        {r.tipoMovimento ? <TipoBadge tipo={r.tipoMovimento} /> : "—"}
-                      </td>
-                      <td className="px-4 py-4">
-                        {statoBadge ? (
-                          <span
-                            className="inline-flex items-center px-3 py-1 rounded-full border font-semibold whitespace-nowrap"
-                            style={{ background: statoBadge.bg, color: statoBadge.text, borderColor: statoBadge.border, fontSize: "0.85rem" }}
-                          >
-                            <span>{r.stato}</span>
-                          </span>
-                        ) : (
-                          <BadgeStato stato={r.stato} />
-                        )}
-                      </td>
-                      <td className="px-4 py-4">
-                        <div>
-                          {r.urgenza && (
-                            <div className="inline-flex items-center gap-1 text-xs font-bold mb-0.5" style={{ color: "#DC2626" }}>
-                              <span>⚠</span> Urgente
-                            </div>
-                          )}
-                          <div style={{ color: r.fornitore ? "var(--color-black)" : "var(--color-grey-icon)" }}>
-                            {r.fornitore || "—"}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex flex-col gap-1">
-                          <DocLinks files={r.ordineFornitore} label="OF" />
-                          <DocLinks files={r.pdfOrdineFornitore} label="PDF OF" />
-                          {!r.ordineFornitore.length && !r.pdfOrdineFornitore.length && (
-                            <span style={{ color: "var(--color-grey-icon)" }}>—</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <DocLinks files={scheda?.pdfAllegato ?? []} label="PDF Scheda" />
-                        {!(scheda?.pdfAllegato?.length) && <span style={{ color: "var(--color-grey-icon)" }}>—</span>}
-                      </td>
-                      <td className="px-4 py-4">
-                        {r.foto.length > 0 ? (
-                          <div className="flex flex-col gap-1">
-                            {r.foto.map((f, i) => (
-                              <a
-                                key={i}
-                                href={f.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-xs font-medium hover:underline"
-                                style={{ color: "var(--color-primary)" }}
-                              >
-                                <span>🖼</span> {f.name || `Foto ${i + 1}`}
-                              </a>
-                            ))}
-                          </div>
-                        ) : (
-                          <span style={{ color: "var(--color-grey-icon)" }}>—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-4 tabular-nums text-sm" style={{ color: ts ? "var(--color-black)" : "var(--color-grey-icon)" }}>
-                        <div className="flex flex-col gap-1.5">
-                          {ts ? (
+                        </td>
+                        <td className="px-4 py-3 tabular-nums text-sm whitespace-nowrap" style={{ color: "var(--color-grey-mid)" }}>
+                          {fmt(r.dataTrasporto)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <RifCell r={r} schedeMap={schedeMap} />
+                        </td>
+                        <td className="px-4 py-3">
+                          {scheda ? (
                             <div>
-                              <div>{ts.toLocaleDateString("it-IT")}</div>
-                              <div className="text-xs mt-0.5" style={{ color: "var(--color-grey-mid)" }}>
-                                {ts.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
-                              </div>
+                              <span className="font-semibold tabular-nums text-sm" style={{ color: "var(--color-black)" }}>
+                                {scheda.numeroScheda || scheda.odp}
+                              </span>
+                              {scheda.clienteInfo && <div className="text-xs mt-0.5" style={{ color: "var(--color-grey-mid)" }}>{scheda.clienteInfo}</div>}
                             </div>
                           ) : "—"}
-                          <a
-                            href={`/api/ritiri/${r.id}/etichetta`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs font-semibold hover:opacity-80 inline-flex items-center gap-0.5"
-                            style={{ color: "#1D4ED8" }}
-                          >
-                            🖨️ Etichetta
-                          </a>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                        </td>
+                        <td className="px-4 py-3 font-medium text-sm" style={{ color: "var(--color-black)" }}>{r.descrizioneMerce || "—"}</td>
+                        <td className="px-4 py-3">
+                          {r.tipoMovimento ? <TipoBadge tipo={r.tipoMovimento} /> : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-sm" style={{ color: r.fornitore ? "var(--color-black)" : "var(--color-grey-icon)" }}>
+                          {r.urgenza && <span className="inline-flex items-center gap-0.5 text-xs font-bold mr-1 px-1.5 py-0.5 rounded" style={{ background: "#FEE2E2", color: "#DC2626" }}>⚠</span>}
+                          {r.fornitore || "—"}
+                        </td>
+                        <td className="px-4 py-3">
+                          {r.foto.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {r.foto.slice(0, 3).map((f, i) => (
+                                <a key={i} href={f.url} target="_blank" rel="noopener noreferrer">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={f.url} alt="" className="rounded object-cover" style={{ width: 28, height: 28, border: "1px solid #e5e4e0" }} />
+                                </a>
+                              ))}
+                              {r.foto.length > 3 && <span className="text-xs self-center" style={{ color: "var(--color-grey-mid)" }}>+{r.foto.length - 3}</span>}
+                            </div>
+                          ) : <span style={{ color: "var(--color-grey-icon)" }}>—</span>}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <a
+                              href={`/api/ritiri/${r.id}/etichetta`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-semibold px-2.5 py-1 rounded transition-colors hover:opacity-80 inline-flex items-center gap-1"
+                              style={{ color: "#1D4ED8", background: "rgba(29,78,216,0.07)", fontSize: "0.75rem", borderRadius: "var(--radius-badge)" }}
+                            >
+                              🖨️ Etichetta
+                            </a>
+                            {canWrite && (
+                              <button
+                                onClick={() => handleStatoChange(r.id, "In corso")}
+                                disabled={isLoading}
+                                title="Riapri"
+                                className="font-semibold px-2.5 py-1 rounded border transition-colors hover:opacity-80 disabled:opacity-40"
+                                style={{ background: "#FEF3C7", color: "#92400E", borderColor: "#FCD34D", fontSize: "0.75rem", borderRadius: "var(--radius-badge)" }}
+                              >
+                                ↩ Riapri
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
-        </div>
-      )}
-
-      {/* ── Archivio completati ── */}
-      <div className="mt-6 pb-4">
-        <h2 className="text-sm font-bold uppercase tracking-wide mb-3" style={{ color: "var(--color-grey-mid)" }}>
-          Archivio completati ({archivioFatti.length})
-        </h2>
-        {archivioFatti.length === 0 ? (
-          <p className="text-sm" style={{ color: "var(--color-grey-mid)" }}>Nessun movimento completato.</p>
-        ) : (
-          <ul className="space-y-1.5">
-            {archivioFatti.map((r) => {
-              const statoBadge = STATO_BADGE[r.stato];
-              return (
-                <li key={r.id} className="flex items-center gap-3 text-sm">
-                  <span className="w-4 h-4 flex-shrink-0 rounded border-2 flex items-center justify-center" style={{ borderColor: statoBadge?.border ?? "#D1D5DB" }}>
-                    {r.stato === "Fatto" && (
-                      <svg className="w-2.5 h-2.5" viewBox="0 0 10 8" fill="none">
-                        <path d="M1 4l3 3 5-6" stroke={statoBadge?.text ?? "#374151"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    )}
-                  </span>
-                  <span className="tabular-nums font-medium" style={{ color: "var(--color-grey-mid)", minWidth: 70 }}>{fmt(r.dataTrasporto)}</span>
-                  <span className="font-semibold" style={{ color: "var(--color-black)" }}>{r.descrizioneMerce || r.causale || "—"}</span>
-                  {r.tipoMovimento && (
-                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#F3F4F6", color: "#6B7280" }}>{r.tipoMovimento}</span>
-                  )}
-                  {r.fornitore && (
-                    <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>{r.fornitore}</span>
-                  )}
-                  {statoBadge && (
-                    <span
-                      className="ml-auto text-xs px-2 py-0.5 rounded-full border font-semibold"
-                      style={{ background: statoBadge.bg, color: statoBadge.text, borderColor: statoBadge.border }}
-                    >
-                      {r.stato}
-                    </span>
-                  )}
-                  {canWrite && (
-                    <button
-                      onClick={() => handleStatoChange(r.id, "In corso")}
-                      disabled={loadingIds.has(r.id)}
-                      title="Riapri — annulla completamento"
-                      className="text-xs px-2 py-0.5 rounded border font-medium transition-colors hover:opacity-80 disabled:opacity-40"
-                      style={{ background: "#FEF3C7", color: "#92400E", borderColor: "#FCD34D" }}
-                    >↩ Riapri</button>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
         )}
       </div>
 
@@ -728,6 +699,7 @@ export default function TabellaRitiri({ ritiri: initial, schede = [], fornitori 
         <FormNuovoRitiro
           schede={schede}
           fornitori={fornitori}
+          commesse={commesse}
           onClose={() => setCreando(false)}
           onCreated={handleCreated}
         />
@@ -737,6 +709,7 @@ export default function TabellaRitiri({ ritiri: initial, schede = [], fornitori 
           ritiro={editing}
           schede={schede}
           fornitori={fornitori}
+          commesse={commesse}
           onClose={() => setEditing(null)}
           onSave={handleSave}
         />

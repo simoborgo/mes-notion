@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import type { Ritiro, RitiroUpdate, Scheda } from "@/lib/types";
+import type { Ritiro, RitiroUpdate, Scheda, Commessa } from "@/lib/types";
 
 const STATI = ["Da Fare", "In corso", "Fatto"];
 const TIPI  = ["Ritiro", "Consegna"];
@@ -10,12 +10,13 @@ interface Props {
   ritiro: Ritiro;
   schede?: Scheda[];
   fornitori?: { id: string; nome: string }[];
+  commesse?: Commessa[];
   onClose: () => void;
   onSave: (updated: Ritiro) => void;
 }
 
-export default function FormModificaRitiro({ ritiro, schede = [], fornitori = [], onClose, onSave }: Props) {
-  const [form, setForm] = useState<RitiroUpdate & { schedaId: string | null; fornitoreId: string | null }>({
+export default function FormModificaRitiro({ ritiro, schede = [], fornitori = [], commesse = [], onClose, onSave }: Props) {
+  const [form, setForm] = useState<RitiroUpdate & { schedaId: string | null; fornitoreId: string | null; commessaId: string | null }>({
     causale:         ritiro.causale,
     descrizioneMerce: ritiro.descrizioneMerce,
     dataTrasporto:   ritiro.dataTrasporto ?? "",
@@ -25,6 +26,7 @@ export default function FormModificaRitiro({ ritiro, schede = [], fornitori = []
     nc:              ritiro.nc,
     schedaId:        ritiro.numeroOrdineId,
     fornitoreId:     fornitori.find(f => f.nome === ritiro.fornitore)?.id ?? null,
+    commessaId:      ritiro.commessaId,
   });
   const [schedaSearch, setSchedaSearch] = useState(() => {
     if (!ritiro.numeroOrdineId) return "";
@@ -32,6 +34,12 @@ export default function FormModificaRitiro({ ritiro, schede = [], fornitori = []
     return s ? `${s.odp} — ${s.numeroScheda}` : "";
   });
   const [schedaOpen, setSchedaOpen] = useState(false);
+  const [commessaSearch, setCommessaSearch] = useState(() => {
+    if (!ritiro.commessaId) return "";
+    const c = commesse.find(c => c.id === ritiro.commessaId);
+    return c ? `${c.numeroCommessa}${c.cliente ? " — " + c.cliente : ""}` : ritiro.commessaNr || "";
+  });
+  const [commessaOpen, setCommessaOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -47,8 +55,15 @@ export default function FormModificaRitiro({ ritiro, schede = [], fornitori = []
       .slice(0, 12);
   }, [schede, schedaSearch]);
 
+  const commesseSuggerite = useMemo(() => {
+    const q = commessaSearch.toLowerCase().trim();
+    if (!q) return commesse.slice(0, 12);
+    return commesse.filter(c => `${c.numeroCommessa} ${c.cliente} ${c.localita}`.toLowerCase().includes(q)).slice(0, 12);
+  }, [commesse, commessaSearch]);
+
   function selectScheda(s: Scheda) {
     set("schedaId", s.id);
+    set("commessaId", s.commessaId ?? null);
     setSchedaSearch(`${s.odp} — ${s.numeroScheda}`);
     setSchedaOpen(false);
   }
@@ -56,6 +71,17 @@ export default function FormModificaRitiro({ ritiro, schede = [], fornitori = []
   function clearScheda() {
     set("schedaId", null);
     setSchedaSearch("");
+  }
+
+  function selectCommessa(c: Commessa) {
+    set("commessaId", c.id);
+    setCommessaSearch(`${c.numeroCommessa}${c.cliente ? " — " + c.cliente : ""}`);
+    setCommessaOpen(false);
+  }
+
+  function clearCommessa() {
+    set("commessaId", null);
+    setCommessaSearch("");
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -68,6 +94,7 @@ export default function FormModificaRitiro({ ritiro, schede = [], fornitori = []
         dataTrasporto: form.dataTrasporto || null,
         schedaId: form.schedaId,
         fornitoreId: form.fornitoreId,
+        commessaId: form.commessaId,
       };
       const res = await fetch(`/api/ritiri/${ritiro.id}`, {
         method: "PATCH",
@@ -106,10 +133,10 @@ export default function FormModificaRitiro({ ritiro, schede = [], fornitori = []
 
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
 
-          {/* Scheda collegata */}
+          {/* Scheda ODP */}
           <div>
             <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>
-              Scheda ODP <span className="font-normal">(relation principale)</span>
+              Scheda ODP
             </label>
             {form.schedaId ? (
               <div
@@ -144,6 +171,52 @@ export default function FormModificaRitiro({ ritiro, schede = [], fornitori = []
                         <span className="font-semibold">{s.odp}</span>
                         {s.numeroScheda && <span className="ml-2 text-xs" style={{ color: "var(--color-grey-mid)" }}>{s.numeroScheda}</span>}
                         {s.clienteInfo && <span className="ml-2 text-xs truncate" style={{ color: "var(--color-grey-mid)" }}>{s.clienteInfo}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Commessa */}
+          <div>
+            <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>
+              Commessa <span className="font-normal">(auto-compilata da ODP, o manuale)</span>
+            </label>
+            {form.commessaId ? (
+              <div
+                className="flex items-center gap-2 px-3 py-2 rounded border text-sm font-medium"
+                style={{ borderColor: "#6B7280", background: "#F9FAFB" }}
+              >
+                <span className="flex-1">{commessaSearch}</span>
+                <button type="button" onClick={clearCommessa} className="text-gray-400 hover:text-gray-600 text-base leading-none">×</button>
+              </div>
+            ) : (
+              <div className="relative">
+                <input
+                  type="text"
+                  className={inputCls}
+                  placeholder="Cerca numero commessa, cliente…"
+                  value={commessaSearch}
+                  onChange={e => { setCommessaSearch(e.target.value); setCommessaOpen(true); }}
+                  onFocus={() => setCommessaOpen(true)}
+                  onBlur={() => setTimeout(() => setCommessaOpen(false), 150)}
+                />
+                {commessaOpen && commesseSuggerite.length > 0 && (
+                  <ul
+                    className="absolute z-50 w-full mt-1 rounded border bg-white shadow-lg overflow-y-auto"
+                    style={{ borderColor: "#d1d5db", maxHeight: 180 }}
+                  >
+                    {commesseSuggerite.map(c => (
+                      <li
+                        key={c.id}
+                        className="px-3 py-2 text-sm cursor-pointer hover:bg-orange-50"
+                        onMouseDown={e => { e.preventDefault(); selectCommessa(c); }}
+                      >
+                        <span className="font-semibold">{c.numeroCommessa}</span>
+                        {c.cliente && <span className="ml-2 text-xs" style={{ color: "var(--color-grey-mid)" }}>{c.cliente}</span>}
+                        {c.localita && <span className="ml-2 text-xs" style={{ color: "var(--color-grey-mid)" }}>{c.localita}</span>}
                       </li>
                     ))}
                   </ul>

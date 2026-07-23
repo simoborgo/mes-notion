@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
     }
     const body = await req.json();
-    const { causale, tipoMovimento, dataTrasporto, urgenza, schedaId, fornitoreId, foto_base64 } = body;
+    const { causale, tipoMovimento, dataTrasporto, urgenza, schedaId, fornitoreId, commessaId, foto_base64 } = body;
     if (!causale?.trim()) {
       return NextResponse.json({ error: "Descrizione obbligatoria" }, { status: 400 });
     }
@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
       urgenza: urgenza ?? false,
       schedaId: schedaId || null,
       fornitoreId: fornitoreId || null,
+      commessaId: commessaId || null,
     });
 
     const fotoArray: string[] = Array.isArray(foto_base64) ? foto_base64 : foto_base64 ? [foto_base64] : [];

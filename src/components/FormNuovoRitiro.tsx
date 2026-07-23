@@ -1,18 +1,20 @@
 "use client";
 
 import { useState, useMemo, useRef } from "react";
-import type { Ritiro, Scheda } from "@/lib/types";
+import type { Ritiro, Scheda, Commessa } from "@/lib/types";
 
 const TIPI = ["Ritiro", "Consegna"];
 
 interface Props {
   schede?: Scheda[];
   fornitori?: { id: string; nome: string }[];
+  commesse?: Commessa[];
   onClose: () => void;
   onCreated: (ritiro: Ritiro) => void;
 }
 
-export default function FormNuovoRitiro({ schede = [], fornitori = [], onClose, onCreated }: Props) {
+export default function FormNuovoRitiro({ schede = [], fornitori = [], commesse = [], onClose, onCreated }: Props) {
+  const [mode, setMode] = useState<"odp" | "commessa">("odp");
   const [form, setForm] = useState({
     causale: "",
     tipoMovimento: "",
@@ -21,11 +23,14 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], onClose, 
     nc: false,
     schedaId: null as string | null,
     fornitoreId: null as string | null,
+    commessaId: null as string | null,
   });
   const [schedaSearch, setSchedaSearch] = useState("");
   const [schedaOpen, setSchedaOpen] = useState(false);
+  const [commessaSearch, setCommessaSearch] = useState("");
+  const [commessaOpen, setCommessaOpen] = useState(false);
   const [tipoSuggerito, setTipoSuggerito] = useState<string | null>(null);
-  const [foto, setFoto] = useState<string[]>([]); // base64 array
+  const [foto, setFoto] = useState<string[]>([]);
   const [fotoPreviews, setFotoPreviews] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -55,6 +60,15 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], onClose, 
     setForm(prev => ({ ...prev, [k]: v }));
   }
 
+  function switchMode(m: "odp" | "commessa") {
+    setMode(m);
+    // Reset campi mutuamente esclusivi
+    setForm(prev => ({ ...prev, schedaId: null, commessaId: null }));
+    setSchedaSearch("");
+    setCommessaSearch("");
+    setTipoSuggerito(null);
+  }
+
   const schedeSuggerite = useMemo(() => {
     const q = schedaSearch.toLowerCase().trim();
     if (!q) return schede.slice(0, 30);
@@ -62,6 +76,14 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], onClose, 
       `${s.odp} ${s.numeroScheda} ${s.clienteInfo} ${s.descrizioneFasi}`.toLowerCase().includes(q)
     );
   }, [schede, schedaSearch]);
+
+  const commesseSuggerite = useMemo(() => {
+    const q = commessaSearch.toLowerCase().trim();
+    if (!q) return commesse.slice(0, 30);
+    return commesse.filter(c =>
+      `${c.numeroCommessa} ${c.cliente} ${c.localita}`.toLowerCase().includes(q)
+    );
+  }, [commesse, commessaSearch]);
 
   function selectScheda(s: Scheda) {
     const fornitoreMatch = fornitori.find(f => f.nome === s.fornitore);
@@ -72,6 +94,7 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], onClose, 
     setForm(prev => ({
       ...prev,
       schedaId: s.id,
+      commessaId: s.commessaId ?? null, // auto-fill commessa dall'ODP
       fornitoreId: fornitoreMatch?.id ?? prev.fornitoreId,
       tipoMovimento: prev.tipoMovimento || tipo,
       causale: prev.causale || causaleAuto,
@@ -81,9 +104,20 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], onClose, 
   }
 
   function clearScheda() {
-    set("schedaId", null);
+    setForm(prev => ({ ...prev, schedaId: null, commessaId: null }));
     setSchedaSearch("");
     setTipoSuggerito(null);
+  }
+
+  function selectCommessa(c: Commessa) {
+    setForm(prev => ({ ...prev, commessaId: c.id }));
+    setCommessaSearch(`${c.numeroCommessa}${c.cliente ? " — " + c.cliente : ""}`);
+    setCommessaOpen(false);
+  }
+
+  function clearCommessa() {
+    setForm(prev => ({ ...prev, commessaId: null }));
+    setCommessaSearch("");
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -103,6 +137,7 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], onClose, 
           nc: form.nc,
           schedaId: form.schedaId,
           fornitoreId: form.fornitoreId,
+          commessaId: form.commessaId,
           foto_base64: foto.length ? foto : undefined,
         }),
       });
@@ -140,69 +175,148 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], onClose, 
         </div>
 
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          {/* Scheda collegata */}
+
+          {/* Toggle ODP vs Commessa */}
           <div>
-            <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>
-              Scheda ODP <span className="font-normal">(relation)</span>
-            </label>
-            {form.schedaId ? (
-              <div
-                className="flex items-center gap-2 px-3 py-2 rounded border text-sm font-medium"
-                style={{ borderColor: "var(--color-primary)", background: "rgba(240,143,37,0.05)" }}
+            <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Collega a</label>
+            <div className="flex rounded border overflow-hidden" style={{ borderColor: "#E5E7EB" }}>
+              <button
+                type="button"
+                onClick={() => switchMode("odp")}
+                className="flex-1 py-2 text-sm font-semibold transition-colors"
+                style={{
+                  background: mode === "odp" ? "var(--color-primary)" : "white",
+                  color: mode === "odp" ? "white" : "var(--color-grey-mid)",
+                }}
               >
-                <span className="flex-1">{schedaSearch}</span>
-                <button type="button" onClick={clearScheda} className="text-gray-400 hover:text-gray-600 text-base leading-none">×</button>
-              </div>
-            ) : (
-              <div className="relative">
-                <input
-                  type="text"
-                  className={inputCls}
-                  placeholder="Cerca ODP, numero scheda, cliente…"
-                  value={schedaSearch}
-                  onChange={e => { setSchedaSearch(e.target.value); setSchedaOpen(true); }}
-                  onFocus={() => setSchedaOpen(true)}
-                  onBlur={() => setTimeout(() => setSchedaOpen(false), 150)}
-                />
-                {schedaOpen && schedeSuggerite.length > 0 && (
-                  <ul
-                    className="absolute z-50 w-full mt-1 rounded border bg-white shadow-lg overflow-y-auto"
-                    style={{ borderColor: "#d1d5db", maxHeight: 220 }}
-                  >
-                    {schedeSuggerite.map(s => (
-                      <li
-                        key={s.id}
-                        className="px-3 py-2 text-sm cursor-pointer hover:bg-orange-50"
-                        style={{ paddingLeft: s.parentId ? "1.5rem" : undefined }}
-                        onMouseDown={e => { e.preventDefault(); selectScheda(s); }}
-                      >
-                        {s.parentId && <span className="text-gray-400 mr-1 text-xs">↳</span>}
-                        <span className={s.parentId ? "font-normal" : "font-semibold"}>{s.odp}</span>
-                        {s.numeroScheda && <span className="ml-2 text-xs" style={{ color: "var(--color-grey-mid)" }}>{s.numeroScheda}</span>}
-                        {s.clienteInfo && <span className="ml-2 text-xs truncate" style={{ color: "var(--color-grey-mid)" }}>{s.clienteInfo}</span>}
-                        {s.parentId && s.tipologia && (
-                          <span className="ml-2 text-xs px-1.5 py-0.5 rounded" style={{ background: "#F3F4F6", color: "#6B7280" }}>
-                            {s.tipologia}
-                          </span>
-                        )}
-                        {s.statoProdEsterna && (
-                          <span
-                            className="ml-2 text-xs px-1.5 py-0.5 rounded font-medium"
-                            style={{
-                              background: s.statoProdEsterna === "In Lavorazione" ? "#FEF3C7" : "#D1FAE5",
-                              color:      s.statoProdEsterna === "In Lavorazione" ? "#92400E" : "#065F46",
-                            }}
-                          >
-                            {s.statoProdEsterna}
-                          </span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
+                Scheda ODP
+              </button>
+              <button
+                type="button"
+                onClick={() => switchMode("commessa")}
+                className="flex-1 py-2 text-sm font-semibold transition-colors border-l"
+                style={{
+                  background: mode === "commessa" ? "var(--color-primary)" : "white",
+                  color: mode === "commessa" ? "white" : "var(--color-grey-mid)",
+                  borderColor: "#E5E7EB",
+                }}
+              >
+                Solo Commessa
+              </button>
+            </div>
           </div>
+
+          {/* Scheda ODP (mode = "odp") */}
+          {mode === "odp" && (
+            <div>
+              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>
+                Scheda ODP <span className="font-normal">(opzionale)</span>
+              </label>
+              {form.schedaId ? (
+                <div
+                  className="flex items-center gap-2 px-3 py-2 rounded border text-sm font-medium"
+                  style={{ borderColor: "var(--color-primary)", background: "rgba(240,143,37,0.05)" }}
+                >
+                  <span className="flex-1">{schedaSearch}</span>
+                  <button type="button" onClick={clearScheda} className="text-gray-400 hover:text-gray-600 text-base leading-none">×</button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <input
+                    type="text"
+                    className={inputCls}
+                    placeholder="Cerca ODP, numero scheda, cliente…"
+                    value={schedaSearch}
+                    onChange={e => { setSchedaSearch(e.target.value); setSchedaOpen(true); }}
+                    onFocus={() => setSchedaOpen(true)}
+                    onBlur={() => setTimeout(() => setSchedaOpen(false), 150)}
+                  />
+                  {schedaOpen && schedeSuggerite.length > 0 && (
+                    <ul
+                      className="absolute z-50 w-full mt-1 rounded border bg-white shadow-lg overflow-y-auto"
+                      style={{ borderColor: "#d1d5db", maxHeight: 220 }}
+                    >
+                      {schedeSuggerite.map(s => (
+                        <li
+                          key={s.id}
+                          className="px-3 py-2 text-sm cursor-pointer hover:bg-orange-50"
+                          style={{ paddingLeft: s.parentId ? "1.5rem" : undefined }}
+                          onMouseDown={e => { e.preventDefault(); selectScheda(s); }}
+                        >
+                          {s.parentId && <span className="text-gray-400 mr-1 text-xs">↳</span>}
+                          <span className={s.parentId ? "font-normal" : "font-semibold"}>{s.odp}</span>
+                          {s.numeroScheda && <span className="ml-2 text-xs" style={{ color: "var(--color-grey-mid)" }}>{s.numeroScheda}</span>}
+                          {s.clienteInfo && <span className="ml-2 text-xs truncate" style={{ color: "var(--color-grey-mid)" }}>{s.clienteInfo}</span>}
+                          {s.parentId && s.tipologia && (
+                            <span className="ml-2 text-xs px-1.5 py-0.5 rounded" style={{ background: "#F3F4F6", color: "#6B7280" }}>
+                              {s.tipologia}
+                            </span>
+                          )}
+                          {s.statoProdEsterna && (
+                            <span
+                              className="ml-2 text-xs px-1.5 py-0.5 rounded font-medium"
+                              style={{
+                                background: s.statoProdEsterna === "In Lavorazione" ? "#FEF3C7" : "#D1FAE5",
+                                color:      s.statoProdEsterna === "In Lavorazione" ? "#92400E" : "#065F46",
+                              }}
+                            >
+                              {s.statoProdEsterna}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Commessa diretta (mode = "commessa") */}
+          {mode === "commessa" && (
+            <div>
+              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Commessa</label>
+              {form.commessaId ? (
+                <div
+                  className="flex items-center gap-2 px-3 py-2 rounded border text-sm font-medium"
+                  style={{ borderColor: "var(--color-primary)", background: "rgba(240,143,37,0.05)" }}
+                >
+                  <span className="flex-1">{commessaSearch}</span>
+                  <button type="button" onClick={clearCommessa} className="text-gray-400 hover:text-gray-600 text-base leading-none">×</button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <input
+                    type="text"
+                    className={inputCls}
+                    placeholder="Cerca numero commessa, cliente…"
+                    value={commessaSearch}
+                    onChange={e => { setCommessaSearch(e.target.value); setCommessaOpen(true); }}
+                    onFocus={() => setCommessaOpen(true)}
+                    onBlur={() => setTimeout(() => setCommessaOpen(false), 150)}
+                  />
+                  {commessaOpen && commesseSuggerite.length > 0 && (
+                    <ul
+                      className="absolute z-50 w-full mt-1 rounded border bg-white shadow-lg overflow-y-auto"
+                      style={{ borderColor: "#d1d5db", maxHeight: 220 }}
+                    >
+                      {commesseSuggerite.map(c => (
+                        <li
+                          key={c.id}
+                          className="px-3 py-2 text-sm cursor-pointer hover:bg-orange-50"
+                          onMouseDown={e => { e.preventDefault(); selectCommessa(c); }}
+                        >
+                          <span className="font-semibold">{c.numeroCommessa}</span>
+                          {c.cliente && <span className="ml-2 text-xs" style={{ color: "var(--color-grey-mid)" }}>{c.cliente}</span>}
+                          {c.localita && <span className="ml-2 text-xs" style={{ color: "var(--color-grey-mid)" }}>{c.localita}</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           <div>
             <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Descrizione *</label>
@@ -265,7 +379,6 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], onClose, 
             </div>
           </div>
 
-          {/* Foto */}
           <div>
             <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>
               Foto <span className="font-normal">(opzionale)</span>

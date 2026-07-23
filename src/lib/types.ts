@@ -50,6 +50,8 @@ export interface Ritiro {
   numeroOrdine: string;
   numeroOrdineId: string | null;
   rilavorazioneId: string | null;
+  commessaId: string | null;
+  commessaNr: string;
   descrizioneMerce: string;
   dataTrasporto: string | null;
   tipoMovimento: string;
@@ -74,6 +76,7 @@ export interface RitiroUpdate {
   stato?: string;
   urgenza?: boolean;
   nc?: boolean;
+  commessaId?: string | null;
   fornitore?: string;
   schedaId?: string | null;
   fornitoreId?: string | null;

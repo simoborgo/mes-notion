@@ -166,6 +166,8 @@ function pageToRitiro(page: any, fornitoriMap?: Record<string, string>): Ritiro 
     numeroOrdine: getText(prop(page, "ODP")),
     numeroOrdineId: getRelationId(prop(page, "Scheda")),
     rilavorazioneId: getRelationId(prop(page, "Rilavorazione")),
+    commessaId: getRelationId(prop(page, "Commessa")),
+    commessaNr: getText(prop(page, "Nr Commessa")),
     descrizioneMerce: descrizione,
     dataTrasporto: getDate(prop(page, "Data Trasporto")),
     tipoMovimento: getText(prop(page, "Tipo movimento")),
@@ -263,6 +265,7 @@ export async function createRitiro({
   schedaId,
   fornitoreId,
   rilavorazioneId,
+  commessaId,
 }: {
   causale: string;
   tipoMovimento?: string;
@@ -272,6 +275,7 @@ export async function createRitiro({
   schedaId?: string | null;
   fornitoreId?: string | null;
   rilavorazioneId?: string | null;
+  commessaId?: string | null;
 }): Promise<Ritiro> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const properties: Record<string, any> = {
@@ -285,6 +289,7 @@ export async function createRitiro({
   if (schedaId) properties["Scheda"] = { relation: [{ id: schedaId }] };
   if (fornitoreId) properties["Fornitore"] = { relation: [{ id: fornitoreId }] };
   if (rilavorazioneId) properties["Rilavorazione"] = { relation: [{ id: rilavorazioneId }] };
+  if (commessaId) properties["Commessa"] = { relation: [{ id: commessaId }] };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const page = await notion.pages.create({ parent: { database_id: DB_RITIRI }, properties }) as any;
@@ -530,6 +535,10 @@ export async function updateRitiro(id: string, data: RitiroUpdate): Promise<Riti
   if (data.fornitoreId !== undefined)
     properties["Fornitore"] = data.fornitoreId
       ? { relation: [{ id: data.fornitoreId }] }
+      : { relation: [] };
+  if (data.commessaId !== undefined)
+    properties["Commessa"] = data.commessaId
+      ? { relation: [{ id: data.commessaId }] }
       : { relation: [] };
 
   const [, fornitoriMap] = await Promise.all([

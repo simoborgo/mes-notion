@@ -1,12 +1,12 @@
-import { getRitiri, getSchede, getSottoschede, getFornitoriList } from "@/lib/notion";
+import { getRitiri, getSchede, getSottoschede, getFornitoriList, getCommesse } from "@/lib/notion";
 import { getSession } from "@/lib/auth";
 import TabellaRitiri from "@/components/TabellaRitiri";
 
 export const dynamic = "force-dynamic";
 
 export default async function RitiriPage() {
-  const [ritiri, schede, sottoschede, fornitori, session] = await Promise.all([
-    getRitiri(), getSchede(), getSottoschede(), getFornitoriList(), getSession(),
+  const [ritiri, schede, sottoschede, fornitori, commesse, session] = await Promise.all([
+    getRitiri(), getSchede(), getSottoschede(), getFornitoriList(), getCommesse(), getSession(),
   ]);
   // Costruisce mappa parentId → figli (include sottoschede e rilavorazioni)
   const childrenByParent = new Map<string, typeof sottoschede>();
@@ -31,7 +31,7 @@ export default async function RitiriPage() {
           {ritiri.length} movimenti totali
         </p>
       </div>
-      <TabellaRitiri ritiri={ritiri} schede={tutteLeSchede} fornitori={fornitori} userRole={session?.role} />
+      <TabellaRitiri ritiri={ritiri} schede={tutteLeSchede} fornitori={fornitori} commesse={commesse} userRole={session?.role} />
     </div>
   );
 }
