@@ -150,7 +150,7 @@ body{font-family:'Jost',sans-serif;background:#fff;margin:0;padding:0;width:100%
 .lbl{font-size:9px;font-weight:600;letter-spacing:.2em;color:#A4A4A6;text-transform:uppercase}
 .code-section{padding:7mm 10mm 0}
 .code{font-family:'Jost',sans-serif;font-weight:700;font-size:48px;line-height:1.08;color:#1A1918;letter-spacing:-.01em}
-.sub{font-size:28px;font-weight:700;color:#1A1918;margin-top:3mm;line-height:1.1;letter-spacing:-.01em}
+.sub{font-size:48px;font-weight:700;color:#1A1918;margin-top:3mm;line-height:1.08;letter-spacing:-.01em}
 .rule{border-top:2px solid #1A1918;margin:6mm 10mm 0}
 .row{padding:4mm 10mm;border-bottom:1px solid #E4E0DA}
 .row .lbl{margin-bottom:2px}
