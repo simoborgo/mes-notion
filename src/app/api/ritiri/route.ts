@@ -46,7 +46,10 @@ export async function POST(req: NextRequest) {
           parent: parentScheda,
         });
         rilavorazioneId = result.rilavorazione.id;
-        finalSchedaId = parentScheda.parentId ?? schedaId;
+        // Il movimento si collega alla rilavorazione appena creata (non più al padre):
+        // così l'ODP/Commessa mostrato è quello della rilavorazione, che è la scheda
+        // da cui parte la logica di rientro/Segna Rientrata
+        finalSchedaId = rilavorazioneId;
       } catch (e) {
         console.error("[ritiri POST] createRilavorazione error:", e);
         return NextResponse.json(

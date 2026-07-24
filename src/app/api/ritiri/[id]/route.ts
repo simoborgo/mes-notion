@@ -35,8 +35,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           creaRitiro: false,
           parent: parentScheda,
         });
+        // Il movimento si ricollega alla rilavorazione appena creata (non più al padre):
+        // così l'ODP/Commessa mostrato è quello della rilavorazione
         body!.rilavorazioneId = result.rilavorazione.id;
-        body!.schedaId = parentScheda.parentId ?? effectiveSchedaId;
+        body!.schedaId = result.rilavorazione.id;
       } catch (e) {
         console.error("[PATCH /api/ritiri] createRilavorazione error:", e);
         return NextResponse.json(

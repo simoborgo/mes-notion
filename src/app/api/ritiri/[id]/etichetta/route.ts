@@ -57,9 +57,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         nScheda = scheda.numeroScheda || "";
         clienteInfo = scheda.clienteInfo || "";
         hasSchedaPdf = (scheda.pdfAllegato?.length ?? 0) > 0;
-        if (!clienteInfo && scheda.parentId) {
+        // Le rilavorazioni create dallo shortcut NC non hanno un proprio PDF Allegato:
+        // ricade sul PDF della scheda padre (il disegno tecnico originale)
+        if ((!clienteInfo || !hasSchedaPdf) && scheda.parentId) {
           const parent = await getSchedaById(scheda.parentId);
-          clienteInfo = parent.clienteInfo || "";
+          if (!clienteInfo) clienteInfo = parent.clienteInfo || "";
+          if (!hasSchedaPdf) hasSchedaPdf = (parent.pdfAllegato?.length ?? 0) > 0;
         }
       } catch { /* fallback */ }
     } else if (!schedaOdp && ritiro.commessaId) {
@@ -90,6 +93,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       type: "svg", width: 120, margin: 1,
       color: { dark: "#1A1918", light: "#ffffff" },
     });
+
+    // Secondo QR — Controllo Qualità: solo sui Ritiri (materiale che rientra)
+    // collegati a una Rilavorazione, punta alla pagina mobile "Segna Rientrata"
+    const showQualitaQR = isRitiro && !!ritiro.rilavorazioneId;
+    let qualitaQrSvg = "";
+    if (showQualitaQR) {
+      const qualitaTarget = `${req.nextUrl.origin}/rientro-qualita/${ritiro.rilavorazioneId}`;
+      qualitaQrSvg = await QRCode.toString(qualitaTarget, {
+        type: "svg", width: 120, margin: 1,
+        color: { dark: "#991B1B", light: "#ffffff" },
+      });
+    }
 
     const logoUri = getLogoDataUri();
     const codeStr = esc(schedaOdp || "—");
@@ -137,12 +152,28 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       ? `<div class="code">${esc(nScheda)}</div><div class="sub">${codeStr}</div>`
       : `<div class="code">${codeStr}</div>`;
 
-    // Foto allegate: thumbnail a fianco del QR, altezza fissa indipendente dall'orientamento
+    // Foto allegate: thumbnail a fianco del QR, altezza fissa indipendente dall'orientamento.
+    // Se c'è il QR Controllo Qualità, ha priorità sulle foto (spazio limitato in riga)
     const fotoList = (ritiro.foto || []).slice(0, 2);
     const fotoColHtml = fotoList.length > 0
       ? `<div class="foto-col">
           ${fotoList.map(f => `<img src="${esc(f.url)}" alt="">`).join("\n          ")}
         </div>`
+      : "";
+    const qualitaColHtml = showQualitaQR
+      ? `<div class="qr-col">
+          <div class="qrbox qrbox-qualita">${qualitaQrSvg}</div>
+          <div class="qr-cap">
+            <div class="qr-apri" style="color:#991B1B">Controllo Qualità</div>
+            <div class="qr-rif">Segna rientrata</div>
+          </div>
+        </div>`
+      : "";
+    const secondColHtml = showQualitaQR ? qualitaColHtml : fotoColHtml;
+
+    // Nota per il fornitore: chiede di restituire l'etichetta col rientro (solo Consegna)
+    const returnNoteHtml = !isRitiro
+      ? `<div class="return-note">Si prega di restituire<br>questa etichetta al rientro</div>`
       : "";
 
     const html = `<!DOCTYPE html>
@@ -166,6 +197,7 @@ body{font-family:'Jost',sans-serif;background:#fff;margin:0;padding:0;width:100%
 .data-mini{text-align:right}
 .data-mini .lbl{margin-bottom:2px}
 .data-mini .val{font-size:15px;font-weight:600;color:#1A1918;white-space:nowrap}
+.return-note{font-size:8px;color:#92400E;text-align:right;font-style:italic;line-height:1.3}
 .lbl{font-size:9px;font-weight:600;letter-spacing:.2em;color:#A4A4A6;text-transform:uppercase}
 .code-section{padding:7mm 10mm 0}
 .code{font-family:'Jost',sans-serif;font-weight:700;font-size:48px;line-height:1.08;color:#1A1918;letter-spacing:-.01em}
@@ -182,6 +214,7 @@ body{font-family:'Jost',sans-serif;background:#fff;margin:0;padding:0;width:100%
 .qrwrap{display:flex;align-items:stretch;gap:16px;padding:6mm 10mm}
 .qr-col{display:flex;flex-direction:column;align-items:center;gap:6px;flex:0 0 auto}
 .qrbox{border:1px solid #E4E0DA;border-radius:6px;padding:6px;flex-shrink:0;line-height:0}
+.qrbox-qualita{border-color:#FCA5A5}
 .qrbox svg{display:block;width:100px;height:100px}
 .qr-cap{text-align:center}
 .qr-apri{font-size:14px;font-weight:600;color:#1A1918}
@@ -208,6 +241,7 @@ body{font-family:'Jost',sans-serif;background:#fff;margin:0;padding:0;width:100%
         <div class="lbl">Data Trasporto Previsto</div>
         <div class="val">${esc(fmtData(ritiro.dataTrasporto))}</div>
       </div>
+      ${returnNoteHtml}
     </div>
   </div>
   <div class="code-section">
@@ -225,7 +259,7 @@ body{font-family:'Jost',sans-serif;background:#fff;margin:0;padding:0;width:100%
         <div class="qr-rif">Rif. ${codeStr}</div>
       </div>
     </div>
-    ${fotoColHtml}
+    ${secondColHtml}
   </div>
   <div class="ft">
     <span>MES MODAR · ${tipoLabel}</span>

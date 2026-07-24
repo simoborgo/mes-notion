@@ -362,7 +362,7 @@ export async function createRilavorazione({
         causale: `Rilavorazione — ${subOdp}`,
         tipoMovimento: "Consegna",
         dataTrasporto: dataRientro ?? new Date().toISOString().slice(0, 10),
-        schedaId: parent.parentId ?? parentId,
+        schedaId: rilavorazione.id,
         fornitoreId,
         rilavorazioneId: rilavorazione.id,
       });

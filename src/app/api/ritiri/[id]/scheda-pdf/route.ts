@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRitiroById } from "@/lib/notion";
+import { getRitiroById, getSchedaById } from "@/lib/notion";
 import { getSessionFromRequest } from "@/lib/auth";
 import { notionSvc } from "@/lib/verificheServices";
 
@@ -17,7 +17,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: "Nessuna scheda collegata a questo movimento" }, { status: 404 });
     }
 
-    const buffer = await notionSvc.getPdfOriginale(ritiro.numeroOrdineId);
+    let buffer = await notionSvc.getPdfOriginale(ritiro.numeroOrdineId);
+    // Le rilavorazioni create dallo shortcut NC non hanno un proprio PDF Allegato:
+    // ricade sul PDF della scheda padre (il disegno tecnico originale)
+    if (!buffer) {
+      const scheda = await getSchedaById(ritiro.numeroOrdineId);
+      if (scheda.parentId) {
+        buffer = await notionSvc.getPdfOriginale(scheda.parentId);
+      }
+    }
     if (!buffer) {
       return NextResponse.json({ error: "Nessun PDF allegato alla scheda" }, { status: 404 });
     }

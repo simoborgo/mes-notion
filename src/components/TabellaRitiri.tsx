@@ -79,6 +79,15 @@ function getDatePart(d: string | null): string {
   return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())}`;
 }
 
+// Le rilavorazioni create dallo shortcut NC non hanno un proprio PDF Allegato:
+// ricade sul PDF della scheda padre (il disegno tecnico originale)
+function pdfSchedaEffettivo(scheda: Scheda | null | undefined, schedeMap: Map<string, Scheda>): { name: string; url: string }[] {
+  if (!scheda) return [];
+  if (scheda.pdfAllegato?.length) return scheda.pdfAllegato;
+  if (scheda.parentId) return schedeMap.get(scheda.parentId)?.pdfAllegato ?? [];
+  return [];
+}
+
 function fmt(d: string | null, showTime = true) {
   if (!d) return "—";
   const dt = new Date(d);
@@ -568,8 +577,8 @@ export default function TabellaRitiri({
                           </div>
                         </td>
                         <td className="px-4 py-4">
-                          <DocLinks files={scheda?.pdfAllegato ?? []} label="PDF Scheda" />
-                          {!(scheda?.pdfAllegato?.length) && <span style={{ color: "var(--color-grey-icon)" }}>—</span>}
+                          <DocLinks files={pdfSchedaEffettivo(scheda, schedeMap)} label="PDF Scheda" />
+                          {!pdfSchedaEffettivo(scheda, schedeMap).length && <span style={{ color: "var(--color-grey-icon)" }}>—</span>}
                         </td>
                         <td className="px-4 py-4">
                           {r.foto.length > 0 ? (
