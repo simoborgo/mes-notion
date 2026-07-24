@@ -138,8 +138,8 @@ body{font-family:'Jost',sans-serif;background:#fff;margin:0;padding:0;width:100%
 .page{font-family:'Jost',sans-serif;background:#fff;color:#1A1918;display:flex;flex-direction:column;width:100%;min-height:calc(297mm - 24mm)}
 .strip{height:10mm;flex-shrink:0;background:#8B7B6B}
 .hd{display:flex;justify-content:space-between;align-items:flex-start;padding:7mm 10mm 0}
-.logo img{height:70px;width:auto;object-fit:contain}
-.logo-fallback{font-size:32px;font-weight:700;color:#1A1918;letter-spacing:-.02em}
+.logo img{height:140px;width:auto;object-fit:contain}
+.logo-fallback{font-size:64px;font-weight:700;color:#1A1918;letter-spacing:-.02em}
 .hd-right{display:flex;flex-direction:column;align-items:flex-end;gap:4mm}
 .dir{display:flex;align-items:center;padding:8px 16px;border-radius:4px;font-weight:700;font-size:13px;letter-spacing:.12em;white-space:nowrap}
 .dir.ritiro{background:#3F8F5B;color:#fff}
