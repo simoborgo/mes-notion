@@ -48,6 +48,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     let nScheda = "";
     let clienteInfo = "";
     let clienteLocalita = "";
+    let hasSchedaPdf = false;
 
     if (ritiro.numeroOrdineId) {
       try {
@@ -55,6 +56,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         schedaOdp = scheda.odp || ritiro.numeroOrdine;
         nScheda = scheda.numeroScheda || "";
         clienteInfo = scheda.clienteInfo || "";
+        hasSchedaPdf = (scheda.pdfAllegato?.length ?? 0) > 0;
         if (!clienteInfo && scheda.parentId) {
           const parent = await getSchedaById(scheda.parentId);
           clienteInfo = parent.clienteInfo || "";
@@ -77,8 +79,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const tipoLabel = isRitiro ? "RITIRO" : "CONSEGNA";
     const idShort = id.replace(/-/g, "").slice(0, 8).toUpperCase();
 
-    // QR code come SVG inline
-    const qrSvg = await QRCode.toString(ritiro.notionUrl, {
+    // QR: punta al PDF scheda (proxy MES, sempre valido) se disponibile,
+    // altrimenti fallback alla pagina Notion (utile per movimenti solo-Commessa)
+    const qrTarget = hasSchedaPdf
+      ? `${req.nextUrl.origin}/api/ritiri/${id}/scheda-pdf`
+      : ritiro.notionUrl;
+    const qrCaption = hasSchedaPdf ? "Apri PDF Scheda" : "Apri Scheda";
+
+    const qrSvg = await QRCode.toString(qrTarget, {
       type: "svg", width: 120, margin: 1,
       color: { dark: "#1A1918", light: "#ffffff" },
     });
@@ -87,7 +95,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const codeStr = esc(schedaOdp || "—");
     const clienteDisplay = [clienteInfo, clienteLocalita].filter(Boolean).join(" — ");
 
-    // Righe dati extra (oltre data trasporto)
+    // Righe dati extra (Cliente, Fornitore, Descrizione ingrandite del 20%)
     const extraRows: string[] = [];
 
     if (ritiro.nrCollo != null || ritiro.totColli != null) {
@@ -95,15 +103,29 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       extraRows.push(`<div class="row"><div class="lbl">Collo</div><div class="val">${esc(colloVal)}</div></div>`);
     }
     if (clienteDisplay) {
-      extraRows.push(`<div class="row"><div class="lbl">Cliente</div><div class="val">${esc(clienteDisplay)}</div></div>`);
+      extraRows.push(`<div class="row"><div class="lbl">Cliente</div><div class="val val-lg">${esc(clienteDisplay)}</div></div>`);
     }
     if (ritiro.fornitore) {
-      extraRows.push(`<div class="row"><div class="lbl">Fornitore</div><div class="val">${esc(ritiro.fornitore)}</div></div>`);
+      extraRows.push(`<div class="row"><div class="lbl">Fornitore</div><div class="val val-lg">${esc(ritiro.fornitore)}</div></div>`);
     }
     const desc = ritiro.causale || ritiro.descrizioneMerce || "";
     if (desc) {
-      extraRows.push(`<div class="row"><div class="lbl">Descrizione</div><div class="val">${esc(desc)}</div></div>`);
+      extraRows.push(`<div class="row"><div class="lbl">Descrizione</div><div class="val val-lg">${esc(desc)}</div></div>`);
     }
+
+    // Titolo Scheda (hero) + ODP come riferimento piccolo sotto
+    const codeSectionHtml = nScheda
+      ? `<div class="code">${esc(nScheda)}</div><div class="sub">${codeStr}</div>`
+      : `<div class="code">${codeStr}</div>`;
+
+    // Foto allegate: thumbnail a fianco del QR (max 4)
+    const fotoList = (ritiro.foto || []).slice(0, 4);
+    const fotoCols = fotoList.length <= 1 ? 1 : 2;
+    const fotoColHtml = fotoList.length > 0
+      ? `<div class="foto-col" style="grid-template-columns:repeat(${fotoCols},1fr)">
+          ${fotoList.map(f => `<img src="${esc(f.url)}" alt="">`).join("\n          ")}
+        </div>`
+      : "";
 
     const html = `<!DOCTYPE html>
 <html lang="it">
@@ -116,25 +138,34 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 body{font-family:'Jost',sans-serif;background:#fff;margin:0;padding:0;width:100%}
 .page{font-family:'Jost',sans-serif;background:#fff;color:#1A1918;display:flex;flex-direction:column;width:100%;min-height:calc(297mm - 24mm)}
 .strip{height:10mm;flex-shrink:0;background:#8B7B6B}
-.hd{display:flex;justify-content:space-between;align-items:center;padding:7mm 10mm 0}
+.hd{display:flex;justify-content:space-between;align-items:flex-start;padding:7mm 10mm 0}
 .logo img{height:70px;width:auto;object-fit:contain}
 .logo-fallback{font-size:32px;font-weight:700;color:#1A1918;letter-spacing:-.02em}
+.hd-right{display:flex;flex-direction:column;align-items:flex-end;gap:4mm}
 .dir{display:flex;align-items:center;padding:8px 16px;border-radius:4px;font-weight:700;font-size:13px;letter-spacing:.12em;white-space:nowrap}
 .dir.ritiro{background:#3F8F5B;color:#fff}
 .dir.consegna{background:#7A2E3A;color:#fff}
+.data-mini{text-align:right}
+.data-mini .lbl{margin-bottom:2px}
+.data-mini .val{font-size:15px;font-weight:600;color:#1A1918;white-space:nowrap}
 .lbl{font-size:9px;font-weight:600;letter-spacing:.2em;color:#A4A4A6;text-transform:uppercase}
 .code-section{padding:7mm 10mm 0}
-.code{font-family:'Jost',sans-serif;font-weight:700;font-size:80px;line-height:.95;color:#1A1918;letter-spacing:-.02em;margin-top:2mm}
-.sub{font-size:20px;font-weight:600;color:#374151;margin-top:3mm;line-height:1.2}
+.code{font-family:'Jost',sans-serif;font-weight:700;font-size:48px;line-height:1.08;color:#1A1918;letter-spacing:-.01em}
+.sub{font-size:28px;font-weight:700;color:#1A1918;margin-top:3mm;line-height:1.1;letter-spacing:-.01em}
 .rule{border-top:2px solid #1A1918;margin:6mm 10mm 0}
 .row{padding:4mm 10mm;border-bottom:1px solid #E4E0DA}
 .row .lbl{margin-bottom:2px}
 .row .val{font-size:20px;font-weight:500;color:#1A1918;line-height:1.3}
-.qrwrap{display:flex;align-items:center;gap:16px;padding:6mm 10mm;margin-top:auto}
+.row .val-lg{font-size:24px}
+.qrwrap{display:flex;align-items:stretch;gap:16px;padding:6mm 10mm;margin-top:auto}
+.qr-col{display:flex;flex-direction:column;align-items:center;gap:6px;flex:0 0 auto}
 .qrbox{border:1px solid #E4E0DA;border-radius:6px;padding:6px;flex-shrink:0;line-height:0}
 .qrbox svg{display:block;width:100px;height:100px}
-.qr-apri{font-size:18px;font-weight:600;color:#1A1918}
-.qr-rif{font-size:12px;color:#A4A4A6;margin-top:3px}
+.qr-cap{text-align:center}
+.qr-apri{font-size:14px;font-weight:600;color:#1A1918}
+.qr-rif{font-size:11px;color:#A4A4A6;margin-top:2px}
+.foto-col{flex:1;display:grid;gap:6px;height:160px}
+.foto-col img{width:100%;height:100%;object-fit:cover;border-radius:6px;border:1px solid #E4E0DA}
 .ft{display:flex;justify-content:space-between;align-items:center;padding:4mm 10mm 5mm;border-top:1px solid #E4E0DA;margin-top:auto}
 .ft span{font-size:10px;color:#A4A4A6;letter-spacing:.06em}
 @media print{@page{size:A4;margin:12mm}body{padding:0}}
@@ -149,25 +180,29 @@ body{font-family:'Jost',sans-serif;background:#fff;margin:0;padding:0;width:100%
         ? `<img src="${logoUri}" alt="Modar">`
         : `<span class="logo-fallback">MODAR</span>`}
     </div>
-    <div class="dir ${badgeClass}">${badgeText}</div>
+    <div class="hd-right">
+      <div class="dir ${badgeClass}">${badgeText}</div>
+      <div class="data-mini">
+        <div class="lbl">Data Trasporto Previsto</div>
+        <div class="val">${esc(fmtData(ritiro.dataTrasporto))}</div>
+      </div>
+    </div>
   </div>
   <div class="code-section">
     <div class="lbl">Scheda / Commessa</div>
-    <div class="code">${codeStr}</div>
-    ${nScheda ? `<div class="sub">${esc(nScheda)}</div>` : ""}
+    ${codeSectionHtml}
   </div>
   <div class="rule"></div>
-  <div class="row">
-    <div class="lbl">Data Trasporto Previsto</div>
-    <div class="val">${esc(fmtData(ritiro.dataTrasporto))}</div>
-  </div>
   ${extraRows.join("\n  ")}
   <div class="qrwrap">
-    <div class="qrbox">${qrSvg}</div>
-    <div>
-      <div class="qr-apri">Apri Scheda</div>
-      <div class="qr-rif">Rif. ${codeStr}</div>
+    <div class="qr-col">
+      <div class="qrbox">${qrSvg}</div>
+      <div class="qr-cap">
+        <div class="qr-apri">${qrCaption}</div>
+        <div class="qr-rif">Rif. ${codeStr}</div>
+      </div>
     </div>
+    ${fotoColHtml}
   </div>
   <div class="ft">
     <span>MES MODAR · ${tipoLabel}</span>
