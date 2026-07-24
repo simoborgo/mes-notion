@@ -1,14 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getSessionFromRequest } from "@/lib/auth";
-import {
-  getSchedaById,
-  createSchedaPage,
-  updateSchedaStato,
-  findFornitoreIdByName,
-  getNextRilavorazioneOdp,
-  createRitiro,
-} from "@/lib/notion";
+import { createRilavorazione } from "@/lib/notion";
 import { notionSvc } from "@/lib/verificheServices";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -43,64 +36,35 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ ok: false, error: "Descrizione obbligatoria" }, { status: 400 });
     }
 
-    const parent = await getSchedaById(parentId);
-
-    const [subOdp, fornitoreId] = await Promise.all([
-      getNextRilavorazioneOdp(parentId, parent.odp),
-      body.fornitoreNome ? findFornitoreIdByName(body.fornitoreNome) : Promise.resolve(null),
-    ]);
-
-    const rilavorazione = await createSchedaPage({
-      numeroScheda: body.descrizione.trim(),
-      commessaId: parent.commessaId,
-      odp: subOdp,
-      tipologia: "Rilavorazione",
-      stato: "In Lavorazione Esterna",
-      fornitore: body.fornitoreNome ?? null,
-      fornitoreId,
-      note: body.note ?? null,
-      dataProduzionePrevista: body.dataRientro ?? null,
-      quantita: body.quantita ?? parent.quantita ?? null,
+    const { rilavorazione, subOdp, ritiro } = await createRilavorazione({
       parentId,
+      descrizione: body.descrizione.trim(),
+      fornitoreNome: body.fornitoreNome,
+      note: body.note,
+      dataRientro: body.dataRientro,
+      quantita: body.quantita,
+      creaRitiro: body.creaRitiro,
     });
 
-    await updateSchedaStato(parentId, "In Attesa Rilavorazione");
-
-    // Crea ritiro "Consegna" + notifica Telegram (solo se flag esplicito e fornitore presente)
-    if (body.creaRitiro && fornitoreId) {
-      void (async () => {
-        try {
-          await createRitiro({
-            causale: `Rilavorazione — ${subOdp}`,
-            tipoMovimento: "Consegna",
-            dataTrasporto: body.dataRientro ?? new Date().toISOString().slice(0, 10),
-            schedaId: parent.parentId ?? parentId,
-            fornitoreId,
-            rilavorazioneId: rilavorazione.id,
-          });
-
-          // Notifica Telegram via n8n
-          const webhookUrl = process.env.N8N_WEBHOOK_CARICO_PROD ?? process.env.N8N_WEBHOOK_CARICO;
-          if (webhookUrl) {
-            await fetch(webhookUrl, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                tipo: "rilavorazione_consegna",
-                operatore: session.name,
-                odp_label: subOdp,
-                fornitore: body.fornitoreNome ?? "",
-                descrizione: body.descrizione.trim(),
-                data_rientro: body.dataRientro ?? "",
-                note: body.note ?? "",
-                timestamp: new Date().toISOString(),
-              }),
-            }).catch((e) => console.warn("[rilavorazione] n8n notify:", e.message));
-          }
-        } catch (e) {
-          console.error("[rilavorazione] createRitiro:", e);
-        }
-      })();
+    // Notifica Telegram (solo se il ritiro è stato effettivamente creato)
+    if (ritiro) {
+      const webhookUrl = process.env.N8N_WEBHOOK_CARICO_PROD ?? process.env.N8N_WEBHOOK_CARICO;
+      if (webhookUrl) {
+        fetch(webhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tipo: "rilavorazione_consegna",
+            operatore: session.name,
+            odp_label: subOdp,
+            fornitore: body.fornitoreNome ?? "",
+            descrizione: body.descrizione.trim(),
+            data_rientro: body.dataRientro ?? "",
+            note: body.note ?? "",
+            timestamp: new Date().toISOString(),
+          }),
+        }).catch((e) => console.warn("[rilavorazione] n8n notify:", e.message));
+      }
     }
 
     // Build + upload flattened PDF (with optional annotations and photos)

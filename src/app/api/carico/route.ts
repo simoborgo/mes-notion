@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createRitiro, updateSchedaStato, getFornitoriList, appendFotoToPage } from "@/lib/notion";
+import { createRitiro, updateSchedaStato, getFornitoriList, appendFotoToPage, getSchedaById, createRilavorazione } from "@/lib/notion";
 import { getSessionFromRequest, CARICO_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
     ritiro_data,
     ritiro_fornitore,
     figlie_page_ids,
+    non_conformita,
   } = body as Record<string, unknown>;
 
   if (!odp_page_id || typeof odp_page_id !== "string") {
@@ -55,31 +56,70 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Destinazione non valida" }, { status: 400 });
   }
 
-  // 1. Aggiorna stato Notion direttamente (sempre — non dipende da n8n)
-  const statoNotion = STATO_PER_DESTINAZIONE[dest];
-  try {
-    await updateSchedaStato(odp_page_id, statoNotion);
-  } catch (e) {
-    console.error("[carico] updateSchedaStato error:", e);
-    return NextResponse.json(
-      { error: "Impossibile aggiornare lo stato su Notion" },
-      { status: 502 }
-    );
-  }
-
-  // 1b. Aggiorna sottoschede se richiesto (solo Magazzino interno)
-  const figlieIds = Array.isArray(figlie_page_ids)
-    ? (figlie_page_ids as string[]).filter(id => typeof id === "string")
-    : [];
-  if (figlieIds.length > 0 && dest === "Magazzino interno") {
-    const results = await Promise.allSettled(
-      figlieIds.map(id => updateSchedaStato(id, statoNotion))
-    );
-    const failed = results.filter(r => r.status === "rejected").length;
-    if (failed > 0) console.warn(`[carico] ${failed}/${figlieIds.length} sottoschede non aggiornate`);
-  }
+  // NC + Fornitore esterno → il materiale non esce per lavorazione esterna normale,
+  // ma per una rilavorazione: crea la scheda figlia, sblocca il padre in
+  // "In Attesa Rilavorazione" e collega la Consegna alla rilavorazione (non alla scheda).
+  const isNC = dest === "Fornitore esterno" && non_conformita === true;
 
   const warnings: string[] = [];
+  let statoNotion: string;
+  let rilavorazioneId: string | null = null;
+
+  if (isNC) {
+    try {
+      const parentScheda = await getSchedaById(odp_page_id);
+      const descrizioneRilavorazione = `Rilavorazione NC - ${parentScheda.numeroScheda || parentScheda.odp}`;
+      const fornitoreNome = ritiro_fornitore ? String(ritiro_fornitore).trim() : null;
+      const result = await createRilavorazione({
+        parentId: odp_page_id,
+        descrizione: descrizioneRilavorazione,
+        fornitoreNome,
+        dataRientro: ritiro_data ? String(ritiro_data) : new Date().toISOString().slice(0, 10),
+        creaRitiro: true,
+        parent: parentScheda,
+      });
+      rilavorazioneId = result.rilavorazione.id;
+      statoNotion = "In Attesa Rilavorazione";
+      if (result.ritiro && fotoArray.length) {
+        void appendFotoToPage(result.ritiro.id, fotoArray).catch(e =>
+          console.error("[carico] appendFoto ritiro NC:", e)
+        );
+      }
+      if (!result.ritiro) {
+        warnings.push("Rilavorazione creata, ma nessuna Consegna generata (fornitore mancante)");
+      }
+    } catch (e) {
+      console.error("[carico] createRilavorazione error:", e);
+      return NextResponse.json(
+        { error: "Impossibile creare la Rilavorazione su Notion" },
+        { status: 502 }
+      );
+    }
+  } else {
+    // 1. Aggiorna stato Notion direttamente (sempre — non dipende da n8n)
+    statoNotion = STATO_PER_DESTINAZIONE[dest];
+    try {
+      await updateSchedaStato(odp_page_id, statoNotion);
+    } catch (e) {
+      console.error("[carico] updateSchedaStato error:", e);
+      return NextResponse.json(
+        { error: "Impossibile aggiornare lo stato su Notion" },
+        { status: 502 }
+      );
+    }
+
+    // 1b. Aggiorna sottoschede se richiesto (solo Magazzino interno)
+    const figlieIds = Array.isArray(figlie_page_ids)
+      ? (figlie_page_ids as string[]).filter(id => typeof id === "string")
+      : [];
+    if (figlieIds.length > 0 && dest === "Magazzino interno") {
+      const results = await Promise.allSettled(
+        figlieIds.map(id => updateSchedaStato(id, statoNotion))
+      );
+      const failed = results.filter(r => r.status === "rejected").length;
+      if (failed > 0) console.warn(`[carico] ${failed}/${figlieIds.length} sottoschede non aggiornate`);
+    }
+  }
 
   // 2. Chiama n8n con payload minimale — solo notifica Telegram
   const webhookUrl = process.env.N8N_WEBHOOK_CARICO_PROD ?? process.env.N8N_WEBHOOK_CARICO;
@@ -95,6 +135,7 @@ export async function POST(req: NextRequest) {
       cliente_info: body.cliente_info ?? "",
       destinazione: destLabel,
       stato_notion: statoNotion,
+      non_conformita: isNC,
       note: note ?? "",
       timestamp: (body.timestamp as string | undefined) ?? new Date().toISOString(),
       foto_base64: fotoArray.length > 0 ? [fotoArray[0]] : [],
@@ -121,8 +162,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 3. Crea riga Ritiri se richiesto (Fornitore esterno)
-  if (crea_ritiro) {
+  // 3. Crea riga Ritiri se richiesto (Fornitore esterno, percorso normale — non NC)
+  if (crea_ritiro && !isNC) {
     try {
       const fornitoriList = await getFornitoriList();
       const fornitoreNome = ritiro_fornitore ? String(ritiro_fornitore).trim() : null;
@@ -155,7 +196,7 @@ export async function POST(req: NextRequest) {
     "CREATE",
     "carico",
     String(odp_page_id),
-    { odp_label, destinazione, crea_ritiro, note, stato_notion: statoNotion }
+    { odp_label, destinazione, crea_ritiro, note, stato_notion: statoNotion, non_conformita: isNC, rilavorazione_id: rilavorazioneId }
   );
 
   if (warnings.length > 0) {

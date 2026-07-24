@@ -544,7 +544,7 @@ export default function FormCaricoMagazzino({ schede, sottoschede = [], fornitor
               Non Conformità
             </p>
             <p className="text-xs" style={{ color: nonConformita ? "#EF4444" : "var(--color-grey-mid)" }}>
-              Il materiale viene inviato per un problema di qualità
+              Il materiale viene inviato per un problema di qualità — verrà creata una Rilavorazione invece di una semplice uscita
             </p>
           </div>
         </button>
@@ -553,17 +553,21 @@ export default function FormCaricoMagazzino({ schede, sottoschede = [], fornitor
       {/* Sezione Ritiri — sempre attiva per Fornitore esterno */}
       {dest === "Fornitore esterno" && (
         <section>
-          <div className="rounded-xl border-2 overflow-hidden" style={{ borderColor: "var(--color-primary)" }}>
-            <div className="flex items-center gap-3 px-4 py-3" style={{ background: "rgba(240,143,37,0.06)" }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+          <div className="rounded-xl border-2 overflow-hidden" style={{ borderColor: nonConformita ? "#EF4444" : "var(--color-primary)" }}>
+            <div className="flex items-center gap-3 px-4 py-3" style={{ background: nonConformita ? "#FEF2F2" : "rgba(240,143,37,0.06)" }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={nonConformita ? "#EF4444" : "var(--color-primary)"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                 <polyline points="20 6 9 17 4 12" />
               </svg>
               <div>
                 <p className="text-sm font-semibold" style={{ color: "var(--color-black)" }}>
-                  Riga Ritiri e Consegne — creata automaticamente
+                  {nonConformita
+                    ? "Rilavorazione — creata automaticamente"
+                    : "Riga Ritiri e Consegne — creata automaticamente"}
                 </p>
                 <p className="text-xs" style={{ color: "var(--color-grey-mid)" }}>
-                  Verrà aggiunta una consegna in uscita con stato Da Fare
+                  {nonConformita
+                    ? "La scheda resta \"In Attesa Rilavorazione\" finché il pezzo non rientra dal fornitore"
+                    : "Verrà aggiunta una consegna in uscita con stato Da Fare"}
                 </p>
               </div>
             </div>

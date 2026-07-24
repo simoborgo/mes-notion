@@ -305,6 +305,72 @@ export async function createRitiro({
   return pageToRitiro(page);
 }
 
+// Logica condivisa di creazione rilavorazione: usata dal wizard (scheda dettaglio)
+// e dallo shortcut NC in Carico Magazzino. Crea la scheda figlia, sblocca lo stato
+// del padre ("In Attesa Rilavorazione") ed eventualmente crea la Consegna collegata.
+export async function createRilavorazione({
+  parentId,
+  descrizione,
+  fornitoreNome,
+  note,
+  dataRientro,
+  quantita,
+  creaRitiro,
+  parent: parentOverride,
+}: {
+  parentId: string;
+  descrizione: string;
+  fornitoreNome?: string | null;
+  note?: string | null;
+  dataRientro?: string | null;
+  quantita?: number | null;
+  creaRitiro?: boolean;
+  parent?: Scheda;
+}): Promise<{ rilavorazione: Scheda; subOdp: string; parent: Scheda; ritiro: Ritiro | null; ritiroError?: string }> {
+  const parent = parentOverride ?? await getSchedaById(parentId);
+
+  const [subOdp, fornitoreId] = await Promise.all([
+    getNextRilavorazioneOdp(parentId, parent.odp),
+    fornitoreNome ? findFornitoreIdByName(fornitoreNome) : Promise.resolve(null),
+  ]);
+
+  const rilavorazione = await createSchedaPage({
+    numeroScheda: descrizione,
+    commessaId: parent.commessaId,
+    odp: subOdp,
+    tipologia: "Rilavorazione",
+    stato: "In Lavorazione Esterna",
+    fornitore: fornitoreNome ?? null,
+    fornitoreId,
+    note: note ?? null,
+    dataProduzionePrevista: dataRientro ?? null,
+    quantita: quantita ?? parent.quantita ?? null,
+    parentId,
+  });
+
+  await updateSchedaStato(parentId, "In Attesa Rilavorazione");
+
+  let ritiro: Ritiro | null = null;
+  let ritiroError: string | undefined;
+  if (creaRitiro && fornitoreId) {
+    try {
+      ritiro = await createRitiro({
+        causale: `Rilavorazione — ${subOdp}`,
+        tipoMovimento: "Consegna",
+        dataTrasporto: dataRientro ?? new Date().toISOString().slice(0, 10),
+        schedaId: parent.parentId ?? parentId,
+        fornitoreId,
+        rilavorazioneId: rilavorazione.id,
+      });
+    } catch (e) {
+      console.error("[createRilavorazione] createRitiro:", e);
+      ritiroError = (e as Error).message;
+    }
+  }
+
+  return { rilavorazione, subOdp, parent, ritiro, ritiroError };
+}
+
 export async function createCarico({
   titolo,
   dataCarico,
