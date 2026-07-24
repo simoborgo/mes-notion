@@ -1,6 +1,6 @@
 import { Client } from "@notionhq/client";
 import { unstable_cache } from "next/cache";
-import type { Scheda, SchedaUpdate, Ritiro, RitiroUpdate, Commessa, Area, Carico } from "./types";
+import type { Scheda, SchedaUpdate, Ritiro, RitiroUpdate, Commessa, Area, Carico, Operatore, OdpAttivo } from "./types";
 
 const notion = new Client({ auth: process.env.NOTION_TOKEN, fetch: globalThis.fetch });
 
@@ -10,6 +10,7 @@ const DB_AREE = process.env.NOTION_DB_AREE!;
 const DB_RITIRI = process.env.NOTION_DB_RITIRI!;
 const DB_CARICHI = process.env.NOTION_DB_CARICHI!;
 const DB_FORNITORI = process.env.NOTION_DB_FORNITORI!;
+const DB_OPERATORI = process.env.NOTION_DB_OPERATORI!;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function prop(page: any, name: string): any {
@@ -411,6 +412,62 @@ export const getFornitori = unstable_cache(
   ["notion-fornitori"],
   { revalidate: 300, tags: ["fornitori"] }
 );
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function pageToOperatore(page: any): Operatore {
+  const uniqueId = prop(page, "ID")?.unique_id;
+  const matricola = uniqueId ? `${uniqueId.prefix}-${String(uniqueId.number).padStart(4, "0")}` : "";
+  return {
+    id: page.id,
+    matricola,
+    cognome: getText(prop(page, "Cognome")),
+    nome: getText(prop(page, "Nome")),
+    reparto: getText(prop(page, "Reparto")),
+    tipo: getText(prop(page, "Tipo")),
+    azienda: getText(prop(page, "Azienda")),
+    inForza: getCheckbox(prop(page, "In Forza")),
+  };
+}
+
+// Operatori "in forza" dal database Notion "Personale" — usati da Rilevamento Ore
+export const getOperatori = unstable_cache(
+  async (): Promise<Operatore[]> => {
+    const pages = await queryAll(DB_OPERATORI,
+      { property: "In Forza", checkbox: { equals: true } },
+      [{ property: "Cognome", direction: "ascending" }]
+    );
+    return pages.map(pageToOperatore).filter(o => o.matricola);
+  },
+  ["notion-operatori"],
+  { revalidate: 300, tags: ["operatori"] }
+);
+
+const ODP_SPECIALI: { prefix: string; label: string }[] = [
+  { prefix: "SET", label: "Setup" },
+  { prefix: "MNT", label: "Manutenzione" },
+  { prefix: "MEET", label: "Riunione" },
+  { prefix: "FORM", label: "Formazione" },
+  { prefix: "PUL", label: "Pulizie" },
+];
+
+// ODP attivi (Schede in stato "In Lavorazione") + codici speciali indiretti,
+// per l'autocomplete di Rilevamento Ore
+export async function getOdpAttivi(): Promise<OdpAttivo[]> {
+  const schede = await getSchede();
+  const attivi: OdpAttivo[] = schede
+    .filter(s => s.statoProduzione === "In Lavorazione" && s.odp)
+    .map(s => ({
+      odp: s.odp,
+      label: s.clienteInfo ? `${s.odp} — ${s.clienteInfo}` : s.odp,
+      isSpeciale: false,
+    }));
+  const speciali: OdpAttivo[] = ODP_SPECIALI.map(s => ({
+    odp: s.prefix,
+    label: `${s.prefix} — ${s.label}`,
+    isSpeciale: true,
+  }));
+  return [...attivi, ...speciali];
+}
 
 export const getFornitoriList = unstable_cache(
   async (): Promise<{ id: string; nome: string }[]> => {

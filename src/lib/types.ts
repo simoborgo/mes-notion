@@ -134,3 +134,20 @@ export interface Area {
   statoProduzione: string;
   notionUrl: string;
 }
+
+export interface Operatore {
+  id: string;
+  matricola: string; // DIP-0072
+  cognome: string;
+  nome: string;
+  reparto: string;
+  tipo: string;
+  azienda: string;
+  inForza: boolean;
+}
+
+export interface OdpAttivo {
+  odp: string;
+  label: string;
+  isSpeciale: boolean;
+}
