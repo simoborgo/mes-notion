@@ -113,6 +113,25 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       extraRows.push(`<div class="row"><div class="lbl">Descrizione</div><div class="val val-lg">${esc(desc)}</div></div>`);
     }
 
+    // Badge Urgente / NC (+ Rilavorazione se collegata) — mostrati sopra al QR
+    const badges: string[] = [];
+    if (ritiro.urgenza) {
+      badges.push(`<span class="badge-pill urgente">⚠ URGENTE</span>`);
+    }
+    if (ritiro.nc) {
+      badges.push(
+        ritiro.rilavorazioneId
+          ? `<span class="badge-pill nc">⛔ NC — RILAVORAZIONE</span>`
+          : `<span class="badge-pill nc">⛔ NON CONFORMITÀ</span>`
+      );
+    }
+    // Se presenti, i badge si ancorano insieme al blocco QR in fondo pagina
+    // (spostano loro il margin-top:auto, altrimenti resta sul QR come prima)
+    const badgesHtml = badges.length > 0
+      ? `<div class="badges" style="margin-top:auto">${badges.join("")}</div>`
+      : "";
+    const qrwrapStyle = badgesHtml ? "" : ` style="margin-top:auto"`;
+
     // Titolo Scheda (hero) + ODP come riferimento piccolo sotto
     const codeSectionHtml = nScheda
       ? `<div class="code">${esc(nScheda)}</div><div class="sub">${codeStr}</div>`
@@ -156,7 +175,11 @@ body{font-family:'Jost',sans-serif;background:#fff;margin:0;padding:0;width:100%
 .row .lbl{margin-bottom:2px}
 .row .val{font-size:20px;font-weight:500;color:#1A1918;line-height:1.3}
 .row .val-lg{font-size:24px}
-.qrwrap{display:flex;align-items:stretch;gap:16px;padding:6mm 10mm;margin-top:auto}
+.badges{display:flex;flex-wrap:wrap;gap:8px;padding:4mm 10mm 0}
+.badge-pill{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:20px;font-weight:700;font-size:13px;letter-spacing:.06em}
+.badge-pill.urgente{background:#FEF3C7;color:#92400E;border:1px solid #FCD34D}
+.badge-pill.nc{background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5}
+.qrwrap{display:flex;align-items:stretch;gap:16px;padding:6mm 10mm}
 .qr-col{display:flex;flex-direction:column;align-items:center;gap:6px;flex:0 0 auto}
 .qrbox{border:1px solid #E4E0DA;border-radius:6px;padding:6px;flex-shrink:0;line-height:0}
 .qrbox svg{display:block;width:100px;height:100px}
@@ -193,7 +216,8 @@ body{font-family:'Jost',sans-serif;background:#fff;margin:0;padding:0;width:100%
   </div>
   <div class="rule"></div>
   ${extraRows.join("\n  ")}
-  <div class="qrwrap">
+  ${badgesHtml}
+  <div class="qrwrap"${qrwrapStyle}>
     <div class="qr-col">
       <div class="qrbox">${qrSvg}</div>
       <div class="qr-cap">
