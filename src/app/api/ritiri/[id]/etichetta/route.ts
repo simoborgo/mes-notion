@@ -164,7 +164,7 @@ body{font-family:'Jost',sans-serif;background:#fff;margin:0;padding:0;width:100%
 .qr-cap{text-align:center}
 .qr-apri{font-size:14px;font-weight:600;color:#1A1918}
 .qr-rif{font-size:11px;color:#A4A4A6;margin-top:2px}
-.foto-col{flex:1;display:grid;gap:6px;height:160px}
+.foto-col{flex:1;display:grid;gap:6px;height:140px}
 .foto-col img{width:100%;height:100%;object-fit:cover;border-radius:6px;border:1px solid #E4E0DA}
 .ft{display:flex;justify-content:space-between;align-items:center;padding:4mm 10mm 5mm;border-top:1px solid #E4E0DA;margin-top:auto}
 .ft span{font-size:10px;color:#A4A4A6;letter-spacing:.06em}
