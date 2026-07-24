@@ -118,11 +118,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       ? `<div class="code">${esc(nScheda)}</div><div class="sub">${codeStr}</div>`
       : `<div class="code">${codeStr}</div>`;
 
-    // Foto allegate: thumbnail a fianco del QR (max 4)
-    const fotoList = (ritiro.foto || []).slice(0, 4);
-    const fotoCols = fotoList.length <= 1 ? 1 : 2;
+    // Foto allegate: thumbnail a fianco del QR, altezza fissa indipendente dall'orientamento
+    const fotoList = (ritiro.foto || []).slice(0, 2);
     const fotoColHtml = fotoList.length > 0
-      ? `<div class="foto-col" style="grid-template-columns:repeat(${fotoCols},1fr)">
+      ? `<div class="foto-col">
           ${fotoList.map(f => `<img src="${esc(f.url)}" alt="">`).join("\n          ")}
         </div>`
       : "";
@@ -164,8 +163,8 @@ body{font-family:'Jost',sans-serif;background:#fff;margin:0;padding:0;width:100%
 .qr-cap{text-align:center}
 .qr-apri{font-size:14px;font-weight:600;color:#1A1918}
 .qr-rif{font-size:11px;color:#A4A4A6;margin-top:2px}
-.foto-col{flex:1;display:grid;gap:6px;height:140px}
-.foto-col img{width:100%;height:100%;object-fit:cover;border-radius:6px;border:1px solid #E4E0DA}
+.foto-col{flex:1;display:flex;gap:6px;height:140px;max-height:140px;overflow:hidden}
+.foto-col img{flex:1 1 0;min-width:0;width:100%;height:140px;max-height:140px;object-fit:cover;display:block;border-radius:6px;border:1px solid #E4E0DA}
 .ft{display:flex;justify-content:space-between;align-items:center;padding:4mm 10mm 5mm;border-top:1px solid #E4E0DA;margin-top:auto}
 .ft span{font-size:10px;color:#A4A4A6;letter-spacing:.06em}
 @media print{@page{size:A4;margin:12mm}body{padding:0}}
