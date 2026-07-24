@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { updateRitiro, deleteRitiro, getRitiriByScheda, updateSchedaRientrato, updateSchedaConsegnaFatta, updateRilavorazioneRientrata } from "@/lib/notion";
+import { updateRitiro, deleteRitiro, getRitiriByScheda, getRitiroById, getSchedaById, createRilavorazione, updateSchedaRientrato, updateSchedaConsegnaFatta, updateRilavorazioneRientrata } from "@/lib/notion";
 import type { RitiroUpdate } from "@/lib/types";
 import { getSessionFromRequest, WRITE_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
@@ -15,6 +15,37 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
     body = await req.json();
     console.log("[PATCH /api/ritiri/%s] operatore:%s payload:", id, session?.name, JSON.stringify(body));
+
+    // NC appena attivato + Consegna + Scheda collegata + nessuna Rilavorazione già
+    // presente → crea la Rilavorazione e ricollega questo movimento (come in creazione).
+    const current = await getRitiroById(id);
+    const effectiveSchedaId = body!.schedaId !== undefined ? body!.schedaId : current.numeroOrdineId;
+    const effectiveTipo = body!.tipoMovimento !== undefined ? body!.tipoMovimento : current.tipoMovimento;
+    const isNC = body!.nc === true && !current.rilavorazioneId && effectiveTipo === "Consegna" && !!effectiveSchedaId;
+
+    if (isNC) {
+      try {
+        const parentScheda = await getSchedaById(effectiveSchedaId!);
+        const descrizioneRilavorazione = `Rilavorazione NC - ${parentScheda.numeroScheda || parentScheda.odp}`;
+        const result = await createRilavorazione({
+          parentId: effectiveSchedaId!,
+          descrizione: descrizioneRilavorazione,
+          fornitoreId: (body!.fornitoreId !== undefined ? body!.fornitoreId : null) ?? null,
+          dataRientro: body!.dataTrasporto !== undefined ? body!.dataTrasporto : current.dataTrasporto,
+          creaRitiro: false,
+          parent: parentScheda,
+        });
+        body!.rilavorazioneId = result.rilavorazione.id;
+        body!.schedaId = parentScheda.parentId ?? effectiveSchedaId;
+      } catch (e) {
+        console.error("[PATCH /api/ritiri] createRilavorazione error:", e);
+        return NextResponse.json(
+          { error: "Impossibile creare la Rilavorazione su Notion" },
+          { status: 502 }
+        );
+      }
+    }
+
     const updated = await updateRitiro(id, body!);
 
     if (updated.stato === "Fatto") {

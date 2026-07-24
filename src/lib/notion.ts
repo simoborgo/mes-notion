@@ -312,6 +312,7 @@ export async function createRilavorazione({
   parentId,
   descrizione,
   fornitoreNome,
+  fornitoreId: fornitoreIdOverride,
   note,
   dataRientro,
   quantita,
@@ -321,6 +322,7 @@ export async function createRilavorazione({
   parentId: string;
   descrizione: string;
   fornitoreNome?: string | null;
+  fornitoreId?: string | null;
   note?: string | null;
   dataRientro?: string | null;
   quantita?: number | null;
@@ -331,7 +333,9 @@ export async function createRilavorazione({
 
   const [subOdp, fornitoreId] = await Promise.all([
     getNextRilavorazioneOdp(parentId, parent.odp),
-    fornitoreNome ? findFornitoreIdByName(fornitoreNome) : Promise.resolve(null),
+    fornitoreIdOverride
+      ? Promise.resolve(fornitoreIdOverride)
+      : fornitoreNome ? findFornitoreIdByName(fornitoreNome) : Promise.resolve(null),
   ]);
 
   const rilavorazione = await createSchedaPage({
@@ -624,6 +628,10 @@ export async function updateRitiro(id: string, data: RitiroUpdate): Promise<Riti
   if (data.commessaId !== undefined)
     properties["Commessa"] = data.commessaId
       ? { relation: [{ id: data.commessaId }] }
+      : { relation: [] };
+  if (data.rilavorazioneId !== undefined)
+    properties["Rilavorazione"] = data.rilavorazioneId
+      ? { relation: [{ id: data.rilavorazioneId }] }
       : { relation: [] };
 
   const [, fornitoriMap] = await Promise.all([

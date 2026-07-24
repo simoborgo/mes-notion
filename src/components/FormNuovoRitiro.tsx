@@ -35,8 +35,8 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], commesse 
     dataOra: "",
     urgenza: false,
     nc: false,
-    nrCollo: null as number | null,
-    totColli: null as number | null,
+    nrCollo: 1 as number | null,
+    totColli: 1 as number | null,
     schedaId: null as string | null,
     fornitoreId: null as string | null,
     commessaId: null as string | null,
@@ -100,6 +100,15 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], commesse 
       `${c.numeroCommessa} ${c.cliente} ${c.localita}`.toLowerCase().includes(q)
     );
   }, [commesse, commessaSearch]);
+
+  // Anteprima Rilavorazione generata automaticamente quando NC è attivo
+  const schedaSelezionata = useMemo(
+    () => (form.schedaId ? schede.find(s => s.id === form.schedaId) ?? null : null),
+    [schede, form.schedaId]
+  );
+  const rilavorazioneTitolo = schedaSelezionata
+    ? `Rilavorazione NC - ${schedaSelezionata.numeroScheda || schedaSelezionata.odp}`
+    : null;
 
   function selectScheda(s: Scheda) {
     const fornitoreMatch = fornitori.find(f => f.nome === s.fornitore);
@@ -404,6 +413,19 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], commesse 
               <label htmlFor="nc-new" className="text-sm font-medium">NC (Non Conformità)</label>
             </div>
           </div>
+
+          {/* Info: NC genera anche una Rilavorazione */}
+          {form.nc && (
+            rilavorazioneTitolo && form.tipoMovimento === "Consegna" ? (
+              <div className="rounded-lg px-3 py-2 text-xs" style={{ background: "#FEF2F2", border: "1px solid #FECACA", color: "#991B1B" }}>
+                ⚠ Verrà creata anche una <strong>Rilavorazione</strong>: &quot;{rilavorazioneTitolo}&quot;. La scheda madre passa a &quot;In Attesa Rilavorazione&quot; e questo movimento si collega alla rilavorazione.
+              </div>
+            ) : (
+              <div className="rounded-lg px-3 py-2 text-xs" style={{ background: "#FFFBEB", border: "1px solid #FCD34D", color: "#92400E" }}>
+                Nessuna Rilavorazione verrà creata: serve una Scheda ODP collegata e Tipo Movimento &quot;Consegna&quot;.
+              </div>
+            )
+          )}
 
           {/* Colli */}
           <div>

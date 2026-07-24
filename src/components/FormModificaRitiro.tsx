@@ -84,6 +84,16 @@ export default function FormModificaRitiro({ ritiro, schede = [], fornitori = []
     return commesse.filter(c => `${c.numeroCommessa} ${c.cliente} ${c.localita}`.toLowerCase().includes(q)).slice(0, 12);
   }, [commesse, commessaSearch]);
 
+  // Anteprima Rilavorazione generata automaticamente quando NC è attivo
+  const schedaSelezionata = useMemo(
+    () => (form.schedaId ? schede.find(s => s.id === form.schedaId) ?? null : null),
+    [schede, form.schedaId]
+  );
+  const rilavorazioneTitolo = schedaSelezionata
+    ? `Rilavorazione NC - ${schedaSelezionata.numeroScheda || schedaSelezionata.odp}`
+    : null;
+  const rilavorazioneGiaCollegata = !!ritiro.rilavorazioneId;
+
   function selectScheda(s: Scheda) {
     set("schedaId", s.id);
     set("commessaId", s.commessaId ?? null);
@@ -306,6 +316,26 @@ export default function FormModificaRitiro({ ritiro, schede = [], fornitori = []
               />
               <label htmlFor="nc" className="text-sm font-medium">NC (Non Conformità)</label>
             </div>
+
+            {/* Info: NC genera anche una Rilavorazione */}
+            {form.nc && (
+              <div className="col-span-2">
+                {rilavorazioneGiaCollegata ? (
+                  <div className="rounded-lg px-3 py-2 text-xs" style={{ background: "#F3F4F6", border: "1px solid #E5E7EB", color: "#374151" }}>
+                    Questo movimento è già collegato a una Rilavorazione esistente — non ne verrà creata una nuova.
+                  </div>
+                ) : rilavorazioneTitolo && form.tipoMovimento === "Consegna" ? (
+                  <div className="rounded-lg px-3 py-2 text-xs" style={{ background: "#FEF2F2", border: "1px solid #FECACA", color: "#991B1B" }}>
+                    ⚠ Al salvataggio verrà creata anche una <strong>Rilavorazione</strong>: &quot;{rilavorazioneTitolo}&quot;. La scheda madre passa a &quot;In Attesa Rilavorazione&quot; e questo movimento si collega alla rilavorazione.
+                  </div>
+                ) : (
+                  <div className="rounded-lg px-3 py-2 text-xs" style={{ background: "#FFFBEB", border: "1px solid #FCD34D", color: "#92400E" }}>
+                    Nessuna Rilavorazione verrà creata: serve una Scheda ODP collegata e Tipo Movimento &quot;Consegna&quot;.
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="col-span-2">
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Colli</label>
               <div className="flex items-center gap-2">

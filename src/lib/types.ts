@@ -85,6 +85,7 @@ export interface RitiroUpdate {
   fornitore?: string;
   schedaId?: string | null;
   fornitoreId?: string | null;
+  rilavorazioneId?: string | null;
 }
 
 export interface Commessa {
