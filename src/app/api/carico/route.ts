@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { createRitiro, updateSchedaStato, getFornitoriList, appendFotoToPage, getSchedaById, createRilavorazione } from "@/lib/notion";
 import { getSessionFromRequest, CARICO_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
@@ -198,6 +199,9 @@ export async function POST(req: NextRequest) {
     String(odp_page_id),
     { odp_label, destinazione, crea_ritiro, note, stato_notion: statoNotion, non_conformita: isNC, rilavorazione_id: rilavorazioneId }
   );
+
+  revalidatePath("/schede");
+  revalidatePath("/ritiri");
 
   if (warnings.length > 0) {
     return NextResponse.json({ ok: true, warnings }, { status: 207 });

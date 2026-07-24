@@ -57,6 +57,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
               // Pezzo tornato fisicamente: Stato Produzione Esterna = "Rientrato"
               // Parent rimane "In Attesa Rilavorazione" fino a "Segna Rientrata" manuale
               await updateRilavorazioneRientrata(updated.rilavorazioneId);
+              revalidatePath("/schede");
             }
             // Consegna → Fatto: nessun cambio stato (solo tracking logistico)
             return;
@@ -71,8 +72,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
             if (updated.tipoMovimento === "Ritiro") {
               await updateSchedaRientrato(schedaId);
+              revalidatePath("/schede");
             } else if (updated.tipoMovimento === "Consegna") {
               await updateSchedaConsegnaFatta(schedaId);
+              revalidatePath("/schede");
             }
           }
         } catch (e) {
@@ -82,6 +85,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     revalidatePath("/ritiri");
+    if (isNC || effectiveSchedaId) revalidatePath("/schede");
 
     // Audit log — fire-and-forget, non blocca la risposta
     void logOperation(

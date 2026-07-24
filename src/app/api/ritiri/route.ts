@@ -92,6 +92,7 @@ export async function POST(req: NextRequest) {
     );
 
     revalidatePath("/ritiri");
+    if (isNC || schedaId) revalidatePath("/schede");
     return NextResponse.json(ritiroFinale, { status: 201 });
   } catch (e) {
     console.error(e);
