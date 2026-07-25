@@ -1,6 +1,6 @@
 import { Client } from "@notionhq/client";
 import { unstable_cache } from "next/cache";
-import type { Scheda, SchedaUpdate, Ritiro, RitiroUpdate, Commessa, Area, Carico, Operatore, OdpAttivo } from "./types";
+import type { Scheda, SchedaUpdate, Ritiro, RitiroUpdate, Commessa, Area, Carico, Operatore, OdpAttivo, ArticoloFerramenta, ArticoloFerramentaUpdate } from "./types";
 
 const notion = new Client({ auth: process.env.NOTION_TOKEN, fetch: globalThis.fetch });
 
@@ -11,6 +11,9 @@ const DB_RITIRI = process.env.NOTION_DB_RITIRI!;
 const DB_CARICHI = process.env.NOTION_DB_CARICHI!;
 const DB_FORNITORI = process.env.NOTION_DB_FORNITORI!;
 const DB_OPERATORI = process.env.NOTION_DB_OPERATORI!;
+const DB_FERRAMENTA = process.env.NOTION_DB_FERRAMENTA!;
+// Nome esatto della property relation su DB_FERRAMENTA (creata con icona dall'utente su Notion)
+const FERRAMENTA_PROP_FORNITORE = "🏭 Fornitore";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function prop(page: any, name: string): any {
@@ -489,14 +492,19 @@ const getFornitoriMap = unstable_cache(
   { revalidate: 300, tags: ["fornitori"] }
 );
 
-export async function findFornitoreIdByName(name: string): Promise<string | null> {
+export async function findFornitoreMatch(name: string): Promise<{ id: string; nome: string; matchType: "exact" | "partial" } | null> {
   if (!name) return null;
   const list = await getFornitoriList();
   const needle = name.trim().toLowerCase();
   const exact = list.find((f) => f.nome.toLowerCase() === needle);
-  if (exact) return exact.id;
+  if (exact) return { ...exact, matchType: "exact" };
   const partial = list.find((f) => f.nome.toLowerCase().includes(needle) || needle.includes(f.nome.toLowerCase()));
-  return partial?.id ?? null;
+  return partial ? { ...partial, matchType: "partial" } : null;
+}
+
+export async function findFornitoreIdByName(name: string): Promise<string | null> {
+  const match = await findFornitoreMatch(name);
+  return match?.id ?? null;
 }
 
 export async function updateSchedaStato(pageId: string, stato: string): Promise<void> {
@@ -936,4 +944,100 @@ export async function appendFotoToPage(pageId: string, fotoBase64Array: string[]
     const err = await updateRes.json().catch(() => ({})) as any;
     throw new Error(err.message ?? `update page: ${updateRes.status}`);
   }
+}
+
+// ── Gestione Ferramenta ─────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function pageToArticoloFerramenta(page: any, fornitoriMap?: Record<string, string>): ArticoloFerramenta {
+  const fornitoreId = getRelationId(prop(page, FERRAMENTA_PROP_FORNITORE));
+  const metodo = getText(prop(page, "Metodo Gestione"));
+  return {
+    id: page.id,
+    descrizione: getText(prop(page, "Descrizione")),
+    codiceOs1: getText(prop(page, "Codice OS1")),
+    unitaMisura: getText(prop(page, "Unita di Misura")),
+    fornitoreId,
+    fornitoreNome: (fornitoreId && fornitoriMap?.[fornitoreId]) ?? "",
+    fornitoreNomeOs1: getText(prop(page, "Fornitore Nome OS1")),
+    metodoGestione: metodo === "Kanban" || metodo === "A Pezzo" ? metodo : null,
+    giacenzaAttuale: getNumber(prop(page, "Giacenza Attuale")) ?? 0,
+    quantitaStandardVaschetta: getNumber(prop(page, "Quantità Standard Vaschetta")),
+    sogliaMinima: getNumber(prop(page, "Soglia Minima")),
+    attivo: getCheckbox(prop(page, "Attivo")),
+    note: getText(prop(page, "Note")),
+    notionUrl: notionUrl(page.id),
+  };
+}
+
+// Nessuna cache: la giacenza deve essere sempre fresca (letture pre-scarico/carico
+// e vista "Da Riordinare" non tollerano dati stantii) — stesso approccio di getRitiri().
+export async function getArticoliFerramenta(): Promise<ArticoloFerramenta[]> {
+  const [pages, fornitoriMap] = await Promise.all([
+    queryAll(DB_FERRAMENTA, undefined, [{ property: "Descrizione", direction: "ascending" }]),
+    getFornitoriMap(),
+  ]);
+  return pages.map(p => pageToArticoloFerramenta(p, fornitoriMap));
+}
+
+export async function getArticoloFerramentaById(id: string): Promise<ArticoloFerramenta> {
+  const [page, fornitoriMap] = await Promise.all([
+    notion.pages.retrieve({ page_id: id }) as Promise<any>, // eslint-disable-line @typescript-eslint/no-explicit-any
+    getFornitoriMap(),
+  ]);
+  return pageToArticoloFerramenta(page, fornitoriMap);
+}
+
+export async function createArticoloFerramenta({
+  descrizione,
+  codiceOs1,
+  unitaMisura,
+  fornitoreId,
+  fornitoreNomeOs1,
+}: {
+  descrizione: string;
+  codiceOs1: string;
+  unitaMisura: string;
+  fornitoreId?: string | null;
+  fornitoreNomeOs1?: string | null;
+}): Promise<ArticoloFerramenta> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const properties: Record<string, any> = {
+    Descrizione: { title: [{ text: { content: descrizione || codiceOs1 } }] },
+    "Codice OS1": { rich_text: [{ text: { content: codiceOs1 } }] },
+    "Unita di Misura": { rich_text: [{ text: { content: unitaMisura || "" } }] },
+    "Giacenza Attuale": { number: 0 },
+    "Attivo": { checkbox: true },
+  };
+  if (fornitoreId) properties[FERRAMENTA_PROP_FORNITORE] = { relation: [{ id: fornitoreId }] };
+  if (fornitoreNomeOs1) properties["Fornitore Nome OS1"] = { rich_text: [{ text: { content: fornitoreNomeOs1 } }] };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const page = await notion.pages.create({ parent: { database_id: DB_FERRAMENTA }, properties }) as any;
+  return pageToArticoloFerramenta(page);
+}
+
+export async function updateArticoloFerramentaClassificazione(id: string, data: ArticoloFerramentaUpdate): Promise<ArticoloFerramenta> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const properties: Record<string, any> = {};
+  if (data.metodoGestione !== undefined)
+    properties["Metodo Gestione"] = data.metodoGestione ? { select: { name: data.metodoGestione } } : { select: null };
+  if (data.quantitaStandardVaschetta !== undefined)
+    properties["Quantità Standard Vaschetta"] = { number: data.quantitaStandardVaschetta };
+  if (data.sogliaMinima !== undefined)
+    properties["Soglia Minima"] = { number: data.sogliaMinima };
+  if (data.attivo !== undefined)
+    properties["Attivo"] = { checkbox: data.attivo };
+  if (data.note !== undefined)
+    properties["Note"] = { rich_text: [{ text: { content: data.note } }] };
+
+  await notion.pages.update({ page_id: id, properties });
+  return getArticoloFerramentaById(id);
+}
+
+export async function updateArticoloFerramentaGiacenza(id: string, giacenzaAttuale: number): Promise<void> {
+  await notion.pages.update({
+    page_id: id,
+    properties: { "Giacenza Attuale": { number: giacenzaAttuale } },
+  });
 }

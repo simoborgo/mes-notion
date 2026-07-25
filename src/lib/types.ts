@@ -151,3 +151,30 @@ export interface OdpAttivo {
   label: string;
   isSpeciale: boolean;
 }
+
+export type MetodoGestioneFerramenta = "Kanban" | "A Pezzo";
+
+export interface ArticoloFerramenta {
+  id: string;
+  descrizione: string;
+  codiceOs1: string;
+  unitaMisura: string;
+  fornitoreId: string | null;
+  fornitoreNome: string;
+  fornitoreNomeOs1: string;
+  metodoGestione: MetodoGestioneFerramenta | null;
+  giacenzaAttuale: number;
+  quantitaStandardVaschetta: number | null;
+  sogliaMinima: number | null;
+  attivo: boolean;
+  note: string;
+  notionUrl: string;
+}
+
+export interface ArticoloFerramentaUpdate {
+  metodoGestione?: MetodoGestioneFerramenta | null;
+  quantitaStandardVaschetta?: number | null;
+  sogliaMinima?: number | null;
+  attivo?: boolean;
+  note?: string;
+}
