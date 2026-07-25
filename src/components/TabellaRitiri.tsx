@@ -131,8 +131,8 @@ export default function TabellaRitiri({
   commesse?: Commessa[];
   userRole?: string;
 }) {
-  const canWrite = userRole === "admin" || userRole === "operatore";
-  const canDelete = userRole === "admin";
+  const canWrite = userRole === "admin" || userRole === "operatore" || userRole === "logistica";
+  const canDelete = userRole === "admin" || userRole === "logistica";
   const [ritiri, setRitiri] = useState(initial);
   const [search, setSearch] = useState("");
   const [filtroStato, setFiltroStato] = useState("");

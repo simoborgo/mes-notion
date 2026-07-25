@@ -112,9 +112,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const { id } = await params;
     const session = await getSessionFromRequest(req);
 
-    // Solo gli admin possono eliminare record
-    if (!session || session.role !== "admin") {
-      return NextResponse.json({ error: "Permesso negato — solo gli admin possono eliminare record" }, { status: 403 });
+    // Admin e logistica possono eliminare record (stesse autorizzazioni su Ritiri e Consegne)
+    if (!session || (session.role !== "admin" && session.role !== "logistica")) {
+      return NextResponse.json({ error: "Permesso negato — solo admin e logistica possono eliminare record" }, { status: 403 });
     }
 
     await deleteRitiro(id);
