@@ -488,9 +488,11 @@ export async function getOdpAttivi(): Promise<OdpAttivo[]> {
 }
 
 export const getFornitoriList = unstable_cache(
-  async (): Promise<{ id: string; nome: string }[]> => {
+  async (): Promise<{ id: string; nome: string; codiceOs1: string }[]> => {
     const pages = await queryAll(DB_FORNITORI, undefined, [{ property: "Nome", direction: "ascending" }]);
-    return pages.map((p) => ({ id: p.id, nome: getText(prop(p, "Nome")) })).filter((f) => f.nome);
+    return pages
+      .map((p) => ({ id: p.id, nome: getText(prop(p, "Nome")), codiceOs1: getText(prop(p, "Codice Fornitore OS1")) }))
+      .filter((f) => f.nome);
   },
   ["notion-fornitori-list"],
   { revalidate: 300, tags: ["fornitori"] }
@@ -507,9 +509,18 @@ const getFornitoriMap = unstable_cache(
   { revalidate: 300, tags: ["fornitori"] }
 );
 
-export async function findFornitoreMatch(name: string): Promise<{ id: string; nome: string; matchType: "exact" | "partial" } | null> {
-  if (!name) return null;
+export async function findFornitoreMatch(name: string, codiceOs1?: string | null): Promise<{ id: string; nome: string; matchType: "exact" | "partial" } | null> {
   const list = await getFornitoriList();
+
+  // Il codice fornitore OS1 è una chiave stabile, immune a cambi di ragione sociale —
+  // ha priorità sul match per nome quando presente sia sul fornitore che nella riga importata.
+  const needleCode = codiceOs1?.trim();
+  if (needleCode) {
+    const byCode = list.find((f) => f.codiceOs1 && f.codiceOs1 === needleCode);
+    if (byCode) return { id: byCode.id, nome: byCode.nome, matchType: "exact" };
+  }
+
+  if (!name) return null;
   const needle = name.trim().toLowerCase();
   const exact = list.find((f) => f.nome.toLowerCase() === needle);
   if (exact) return { ...exact, matchType: "exact" };

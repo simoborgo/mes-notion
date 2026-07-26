@@ -10,6 +10,7 @@ interface DedupItem {
   descrizione: string;
   unitaMisura: string;
   fornitoreNomeOs1: string;
+  idFornitoreOs1: string;
   codiceFornitore: string;
 }
 
@@ -74,6 +75,7 @@ export default function ImportFerramentaCsv() {
           descrizione: (row["DsProdotto"] ?? "").trim(),
           unitaMisura: (row["IdUM"] ?? "").trim(),
           fornitoreNomeOs1: (row["RagioneSociale_1"] ?? "").trim(),
+          idFornitoreOs1: (row["Idfornitore"] ?? "").trim(),
           codiceFornitore: codiceFornitore || map.get(idProdotto)?.codiceFornitore || "",
         });
       }
@@ -302,7 +304,7 @@ export default function ImportFerramentaCsv() {
         Trascina il CSV OS1 qui o clicca per selezionare
       </p>
       <p className="text-xs mt-1" style={{ color: "var(--color-grey-mid)" }}>
-        Colonne richieste: IdProdotto, DsProdotto, IdUM, RagioneSociale_1 — opzionale: Cod. fornitore
+        Colonne richieste: IdProdotto, DsProdotto, IdUM, RagioneSociale_1 — opzionali: Cod. fornitore, Idfornitore
       </p>
     </div>
   );

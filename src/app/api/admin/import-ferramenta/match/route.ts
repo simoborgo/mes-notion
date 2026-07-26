@@ -7,6 +7,7 @@ interface MatchItem {
   descrizione: string;
   unitaMisura: string;
   fornitoreNomeOs1: string;
+  idFornitoreOs1: string;
   codiceFornitore: string;
 }
 
@@ -34,7 +35,9 @@ export async function POST(req: NextRequest) {
   const codiciEsistenti = new Set(esistenti.map(a => a.codiceOs1));
 
   const results = await Promise.all(items.map(async (item) => {
-    const match = item.fornitoreNomeOs1 ? await findFornitoreMatch(item.fornitoreNomeOs1) : null;
+    const match = (item.fornitoreNomeOs1 || item.idFornitoreOs1)
+      ? await findFornitoreMatch(item.fornitoreNomeOs1, item.idFornitoreOs1)
+      : null;
     return {
       ...item,
       fornitoreId: match?.id ?? null,
