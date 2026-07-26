@@ -1,13 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { ArticoloFerramenta, OdpAttivo } from "@/lib/types";
 import OdpAutocomplete from "./OdpAutocomplete";
 
+type Stato = "idle" | "loading" | "sotto-soglia" | "done" | "error";
+
 export default function ScaricoKanbanCard({ articolo, odpList = [] }: { articolo: ArticoloFerramenta; odpList?: OdpAttivo[] }) {
-  const [stato, setStato] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const router = useRouter();
+  const [stato, setStato] = useState<Stato>("idle");
   const [error, setError] = useState("");
   const [odp, setOdp] = useState<string | null>(null);
+
+  // Redirect automatico dopo la conferma — altrimenti si resta bloccati sulla schermata
+  // di successo. Non parte se c'è il modal sotto-soglia: prima si decide se stampare.
+  useEffect(() => {
+    if (stato !== "done") return;
+    const t = setTimeout(() => router.push("/ferramenta"), 1400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stato]);
 
   async function handleScarico() {
     if (stato === "loading" || stato === "done") return;
@@ -21,25 +34,61 @@ export default function ScaricoKanbanCard({ articolo, odpList = [] }: { articolo
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok && res.status !== 207) throw new Error(data?.error ?? `Errore ${res.status}`);
-      setStato("done");
+      setStato(data.sottoSoglia ? "sotto-soglia" : "done");
     } catch (e) {
       setStato("error");
       setError(e instanceof Error ? e.message : "Errore durante lo scarico.");
     }
   }
 
+  if (stato === "sotto-soglia") {
+    return (
+      <div className="rounded-xl border-2 p-4 space-y-3" style={{ borderColor: "#FCA5A5", background: "#FEF2F2" }}>
+        <div>
+          <p className="font-semibold text-sm" style={{ color: "#991B1B" }}>⚠ Giacenza sotto soglia minima</p>
+          <p className="text-xs mt-0.5" style={{ color: "#991B1B" }}>{articolo.descrizione} — vuoi stampare l&apos;etichetta di riordino?</p>
+        </div>
+        <a
+          href={`/api/ferramenta/articoli/${articolo.id}/etichetta-riordino`}
+          target="_blank"
+          rel="noreferrer"
+          className="block text-center w-full py-2.5 rounded-lg text-sm font-semibold text-white"
+          style={{ background: "#991B1B" }}
+        >
+          Stampa etichetta di riordino
+        </a>
+        <button
+          onClick={() => setStato("done")}
+          className="w-full py-2 rounded-lg text-sm font-medium"
+          style={{ color: "#6b6966", border: "1px solid #e5e4e0" }}
+        >
+          Continua
+        </button>
+      </div>
+    );
+  }
+
   if (stato === "done") {
     return (
-      <div className="rounded-xl border-2 p-4 flex items-center gap-3" style={{ borderColor: "#86EFAC", background: "#F0FDF4" }}>
-        <span className="flex items-center justify-center rounded-full flex-shrink-0" style={{ width: 36, height: 36, background: "#D1FAE5" }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#065F46" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-        </span>
-        <div>
-          <p className="font-semibold text-sm" style={{ color: "#14532D" }}>Scarico registrato</p>
-          <p className="text-xs mt-0.5" style={{ color: "#166534" }}>{articolo.descrizione}</p>
+      <div className="rounded-xl border-2 p-4 space-y-3" style={{ borderColor: "#86EFAC", background: "#F0FDF4" }}>
+        <div className="flex items-center gap-3">
+          <span className="flex items-center justify-center rounded-full flex-shrink-0" style={{ width: 36, height: 36, background: "#D1FAE5" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#065F46" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </span>
+          <div>
+            <p className="font-semibold text-sm" style={{ color: "#14532D" }}>Scarico registrato</p>
+            <p className="text-xs mt-0.5" style={{ color: "#166534" }}>{articolo.descrizione}</p>
+          </div>
         </div>
+        <button
+          onClick={() => router.push("/ferramenta")}
+          className="w-full py-2.5 rounded-lg text-sm font-semibold text-white"
+          style={{ background: "#166534" }}
+        >
+          Torna alle giacenze →
+        </button>
       </div>
     );
   }

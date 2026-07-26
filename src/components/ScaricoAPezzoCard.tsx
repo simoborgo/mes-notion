@@ -1,14 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { ArticoloFerramenta, OdpAttivo } from "@/lib/types";
 import OdpAutocomplete from "./OdpAutocomplete";
 
 export default function ScaricoAPezzoCard({ articolo, odpList = [] }: { articolo: ArticoloFerramenta; odpList?: OdpAttivo[] }) {
+  const router = useRouter();
   const [quantita, setQuantita] = useState("");
   const [stato, setStato] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState("");
   const [odp, setOdp] = useState<string | null>(null);
+
+  // Redirect automatico dopo la conferma — altrimenti si resta bloccati sulla schermata di successo.
+  useEffect(() => {
+    if (stato !== "done") return;
+    const t = setTimeout(() => router.push("/ferramenta"), 1400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stato]);
 
   async function handleScarico() {
     const q = Number(quantita);
@@ -36,16 +46,25 @@ export default function ScaricoAPezzoCard({ articolo, odpList = [] }: { articolo
 
   if (stato === "done") {
     return (
-      <div className="rounded-xl border-2 p-4 flex items-center gap-3" style={{ borderColor: "#86EFAC", background: "#F0FDF4" }}>
-        <span className="flex items-center justify-center rounded-full flex-shrink-0" style={{ width: 36, height: 36, background: "#D1FAE5" }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#065F46" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-        </span>
-        <div>
-          <p className="font-semibold text-sm" style={{ color: "#14532D" }}>Scarico registrato</p>
-          <p className="text-xs mt-0.5" style={{ color: "#166534" }}>{articolo.descrizione} — {quantita} {articolo.unitaMisura}</p>
+      <div className="rounded-xl border-2 p-4 space-y-3" style={{ borderColor: "#86EFAC", background: "#F0FDF4" }}>
+        <div className="flex items-center gap-3">
+          <span className="flex items-center justify-center rounded-full flex-shrink-0" style={{ width: 36, height: 36, background: "#D1FAE5" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#065F46" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </span>
+          <div>
+            <p className="font-semibold text-sm" style={{ color: "#14532D" }}>Scarico registrato</p>
+            <p className="text-xs mt-0.5" style={{ color: "#166534" }}>{articolo.descrizione} — {quantita} {articolo.unitaMisura}</p>
+          </div>
         </div>
+        <button
+          onClick={() => router.push("/ferramenta")}
+          className="w-full py-2.5 rounded-lg text-sm font-semibold text-white"
+          style={{ background: "#166534" }}
+        >
+          Torna alle giacenze →
+        </button>
       </div>
     );
   }

@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
 import { getArticoloFerramentaById, getOdpAttivi } from "@/lib/notion";
 import { getInventarioAperto, getRigaInventario } from "@/lib/inventarioFerramentaRepository";
-import ScaricoKanbanCard from "@/components/ScaricoKanbanCard";
-import ScaricoAPezzoCard from "@/components/ScaricoAPezzoCard";
+import ScaricoGate from "@/components/ScaricoGate";
 import InventarioConteggioCard from "@/components/InventarioConteggioCard";
 
 export const dynamic = "force-dynamic";
@@ -47,10 +46,12 @@ export default async function ScaricoFerramentaPage({ params }: { params: Promis
             Articolo non ancora classificato — contattare l&apos;amministratore.
           </p>
         </div>
-      ) : articolo.metodoGestione === "Kanban" ? (
-        <ScaricoKanbanCard articolo={articolo} odpList={odpList} />
       ) : (
-        <ScaricoAPezzoCard articolo={articolo} odpList={odpList} />
+        <ScaricoGate
+          articolo={articolo}
+          odpList={odpList}
+          inventarioAperto={sessione ? { ambito: sessione.ambito, ambitoValore: sessione.ambitoValore } : null}
+        />
       )}
     </div>
   );

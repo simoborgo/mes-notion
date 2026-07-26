@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { ArticoloFerramenta } from "@/lib/types";
 
 interface RigaInfo {
@@ -14,10 +15,23 @@ export default function InventarioConteggioCard({
   riga: RigaInfo;
   sessioneId: string;
 }) {
+  const router = useRouter();
   const [quantita, setQuantita] = useState(String(riga.giacenzaTeorica));
   const [stato, setStato] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState("");
   const [delta, setDelta] = useState<number | null>(null);
+
+  const tornaAllInventario = () => router.push(`/ferramenta/inventario/${sessioneId}`);
+
+  // Torna automaticamente alla lista dopo la conferma — altrimenti si resta bloccati
+  // sulla schermata di successo, sia arrivando dal pulsante "Conta" della lista sia
+  // scansionando l'etichetta fisica. Il link manuale sotto resta per chi non vuole aspettare.
+  useEffect(() => {
+    if (stato !== "done") return;
+    const t = setTimeout(tornaAllInventario, 1400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stato]);
 
   async function handleConta() {
     const q = Number(quantita);
@@ -59,6 +73,13 @@ export default function InventarioConteggioCard({
             Scostamento: {delta > 0 ? "+" : ""}{delta} — movimento di rettifica generato
           </p>
         )}
+        <button
+          onClick={tornaAllInventario}
+          className="w-full py-2.5 rounded-lg text-sm font-semibold text-white"
+          style={{ background: "#166534" }}
+        >
+          Torna all&apos;inventario →
+        </button>
       </div>
     );
   }
@@ -84,6 +105,7 @@ export default function InventarioConteggioCard({
           step="any"
           value={quantita}
           onChange={(e) => setQuantita(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleConta(); } }}
           className="w-full rounded-lg border px-3 text-lg font-semibold"
           style={{ height: 52, borderColor: "#d1d5db" }}
         />
