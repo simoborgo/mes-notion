@@ -10,6 +10,7 @@ interface ImportItem {
   unitaMisura: string;
   fornitoreId: string | null;
   fornitoreNomeOs1: string;
+  codiceFornitore: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -42,6 +43,7 @@ export async function POST(req: NextRequest) {
         unitaMisura: item.unitaMisura,
         fornitoreId: item.fornitoreId,
         fornitoreNomeOs1: item.fornitoreNomeOs1,
+        codiceFornitore: item.codiceFornitore,
       });
       created.push(articolo.id);
     } catch (e) {

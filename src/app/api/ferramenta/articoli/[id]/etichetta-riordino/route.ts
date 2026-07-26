@@ -68,7 +68,8 @@ body{font-family:'Jost',sans-serif;background:#fff}
   <div class="body">
     <div class="qrbox">${qrSvg}</div>
     <div class="info">
-      <div>Cod. Fornitore: ${esc(articolo.fornitoreNomeOs1 || "—")}</div>
+      <div>Fornitore: ${esc(articolo.fornitoreNome || "—")}</div>
+      <div>Cod. Fornitore: ${esc(articolo.codiceFornitore || "—")}</div>
       <div class="qty">Qtà da riordinare: ${articolo.quantitaStandardVaschetta ?? "—"}</div>
       <div>Scansiona per la scheda di riordino</div>
     </div>

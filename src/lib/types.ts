@@ -167,6 +167,7 @@ export interface ArticoloFerramenta {
   fornitoreId: string | null;
   fornitoreNome: string;
   fornitoreNomeOs1: string;
+  codiceFornitore: string;
   metodoGestione: MetodoGestioneFerramenta | null;
   giacenzaAttuale: number;
   quantitaStandardVaschetta: number | null;
@@ -184,6 +185,7 @@ export interface ArticoloFerramentaUpdate {
   attivo?: boolean;
   note?: string;
   ubicazione?: string | null;
+  codiceFornitore?: string | null;
 }
 
 export interface DistintaKitRiga {

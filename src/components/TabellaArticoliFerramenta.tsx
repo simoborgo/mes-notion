@@ -10,6 +10,7 @@ interface RowState {
   sogliaMinima: string;
   attivo: boolean;
   ubicazione: string;
+  codiceFornitore: string;
   saving: boolean;
   error: string | null;
 }
@@ -21,6 +22,7 @@ function initRow(a: ArticoloFerramenta): RowState {
     sogliaMinima: a.sogliaMinima != null ? String(a.sogliaMinima) : "",
     attivo: a.attivo,
     ubicazione: a.ubicazione ?? "",
+    codiceFornitore: a.codiceFornitore ?? "",
     saving: false,
     error: null,
   };
@@ -38,7 +40,7 @@ export default function TabellaArticoliFerramenta({ articoli: initial }: { artic
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
     if (!q) return articoli;
-    return articoli.filter(a => `${a.descrizione} ${a.codiceOs1} ${a.fornitoreNome}`.toLowerCase().includes(q));
+    return articoli.filter(a => `${a.descrizione} ${a.codiceOs1} ${a.fornitoreNome} ${a.codiceFornitore}`.toLowerCase().includes(q));
   }, [articoli, search]);
 
   function setRow(id: string, patch: Partial<RowState>) {
@@ -63,6 +65,7 @@ export default function TabellaArticoliFerramenta({ articoli: initial }: { artic
           sogliaMinima: row.sogliaMinima ? Number(row.sogliaMinima) : null,
           attivo: row.attivo,
           ubicazione: row.ubicazione || null,
+          codiceFornitore: row.codiceFornitore || null,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -74,6 +77,7 @@ export default function TabellaArticoliFerramenta({ articoli: initial }: { artic
         sogliaMinima: row.sogliaMinima ? Number(row.sogliaMinima) : null,
         attivo: row.attivo,
         ubicazione: row.ubicazione,
+        codiceFornitore: row.codiceFornitore,
       } : x));
       setRow(a.id, { saving: false });
     } catch (e) {
@@ -99,6 +103,7 @@ export default function TabellaArticoliFerramenta({ articoli: initial }: { artic
               <th className="px-4 py-3">Codice OS1</th>
               <th className="px-4 py-3 min-w-[180px]">Descrizione</th>
               <th className="px-4 py-3">Fornitore</th>
+              <th className="px-4 py-3">Cod. Fornitore</th>
               <th className="px-4 py-3">Metodo Gestione</th>
               <th className="px-4 py-3">Qtà Vaschetta</th>
               <th className="px-4 py-3">Soglia Minima</th>
@@ -111,7 +116,7 @@ export default function TabellaArticoliFerramenta({ articoli: initial }: { artic
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={10} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
+                <td colSpan={11} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
                   Nessun articolo trovato
                 </td>
               </tr>
@@ -141,6 +146,15 @@ export default function TabellaArticoliFerramenta({ articoli: initial }: { artic
                       </div>
                     </td>
                     <td className="px-4 py-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>{a.fornitoreNome || "—"}</td>
+                    <td className="px-4 py-3">
+                      <input
+                        type="text"
+                        className={inputCls + " w-28"}
+                        placeholder="—"
+                        value={row.codiceFornitore}
+                        onChange={(e) => setRow(a.id, { codiceFornitore: e.target.value })}
+                      />
+                    </td>
                     <td className="px-4 py-3">
                       <select
                         className={inputCls}

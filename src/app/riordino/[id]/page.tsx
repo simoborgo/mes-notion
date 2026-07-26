@@ -64,7 +64,8 @@ export default async function RiordinoPage({ params }: { params: Promise<{ id: s
 
       <div>
         <Row label="Codice articolo" value={articolo.codiceOs1 || "—"} />
-        <Row label="Codice fornitore" value={articolo.fornitoreNomeOs1 || "—"} />
+        <Row label="Fornitore" value={articolo.fornitoreNome || "—"} />
+        <Row label="Codice fornitore" value={articolo.codiceFornitore || "—"} />
         <Row
           label="Quantità da riordinare"
           value={articolo.quantitaStandardVaschetta != null ? `${articolo.quantitaStandardVaschetta} ${articolo.unitaMisura || ""}`.trim() : "—"}

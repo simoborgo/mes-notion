@@ -10,6 +10,7 @@ interface DedupItem {
   descrizione: string;
   unitaMisura: string;
   fornitoreNomeOs1: string;
+  codiceFornitore: string;
 }
 
 interface MatchedItem extends DedupItem {
@@ -60,16 +61,20 @@ export default function ImportFerramentaCsv() {
         throw new Error(`Colonne mancanti nel CSV: ${missing.join(", ")}`);
       }
 
-      // Dedup per IdProdotto — last-write-wins nell'ordine del file
+      // Dedup per IdProdotto — last-write-wins nell'ordine del file.
+      // Cod. fornitore fa eccezione: su alcune righe della stessa fattura (es. sconti) è vuoto
+      // anche quando per lo stesso prodotto esiste già un valore — l'ultimo non vuoto vince.
       const map = new Map<string, DedupItem>();
       for (const row of parsed.data) {
         const idProdotto = (row["IdProdotto"] ?? "").trim();
         if (!idProdotto) continue;
+        const codiceFornitore = (row["Cod. fornitore"] ?? "").trim();
         map.set(idProdotto, {
           idProdotto,
           descrizione: (row["DsProdotto"] ?? "").trim(),
           unitaMisura: (row["IdUM"] ?? "").trim(),
           fornitoreNomeOs1: (row["RagioneSociale_1"] ?? "").trim(),
+          codiceFornitore: codiceFornitore || map.get(idProdotto)?.codiceFornitore || "",
         });
       }
       const deduped = Array.from(map.values());
@@ -204,6 +209,7 @@ export default function ImportFerramentaCsv() {
                 <th className="px-3 py-2 min-w-[160px]">Descrizione</th>
                 <th className="px-3 py-2">UM</th>
                 <th className="px-3 py-2 min-w-[180px]">Fornitore</th>
+                <th className="px-3 py-2">Cod. Fornitore</th>
                 <th className="px-3 py-2">Match</th>
               </tr>
             </thead>
@@ -243,6 +249,14 @@ export default function ImportFerramentaCsv() {
                         {fornitoriOptions.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
                       </select>
                       <div className="text-[10px] mt-0.5" style={{ color: "var(--color-grey-mid)" }}>{it.fornitoreNomeOs1}</div>
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        className="w-24 text-xs px-2 py-1 rounded"
+                        style={{ border: "1px solid #e5e4e0", background: "#fafaf9" }}
+                        value={it.codiceFornitore}
+                        onChange={(e) => updateItem(idx, { codiceFornitore: e.target.value })}
+                      />
                     </td>
                     <td className="px-3 py-2">
                       <span className="text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap" style={{ background: badge.background, color: badge.color }}>
@@ -288,7 +302,7 @@ export default function ImportFerramentaCsv() {
         Trascina il CSV OS1 qui o clicca per selezionare
       </p>
       <p className="text-xs mt-1" style={{ color: "var(--color-grey-mid)" }}>
-        Colonne richieste: IdProdotto, DsProdotto, IdUM, RagioneSociale_1
+        Colonne richieste: IdProdotto, DsProdotto, IdUM, RagioneSociale_1 — opzionale: Cod. fornitore
       </p>
     </div>
   );

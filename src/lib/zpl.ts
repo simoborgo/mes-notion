@@ -1,7 +1,8 @@
 export interface EtichettaRiordinoZplData {
   codiceOs1: string;
   descrizione: string;
-  fornitoreNomeOs1: string;
+  fornitoreNome: string;
+  codiceFornitore: string;
   quantitaStandardVaschetta: number | null;
   qrUrl: string;
   stampatoIl: Date;
@@ -30,7 +31,8 @@ const mm = (n: number) => Math.round(n * DOTS_PER_MM);
 export function buildEtichettaRiordinoZpl(data: EtichettaRiordinoZplData): string {
   const descrizione = escZpl(data.descrizione || "-");
   const codiceOs1 = escZpl(data.codiceOs1 || "-");
-  const fornitore = escZpl(data.fornitoreNomeOs1 || "-");
+  const fornitoreNome = escZpl(data.fornitoreNome || "-");
+  const codiceFornitore = escZpl(data.codiceFornitore || "-");
   const quantita = data.quantitaStandardVaschetta ?? "-";
   const stampatoIl = escZpl(formatStampatoIl(data.stampatoIl));
 
@@ -45,8 +47,9 @@ export function buildEtichettaRiordinoZpl(data: EtichettaRiordinoZplData): strin
 ^FO${mm(5)},${mm(9)}^A0N,36,36^FD${descrizione}^FS
 ^FO${mm(5)},${mm(15)}^A0N,26,26^FD${codiceOs1}^FS
 
-^FO${mm(5)},${mm(20)}^A0N,20,20^FDCod. Fornitore: ${fornitore}^FS
-^FO${mm(5)},${mm(24)}^A0N,28,28^FDQta da riordinare: ${quantita}^FS
+^FO${mm(5)},${mm(19)}^A0N,20,20^FDFornitore: ${fornitoreNome}^FS
+^FO${mm(5)},${mm(22)}^A0N,20,20^FDCod. Fornitore: ${codiceFornitore}^FS
+^FO${mm(5)},${mm(26)}^A0N,28,28^FDQta da riordinare: ${quantita}^FS
 
 ^FO${mm(5)},${mm(30)}
 ^BQN,2,6

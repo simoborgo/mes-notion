@@ -991,6 +991,7 @@ function pageToArticoloFerramenta(page: any, fornitoriMap?: Record<string, strin
     fornitoreId,
     fornitoreNome: (fornitoreId && fornitoriMap?.[fornitoreId]) ?? "",
     fornitoreNomeOs1: getText(prop(page, "Fornitore Nome OS1")),
+    codiceFornitore: getText(prop(page, "Codice Fornitore")),
     metodoGestione: metodo === "Kanban" || metodo === "A Pezzo" ? metodo : null,
     giacenzaAttuale: getNumber(prop(page, "Giacenza Attuale")) ?? 0,
     quantitaStandardVaschetta: getNumber(prop(page, "Quantità Standard Vaschetta")),
@@ -1026,12 +1027,14 @@ export async function createArticoloFerramenta({
   unitaMisura,
   fornitoreId,
   fornitoreNomeOs1,
+  codiceFornitore,
 }: {
   descrizione: string;
   codiceOs1: string;
   unitaMisura: string;
   fornitoreId?: string | null;
   fornitoreNomeOs1?: string | null;
+  codiceFornitore?: string | null;
 }): Promise<ArticoloFerramenta> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const properties: Record<string, any> = {
@@ -1043,6 +1046,7 @@ export async function createArticoloFerramenta({
   };
   if (fornitoreId) properties[FERRAMENTA_PROP_FORNITORE] = { relation: [{ id: fornitoreId }] };
   if (fornitoreNomeOs1) properties["Fornitore Nome OS1"] = { rich_text: [{ text: { content: fornitoreNomeOs1 } }] };
+  if (codiceFornitore) properties["Codice Fornitore"] = { rich_text: [{ text: { content: codiceFornitore } }] };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const page = await notion.pages.create({ parent: { database_id: DB_FERRAMENTA }, properties }) as any;
@@ -1064,6 +1068,8 @@ export async function updateArticoloFerramentaClassificazione(id: string, data: 
     properties["Note"] = { rich_text: [{ text: { content: data.note } }] };
   if (data.ubicazione !== undefined)
     properties["Ubicazione"] = data.ubicazione ? { select: { name: data.ubicazione } } : { select: null };
+  if (data.codiceFornitore !== undefined)
+    properties["Codice Fornitore"] = { rich_text: [{ text: { content: data.codiceFornitore ?? "" } }] };
 
   await notion.pages.update({ page_id: id, properties });
   return getArticoloFerramentaById(id);

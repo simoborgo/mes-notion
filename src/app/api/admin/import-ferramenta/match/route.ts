@@ -7,6 +7,7 @@ interface MatchItem {
   descrizione: string;
   unitaMisura: string;
   fornitoreNomeOs1: string;
+  codiceFornitore: string;
 }
 
 export async function POST(req: NextRequest) {

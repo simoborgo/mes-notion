@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
           a.ubicazione,
           a.metodoGestione ?? "",
           a.giacenzaAttuale,
-          a.fornitoreNomeOs1,
+          a.codiceFornitore,
           a.quantitaStandardVaschetta ?? "",
           a.sogliaMinima ?? "",
         ],

@@ -24,7 +24,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const zpl = buildEtichettaRiordinoZpl({
       codiceOs1: articolo.codiceOs1,
       descrizione: articolo.descrizione,
-      fornitoreNomeOs1: articolo.fornitoreNomeOs1,
+      fornitoreNome: articolo.fornitoreNome,
+      codiceFornitore: articolo.codiceFornitore,
       quantitaStandardVaschetta: articolo.quantitaStandardVaschetta,
       qrUrl: qrTarget,
       stampatoIl: new Date(),
