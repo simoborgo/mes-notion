@@ -1,3 +1,5 @@
+export const STATI_CHIUSI_ODP = ["Completato", "Annullata"];
+
 export interface Scheda {
   id: string;
   odp: string;
@@ -29,6 +31,7 @@ export interface Scheda {
   areaLabel: string;
   parentId: string | null;
   notionUrl: string;
+  kitFerramenta: string;
 }
 
 export interface SchedaUpdate {
@@ -168,6 +171,7 @@ export interface ArticoloFerramenta {
   sogliaMinima: number | null;
   attivo: boolean;
   note: string;
+  ubicazione: string;
   notionUrl: string;
 }
 
@@ -177,4 +181,22 @@ export interface ArticoloFerramentaUpdate {
   sogliaMinima?: number | null;
   attivo?: boolean;
   note?: string;
+  ubicazione?: string | null;
 }
+
+export interface DistintaKitRiga {
+  id: string;
+  odpId: string;
+  articoloId: string;
+  articoloDescrizione: string;
+  articoloCodiceOs1: string;
+  quantita: number;
+  notionUrl: string;
+}
+
+// 21 valori fissi — select Notion su DB_FERRAMENTA, property "Ubicazione"
+export const UBICAZIONI_FERRAMENTA: string[] = [
+  ...Array.from({ length: 10 }, (_, i) => `Scaffale ${i + 1}`),
+  "Scaffale Esterno",
+  ...Array.from({ length: 10 }, (_, i) => `Scaffale Piano Superiore ${i + 1}`),
+];

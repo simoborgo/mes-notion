@@ -57,8 +57,22 @@ export default function FerramentaHome({ articoli }: { articoli: ArticoloFerrame
           )}
         </button>
         <Link
+          href="/ferramenta/fogli-scarico"
+          className="ml-auto px-4 py-2 rounded-lg text-sm font-semibold border transition-colors hover:bg-gray-50"
+          style={{ color: "var(--color-grey-mid)", borderColor: "#d1d5db" }}
+        >
+          Fogli di scarico
+        </Link>
+        <Link
+          href="/ferramenta/inventario"
+          className="px-4 py-2 rounded-lg text-sm font-semibold border transition-colors hover:bg-gray-50"
+          style={{ color: "var(--color-grey-mid)", borderColor: "#d1d5db" }}
+        >
+          Inventario
+        </Link>
+        <Link
           href="/ferramenta/carico"
-          className="ml-auto px-4 py-2 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90"
+          className="px-4 py-2 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90"
           style={{ background: "var(--color-primary)", color: "white" }}
         >
           + Carico

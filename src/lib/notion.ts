@@ -1,6 +1,7 @@
 import { Client } from "@notionhq/client";
 import { unstable_cache } from "next/cache";
-import type { Scheda, SchedaUpdate, Ritiro, RitiroUpdate, Commessa, Area, Carico, Operatore, OdpAttivo, ArticoloFerramenta, ArticoloFerramentaUpdate } from "./types";
+import type { Scheda, SchedaUpdate, Ritiro, RitiroUpdate, Commessa, Area, Carico, Operatore, OdpAttivo, ArticoloFerramenta, ArticoloFerramentaUpdate, DistintaKitRiga } from "./types";
+import { STATI_CHIUSI_ODP } from "./types";
 
 const notion = new Client({ auth: process.env.NOTION_TOKEN, fetch: globalThis.fetch });
 
@@ -12,6 +13,7 @@ const DB_CARICHI = process.env.NOTION_DB_CARICHI!;
 const DB_FORNITORI = process.env.NOTION_DB_FORNITORI!;
 const DB_OPERATORI = process.env.NOTION_DB_OPERATORI!;
 const DB_FERRAMENTA = process.env.NOTION_DB_FERRAMENTA!;
+const DB_KIT_FERRAMENTA_RIGHE = process.env.NOTION_DB_KIT_FERRAMENTA_RIGHE!;
 // Nome esatto della property relation su DB_FERRAMENTA (creata con icona dall'utente su Notion)
 const FERRAMENTA_PROP_FORNITORE = "🏭 Fornitore";
 
@@ -151,6 +153,7 @@ function pageToScheda(page: any): Scheda {
     areaLabel: getText(prop(page, "Area-Cartella Commessa")),
     parentId: getRelationId(prop(page, "Parent item")),
     notionUrl: notionUrl(page.id),
+    kitFerramenta: getText(prop(page, "Kit Ferramenta")),
   };
 }
 
@@ -347,7 +350,7 @@ export async function createRilavorazione({
     commessaId: parent.commessaId,
     odp: subOdp,
     tipologia: "Rilavorazione",
-    stato: "In Lavorazione Esterna",
+    stato: "In lavorazione Esterna",
     fornitore: fornitoreNome ?? null,
     fornitoreId,
     note: note ?? null,
@@ -453,12 +456,12 @@ const ODP_SPECIALI: { prefix: string; label: string }[] = [
   { prefix: "PUL", label: "Pulizie" },
 ];
 
-// ODP attivi (Schede in stato "In Lavorazione") + codici speciali indiretti,
+// ODP attivi (Schede in stato "In lavorazione" — casing esatto come su Notion) + codici speciali indiretti,
 // per l'autocomplete di Rilevamento Ore
 export async function getOdpAttivi(): Promise<OdpAttivo[]> {
   const schede = await getSchede();
   const attivi: OdpAttivo[] = schede
-    .filter(s => s.statoProduzione === "In Lavorazione" && s.odp)
+    .filter(s => s.statoProduzione === "In lavorazione" && s.odp)
     .map(s => ({
       odp: s.odp,
       label: s.clienteInfo ? `${s.odp} — ${s.clienteInfo}` : s.odp,
@@ -515,20 +518,20 @@ export async function updateSchedaStato(pageId: string, stato: string): Promise<
 }
 
 // Ritiro → Fatto: materiale rientrato dal fornitore
-// - Stato → "In Lavorazione" (ODP torna in produzione interna)
+// - Stato → "In lavorazione" (ODP torna in produzione interna)
 // - Stato Produzione Esterna → "Rientrato"
 export async function updateSchedaRientrato(pageId: string): Promise<void> {
   await notion.pages.update({
     page_id: pageId,
     properties: {
-      Stato: { select: { name: "In Lavorazione" } },
+      Stato: { select: { name: "In lavorazione" } },
       "Stato Produzione Esterna": { select: { name: "Rientrato" } },
     },
   });
 }
 
 // Ritiro rilavorazione → Fatto: pezzo tornato fisicamente, in attesa di verifica
-// - Solo Stato Produzione Esterna → "Rientrato" (Stato resta "In Lavorazione Esterna")
+// - Solo Stato Produzione Esterna → "Rientrato" (Stato resta "In lavorazione Esterna")
 // - Il parent rimane "In Attesa Rilavorazione" fino a "Segna Rientrata" manuale
 export async function updateRilavorazioneRientrata(pageId: string): Promise<void> {
   await notion.pages.update({
@@ -540,7 +543,7 @@ export async function updateRilavorazioneRientrata(pageId: string): Promise<void
 }
 
 // Consegna → Fatto: materiale consegnato al fornitore, ora in lavorazione
-// - Solo Stato Produzione Esterna → "In Lavorazione" (Stato resta "In Lavorazione Esterna")
+// - Solo Stato Produzione Esterna → "In Lavorazione" (Stato resta "In lavorazione Esterna")
 export async function updateSchedaConsegnaFatta(pageId: string): Promise<void> {
   await notion.pages.update({
     page_id: pageId,
@@ -548,6 +551,16 @@ export async function updateSchedaConsegnaFatta(pageId: string): Promise<void> {
       "Stato Produzione Esterna": { select: { name: "In Lavorazione" } },
     },
   });
+}
+
+// Scrive SOLO la property "Kit Ferramenta" — dedicata e isolata per non avvicinarsi
+// al path di updateScheda()/SchedaUpdate (che ha un bug dormiente sulla property Stato).
+export async function updateSchedaKitFerramenta(id: string, stato: "Si" | "No" | null): Promise<Scheda> {
+  await notion.pages.update({
+    page_id: id,
+    properties: { "Kit Ferramenta": stato ? { select: { name: stato } } : { select: null } },
+  });
+  return getSchedaById(id);
 }
 
 export const getSchede = unstable_cache(
@@ -562,6 +575,12 @@ export const getSchede = unstable_cache(
   ["notion-schede"],
   { revalidate: 120, tags: ["schede"] }
 );
+
+// ODP "avviati" (non chiusi) — usata da Kit Ferramenta e Fogli di scarico
+export async function getSchedeOdpAvviate(): Promise<Scheda[]> {
+  const schede = await getSchede();
+  return schede.filter(s => !STATI_CHIUSI_ODP.includes(s.statoProduzione) && !!s.odp);
+}
 
 export const getSottoschede = unstable_cache(
   async (): Promise<Scheda[]> => {
@@ -966,6 +985,7 @@ function pageToArticoloFerramenta(page: any, fornitoriMap?: Record<string, strin
     sogliaMinima: getNumber(prop(page, "Soglia Minima")),
     attivo: getCheckbox(prop(page, "Attivo")),
     note: getText(prop(page, "Note")),
+    ubicazione: getText(prop(page, "Ubicazione")),
     notionUrl: notionUrl(page.id),
   };
 }
@@ -1030,6 +1050,8 @@ export async function updateArticoloFerramentaClassificazione(id: string, data: 
     properties["Attivo"] = { checkbox: data.attivo };
   if (data.note !== undefined)
     properties["Note"] = { rich_text: [{ text: { content: data.note } }] };
+  if (data.ubicazione !== undefined)
+    properties["Ubicazione"] = data.ubicazione ? { select: { name: data.ubicazione } } : { select: null };
 
   await notion.pages.update({ page_id: id, properties });
   return getArticoloFerramentaById(id);
@@ -1040,4 +1062,53 @@ export async function updateArticoloFerramentaGiacenza(id: string, giacenzaAttua
     page_id: id,
     properties: { "Giacenza Attuale": { number: giacenzaAttuale } },
   });
+}
+
+// ── Kit Ferramenta ODP (Fase 2) — distinta strutturata articolo+quantità ────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function pageToDistintaKitRiga(page: any, articoliMap: Record<string, { descrizione: string; codiceOs1: string }>): DistintaKitRiga {
+  const articoloId = getRelationId(prop(page, "Articolo Ferramenta")) ?? "";
+  const articolo = articoliMap[articoloId];
+  return {
+    id: page.id,
+    odpId: getRelationId(prop(page, "ODP")) ?? "",
+    articoloId,
+    articoloDescrizione: articolo?.descrizione ?? "",
+    articoloCodiceOs1: articolo?.codiceOs1 ?? "",
+    quantita: getNumber(prop(page, "Quantità")) ?? 0,
+    notionUrl: notionUrl(page.id),
+  };
+}
+
+export async function getDistintaKitByOdp(odpId: string): Promise<DistintaKitRiga[]> {
+  const [pages, articoli] = await Promise.all([
+    queryAll(DB_KIT_FERRAMENTA_RIGHE, { property: "ODP", relation: { contains: odpId } }),
+    getArticoliFerramenta(),
+  ]);
+  const articoliMap: Record<string, { descrizione: string; codiceOs1: string }> = {};
+  articoli.forEach(a => { articoliMap[a.id] = { descrizione: a.descrizione, codiceOs1: a.codiceOs1 }; });
+  return pages.map(p => pageToDistintaKitRiga(p, articoliMap));
+}
+
+export async function addDistintaRiga({ odpId, articoloId, quantita }: { odpId: string; articoloId: string; quantita: number }): Promise<DistintaKitRiga> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const properties: Record<string, any> = {
+    Nome: { title: [{ text: { content: `Riga ${Date.now()}` } }] },
+    ODP: { relation: [{ id: odpId }] },
+    "Articolo Ferramenta": { relation: [{ id: articoloId }] },
+    "Quantità": { number: quantita },
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const page = await notion.pages.create({ parent: { database_id: DB_KIT_FERRAMENTA_RIGHE }, properties }) as any;
+  const articolo = await getArticoloFerramentaById(articoloId);
+  return pageToDistintaKitRiga(page, { [articoloId]: { descrizione: articolo.descrizione, codiceOs1: articolo.codiceOs1 } });
+}
+
+export async function updateDistintaRigaQuantita(id: string, quantita: number): Promise<void> {
+  await notion.pages.update({ page_id: id, properties: { "Quantità": { number: quantita } } });
+}
+
+export async function deleteDistintaRiga(id: string): Promise<void> {
+  await notion.pages.update({ page_id: id, archived: true });
 }

@@ -48,6 +48,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   await updateArticoloFerramentaGiacenza(id, giacenzaRisultante);
 
+  const odpId = typeof body.odpId === "string" && body.odpId ? body.odpId : null;
+  const odpLabel = typeof body.odpLabel === "string" && body.odpLabel ? body.odpLabel : null;
+
   const movimento = await registraMovimento({
     articoloId: id,
     codiceOs1: articolo.codiceOs1 || null,
@@ -57,6 +60,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     giacenzaRisultante,
     operatore: session.name,
     fonte: "mes",
+    odpId,
+    odpLabel,
   });
 
   const warnings: string[] = [];
@@ -80,7 +85,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (result.warning) warnings.push(result.warning);
   }
 
-  void logOperation(session.name, "UPDATE", "articolo_ferramenta", id, { tipo, quantita, giacenzaRisultante });
+  void logOperation(session.name, "UPDATE", "articolo_ferramenta", id, { tipo, quantita, giacenzaRisultante, odpId });
 
   revalidatePath("/ferramenta");
   revalidatePath("/admin/ferramenta");

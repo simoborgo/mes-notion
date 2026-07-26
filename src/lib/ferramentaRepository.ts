@@ -1,6 +1,6 @@
 import { pool } from "./db";
 
-export type MovimentoTipo = "scarico_kanban" | "scarico_a_pezzo" | "carico";
+export type MovimentoTipo = "scarico_kanban" | "scarico_a_pezzo" | "carico" | "rettifica";
 export type MovimentoFonte = "mes" | "webhook_notion";
 
 export interface MovimentoFerramenta {
@@ -14,6 +14,8 @@ export interface MovimentoFerramenta {
   operatore: string;
   fonte: MovimentoFonte;
   note: string | null;
+  odpId: string | null;
+  odpLabel: string | null;
   creatoIl: string;
 }
 
@@ -30,6 +32,8 @@ function mapRow(r: any): MovimentoFerramenta {
     operatore: r.operatore,
     fonte: r.fonte,
     note: r.note,
+    odpId: r.odp_id,
+    odpLabel: r.odp_label,
     creatoIl: r.creato_il,
   };
 }
@@ -44,12 +48,14 @@ export async function registraMovimento(entry: {
   operatore: string;
   fonte: MovimentoFonte;
   note?: string | null;
+  odpId?: string | null;
+  odpLabel?: string | null;
 }): Promise<MovimentoFerramenta> {
   const { rows } = await pool.query(
-    `INSERT INTO movimenti_ferramenta (articolo_id, codice_os1, tipo, quantita, giacenza_precedente, giacenza_risultante, operatore, fonte, note)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+    `INSERT INTO movimenti_ferramenta (articolo_id, codice_os1, tipo, quantita, giacenza_precedente, giacenza_risultante, operatore, fonte, note, odp_id, odp_label)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
      RETURNING *`,
-    [entry.articoloId, entry.codiceOs1, entry.tipo, entry.quantita, entry.giacenzaPrecedente, entry.giacenzaRisultante, entry.operatore, entry.fonte, entry.note ?? null]
+    [entry.articoloId, entry.codiceOs1, entry.tipo, entry.quantita, entry.giacenzaPrecedente, entry.giacenzaRisultante, entry.operatore, entry.fonte, entry.note ?? null, entry.odpId ?? null, entry.odpLabel ?? null]
   );
   return mapRow(rows[0]);
 }
@@ -60,4 +66,20 @@ export async function getMovimentiByArticolo(articoloId: string, limit = 50): Pr
     [articoloId, limit]
   );
   return rows.map(mapRow);
+}
+
+export async function getMovimentiByOdp(odpId: string, limit = 200): Promise<MovimentoFerramenta[]> {
+  const { rows } = await pool.query(
+    `SELECT * FROM movimenti_ferramenta WHERE odp_id = $1 ORDER BY creato_il DESC LIMIT $2`,
+    [odpId, limit]
+  );
+  return rows.map(mapRow);
+}
+
+// Set di odp_id che hanno almeno un movimento registrato — usato dalla vista "fogli mancanti"
+export async function getOdpConMovimenti(): Promise<Set<string>> {
+  const { rows } = await pool.query(
+    `SELECT DISTINCT odp_id FROM movimenti_ferramenta WHERE odp_id IS NOT NULL`
+  );
+  return new Set(rows.map(r => r.odp_id as string));
 }

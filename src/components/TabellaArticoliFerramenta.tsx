@@ -2,12 +2,14 @@
 
 import { useMemo, useState } from "react";
 import type { ArticoloFerramenta, MetodoGestioneFerramenta } from "@/lib/types";
+import { UBICAZIONI_FERRAMENTA } from "@/lib/types";
 
 interface RowState {
   metodoGestione: MetodoGestioneFerramenta | "";
   quantitaStandardVaschetta: string;
   sogliaMinima: string;
   attivo: boolean;
+  ubicazione: string;
   saving: boolean;
   error: string | null;
 }
@@ -18,6 +20,7 @@ function initRow(a: ArticoloFerramenta): RowState {
     quantitaStandardVaschetta: a.quantitaStandardVaschetta != null ? String(a.quantitaStandardVaschetta) : "",
     sogliaMinima: a.sogliaMinima != null ? String(a.sogliaMinima) : "",
     attivo: a.attivo,
+    ubicazione: a.ubicazione ?? "",
     saving: false,
     error: null,
   };
@@ -59,6 +62,7 @@ export default function TabellaArticoliFerramenta({ articoli: initial }: { artic
           quantitaStandardVaschetta: row.metodoGestione === "Kanban" && row.quantitaStandardVaschetta ? Number(row.quantitaStandardVaschetta) : null,
           sogliaMinima: row.sogliaMinima ? Number(row.sogliaMinima) : null,
           attivo: row.attivo,
+          ubicazione: row.ubicazione || null,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -69,6 +73,7 @@ export default function TabellaArticoliFerramenta({ articoli: initial }: { artic
         quantitaStandardVaschetta: row.metodoGestione === "Kanban" && row.quantitaStandardVaschetta ? Number(row.quantitaStandardVaschetta) : null,
         sogliaMinima: row.sogliaMinima ? Number(row.sogliaMinima) : null,
         attivo: row.attivo,
+        ubicazione: row.ubicazione,
       } : x));
       setRow(a.id, { saving: false });
     } catch (e) {
@@ -98,6 +103,7 @@ export default function TabellaArticoliFerramenta({ articoli: initial }: { artic
               <th className="px-4 py-3">Qtà Vaschetta</th>
               <th className="px-4 py-3">Soglia Minima</th>
               <th className="px-4 py-3">Giacenza</th>
+              <th className="px-4 py-3">Ubicazione</th>
               <th className="px-4 py-3">Attivo</th>
               <th className="px-4 py-3"></th>
             </tr>
@@ -105,7 +111,7 @@ export default function TabellaArticoliFerramenta({ articoli: initial }: { artic
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
+                <td colSpan={10} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
                   Nessun articolo trovato
                 </td>
               </tr>
@@ -154,6 +160,16 @@ export default function TabellaArticoliFerramenta({ articoli: initial }: { artic
                       />
                     </td>
                     <td className="px-4 py-3 tabular-nums">{a.giacenzaAttuale} {a.unitaMisura}</td>
+                    <td className="px-4 py-3">
+                      <select
+                        className={inputCls}
+                        value={row.ubicazione}
+                        onChange={(e) => setRow(a.id, { ubicazione: e.target.value })}
+                      >
+                        <option value="">—</option>
+                        {UBICAZIONI_FERRAMENTA.map(u => <option key={u} value={u}>{u}</option>)}
+                      </select>
+                    </td>
                     <td className="px-4 py-3">
                       <input
                         type="checkbox"

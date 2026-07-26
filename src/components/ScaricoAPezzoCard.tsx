@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import type { ArticoloFerramenta } from "@/lib/types";
+import type { ArticoloFerramenta, OdpAttivo } from "@/lib/types";
+import OdpAutocomplete from "./OdpAutocomplete";
 
-export default function ScaricoAPezzoCard({ articolo }: { articolo: ArticoloFerramenta }) {
+export default function ScaricoAPezzoCard({ articolo, odpList = [] }: { articolo: ArticoloFerramenta; odpList?: OdpAttivo[] }) {
   const [quantita, setQuantita] = useState("");
   const [stato, setStato] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState("");
+  const [odp, setOdp] = useState<string | null>(null);
 
   async function handleScarico() {
     const q = Number(quantita);
@@ -21,7 +23,7 @@ export default function ScaricoAPezzoCard({ articolo }: { articolo: ArticoloFerr
       const res = await fetch(`/api/ferramenta/articoli/${articolo.id}/scarico`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quantita: q }),
+        body: JSON.stringify({ quantita: q, odpId: odp, odpLabel: odp }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok && res.status !== 207) throw new Error(data?.error ?? `Errore ${res.status}`);
@@ -70,6 +72,15 @@ export default function ScaricoAPezzoCard({ articolo }: { articolo: ArticoloFerr
           placeholder="0"
         />
       </div>
+
+      {odpList.length > 0 && (
+        <div>
+          <label className="text-xs font-medium block mb-1" style={{ color: "var(--color-grey-mid)" }}>
+            ODP (facoltativo)
+          </label>
+          <OdpAutocomplete odpList={odpList} value={odp} onChange={setOdp} placeholder="Collega a un ODP…" />
+        </div>
+      )}
 
       {error && (
         <div className="rounded-md border px-3 py-2" style={{ background: "#FEF2F2", borderColor: "#FECACA" }}>

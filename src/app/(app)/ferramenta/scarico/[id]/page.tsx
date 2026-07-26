@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
-import { getArticoloFerramentaById } from "@/lib/notion";
+import { getArticoloFerramentaById, getOdpAttivi } from "@/lib/notion";
+import { getInventarioAperto, getRigaInventario } from "@/lib/inventarioFerramentaRepository";
 import ScaricoKanbanCard from "@/components/ScaricoKanbanCard";
 import ScaricoAPezzoCard from "@/components/ScaricoAPezzoCard";
+import InventarioConteggioCard from "@/components/InventarioConteggioCard";
 
 export const dynamic = "force-dynamic";
 
@@ -16,18 +18,27 @@ export default async function ScaricoFerramentaPage({ params }: { params: Promis
   }
   if (!articolo || !articolo.attivo) notFound();
 
+  // Branching QR: se c'è un inventario aperto che include questo articolo,
+  // mostra il conteggio invece dello scarico normale.
+  const sessione = await getInventarioAperto();
+  const rigaInventario = sessione ? await getRigaInventario(sessione.id, id) : null;
+
+  const odpList = rigaInventario ? [] : await getOdpAttivi();
+
   return (
     <div className="max-w-md mx-auto space-y-5">
       <div>
         <h1 className="text-xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
-          Scarico Ferramenta
+          {rigaInventario ? "Conteggio Inventario" : "Scarico Ferramenta"}
         </h1>
         <p className="text-sm mt-1" style={{ color: "var(--color-grey-mid)" }}>
-          Segnala il consumo di questo articolo.
+          {rigaInventario ? "Inserisci la quantità reale contata per questo articolo." : "Segnala il consumo di questo articolo."}
         </p>
       </div>
 
-      {!articolo.metodoGestione ? (
+      {rigaInventario && sessione ? (
+        <InventarioConteggioCard articolo={articolo} riga={rigaInventario} sessioneId={sessione.id} />
+      ) : !articolo.metodoGestione ? (
         <div className="rounded-xl border-2 p-4" style={{ borderColor: "#FCD34D", background: "#FFFBEB" }}>
           <p className="font-semibold text-sm" style={{ color: "#92400E" }}>
             {articolo.descrizione}
@@ -37,9 +48,9 @@ export default async function ScaricoFerramentaPage({ params }: { params: Promis
           </p>
         </div>
       ) : articolo.metodoGestione === "Kanban" ? (
-        <ScaricoKanbanCard articolo={articolo} />
+        <ScaricoKanbanCard articolo={articolo} odpList={odpList} />
       ) : (
-        <ScaricoAPezzoCard articolo={articolo} />
+        <ScaricoAPezzoCard articolo={articolo} odpList={odpList} />
       )}
     </div>
   );
