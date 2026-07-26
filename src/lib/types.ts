@@ -152,6 +152,8 @@ export interface Operatore {
 export interface OdpAttivo {
   odp: string;
   label: string;
+  numeroScheda?: string;
+  clienteInfo?: string;
   isSpeciale: boolean;
 }
 

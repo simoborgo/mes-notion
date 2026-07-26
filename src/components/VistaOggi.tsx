@@ -38,6 +38,9 @@ interface PresenteRow {
   registrazioni: RegistrazioneRow[];
 }
 
+// Giornata standard attuale — in futuro spostabile in una pagina di configurazioni
+const DEFAULT_TOTALE_GIORNATA = 9.5;
+
 function oggiStr(): string {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, "0");
@@ -58,6 +61,10 @@ function fmtDataLunga(dateStr: string): string {
   return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
+function arrotondaMezzo(n: number): number {
+  return Math.round(n * 2) / 2;
+}
+
 const inputCls = "rounded-lg border px-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300";
 
 export default function VistaOggi() {
@@ -69,9 +76,15 @@ export default function VistaOggi() {
   const [errore, setErrore] = useState<string | null>(null);
   const [ordinaPerReparto, setOrdinaPerReparto] = useState(false);
   const [selezionati, setSelezionati] = useState<Set<string>>(new Set());
+  const [totaleGiornata, setTotaleGiornata] = useState(DEFAULT_TOTALE_GIORNATA);
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
 
-  const caricaPresenti = useCallback(async (dataStr: string) => {
-    setLoading(true);
+  // mostraLoading=false per i ricaricamenti dopo salvataggio/eliminazione: evita che
+  // l'intera lista sparisca dietro "Caricamento…" (smontando/rimontando ogni riga) a ogni
+  // singolo inserimento — percepito come "refresh della pagina". Solo il cambio data mostra
+  // il loader pieno.
+  const caricaPresenti = useCallback(async (dataStr: string, mostraLoading = true) => {
+    if (mostraLoading) setLoading(true);
     setErrore(null);
     try {
       const res = await fetch(`/api/ore/presenti?data=${dataStr}`);
@@ -82,11 +95,11 @@ export default function VistaOggi() {
     } catch (e) {
       setErrore(e instanceof Error ? e.message : "Errore caricamento");
     } finally {
-      setLoading(false);
+      if (mostraLoading) setLoading(false);
     }
   }, []);
 
-  useEffect(() => { caricaPresenti(data); setSelezionati(new Set()); }, [data, caricaPresenti]);
+  useEffect(() => { caricaPresenti(data); setSelezionati(new Set()); setTotaleGiornata(DEFAULT_TOTALE_GIORNATA); }, [data, caricaPresenti]);
 
   useEffect(() => {
     fetch("/api/ore/odp-list")
@@ -128,13 +141,13 @@ export default function VistaOggi() {
     });
     const json = await res.json();
     if (!res.ok) throw new Error(json.error ?? "Errore salvataggio");
-    await caricaPresenti(data);
+    await caricaPresenti(data, false);
   }
 
   async function eliminaVoce(id: string) {
     const res = await fetch(`/api/ore/registrazioni/${id}`, { method: "DELETE" });
     if (!res.ok) { setErrore("Errore eliminazione"); return; }
-    await caricaPresenti(data);
+    await caricaPresenti(data, false);
   }
 
   async function assegnaBulk(odp: string, ore: number) {
@@ -151,7 +164,8 @@ export default function VistaOggi() {
     const json = await res.json();
     if (!res.ok) { setErrore(json.error ?? "Errore assegnazione multipla"); return; }
     setSelezionati(new Set());
-    await caricaPresenti(data);
+    setBulkModalOpen(false);
+    await caricaPresenti(data, false);
   }
 
   return (
@@ -182,6 +196,17 @@ export default function VistaOggi() {
         >Oggi</button>
         <div className="flex-1" />
         <label className="flex items-center gap-2 text-sm cursor-pointer">
+          <span style={{ color: "var(--color-grey-mid)" }}>Totale giornata</span>
+          <input
+            type="number" step={0.5} min={0}
+            className={inputCls}
+            style={{ width: 68, height: 36 }}
+            value={totaleGiornata}
+            onChange={e => setTotaleGiornata(Number(e.target.value))}
+          />
+          <span style={{ color: "var(--color-grey-mid)" }}>h</span>
+        </label>
+        <label className="flex items-center gap-2 text-sm cursor-pointer">
           <input type="checkbox" checked={ordinaPerReparto} onChange={e => setOrdinaPerReparto(e.target.checked)} className="accent-orange-500" />
           Ordina per reparto
         </label>
@@ -211,6 +236,7 @@ export default function VistaOggi() {
               key={p.matricola}
               p={p}
               odpList={odpList}
+              totaleGiornata={totaleGiornata}
               selezionato={selezionati.has(p.matricola)}
               onToggleSelezionato={() => toggleSelezionato(p.matricola)}
               onSalva={voce => salvaVoce(voce)}
@@ -223,9 +249,18 @@ export default function VistaOggi() {
       {selezionati.size > 0 && (
         <BulkAssegnaBar
           count={selezionati.size}
-          odpList={odpList}
-          onAssegna={assegnaBulk}
+          onOpenModal={() => setBulkModalOpen(true)}
           onAnnulla={() => setSelezionati(new Set())}
+        />
+      )}
+
+      {bulkModalOpen && (
+        <BulkAssegnaModal
+          count={selezionati.size}
+          odpList={odpList}
+          totaleGiornata={totaleGiornata}
+          onAssegna={assegnaBulk}
+          onClose={() => setBulkModalOpen(false)}
         />
       )}
     </div>
@@ -233,21 +268,52 @@ export default function VistaOggi() {
 }
 
 function RigaOperatore({
-  p, odpList, selezionato, onToggleSelezionato, onSalva, onElimina,
+  p, odpList, totaleGiornata, selezionato, onToggleSelezionato, onSalva, onElimina,
 }: {
   p: PresenteRow;
   odpList: OdpAttivo[];
+  totaleGiornata: number;
   selezionato: boolean;
   onToggleSelezionato: () => void;
   onSalva: (voce: { matricola: string; cognome: string; nome: string; azienda: string | null; reparto: string | null; odp: string; ore: number; rif: boolean; causale: Causale | null; note: string | null }) => Promise<void>;
   onElimina: (id: string) => Promise<void>;
 }) {
-  const [aggiungendo, setAggiungendo] = useState(false);
   const totaleOre = p.registrazioni.reduce((s, r) => s + r.ore, 0);
   const oltreLimite = totaleOre > 11;
+  const rimanenti = Math.max(arrotondaMezzo(totaleGiornata - totaleOre), 0);
+  const giornataCompleta = rimanenti <= 0;
+
+  const [odp, setOdp] = useState<string | null>(p.ultimoOdp);
+  // null = segui il residuo calcolato; un numero = l'utente ha digitato un valore proprio
+  const [oreOverride, setOreOverride] = useState<number | null>(null);
+  const ore = oreOverride ?? rimanenti;
+  const [rif, setRif] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function handleAggiungi() {
+    if (!odp) { setErr("Seleziona un ODP"); return; }
+    if (!(ore > 0)) { setErr("Ore non valide"); return; }
+    setSaving(true);
+    setErr("");
+    try {
+      await onSalva({
+        matricola: p.matricola, cognome: p.cognome, nome: p.nome,
+        azienda: p.azienda, reparto: p.reparto,
+        odp, ore, rif, causale: null, note: null,
+      });
+      setOdp(null);
+      setRif(false);
+      setOreOverride(null);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Errore salvataggio");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
-    <div className="rounded-xl border overflow-hidden" style={{ borderColor: p.assenza ? "#FCA5A5" : "#e5e4e0", background: p.assenza ? "#FEF2F2" : "white" }}>
+    <div className="rounded-xl border" style={{ borderColor: p.assenza ? "#FCA5A5" : "#e5e4e0", background: p.assenza ? "#FEF2F2" : "white" }}>
       <div className="flex items-center gap-3 px-4 py-3">
         <input type="checkbox" checked={selezionato} onChange={onToggleSelezionato} className="w-5 h-5 accent-orange-500 flex-shrink-0" />
         <div className="flex-1 min-w-0">
@@ -268,13 +334,6 @@ function RigaOperatore({
             {p.azienda} · {p.reparto}
           </div>
         </div>
-        <button
-          onClick={() => setAggiungendo(v => !v)}
-          className="text-sm font-semibold px-3 py-1.5 rounded-lg border hover:bg-orange-50 flex-shrink-0"
-          style={{ color: "var(--color-primary)", borderColor: "var(--color-primary)" }}
-        >
-          {aggiungendo ? "✕ Chiudi" : "+ Aggiungi ODP"}
-        </button>
       </div>
 
       {p.registrazioni.length > 0 && (
@@ -298,95 +357,64 @@ function RigaOperatore({
         </div>
       )}
 
-      {aggiungendo && (
-        <FormAggiungiOdp
-          odpList={odpList}
-          ultimoOdp={p.ultimoOdp}
-          onAnnulla={() => setAggiungendo(false)}
-          onSalva={async voce => {
-            await onSalva({
-              matricola: p.matricola, cognome: p.cognome, nome: p.nome,
-              azienda: p.azienda, reparto: p.reparto, ...voce,
-            });
-            setAggiungendo(false);
-          }}
+      <div className="px-4 pb-3 pt-1 border-t flex items-center gap-2 flex-wrap" style={{ borderColor: "#e5e4e0" }}>
+        <div style={{ minWidth: 200, flex: 1 }}>
+          <OdpAutocomplete odpList={odpList} value={odp} onChange={setOdp} placeholder="Cerca ODP…" />
+        </div>
+        <input
+          type="number" step={0.5} min={0} className={inputCls}
+          style={{ width: 76, height: 44 }}
+          value={ore} onChange={e => setOreOverride(Number(e.target.value))}
+          title="Ore (residuo suggerito, modificabile)"
         />
+        <label className="flex items-center gap-1.5 text-xs cursor-pointer flex-shrink-0">
+          <input type="checkbox" checked={rif} onChange={e => setRif(e.target.checked)} className="w-3.5 h-3.5 accent-red-600" />
+          <span className="font-semibold" style={{ color: rif ? "#991B1B" : "var(--color-grey-mid)" }}>RIF</span>
+        </label>
+        <button
+          onClick={handleAggiungi}
+          disabled={saving || giornataCompleta}
+          title={giornataCompleta ? `Giornata completa (${totaleGiornata}h) — elimina una voce per aggiungerne altre` : "Aggiungi riga"}
+          className="flex items-center justify-center rounded-lg text-white font-bold disabled:opacity-60 flex-shrink-0"
+          style={{ width: 44, height: 44, background: "var(--color-primary)", fontSize: 20 }}
+        >
+          {saving ? "…" : "+"}
+        </button>
+      </div>
+      {giornataCompleta && !err && (
+        <p className="px-4 pb-3 text-xs font-medium" style={{ color: "#92400E" }}>
+          Giornata completa ({totaleGiornata}h) — elimina una voce per aggiungerne altre
+        </p>
       )}
+      {err && <p className="px-4 pb-3 text-xs font-medium" style={{ color: "#991B1B" }}>{err}</p>}
     </div>
   );
 }
 
-function FormAggiungiOdp({
-  odpList, ultimoOdp, onSalva, onAnnulla,
+function BulkAssegnaBar({
+  count, onOpenModal, onAnnulla,
 }: {
-  odpList: OdpAttivo[];
-  ultimoOdp: string | null;
-  onSalva: (voce: { odp: string; ore: number; rif: boolean; causale: Causale | null; note: string | null }) => Promise<void>;
+  count: number;
+  onOpenModal: () => void;
   onAnnulla: () => void;
 }) {
-  const [odp, setOdp] = useState<string | null>(ultimoOdp);
-  const [ore, setOre] = useState(9);
-  const [rif, setRif] = useState(false);
-  const [causale, setCausale] = useState<Causale | "">("");
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState("");
-
-  async function handleSalva() {
-    if (!odp) { setErr("Seleziona un ODP"); return; }
-    if (!(ore > 0)) { setErr("Ore non valide"); return; }
-    setSaving(true);
-    setErr("");
-    try {
-      await onSalva({ odp, ore, rif, causale: rif && causale ? causale : null, note: null });
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Errore salvataggio");
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
-    <div className="px-4 pb-4 pt-1 border-t space-y-3" style={{ borderColor: "#e5e4e0" }}>
-      <OdpAutocomplete odpList={odpList} value={odp} onChange={setOdp} />
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-semibold" style={{ color: "var(--color-grey-mid)" }}>Ore</label>
-          <input
-            type="number" step={0.5} min={0.5} className={inputCls}
-            style={{ width: 90, height: 44 }}
-            value={ore} onChange={e => setOre(Number(e.target.value))}
-          />
-        </div>
-        <label className="flex items-center gap-2 text-sm cursor-pointer">
-          <input type="checkbox" checked={rif} onChange={e => setRif(e.target.checked)} className="w-4 h-4 accent-red-600" />
-          <span className="font-semibold" style={{ color: rif ? "#991B1B" : "var(--color-black)" }}>RIF (rifacimento)</span>
-        </label>
-        {rif && (
-          <select
-            className={inputCls}
-            style={{ height: 44 }}
-            value={causale}
-            onChange={e => setCausale(e.target.value as Causale | "")}
-          >
-            <option value="">Causale (opzionale)</option>
-            <option value="P">P — Progettazione</option>
-            <option value="T">T — Taglio/Lavorazione</option>
-            <option value="M">M — Materiale</option>
-            <option value="C">C — Cliente</option>
-          </select>
-        )}
-      </div>
-      {err && <p className="text-xs font-medium" style={{ color: "#991B1B" }}>{err}</p>}
-      <div className="flex gap-2">
+    <div
+      className="fixed bottom-0 left-0 right-0 border-t shadow-lg z-40"
+      style={{ background: "white", borderColor: "#e5e4e0" }}
+    >
+      <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3 flex-wrap">
+        <span className="text-sm font-semibold flex-shrink-0" style={{ color: "var(--color-black)" }}>
+          {count} selezionat{count === 1 ? "o" : "i"}
+        </span>
         <button
-          onClick={handleSalva}
-          disabled={saving}
-          className="px-4 py-2 text-sm font-semibold text-white rounded-lg disabled:opacity-60"
-          style={{ background: saving ? "var(--color-grey-mid)" : "var(--color-primary)" }}
+          onClick={onOpenModal}
+          className="ml-auto px-4 py-2.5 text-sm font-semibold text-white rounded-lg"
+          style={{ background: "var(--color-primary)" }}
         >
-          {saving ? "Salvataggio…" : "Salva"}
+          Assegna ODP a tutti →
         </button>
-        <button onClick={onAnnulla} className="px-4 py-2 text-sm font-medium rounded-lg border hover:bg-gray-50">
+        <button onClick={onAnnulla} className="px-3 py-2.5 text-sm font-medium rounded-lg border hover:bg-gray-50">
           Annulla
         </button>
       </div>
@@ -394,16 +422,17 @@ function FormAggiungiOdp({
   );
 }
 
-function BulkAssegnaBar({
-  count, odpList, onAssegna, onAnnulla,
+function BulkAssegnaModal({
+  count, odpList, totaleGiornata, onAssegna, onClose,
 }: {
   count: number;
   odpList: OdpAttivo[];
+  totaleGiornata: number;
   onAssegna: (odp: string, ore: number) => Promise<void>;
-  onAnnulla: () => void;
+  onClose: () => void;
 }) {
   const [odp, setOdp] = useState<string | null>(null);
-  const [ore, setOre] = useState(9);
+  const [ore, setOre] = useState(totaleGiornata);
   const [saving, setSaving] = useState(false);
 
   async function handleAssegna() {
@@ -418,32 +447,40 @@ function BulkAssegnaBar({
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 border-t shadow-lg z-40"
-      style={{ background: "white", borderColor: "#e5e4e0" }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.4)" }}
+      onClick={onClose}
     >
-      <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3 flex-wrap">
-        <span className="text-sm font-semibold flex-shrink-0" style={{ color: "var(--color-black)" }}>
-          {count} selezionat{count === 1 ? "o" : "i"}
-        </span>
-        <div style={{ minWidth: 220, flex: 1 }}>
-          <OdpAutocomplete odpList={odpList} value={odp} onChange={setOdp} placeholder="ODP da assegnare a tutti…" />
+      <div
+        className="w-full max-w-md rounded-xl p-5 space-y-4"
+        style={{ background: "white" }}
+        onClick={e => e.stopPropagation()}
+      >
+        <h3 className="text-base font-semibold" style={{ color: "var(--color-black)" }}>
+          Assegna ODP a {count} operator{count === 1 ? "e" : "i"}
+        </h3>
+        <OdpAutocomplete odpList={odpList} value={odp} onChange={setOdp} placeholder="Cerca ODP…" />
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-semibold" style={{ color: "var(--color-grey-mid)" }}>Ore</label>
+          <input
+            type="number" step={0.5} min={0.5} className={inputCls}
+            style={{ width: 90, height: 44 }}
+            value={ore} onChange={e => setOre(Number(e.target.value))}
+          />
         </div>
-        <input
-          type="number" step={0.5} min={0.5} className={inputCls}
-          style={{ width: 90, height: 48 }}
-          value={ore} onChange={e => setOre(Number(e.target.value))}
-        />
-        <button
-          onClick={handleAssegna}
-          disabled={saving || !odp}
-          className="px-4 py-2.5 text-sm font-semibold text-white rounded-lg disabled:opacity-60"
-          style={{ background: "var(--color-primary)" }}
-        >
-          {saving ? "Assegnazione…" : "Assegna a tutti"}
-        </button>
-        <button onClick={onAnnulla} className="px-3 py-2.5 text-sm font-medium rounded-lg border hover:bg-gray-50">
-          Annulla
-        </button>
+        <div className="flex gap-2 justify-end">
+          <button onClick={onClose} className="px-4 py-2.5 text-sm font-medium rounded-lg border hover:bg-gray-50">
+            Annulla
+          </button>
+          <button
+            onClick={handleAssegna}
+            disabled={saving || !odp}
+            className="px-4 py-2.5 text-sm font-semibold text-white rounded-lg disabled:opacity-60"
+            style={{ background: "var(--color-primary)" }}
+          >
+            {saving ? "Assegnazione…" : "Assegna a tutti"}
+          </button>
+        </div>
       </div>
     </div>
   );

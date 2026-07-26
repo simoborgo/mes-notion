@@ -10,6 +10,20 @@ interface Props {
   placeholder?: string;
 }
 
+function OdpLabel({ o }: { o: OdpAttivo }) {
+  if (o.isSpeciale || !o.numeroScheda) {
+    return <span className={o.isSpeciale ? "font-medium" : "font-semibold"}>{o.label}</span>;
+  }
+  return (
+    <span className="inline-flex items-baseline gap-1.5 min-w-0">
+      <span className="font-semibold truncate">{o.odp} - {o.numeroScheda}</span>
+      {o.clienteInfo && (
+        <span className="text-xs truncate" style={{ color: "#9ca3af" }}>{o.clienteInfo}</span>
+      )}
+    </span>
+  );
+}
+
 export default function OdpAutocomplete({ odpList, value, onChange, placeholder }: Props) {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
@@ -19,7 +33,9 @@ export default function OdpAutocomplete({ odpList, value, onChange, placeholder 
   const filtrati = useMemo(() => {
     const q = search.toLowerCase().trim();
     if (!q) return odpList.slice(0, 30);
-    return odpList.filter(o => o.label.toLowerCase().includes(q)).slice(0, 30);
+    return odpList
+      .filter(o => `${o.label} ${o.numeroScheda ?? ""}`.toLowerCase().includes(q))
+      .slice(0, 30);
   }, [odpList, search]);
 
   if (selected) {
@@ -28,7 +44,7 @@ export default function OdpAutocomplete({ odpList, value, onChange, placeholder 
         className="flex items-center gap-2 px-3 rounded-lg border text-sm font-medium"
         style={{ height: 48, borderColor: "var(--color-primary)", background: "rgba(240,143,37,0.06)" }}
       >
-        <span className="flex-1 truncate">{selected.label}</span>
+        <span className="flex-1 min-w-0"><OdpLabel o={selected} /></span>
         <button type="button" onClick={() => onChange(null)} className="text-gray-400 hover:text-gray-600 text-base leading-none">×</button>
       </div>
     );
@@ -57,7 +73,7 @@ export default function OdpAutocomplete({ odpList, value, onChange, placeholder 
               className="px-3 py-2.5 text-sm cursor-pointer hover:bg-orange-50"
               onMouseDown={e => { e.preventDefault(); onChange(o.odp); setSearch(""); setOpen(false); }}
             >
-              <span className={o.isSpeciale ? "font-medium" : "font-semibold"}>{o.label}</span>
+              <OdpLabel o={o} />
             </li>
           ))}
         </ul>

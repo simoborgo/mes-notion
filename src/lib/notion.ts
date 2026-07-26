@@ -460,11 +460,23 @@ const ODP_SPECIALI: { prefix: string; label: string }[] = [
 // per l'autocomplete di Rilevamento Ore
 export async function getOdpAttivi(): Promise<OdpAttivo[]> {
   const schede = await getSchede();
+  // dedup per ODP: lo stesso testo ODP può comparire su più Schede quando ci sono
+  // sub-item padre/figlio collegati (oggi non lavorabili singolarmente in Rilevamento
+  // Ore — se in futuro si vorrà distinguerli, andrà rivista questa dedup) — teniamo
+  // la prima occorrenza per evitare key React duplicate
+  const vistiOdp = new Set<string>();
   const attivi: OdpAttivo[] = schede
     .filter(s => s.statoProduzione === "In lavorazione" && s.odp)
+    .filter(s => {
+      if (vistiOdp.has(s.odp)) return false;
+      vistiOdp.add(s.odp);
+      return true;
+    })
     .map(s => ({
       odp: s.odp,
       label: s.clienteInfo ? `${s.odp} — ${s.clienteInfo}` : s.odp,
+      numeroScheda: s.numeroScheda || undefined,
+      clienteInfo: s.clienteInfo || undefined,
       isSpeciale: false,
     }));
   const speciali: OdpAttivo[] = ODP_SPECIALI.map(s => ({
