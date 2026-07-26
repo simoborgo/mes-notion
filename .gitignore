@@ -24,6 +24,9 @@
 .DS_Store
 *.pem
 
+# puppeteer chrome cache (vedi PUPPETEER_CACHE_DIR nel deploy VPS)
+/.cache
+
 # debug
 npm-debug.log*
 yarn-debug.log*
