@@ -89,7 +89,17 @@ export default function VistaOggi() {
   useEffect(() => { caricaPresenti(data); setSelezionati(new Set()); }, [data, caricaPresenti]);
 
   useEffect(() => {
-    fetch("/api/ore/odp-list").then(r => r.json()).then(setOdpList).catch(() => {});
+    fetch("/api/ore/odp-list")
+      .then(async r => {
+        const json = await r.json();
+        if (!r.ok) throw new Error(json?.error ?? `Errore ${r.status}`);
+        return json;
+      })
+      .then(json => setOdpList(Array.isArray(json) ? json : []))
+      .catch(e => {
+        console.error("[VistaOggi] odp-list:", e);
+        setErrore(e instanceof Error ? e.message : "Errore caricamento elenco ODP");
+      });
   }, []);
 
   const presentiOrdinati = useMemo(() => {
