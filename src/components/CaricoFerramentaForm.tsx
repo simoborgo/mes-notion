@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ArticoloFerramenta } from "@/lib/types";
 import ArticoloAutocomplete from "./ArticoloAutocomplete";
@@ -13,6 +13,22 @@ export default function CaricoFerramentaForm({ articoli }: { articoli: ArticoloF
   const [error, setError] = useState("");
 
   const selected = articoloId ? articoli.find(a => a.id === articoloId) : null;
+
+  // Selezionando un Kanban precompiliamo con la Quantità Standard Vaschetta — il caso
+  // comune è "arriva una vaschetta piena" — ma resta modificabile per consegne parziali.
+  useEffect(() => {
+    if (selected?.metodoGestione === "Kanban" && selected.quantitaStandardVaschetta) {
+      setQuantita(String(selected.quantitaStandardVaschetta));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [articoloId]);
+
+  const quantitaNum = Number(quantita);
+  const nonMultiploVaschetta =
+    selected?.metodoGestione === "Kanban" &&
+    !!selected.quantitaStandardVaschetta &&
+    quantitaNum > 0 &&
+    quantitaNum % selected.quantitaStandardVaschetta !== 0;
 
   async function handleSubmit() {
     const q = Number(quantita);
@@ -84,6 +100,11 @@ export default function CaricoFerramentaForm({ articoli }: { articoli: ArticoloF
           style={{ height: 52, borderColor: "#d1d5db" }}
           placeholder="0"
         />
+        {nonMultiploVaschetta && (
+          <p className="text-xs mt-1.5" style={{ color: "#92400E" }}>
+            ⚠ {quantita} non è multiplo della Quantità Standard Vaschetta ({selected!.quantitaStandardVaschetta} {selected!.unitaMisura}) — controlla che sia corretto per una consegna parziale.
+          </p>
+        )}
       </div>
 
       {error && (
