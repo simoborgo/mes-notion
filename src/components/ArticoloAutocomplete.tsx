@@ -22,6 +22,19 @@ export default function ArticoloAutocomplete({ articoli, value, onChange, placeh
     return articoli.filter(a => `${a.descrizione} ${a.codiceOs1}`.toLowerCase().includes(q)).slice(0, 30);
   }, [articoli, search]);
 
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== "Enter" || filtrati.length === 0) return;
+    e.preventDefault();
+    // Match esatto sul codice (es. scanner barcode: digita il codice e invia Invio)
+    // ha la precedenza sul primo risultato del filtro fuzzy per descrizione.
+    const q = search.toLowerCase().trim();
+    const esatto = filtrati.find(a => a.codiceOs1.toLowerCase() === q);
+    const scelto = esatto ?? filtrati[0];
+    onChange(scelto.id);
+    setSearch("");
+    setOpen(false);
+  }
+
   if (selected) {
     return (
       <div
@@ -45,6 +58,7 @@ export default function ArticoloAutocomplete({ articoli, value, onChange, placeh
         onChange={e => { setSearch(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onKeyDown={handleKeyDown}
       />
       {open && filtrati.length > 0 && (
         <ul

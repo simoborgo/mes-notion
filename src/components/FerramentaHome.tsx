@@ -10,7 +10,7 @@ function isSottoSoglia(a: ArticoloFerramenta): boolean {
 
 export default function FerramentaHome({ articoli }: { articoli: ArticoloFerramenta[] }) {
   const [search, setSearch] = useState("");
-  const [soloDaRiordinare, setSoloDaRiordinare] = useState(true);
+  const [soloDaRiordinare, setSoloDaRiordinare] = useState(false);
 
   const attivi = useMemo(() => articoli.filter(a => a.attivo), [articoli]);
 
@@ -56,27 +56,6 @@ export default function FerramentaHome({ articoli }: { articoli: ArticoloFerrame
             </span>
           )}
         </button>
-        <Link
-          href="/ferramenta/fogli-scarico"
-          className="ml-auto px-4 py-2 rounded-lg text-sm font-semibold border transition-colors hover:bg-gray-50"
-          style={{ color: "var(--color-grey-mid)", borderColor: "#d1d5db" }}
-        >
-          Fogli di scarico
-        </Link>
-        <Link
-          href="/ferramenta/inventario"
-          className="px-4 py-2 rounded-lg text-sm font-semibold border transition-colors hover:bg-gray-50"
-          style={{ color: "var(--color-grey-mid)", borderColor: "#d1d5db" }}
-        >
-          Inventario
-        </Link>
-        <Link
-          href="/ferramenta/carico"
-          className="px-4 py-2 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90"
-          style={{ background: "var(--color-primary)", color: "white" }}
-        >
-          + Carico
-        </Link>
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">

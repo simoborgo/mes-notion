@@ -187,17 +187,6 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
                 Import Schede
               </NavTab>
               <NavTab
-                href="/admin/ferramenta"
-                active={pathname === "/admin/ferramenta"}
-                icon={
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="M20 4L8.12 15.88" /><path d="M14.47 14.48L20 20" /><path d="M8.12 8.12L12 12" />
-                  </svg>
-                }
-              >
-                Anagrafica Ferramenta
-              </NavTab>
-              <NavTab
                 href="/admin/ferramenta/kit"
                 active={pathname === "/admin/ferramenta/kit" || pathname.startsWith("/admin/ferramenta/kit/")}
                 icon={
@@ -279,18 +268,6 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
                 }
               >
                 Import Schede
-              </NavTab>
-              <NavTab
-                href="/admin/ferramenta"
-                active={pathname === "/admin/ferramenta"}
-                onClick={() => setMenuOpen(false)}
-                icon={
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="M20 4L8.12 15.88" /><path d="M14.47 14.48L20 20" /><path d="M8.12 8.12L12 12" />
-                  </svg>
-                }
-              >
-                Anagrafica Ferramenta
               </NavTab>
               <NavTab
                 href="/admin/ferramenta/kit"

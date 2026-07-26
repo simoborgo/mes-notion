@@ -3,6 +3,7 @@ import { getSession, FERRAMENTA_ROLES } from "@/lib/auth";
 import { getSchedeOdpAvviate } from "@/lib/notion";
 import { getOdpConMovimenti } from "@/lib/ferramentaRepository";
 import FogliScaricoList from "@/components/FogliScaricoList";
+import FerramentaSubNav from "@/components/FerramentaSubNav";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,7 @@ export default async function FogliScaricoPage() {
 
   return (
     <div className="space-y-4">
+      <FerramentaSubNav isAdmin={session.role === "admin"} />
       <div>
         <h1 className="text-2xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
           Fogli di Scarico

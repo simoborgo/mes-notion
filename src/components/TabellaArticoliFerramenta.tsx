@@ -124,10 +124,20 @@ export default function TabellaArticoliFerramenta({ articoli: initial }: { artic
                     <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">{a.codiceOs1 || "—"}</td>
                     <td className="px-4 py-3 font-medium">
                       {a.descrizione}
-                      <div className="mt-1">
+                      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
                         <a href={`/api/ferramenta/articoli/${a.id}/etichetta`} target="_blank" rel="noreferrer" className="text-xs underline" style={{ color: "var(--color-primary)" }}>
                           Stampa etichetta
                         </a>
+                        {a.metodoGestione === "Kanban" && (
+                          <>
+                            <a href={`/api/ferramenta/articoli/${a.id}/etichetta-riordino`} target="_blank" rel="noreferrer" className="text-xs underline" style={{ color: "var(--color-primary)" }}>
+                              Etichetta riordino (PDF)
+                            </a>
+                            <a href={`/api/ferramenta/articoli/${a.id}/etichetta-riordino-zpl`} className="text-xs underline" style={{ color: "var(--color-primary)" }}>
+                              ZPL
+                            </a>
+                          </>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>{a.fornitoreNome || "—"}</td>

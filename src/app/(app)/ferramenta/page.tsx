@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession, FERRAMENTA_ROLES } from "@/lib/auth";
 import { getArticoliFerramenta } from "@/lib/notion";
 import FerramentaHome from "@/components/FerramentaHome";
+import FerramentaSubNav from "@/components/FerramentaSubNav";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,7 @@ export default async function FerramentaPage() {
 
   return (
     <div className="space-y-4">
+      <FerramentaSubNav isAdmin={session.role === "admin"} />
       <div>
         <h1 className="text-2xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
           Ferramenta

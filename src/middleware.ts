@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 
-const PUBLIC_PATHS = ["/login", "/api/auth", "/api/webhooks"];
+const PUBLIC_PATHS = ["/login", "/api/auth", "/api/webhooks", "/riordino"];
 const COOKIE_NAME = "mes_session";
 
 function getSecret(): Uint8Array {

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getSession, FERRAMENTA_ROLES } from "@/lib/auth";
 import { getInventarioAperto, getRigheByInventario } from "@/lib/inventarioFerramentaRepository";
 import NuovoInventarioForm from "@/components/NuovoInventarioForm";
+import FerramentaSubNav from "@/components/FerramentaSubNav";
 
 export const dynamic = "force-dynamic";
 
@@ -21,26 +22,29 @@ export default async function InventarioPage() {
   const sessione = await getInventarioAperto();
 
   return (
-    <div className="max-w-lg mx-auto space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
-            Inventario Ferramenta
-          </h1>
-          <p className="text-sm mt-1" style={{ color: "var(--color-grey-mid)" }}>
-            Conteggio a riconteggio delle scorte
-          </p>
+    <div className="space-y-4">
+      <FerramentaSubNav isAdmin={session.role === "admin"} />
+      <div className="max-w-lg mx-auto space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
+              Inventario Ferramenta
+            </h1>
+            <p className="text-sm mt-1" style={{ color: "var(--color-grey-mid)" }}>
+              Conteggio a riconteggio delle scorte
+            </p>
+          </div>
+          <Link href="/ferramenta/inventario/storico" className="text-xs underline" style={{ color: "var(--color-primary)" }}>
+            Storico →
+          </Link>
         </div>
-        <Link href="/ferramenta/inventario/storico" className="text-xs underline" style={{ color: "var(--color-primary)" }}>
-          Storico →
-        </Link>
-      </div>
 
-      {sessione ? (
-        <InventarioAttivoCard inventarioId={sessione.id} ambitoLabel={`${AMBITO_LABEL[sessione.ambito]}${sessione.ambitoValore ? `: ${sessione.ambitoValore}` : ""}`} apertoDa={sessione.apertoDa} />
-      ) : (
-        <NuovoInventarioForm />
-      )}
+        {sessione ? (
+          <InventarioAttivoCard inventarioId={sessione.id} ambitoLabel={`${AMBITO_LABEL[sessione.ambito]}${sessione.ambitoValore ? `: ${sessione.ambitoValore}` : ""}`} apertoDa={sessione.apertoDa} />
+        ) : (
+          <NuovoInventarioForm />
+        )}
+      </div>
     </div>
   );
 }
