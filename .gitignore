@@ -45,3 +45,6 @@ next-env.d.ts
 
 # vscode workspace (machine-specific paths)
 *.code-workspace
+
+# CSV di import una tantum in root (dati fornitori/prezzi, non da versionare)
+/*.csv
