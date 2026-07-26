@@ -78,6 +78,7 @@ export default function VistaOggi() {
   const [selezionati, setSelezionati] = useState<Set<string>>(new Set());
   const [totaleGiornata, setTotaleGiornata] = useState(DEFAULT_TOTALE_GIORNATA);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [preselezionaUltimoOdp, setPreselezionaUltimoOdp] = useState(true);
 
   // mostraLoading=false per i ricaricamenti dopo salvataggio/eliminazione: evita che
   // l'intera lista sparisca dietro "Caricamento…" (smontando/rimontando ogni riga) a ogni
@@ -207,6 +208,10 @@ export default function VistaOggi() {
           <span style={{ color: "var(--color-grey-mid)" }}>h</span>
         </label>
         <label className="flex items-center gap-2 text-sm cursor-pointer">
+          <input type="checkbox" checked={preselezionaUltimoOdp} onChange={e => setPreselezionaUltimoOdp(e.target.checked)} className="accent-orange-500" />
+          Preseleziona ODP in lavorazione dal giorno precedente
+        </label>
+        <label className="flex items-center gap-2 text-sm cursor-pointer">
           <input type="checkbox" checked={ordinaPerReparto} onChange={e => setOrdinaPerReparto(e.target.checked)} className="accent-orange-500" />
           Ordina per reparto
         </label>
@@ -237,6 +242,7 @@ export default function VistaOggi() {
               p={p}
               odpList={odpList}
               totaleGiornata={totaleGiornata}
+              preselezionaUltimoOdp={preselezionaUltimoOdp}
               selezionato={selezionati.has(p.matricola)}
               onToggleSelezionato={() => toggleSelezionato(p.matricola)}
               onSalva={voce => salvaVoce(voce)}
@@ -268,11 +274,12 @@ export default function VistaOggi() {
 }
 
 function RigaOperatore({
-  p, odpList, totaleGiornata, selezionato, onToggleSelezionato, onSalva, onElimina,
+  p, odpList, totaleGiornata, preselezionaUltimoOdp, selezionato, onToggleSelezionato, onSalva, onElimina,
 }: {
   p: PresenteRow;
   odpList: OdpAttivo[];
   totaleGiornata: number;
+  preselezionaUltimoOdp: boolean;
   selezionato: boolean;
   onToggleSelezionato: () => void;
   onSalva: (voce: { matricola: string; cognome: string; nome: string; azienda: string | null; reparto: string | null; odp: string; ore: number; rif: boolean; causale: Causale | null; note: string | null }) => Promise<void>;
@@ -283,7 +290,10 @@ function RigaOperatore({
   const rimanenti = Math.max(arrotondaMezzo(totaleGiornata - totaleOre), 0);
   const giornataCompleta = rimanenti <= 0;
 
-  const [odp, setOdp] = useState<string | null>(p.ultimoOdp);
+  // undefined = non ancora toccato dall'utente, segue la spunta "preseleziona";
+  // null/stringa = scelta esplicita dell'utente (selezione, cancellazione o dopo un salvataggio)
+  const [odpOverride, setOdpOverride] = useState<string | null | undefined>(undefined);
+  const odp = odpOverride !== undefined ? odpOverride : (preselezionaUltimoOdp ? p.ultimoOdp : null);
   // null = segui il residuo calcolato; un numero = l'utente ha digitato un valore proprio
   const [oreOverride, setOreOverride] = useState<number | null>(null);
   const ore = oreOverride ?? rimanenti;
@@ -302,7 +312,7 @@ function RigaOperatore({
         azienda: p.azienda, reparto: p.reparto,
         odp, ore, rif, causale: null, note: null,
       });
-      setOdp(null);
+      setOdpOverride(null);
       setRif(false);
       setOreOverride(null);
     } catch (e) {
@@ -359,7 +369,7 @@ function RigaOperatore({
 
       <div className="px-4 pb-3 pt-1 border-t flex items-center gap-2 flex-wrap" style={{ borderColor: "#e5e4e0" }}>
         <div style={{ minWidth: 200, flex: 1 }}>
-          <OdpAutocomplete odpList={odpList} value={odp} onChange={setOdp} placeholder="Cerca ODP…" />
+          <OdpAutocomplete odpList={odpList} value={odp} onChange={setOdpOverride} placeholder="Cerca ODP…" />
         </div>
         <input
           type="number" step={0.5} min={0} className={inputCls}
