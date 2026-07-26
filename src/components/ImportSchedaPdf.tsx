@@ -144,7 +144,7 @@ export default function ImportSchedaPdf() {
         const isExternal = !!(it.fornitore && it.fornitore.toUpperCase() !== "MODAR");
         return {
           ...it,
-          stato: it.stato ?? (isExternal ? "In Lavorazione Esterna" : "In Lavorazione"),
+          stato: it.stato ?? (isExternal ? "In lavorazione Esterna" : "In lavorazione"),
           includeAsSubitem: idx === 0 ? undefined : isExternal,
         };
       }));
@@ -423,13 +423,13 @@ export default function ImportSchedaPdf() {
                       Stato iniziale *
                     </label>
                     <select
-                      value={item.stato ?? "In Lavorazione"}
+                      value={item.stato ?? "In lavorazione"}
                       onChange={(e) => updateItem(idx, "stato", e.target.value)}
                       className="text-xs px-2 py-1 rounded"
                       style={{ border: "1px solid #e5e4e0", background: "#fafaf9", color: "var(--color-black)" }}
                     >
-                      <option value="In Lavorazione">In Lavorazione</option>
-                      <option value="In Lavorazione Esterna">In Lavorazione Esterna</option>
+                      <option value="In lavorazione">In lavorazione</option>
+                      <option value="In lavorazione Esterna">In lavorazione Esterna</option>
                     </select>
                   </div>
 

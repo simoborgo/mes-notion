@@ -7,8 +7,8 @@ import BadgeStato from "./BadgeStato";
 import DettaglioSchedaModal from "./DettaglioSchedaModal";
 
 const PAGE_SIZE = 100;
-const STATI_COMPLETATI = new Set(["Completato", "Annullato"]);
-const STATI_RILAVORAZIONE_APERTA = new Set(["In Lavorazione Esterna", "In Lavorazione", "In Attesa Rilavorazione"]);
+const STATI_COMPLETATI = new Set(["Completato", "Annullata"]);
+const STATI_RILAVORAZIONE_APERTA = new Set(["In lavorazione Esterna", "In lavorazione", "In Attesa Rilavorazione"]);
 
 type SortKey = "odp" | "numeroScheda" | "clienteInfo" | "statoProduzione" | "dataProduzionePrevista" | "dataRientroPrevista";
 type SortDir = "asc" | "desc";

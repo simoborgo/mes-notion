@@ -1,8 +1,10 @@
 const colorMap: Record<string, { bg: string; text: string }> = {
   // Stato Scheda
   "Da iniziare":              { bg: "#F3F4F6", text: "#6B7280" },
+  "Da Iniziare":              { bg: "#F3F4F6", text: "#6B7280" },
   "In lavorazione":           { bg: "#FEF3C7", text: "#92400E" },
   "In Lavorazione":           { bg: "#FEF3C7", text: "#92400E" },
+  "In lavorazione Esterna":   { bg: "#EDE9FE", text: "#5B21B6" },
   "In Lavorazione Esterna":   { bg: "#EDE9FE", text: "#5B21B6" },
   "In Attesa Rilavorazione":  { bg: "#FEF9C3", text: "#92400E" },
   "Verificato":               { bg: "#D1FAE5", text: "#065F46" },

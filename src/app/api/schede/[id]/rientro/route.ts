@@ -20,7 +20,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     // Sblocca il parent (torna in lavorazione interna)
     if (rilavorazione.parentId) {
-      await updateSchedaStato(rilavorazione.parentId, "In Lavorazione");
+      await updateSchedaStato(rilavorazione.parentId, "In lavorazione");
     }
 
     revalidatePath("/schede");

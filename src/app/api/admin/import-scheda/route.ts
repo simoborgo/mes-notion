@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
     commessaId: commessa.id,
     odp,
     tipologia: "Scheda",
-    stato: parent.stato || "In Lavorazione",
+    stato: parent.stato || "In lavorazione",
     codiceArticolo: parent.codiceArticolo,
     posizione: parent.posizione,
     fornitore: parent.fornitore,
@@ -92,8 +92,8 @@ export async function POST(req: NextRequest) {
     const sub = items.slice(1)[i];
     const subStato = sub.stato ?? (
       sub.fornitore && sub.fornitore.toUpperCase() !== "MODAR"
-        ? "In Lavorazione Esterna"
-        : "In Lavorazione"
+        ? "In lavorazione Esterna"
+        : "In lavorazione"
     );
     const subPage = await createSchedaPage({
       numeroScheda: sub.numeroScheda,

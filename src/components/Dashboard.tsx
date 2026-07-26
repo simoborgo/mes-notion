@@ -290,7 +290,7 @@ export default function Dashboard({ schede, ritiri, commesse, carichi }: Dashboa
     return d >= meseStart && d <= meseEnd;
   }).length;
   const commesseShopDrawing = commesse.filter((c) => c.stato === "ShopDrawing").length;
-  const STATI_ESCLUSI_ODP = new Set(["Completato", "Materiale Pronto", "Annullato", "Da iniziare"]);
+  const STATI_ESCLUSI_ODP = new Set(["Completato", "Materiale Pronto", "Annullata", "Da Iniziare"]);
   const odpInLavorazione = schede.filter((s) => !STATI_ESCLUSI_ODP.has(s.statoProduzione)).length;
 
   const kpis: KpiCardProps[] = [

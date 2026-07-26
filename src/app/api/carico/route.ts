@@ -9,7 +9,7 @@ const MAX_BASE64_CHARS = 14 * 1024 * 1024; // base64 of 10 MB ≈ 13.3 MB
 
 const STATO_PER_DESTINAZIONE: Record<string, string> = {
   "Magazzino interno": "Materiale Pronto",
-  "Fornitore esterno": "In Lavorazione Esterna",
+  "Fornitore esterno": "In lavorazione Esterna",
 };
 
 export async function POST(req: NextRequest) {

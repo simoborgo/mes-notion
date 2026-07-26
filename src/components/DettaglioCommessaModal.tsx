@@ -55,7 +55,7 @@ function OdpStats({ schede }: { schede: Scheda[] }) {
   if (schede.length === 0) return null;
   const total = schede.length;
   const completati = schede.filter(s => s.statoProduzione === "Completato").length;
-  const inLavorazione = schede.filter(s => !["Completato", "Annullato", "Da iniziare"].includes(s.statoProduzione ?? "")).length;
+  const inLavorazione = schede.filter(s => !["Completato", "Annullata", "Da Iniziare"].includes(s.statoProduzione ?? "")).length;
   const pct = Math.round((completati / total) * 100);
   const color = odpProgressColor(pct);
   return (

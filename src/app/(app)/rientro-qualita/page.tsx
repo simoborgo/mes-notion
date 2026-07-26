@@ -3,7 +3,7 @@ import RientroQualitaList from "@/components/RientroQualitaList";
 
 export const dynamic = "force-dynamic";
 
-const STATI_CHIUSI = new Set(["Completato", "Annullato"]);
+const STATI_CHIUSI = new Set(["Completato", "Annullata"]);
 
 export default async function RientroQualitaPage() {
   const sottoschede = await getSottoschede();

@@ -301,8 +301,8 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
   }, [onClose]);
 
   const today = new Date().toISOString().slice(0, 10);
-  const inRitardoProd = !["Completato", "Annullato"].includes(s.statoProduzione) && !!s.dataProduzionePrevista && s.dataProduzionePrevista < today;
-  const inRitardoRientro = !["Completato", "Annullato"].includes(s.statoProduzione) && s.produzioneEsterna && !!s.dataRientroPrevista && s.dataRientroPrevista < today;
+  const inRitardoProd = !["Completato", "Annullata"].includes(s.statoProduzione) && !!s.dataProduzionePrevista && s.dataProduzionePrevista < today;
+  const inRitardoRientro = !["Completato", "Annullata"].includes(s.statoProduzione) && s.produzioneEsterna && !!s.dataRientroPrevista && s.dataRientroPrevista < today;
   const canHaveRilavorazione = s.tipologia === "Scheda" || s.tipologia === "Sottoscheda";
   const isInAttesaRilavorazione = s.statoProduzione === "In Attesa Rilavorazione";
   const hasPdf = s.pdfAllegato.length > 0;
@@ -425,7 +425,7 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
           )}
 
           {/* ── Rientro rilavorazione ── */}
-          {s.tipologia === "Rilavorazione" && !["Completato", "Annullato"].includes(s.statoProduzione) && !rientroFatto && (
+          {s.tipologia === "Rilavorazione" && !["Completato", "Annullata"].includes(s.statoProduzione) && !rientroFatto && (
             <div className="rounded-xl px-4 py-3 space-y-2" style={{ background: "#F0FDF4", border: "1px solid #86EFAC" }}>
               <div className="text-sm font-semibold" style={{ color: "#14532D" }}>Rientro rilavorazione</div>
               <p className="text-xs" style={{ color: "#166534" }}>

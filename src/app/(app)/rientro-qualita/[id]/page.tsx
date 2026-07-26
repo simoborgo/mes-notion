@@ -15,7 +15,7 @@ export default async function RientroQualitaDetailPage({ params }: { params: Pro
   }
   if (!scheda || scheda.tipologia !== "Rilavorazione") notFound();
 
-  const giaCompletata = ["Completato", "Annullato"].includes(scheda.statoProduzione);
+  const giaCompletata = ["Completato", "Annullata"].includes(scheda.statoProduzione);
 
   return (
     <div className="max-w-md mx-auto space-y-5">
