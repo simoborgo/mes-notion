@@ -491,7 +491,7 @@ export const getFornitoriList = unstable_cache(
   async (): Promise<{ id: string; nome: string; codiceOs1: string }[]> => {
     const pages = await queryAll(DB_FORNITORI, undefined, [{ property: "Nome", direction: "ascending" }]);
     return pages
-      .map((p) => ({ id: p.id, nome: getText(prop(p, "Nome")), codiceOs1: getText(prop(p, "Codice Fornitore OS1")) }))
+      .map((p) => ({ id: p.id, nome: getText(prop(p, "Nome")), codiceOs1: getText(prop(p, "Idfornitore")) }))
       .filter((f) => f.nome);
   },
   ["notion-fornitori-list"],
