@@ -6,7 +6,6 @@ interface ParsedItem {
   numeroScheda: string;
   commessaNr: string;
   termineDiConsegna: string | null;
-  dataOrdine: string | null;
   tipologia?: string;
   codiceArticolo?: string | null;
   posizione?: string | null;
@@ -14,6 +13,7 @@ interface ParsedItem {
   quantita?: number | null;
   stato?: string;
   includeAsSubitem?: boolean;
+  gruppo?: number | null;
   otherFields?: Record<string, string>;
 }
 
@@ -188,11 +188,12 @@ export default function ImportSchedaPdf() {
     setStatus("importing");
     setError(null);
     try {
+      const itemsWithIndex = items.map((it, idx) => ({ ...it, pageIndex: idx }));
       const res = await fetch("/api/admin/import-scheda", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          items: [items[0], ...items.slice(1).filter((it) => it.includeAsSubitem === true)],
+          items: [itemsWithIndex[0], ...itemsWithIndex.slice(1).filter((it) => it.includeAsSubitem === true)],
           pdfBase64,
           thumbnailBase64,
         }),
@@ -391,8 +392,21 @@ export default function ImportSchedaPdf() {
                           color: item.includeAsSubitem ? "#854d0e" : "#9ca3af",
                         }}
                       >
-                        {item.includeAsSubitem ? `Sottoscheda ${idx}` : `Pagina ${idx} — esclusa`}
+                        {item.includeAsSubitem ? `Sottoscheda ${idx}` : `Pagina ${idx} — inclusa nella scheda principale`}
                       </span>
+                    </label>
+                  )}
+                  {idx > 0 && item.includeAsSubitem === true && (
+                    <label className="flex items-center gap-1.5 text-xs" style={{ color: "#6b6966" }}>
+                      Gruppo
+                      <input
+                        type="number"
+                        value={item.gruppo ?? idx}
+                        onChange={(e) => updateItem(idx, "gruppo", e.target.value ? Number(e.target.value) : null)}
+                        title="Pagine con lo stesso numero di gruppo diventano un'unica sottoscheda con PDF unito"
+                        className="w-14 text-xs px-1.5 py-0.5 rounded"
+                        style={{ border: "1px solid #e5e4e0", background: "#fafaf9", color: "var(--color-black)" }}
+                      />
                     </label>
                   )}
                 </div>
@@ -404,7 +418,6 @@ export default function ImportSchedaPdf() {
                   {fieldRow("Codice Articolo", item.codiceArticolo ?? "", (v) => updateItem(idx, "codiceArticolo", v || null))}
                   {fieldRow("Fornitore", item.fornitore ?? "", (v) => updateItem(idx, "fornitore", v || null))}
                   {fieldRow("Data Consegna Prevista", item.termineDiConsegna ?? "", (v) => updateItem(idx, "termineDiConsegna", v || null), "date")}
-                  {fieldRow("Data Ordine", item.dataOrdine ?? "", (v) => updateItem(idx, "dataOrdine", v || null), "date")}
                   <div className="flex gap-2 items-center">
                     <label className="text-xs shrink-0" style={{ color: "#6b6966", width: 180 }}>
                       Quantità

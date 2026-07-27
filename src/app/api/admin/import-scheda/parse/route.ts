@@ -19,6 +19,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Testo PDF mancante" }, { status: 400 });
   }
 
+  console.log(`[import-scheda/parse] avvio estrazione AI — ${pageTexts.length} pagina/e`);
+
   // Build page sections (first 1500 chars per page is plenty for header data)
   const pageSections = pageTexts
     .map((t, i) => `[PAGINA ${i + 1}]\n${t.slice(0, 1500).trim()}`)
@@ -30,8 +32,7 @@ export async function POST(req: NextRequest) {
         {
           numeroScheda: "POSIZIONE + ' - ' + DESCRIZIONE PRINCIPALE della pagina (es: '01 - CORNICI VIP')",
           commessaNr: "SOLO la parte numerica della commessa (es: '25306' da 'GGCT-25306-HXBP')",
-          termineDiConsegna: "YYYY-MM-DD oppure null",
-          dataOrdine: "YYYY-MM-DD oppure null",
+          termineDiConsegna: "YYYY-MM-DD oppure null — vedi regole sotto",
           codiceArticolo: "codice articolo/pezzo specifico oppure null. NON mettere il numero commessa.",
           posizione: "numero di posizione oppure null",
           fornitore: "subfornitore ESTERNO (es: 'Cattaneo'). NON 'MODAR'. null se lavorazione interna.",
@@ -49,6 +50,7 @@ export async function POST(req: NextRequest) {
     "commessaNr è solo il numero numerico (es: '25306'). Non confonderlo con codiceArticolo.",
     "codiceArticolo è il codice specifico dell'articolo, non la commessa. null se non trovato.",
     "fornitore: MODAR è l'azienda committente/produttrice — NON va MAI messo in 'fornitore'. Cerca il subfornitore esterno specifico della pagina (es: Cattaneo, Rossi Srl, ecc.). Se non c'è, metti null.",
+    "termineDiConsegna: cerca ESATTAMENTE l'etichetta 'TERMINE DI CONSEGNA' nel testo della pagina e prendi la data associata a quell'etichetta. NON è la data di emissione/stampa del documento né una data d'ordine — se nella pagina compaiono più date, usa solo quella accanto a 'TERMINE DI CONSEGNA', ignora le altre.",
     "La lista componenti/distinta base va in otherFields come testo, non come item separati.",
     "otherFields: solo valori stringa semplici, nessun oggetto annidato.",
     "Restituisci SOLO il JSON grezzo senza markdown, senza ```json, senza altro testo.",
@@ -91,6 +93,13 @@ export async function POST(req: NextRequest) {
   try {
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : text);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const items = (parsed as any)?.items ?? [];
+    console.log(
+      `[import-scheda/parse] estrazione completata — ${items.length} item:`,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      items.map((it: any) => ({ numeroScheda: it.numeroScheda, termineDiConsegna: it.termineDiConsegna })),
+    );
     return NextResponse.json({ ok: true, ...parsed });
   } catch (e) {
     console.error("[parse] JSON parse error:", e, "\ntext:", text);
