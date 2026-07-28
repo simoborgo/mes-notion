@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import puppeteer from "puppeteer";
 import QRCode from "qrcode";
-import { getArticoloFerramentaById } from "@/lib/notion";
+import { getArticoloFerramentaById } from "@/lib/articoliFerramentaRepository";
 import { getSessionFromRequest } from "@/lib/auth";
 
 function esc(s: string) {
@@ -31,34 +31,26 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Jost',sans-serif;background:#fff}
-.label{width:100mm;height:60mm;padding:5mm;display:flex;flex-direction:column;justify-content:space-between}
-.hd{font-size:9px;font-weight:600;letter-spacing:.15em;color:#A4A4A6;text-transform:uppercase}
-.desc{font-size:16px;font-weight:700;color:#1A1918;line-height:1.2;margin-top:2mm}
-.codice{font-size:13px;font-weight:600;color:#6b6966;margin-top:1mm}
-.body{display:flex;align-items:center;gap:6mm;margin-top:3mm}
-.qrbox{border:1px solid #E4E0DA;border-radius:4px;padding:3px;line-height:0;flex-shrink:0}
-.qrbox svg{display:block;width:80px;height:80px}
-.info{font-size:11px;color:#6b6966}
-.info div{margin-bottom:2px}
-.ft{font-size:8px;color:#A4A4A6;text-align:right}
-@media print{@page{size:100mm 60mm;margin:0}}
+.label{width:76mm;height:25mm;padding:2mm;display:flex;align-items:center;gap:2.5mm}
+.qrbox{line-height:0;flex-shrink:0}
+.qrbox svg{display:block;width:20mm;height:20mm}
+.info{flex:1;min-width:0;display:flex;flex-direction:column;gap:0.6mm;overflow:hidden}
+.desc{font-size:9px;font-weight:700;color:#1A1918;line-height:1.15;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.codice{font-size:8px;font-weight:600;color:#1A1918}
+.fornitore{font-size:7px;color:#6b6966;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.um{font-size:7px;color:#A4A4A6}
+@media print{@page{size:76mm 25mm;margin:0}}
 </style>
 </head>
 <body>
 <div class="label">
-  <div>
-    <div class="hd">Ferramenta MES Modar</div>
+  <div class="qrbox">${qrSvg}</div>
+  <div class="info">
     <div class="desc">${esc(articolo.descrizione || "—")}</div>
     <div class="codice">${esc(articolo.codiceOs1 || "—")}</div>
+    <div class="fornitore">${esc(articolo.fornitoreNome || "—")}</div>
+    <div class="um">UM: ${esc(articolo.unitaMisura || "—")}</div>
   </div>
-  <div class="body">
-    <div class="qrbox">${qrSvg}</div>
-    <div class="info">
-      <div>UM: ${esc(articolo.unitaMisura || "—")}</div>
-      <div>Scansiona per segnalare scarico</div>
-    </div>
-  </div>
-  <div class="ft">ID ${id.replace(/-/g, "").slice(0, 8).toUpperCase()}</div>
 </div>
 </body>
 </html>`;
@@ -72,8 +64,8 @@ body{font-family:'Jost',sans-serif;background:#fff}
       await browserPage.setContent(html, { waitUntil: "load" });
       await browserPage.evaluateHandle("document.fonts.ready");
       const pdfBuffer = await browserPage.pdf({
-        width: "100mm",
-        height: "60mm",
+        width: "76mm",
+        height: "25mm",
         printBackground: true,
         margin: { top: "0mm", right: "0mm", bottom: "0mm", left: "0mm" },
       });
