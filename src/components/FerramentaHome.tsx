@@ -11,8 +11,14 @@ function isSottoSoglia(a: ArticoloFerramenta): boolean {
 export default function FerramentaHome({ articoli }: { articoli: ArticoloFerramenta[] }) {
   const [search, setSearch] = useState("");
   const [soloDaRiordinare, setSoloDaRiordinare] = useState(false);
+  const [fornitoreFiltro, setFornitoreFiltro] = useState("");
 
   const attivi = useMemo(() => articoli.filter(a => a.attivo), [articoli]);
+
+  const fornitoriOptions = useMemo(
+    () => Array.from(new Set(attivi.map(a => a.fornitoreNome).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+    [attivi]
+  );
 
   const daRiordinareCount = useMemo(
     () => attivi.filter(isSottoSoglia).length,
@@ -24,11 +30,12 @@ export default function FerramentaHome({ articoli }: { articoli: ArticoloFerrame
     return attivi
       .filter(a => {
         if (soloDaRiordinare && !isSottoSoglia(a)) return false;
-        if (q && !`${a.descrizione} ${a.codiceOs1} ${a.fornitoreNome}`.toLowerCase().includes(q)) return false;
+        if (fornitoreFiltro && a.fornitoreNome !== fornitoreFiltro) return false;
+        if (q && !`${a.descrizione} ${a.codiceOs1} ${a.fornitoreNome} ${a.codiceFornitore}`.toLowerCase().includes(q)) return false;
         return true;
       })
       .sort((a, b) => a.descrizione.localeCompare(b.descrizione));
-  }, [attivi, search, soloDaRiordinare]);
+  }, [attivi, search, soloDaRiordinare, fornitoreFiltro]);
 
   return (
     <div className="space-y-3">
@@ -39,6 +46,14 @@ export default function FerramentaHome({ articoli }: { articoli: ArticoloFerrame
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+        <select
+          className="border rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300"
+          value={fornitoreFiltro}
+          onChange={(e) => setFornitoreFiltro(e.target.value)}
+        >
+          <option value="">Tutti i fornitori</option>
+          {fornitoriOptions.map(f => <option key={f} value={f}>{f}</option>)}
+        </select>
         <button
           onClick={() => setSoloDaRiordinare(v => !v)}
           className="flex items-center gap-1.5 px-3 py-2 rounded border text-sm font-medium transition-colors"

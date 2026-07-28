@@ -95,7 +95,7 @@ function notionUrl(pageId: string): string {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function queryAll(dbId: string, filter?: any, sorts?: any[], maxPages = 5): Promise<any[]> {
+async function queryAll(dbId: string, filter?: any, sorts?: any[], maxPages = 1000): Promise<any[]> {
   const results = [];
   let cursor: string | undefined;
   let pages = 0;
