@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { getSessionFromRequest } from "@/lib/auth";
 import { getSchedaById, updateSchedaStato } from "@/lib/notion";
 
@@ -24,6 +24,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     revalidatePath("/schede");
+    revalidateTag("schede", "default");
 
     return NextResponse.json({ ok: true });
   } catch (err) {

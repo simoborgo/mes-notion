@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { updateSchedaKitFerramenta } from "@/lib/notion";
 import { getSessionFromRequest } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
@@ -25,5 +25,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ sc
   void logOperation(session.name, "UPDATE", "kit_ferramenta", schedaId, { stato: body.stato });
   revalidatePath("/admin/ferramenta/kit");
   revalidatePath("/ferramenta/fogli-scarico");
+  revalidateTag("schede", "default");
   return NextResponse.json(updated);
 }

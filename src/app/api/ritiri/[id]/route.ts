@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { updateRitiro, deleteRitiro, getRitiriByScheda, getRitiroById, getSchedaById, createRilavorazione, updateSchedaRientrato, updateSchedaConsegnaFatta, updateRilavorazioneRientrata } from "@/lib/notion";
 import type { RitiroUpdate } from "@/lib/types";
 import { getSessionFromRequest, WRITE_ROLES } from "@/lib/auth";
@@ -60,6 +60,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
               // Parent rimane "In Attesa Rilavorazione" fino a "Segna Rientrata" manuale
               await updateRilavorazioneRientrata(updated.rilavorazioneId);
               revalidatePath("/schede");
+              revalidateTag("schede", "default");
             }
             // Consegna → Fatto: nessun cambio stato (solo tracking logistico)
             return;
@@ -75,9 +76,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             if (updated.tipoMovimento === "Ritiro") {
               await updateSchedaRientrato(schedaId);
               revalidatePath("/schede");
+              revalidateTag("schede", "default");
             } else if (updated.tipoMovimento === "Consegna") {
               await updateSchedaConsegnaFatta(schedaId);
               revalidatePath("/schede");
+              revalidateTag("schede", "default");
             }
           }
         } catch (e) {
@@ -87,7 +90,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     revalidatePath("/ritiri");
-    if (isNC || effectiveSchedaId) revalidatePath("/schede");
+    if (isNC || effectiveSchedaId) { revalidatePath("/schede"); revalidateTag("schede", "default"); }
 
     // Audit log — fire-and-forget, non blocca la risposta
     void logOperation(
