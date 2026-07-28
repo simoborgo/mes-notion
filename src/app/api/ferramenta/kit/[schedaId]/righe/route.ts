@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { addDistintaRiga, getArticoloFerramentaById } from "@/lib/notion";
+import { addDistintaRiga } from "@/lib/kitFerramentaRepository";
+import { getArticoloFerramentaById } from "@/lib/articoliFerramentaRepository";
 import { getSessionFromRequest } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 

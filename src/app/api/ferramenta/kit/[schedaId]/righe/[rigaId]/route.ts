@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { updateDistintaRigaQuantita, deleteDistintaRiga } from "@/lib/notion";
+import { updateDistintaRigaQuantita, deleteDistintaRiga } from "@/lib/kitFerramentaRepository";
 import { getSessionFromRequest } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getArticoliFerramenta } from "@/lib/notion";
+import { getArticoliFerramenta } from "@/lib/articoliFerramentaRepository";
 import { getSessionFromRequest } from "@/lib/auth";
 import { toCsvRow } from "@/lib/csv";
 

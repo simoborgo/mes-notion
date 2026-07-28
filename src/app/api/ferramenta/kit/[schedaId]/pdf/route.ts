@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import puppeteer from "puppeteer";
-import { getSchedaById, getDistintaKitByOdp } from "@/lib/notion";
+import { getSchedaById } from "@/lib/notion";
+import { getDistintaKitByOdp } from "@/lib/kitFerramentaRepository";
 import { getSessionFromRequest, FERRAMENTA_ROLES } from "@/lib/auth";
 
 function esc(s: string) {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { getArticoliFerramenta } from "@/lib/notion";
+import { getArticoliFerramenta } from "@/lib/articoliFerramentaRepository";
 import { apriInventario, type InventarioAmbito } from "@/lib/inventarioFerramentaRepository";
 import { getSessionFromRequest, FERRAMENTA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";

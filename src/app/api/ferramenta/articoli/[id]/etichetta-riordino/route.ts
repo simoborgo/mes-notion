@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import puppeteer from "puppeteer";
 import QRCode from "qrcode";
-import { getArticoloFerramentaById } from "@/lib/notion";
+import { getArticoloFerramentaById } from "@/lib/articoliFerramentaRepository";
 import { getSessionFromRequest, FERRAMENTA_ROLES } from "@/lib/auth";
 
 function esc(s: string) {

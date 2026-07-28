@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getArticoloFerramentaById } from "@/lib/notion";
+import { getArticoloFerramentaById } from "@/lib/articoliFerramentaRepository";
 import { getSessionFromRequest, FERRAMENTA_ROLES } from "@/lib/auth";
 import { buildEtichettaRiordinoZpl } from "@/lib/zpl";
 

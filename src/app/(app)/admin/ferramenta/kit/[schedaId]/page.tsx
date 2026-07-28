@@ -1,6 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
-import { getSchedaById, getDistintaKitByOdp, getArticoliFerramenta } from "@/lib/notion";
+import { getSchedaById } from "@/lib/notion";
+import { getDistintaKitByOdp } from "@/lib/kitFerramentaRepository";
+import { getArticoliFerramenta } from "@/lib/articoliFerramentaRepository";
 import GestioneKitOdp from "@/components/GestioneKitOdp";
 
 export const dynamic = "force-dynamic";

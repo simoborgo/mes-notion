@@ -1,6 +1,6 @@
 import { Client } from "@notionhq/client";
 import { unstable_cache } from "next/cache";
-import type { Scheda, SchedaUpdate, Ritiro, RitiroUpdate, Commessa, Area, Carico, Operatore, OdpAttivo, ArticoloFerramenta, ArticoloFerramentaUpdate, DistintaKitRiga } from "./types";
+import type { Scheda, SchedaUpdate, Ritiro, RitiroUpdate, Commessa, Area, Carico, Operatore, OdpAttivo } from "./types";
 import { STATI_CHIUSI_ODP } from "./types";
 
 const notion = new Client({ auth: process.env.NOTION_TOKEN, fetch: globalThis.fetch });
@@ -12,10 +12,6 @@ const DB_RITIRI = process.env.NOTION_DB_RITIRI!;
 const DB_CARICHI = process.env.NOTION_DB_CARICHI!;
 const DB_FORNITORI = process.env.NOTION_DB_FORNITORI!;
 const DB_OPERATORI = process.env.NOTION_DB_OPERATORI!;
-const DB_FERRAMENTA = process.env.NOTION_DB_FERRAMENTA!;
-const DB_KIT_FERRAMENTA_RIGHE = process.env.NOTION_DB_KIT_FERRAMENTA_RIGHE!;
-// Nome esatto della property relation su DB_FERRAMENTA (creata con icona dall'utente su Notion)
-const FERRAMENTA_PROP_FORNITORE = "🏭 Fornitore";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function prop(page: any, name: string): any {
@@ -498,7 +494,7 @@ export const getFornitoriList = unstable_cache(
   { revalidate: 300, tags: ["fornitori"] }
 );
 
-const getFornitoriMap = unstable_cache(
+export const getFornitoriMap = unstable_cache(
   async (): Promise<Record<string, string>> => {
     const pages = await queryAll(DB_FORNITORI, undefined, [{ property: "Nome", direction: "ascending" }]);
     const map: Record<string, string> = {};
@@ -584,6 +580,16 @@ export async function updateSchedaKitFerramenta(id: string, stato: "Si" | "No" |
     properties: { "Kit Ferramenta": stato ? { select: { name: stato } } : { select: null } },
   });
   return getSchedaById(id);
+}
+
+// Scrive SOLO la property "Descrizione Kit Ferramenta" (riepilogo testuale, non una relation) —
+// la distinta strutturata vive su Postgres (kit_ferramenta_righe), qui resta solo un promemoria
+// leggibile per chi guarda la Scheda direttamente su Notion.
+export async function updateSchedaKitFerramentaDescrizione(id: string, descrizione: string): Promise<void> {
+  await notion.pages.update({
+    page_id: id,
+    properties: { "Descrizione Kit Ferramenta": { rich_text: [{ text: { content: descrizione } }] } },
+  });
 }
 
 export const getSchede = unstable_cache(
@@ -988,156 +994,3 @@ export async function appendFotoToPage(pageId: string, fotoBase64Array: string[]
   }
 }
 
-// ── Gestione Ferramenta ─────────────────────────────────────────────────────
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function pageToArticoloFerramenta(page: any, fornitoriMap?: Record<string, string>): ArticoloFerramenta {
-  const fornitoreId = getRelationId(prop(page, FERRAMENTA_PROP_FORNITORE));
-  const metodo = getText(prop(page, "Metodo Gestione"));
-  return {
-    id: page.id,
-    descrizione: getText(prop(page, "Descrizione")),
-    codiceOs1: getText(prop(page, "Codice OS1")),
-    unitaMisura: getText(prop(page, "Unita di Misura")),
-    fornitoreId,
-    fornitoreNome: (fornitoreId && fornitoriMap?.[fornitoreId]) ?? "",
-    fornitoreNomeOs1: getText(prop(page, "Fornitore Nome OS1")),
-    codiceFornitore: getText(prop(page, "Codice Fornitore")),
-    metodoGestione: metodo === "Kanban" || metodo === "A Pezzo" ? metodo : null,
-    giacenzaAttuale: getNumber(prop(page, "Giacenza Attuale")) ?? 0,
-    quantitaStandardVaschetta: getNumber(prop(page, "Quantità Standard Vaschetta")),
-    sogliaMinima: getNumber(prop(page, "Soglia Minima")),
-    attivo: getCheckbox(prop(page, "Attivo")),
-    note: getText(prop(page, "Note")),
-    ubicazione: getText(prop(page, "Ubicazione")),
-    notionUrl: notionUrl(page.id),
-  };
-}
-
-// Nessuna cache: la giacenza deve essere sempre fresca (letture pre-scarico/carico
-// e vista "Da Riordinare" non tollerano dati stantii) — stesso approccio di getRitiri().
-export async function getArticoliFerramenta(): Promise<ArticoloFerramenta[]> {
-  const [pages, fornitoriMap] = await Promise.all([
-    queryAll(DB_FERRAMENTA, undefined, [{ property: "Descrizione", direction: "ascending" }]),
-    getFornitoriMap(),
-  ]);
-  return pages.map(p => pageToArticoloFerramenta(p, fornitoriMap));
-}
-
-export async function getArticoloFerramentaById(id: string): Promise<ArticoloFerramenta> {
-  const [page, fornitoriMap] = await Promise.all([
-    notion.pages.retrieve({ page_id: id }) as Promise<any>, // eslint-disable-line @typescript-eslint/no-explicit-any
-    getFornitoriMap(),
-  ]);
-  return pageToArticoloFerramenta(page, fornitoriMap);
-}
-
-export async function createArticoloFerramenta({
-  descrizione,
-  codiceOs1,
-  unitaMisura,
-  fornitoreId,
-  fornitoreNomeOs1,
-  codiceFornitore,
-}: {
-  descrizione: string;
-  codiceOs1: string;
-  unitaMisura: string;
-  fornitoreId?: string | null;
-  fornitoreNomeOs1?: string | null;
-  codiceFornitore?: string | null;
-}): Promise<ArticoloFerramenta> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const properties: Record<string, any> = {
-    Descrizione: { title: [{ text: { content: descrizione || codiceOs1 } }] },
-    "Codice OS1": { rich_text: [{ text: { content: codiceOs1 } }] },
-    "Unita di Misura": { rich_text: [{ text: { content: unitaMisura || "" } }] },
-    "Giacenza Attuale": { number: 0 },
-    "Attivo": { checkbox: true },
-  };
-  if (fornitoreId) properties[FERRAMENTA_PROP_FORNITORE] = { relation: [{ id: fornitoreId }] };
-  if (fornitoreNomeOs1) properties["Fornitore Nome OS1"] = { rich_text: [{ text: { content: fornitoreNomeOs1 } }] };
-  if (codiceFornitore) properties["Codice Fornitore"] = { rich_text: [{ text: { content: codiceFornitore } }] };
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const page = await notion.pages.create({ parent: { database_id: DB_FERRAMENTA }, properties }) as any;
-  return pageToArticoloFerramenta(page);
-}
-
-export async function updateArticoloFerramentaClassificazione(id: string, data: ArticoloFerramentaUpdate): Promise<ArticoloFerramenta> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const properties: Record<string, any> = {};
-  if (data.metodoGestione !== undefined)
-    properties["Metodo Gestione"] = data.metodoGestione ? { select: { name: data.metodoGestione } } : { select: null };
-  if (data.quantitaStandardVaschetta !== undefined)
-    properties["Quantità Standard Vaschetta"] = { number: data.quantitaStandardVaschetta };
-  if (data.sogliaMinima !== undefined)
-    properties["Soglia Minima"] = { number: data.sogliaMinima };
-  if (data.attivo !== undefined)
-    properties["Attivo"] = { checkbox: data.attivo };
-  if (data.note !== undefined)
-    properties["Note"] = { rich_text: [{ text: { content: data.note } }] };
-  if (data.ubicazione !== undefined)
-    properties["Ubicazione"] = data.ubicazione ? { select: { name: data.ubicazione } } : { select: null };
-  if (data.codiceFornitore !== undefined)
-    properties["Codice Fornitore"] = { rich_text: [{ text: { content: data.codiceFornitore ?? "" } }] };
-
-  await notion.pages.update({ page_id: id, properties });
-  return getArticoloFerramentaById(id);
-}
-
-export async function updateArticoloFerramentaGiacenza(id: string, giacenzaAttuale: number): Promise<void> {
-  await notion.pages.update({
-    page_id: id,
-    properties: { "Giacenza Attuale": { number: giacenzaAttuale } },
-  });
-}
-
-// ── Kit Ferramenta ODP (Fase 2) — distinta strutturata articolo+quantità ────
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function pageToDistintaKitRiga(page: any, articoliMap: Record<string, { descrizione: string; codiceOs1: string }>): DistintaKitRiga {
-  const articoloId = getRelationId(prop(page, "Articolo Ferramenta")) ?? "";
-  const articolo = articoliMap[articoloId];
-  return {
-    id: page.id,
-    odpId: getRelationId(prop(page, "ODP")) ?? "",
-    articoloId,
-    articoloDescrizione: articolo?.descrizione ?? "",
-    articoloCodiceOs1: articolo?.codiceOs1 ?? "",
-    quantita: getNumber(prop(page, "Quantità")) ?? 0,
-    notionUrl: notionUrl(page.id),
-  };
-}
-
-export async function getDistintaKitByOdp(odpId: string): Promise<DistintaKitRiga[]> {
-  const [pages, articoli] = await Promise.all([
-    queryAll(DB_KIT_FERRAMENTA_RIGHE, { property: "ODP", relation: { contains: odpId } }),
-    getArticoliFerramenta(),
-  ]);
-  const articoliMap: Record<string, { descrizione: string; codiceOs1: string }> = {};
-  articoli.forEach(a => { articoliMap[a.id] = { descrizione: a.descrizione, codiceOs1: a.codiceOs1 }; });
-  return pages.map(p => pageToDistintaKitRiga(p, articoliMap));
-}
-
-export async function addDistintaRiga({ odpId, articoloId, quantita }: { odpId: string; articoloId: string; quantita: number }): Promise<DistintaKitRiga> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const properties: Record<string, any> = {
-    Nome: { title: [{ text: { content: `Riga ${Date.now()}` } }] },
-    ODP: { relation: [{ id: odpId }] },
-    "Articolo Ferramenta": { relation: [{ id: articoloId }] },
-    "Quantità": { number: quantita },
-  };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const page = await notion.pages.create({ parent: { database_id: DB_KIT_FERRAMENTA_RIGHE }, properties }) as any;
-  const articolo = await getArticoloFerramentaById(articoloId);
-  return pageToDistintaKitRiga(page, { [articoloId]: { descrizione: articolo.descrizione, codiceOs1: articolo.codiceOs1 } });
-}
-
-export async function updateDistintaRigaQuantita(id: string, quantita: number): Promise<void> {
-  await notion.pages.update({ page_id: id, properties: { "Quantità": { number: quantita } } });
-}
-
-export async function deleteDistintaRiga(id: string): Promise<void> {
-  await notion.pages.update({ page_id: id, archived: true });
-}

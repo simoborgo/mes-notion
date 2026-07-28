@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { updateSchedaKitFerramenta, getDistintaKitByOdp, getSchedaById } from "@/lib/notion";
+import { updateSchedaKitFerramenta, getSchedaById } from "@/lib/notion";
+import { getDistintaKitByOdp } from "@/lib/kitFerramentaRepository";
 import { sendNotifica } from "@/lib/notify";
 import { getSessionFromRequest } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";

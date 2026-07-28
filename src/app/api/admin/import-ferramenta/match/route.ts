@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { findFornitoreMatch, getFornitoriList, getArticoliFerramenta } from "@/lib/notion";
+import { findFornitoreMatch, getFornitoriList } from "@/lib/notion";
+import { getCodiciOs1Esistenti } from "@/lib/articoliFerramentaRepository";
 import { getSessionFromRequest } from "@/lib/auth";
 
 interface MatchItem {
@@ -28,11 +29,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Nessun articolo da importare" }, { status: 400 });
   }
 
-  const [esistenti, fornitoriOptions] = await Promise.all([
-    getArticoliFerramenta(),
+  const [codiciEsistenti, fornitoriOptions] = await Promise.all([
+    getCodiciOs1Esistenti(),
     getFornitoriList(),
   ]);
-  const codiciEsistenti = new Set(esistenti.map(a => a.codiceOs1));
 
   const results = await Promise.all(items.map(async (item) => {
     const match = (item.fornitoreNomeOs1 || item.idFornitoreOs1)

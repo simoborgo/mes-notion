@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession, FERRAMENTA_ROLES } from "@/lib/auth";
-import { getArticoliFerramenta } from "@/lib/notion";
+import { getArticoliFerramenta } from "@/lib/articoliFerramentaRepository";
 import CaricoFerramentaForm from "@/components/CaricoFerramentaForm";
 import FerramentaSubNav from "@/components/FerramentaSubNav";
 

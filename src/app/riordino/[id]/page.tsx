@@ -1,5 +1,5 @@
 import type { ArticoloFerramenta } from "@/lib/types";
-import { getArticoloFerramentaById } from "@/lib/notion";
+import { getArticoloFerramentaById } from "@/lib/articoliFerramentaRepository";
 
 export const dynamic = "force-dynamic";
 
