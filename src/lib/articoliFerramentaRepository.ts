@@ -94,7 +94,7 @@ export async function updateArticoloFerramentaClassificazione(id: string, data: 
   if (data.attivo !== undefined) { sets.push(`attivo = $${i++}`); values.push(data.attivo); }
   if (data.note !== undefined) { sets.push(`note = $${i++}`); values.push(data.note); }
   if (data.ubicazione !== undefined) { sets.push(`ubicazione = $${i++}`); values.push(data.ubicazione); }
-  if (data.codiceFornitore !== undefined) { sets.push(`codice_fornitore = $${i++}`); values.push(data.codiceFornitore); }
+  if (data.codiceFornitore !== undefined) { sets.push(`codice_fornitore = $${i++}`); values.push(data.codiceFornitore ?? ""); }
   sets.push(`aggiornato_il = now()`);
 
   values.push(id);
