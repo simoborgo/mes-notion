@@ -1,5 +1,5 @@
 import { Client } from "@notionhq/client";
-import { unstable_cache, revalidateTag } from "next/cache";
+import { unstable_cache } from "next/cache";
 import type { Scheda, SchedaUpdate, Ritiro, RitiroUpdate, Commessa, Area, Carico, Operatore, OdpAttivo } from "./types";
 import { STATI_CHIUSI_ODP } from "./types";
 
@@ -592,21 +592,32 @@ export async function updateSchedaKitFerramentaDescrizione(id: string, descrizio
   });
 }
 
-export const getSchede = unstable_cache(
-  async (): Promise<Scheda[]> => {
-    const pages = await queryAll(
-      DB_SCHEDE,
-      { property: "Tipologia", select: { equals: "Scheda" } },
-      [{ property: "ODP", direction: "descending" }],
-    );
-    return pages.map(pageToScheda);
-  },
-  ["notion-schede"],
-  // Nessuna scadenza a tempo: tutte le scritture su Schede passano da invalidateSchedeCache(),
-  // che invalida e ri-scalda subito in background — un timer periodico costringerebbe qualcuno
-  // a pagare il fetch completo (~15-20s) anche quando nulla è cambiato.
-  { revalidate: false, tags: ["schede"] }
-);
+// getSchede()/getSottoschede() NON usano unstable_cache: il risultato serializzato supera i 2MB
+// (~2.8MB su 921+989 righe) e la Data Cache di Next.js scarta silenziosamente (solo un warning nei
+// log) qualunque voce sopra quella soglia — di fatto nessuna delle due veniva mai messa in cache,
+// ogni richiesta ripartiva da zero verso Notion (~15-20s), sempre, indipendentemente da revalidate.
+// Cache in memoria scritta a mano: nessun limite di dimensione, e la Promise condivisa deduplica
+// eventuali richieste concorrenti durante il primo popolamento.
+let schedeCache: Scheda[] | null = null;
+let schedeCachePromise: Promise<Scheda[]> | null = null;
+
+export async function getSchede(): Promise<Scheda[]> {
+  if (schedeCache) return schedeCache;
+  if (!schedeCachePromise) {
+    schedeCachePromise = (async () => {
+      const pages = await queryAll(
+        DB_SCHEDE,
+        { property: "Tipologia", select: { equals: "Scheda" } },
+        [{ property: "ODP", direction: "descending" }],
+      );
+      const result = pages.map(pageToScheda);
+      schedeCache = result;
+      schedeCachePromise = null;
+      return result;
+    })().catch((e) => { schedeCachePromise = null; throw e; });
+  }
+  return schedeCachePromise;
+}
 
 // ODP "avviati" (non chiusi) — usata da Kit Ferramenta e Fogli di scarico
 export async function getSchedeOdpAvviate(): Promise<Scheda[]> {
@@ -614,23 +625,32 @@ export async function getSchedeOdpAvviate(): Promise<Scheda[]> {
   return schede.filter(s => !STATI_CHIUSI_ODP.includes(s.statoProduzione) && !!s.odp);
 }
 
-export const getSottoschede = unstable_cache(
-  async (): Promise<Scheda[]> => {
-    const pages = await queryAll(
-      DB_SCHEDE,
-      { property: "Tipologia", select: { does_not_equal: "Scheda" } },
-    );
-    return pages.map(pageToScheda);
-  },
-  ["notion-sottoschede"],
-  { revalidate: false, tags: ["schede"] }
-);
+let sottoschedeCache: Scheda[] | null = null;
+let sottoschedeCachePromise: Promise<Scheda[]> | null = null;
+
+export async function getSottoschede(): Promise<Scheda[]> {
+  if (sottoschedeCache) return sottoschedeCache;
+  if (!sottoschedeCachePromise) {
+    sottoschedeCachePromise = (async () => {
+      const pages = await queryAll(
+        DB_SCHEDE,
+        { property: "Tipologia", select: { does_not_equal: "Scheda" } },
+      );
+      const result = pages.map(pageToScheda);
+      sottoschedeCache = result;
+      sottoschedeCachePromise = null;
+      return result;
+    })().catch((e) => { sottoschedeCachePromise = null; throw e; });
+  }
+  return sottoschedeCachePromise;
+}
 
 // Invalida la cache "schede" e la ripopola subito in background (fire-and-forget): il fetch
 // completo da Notion (~15-20s su ~1900 righe tra Schede e Sottoschede) lo paga questa chiamata,
 // non il prossimo utente che apre la pagina Schede/Rilevamento Ore dopo l'invalidazione.
 export function invalidateSchedeCache(): void {
-  revalidateTag("schede", "default");
+  schedeCache = null;
+  sottoschedeCache = null;
   void getSchede();
   void getSottoschede();
 }
