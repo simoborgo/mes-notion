@@ -196,7 +196,7 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
                   </svg>
                 }
               >
-                Kit ODP
+                Kit Ferramenta ODP
               </NavTab>
               <NavTab
                 href="/admin/log"
@@ -280,7 +280,7 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
                   </svg>
                 }
               >
-                Kit ODP
+                Kit Ferramenta ODP
               </NavTab>
               <NavTab
                 href="/admin/log"

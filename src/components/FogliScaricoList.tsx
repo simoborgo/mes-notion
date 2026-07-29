@@ -42,7 +42,7 @@ export default function FogliScaricoList({ odp }: { odp: OdpKitRow[] }) {
             ? { background: "#FEE2E2", color: "#991B1B", borderColor: "#FCA5A5" }
             : { background: "white", color: "var(--color-grey-mid)", borderColor: "#d1d5db" }}
         >
-          ⚠ Mancanti
+          ⚠ Senza scarico
           {mancantiCount > 0 && (
             <span
               className="inline-flex items-center justify-center rounded-full text-xs font-bold w-5 h-5"
@@ -83,7 +83,7 @@ export default function FogliScaricoList({ odp }: { odp: OdpKitRow[] }) {
                     {o.haMovimenti ? (
                       <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#F3F4F6", color: "#374151" }}>Registrati</span>
                     ) : (
-                      <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: "#FEE2E2", color: "#991B1B" }}>⚠ Mancante</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: "#FEE2E2", color: "#991B1B" }}>⚠ Nessuno scarico</span>
                     )}
                   </td>
                   <td className="px-4 py-3">

@@ -31,7 +31,7 @@ export default async function FogliScaricoPage() {
           Fogli di Scarico
         </h1>
         <p className="text-sm mt-1" style={{ color: "var(--color-grey-mid)" }}>
-          Movimenti di ferramenta consuntivati per ODP — gli ODP con Kit confermato ma senza movimenti sono segnalati
+          Movimenti di ferramenta consuntivati per ODP — gli ODP con Kit Ferramenta confermato ma senza scarico sono segnalati
         </p>
       </div>
       <FogliScaricoList odp={odpConKit} />
