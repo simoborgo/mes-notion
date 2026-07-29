@@ -150,6 +150,7 @@ export interface Operatore {
 }
 
 export interface OdpAttivo {
+  id: string | null;
   odp: string;
   label: string;
   numeroScheda?: string;

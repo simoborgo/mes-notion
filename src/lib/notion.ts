@@ -469,6 +469,7 @@ export async function getOdpAttivi(): Promise<OdpAttivo[]> {
       return true;
     })
     .map(s => ({
+      id: s.id,
       odp: s.odp,
       label: s.clienteInfo ? `${s.odp} — ${s.clienteInfo}` : s.odp,
       numeroScheda: s.numeroScheda || undefined,
@@ -476,6 +477,7 @@ export async function getOdpAttivi(): Promise<OdpAttivo[]> {
       isSpeciale: false,
     }));
   const speciali: OdpAttivo[] = ODP_SPECIALI.map(s => ({
+    id: null,
     odp: s.prefix,
     label: `${s.prefix} — ${s.label}`,
     isSpeciale: true,

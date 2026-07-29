@@ -7,8 +7,9 @@ import InventarioConteggioCard from "@/components/InventarioConteggioCard";
 
 export const dynamic = "force-dynamic";
 
-export default async function ScaricoFerramentaPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ScaricoFerramentaPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ odp?: string }> }) {
   const { id } = await params;
+  const { odp: odpParam } = await searchParams;
 
   let articolo;
   try {
@@ -24,6 +25,7 @@ export default async function ScaricoFerramentaPage({ params }: { params: Promis
   const rigaInventario = sessione ? await getRigaInventario(sessione.id, id) : null;
 
   const odpList = rigaInventario ? [] : await getOdpAttivi();
+  const initialOdp = odpParam ? odpList.find(o => o.id === odpParam)?.odp ?? null : null;
 
   return (
     <div className="max-w-md mx-auto space-y-5">
@@ -52,6 +54,7 @@ export default async function ScaricoFerramentaPage({ params }: { params: Promis
           articolo={articolo}
           odpList={odpList}
           inventarioAperto={sessione ? { ambito: sessione.ambito, ambitoValore: sessione.ambitoValore } : null}
+          initialOdp={initialOdp}
         />
       )}
     </div>

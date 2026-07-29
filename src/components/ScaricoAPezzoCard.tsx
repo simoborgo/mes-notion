@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation";
 import type { ArticoloFerramenta, OdpAttivo } from "@/lib/types";
 import OdpAutocomplete from "./OdpAutocomplete";
 
-export default function ScaricoAPezzoCard({ articolo, odpList = [] }: { articolo: ArticoloFerramenta; odpList?: OdpAttivo[] }) {
+export default function ScaricoAPezzoCard({ articolo, odpList = [], initialOdp = null }: { articolo: ArticoloFerramenta; odpList?: OdpAttivo[]; initialOdp?: string | null }) {
   const router = useRouter();
   const [quantita, setQuantita] = useState("");
   const [stato, setStato] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState("");
-  const [odp, setOdp] = useState<string | null>(null);
+  const [odp, setOdp] = useState<string | null>(initialOdp);
 
   // Redirect automatico dopo la conferma — altrimenti si resta bloccati sulla schermata di successo.
   useEffect(() => {
@@ -30,10 +30,11 @@ export default function ScaricoAPezzoCard({ articolo, odpList = [] }: { articolo
     setStato("loading");
     setError("");
     try {
+      const odpMatch = odp ? odpList.find(o => o.odp === odp) : null;
       const res = await fetch(`/api/ferramenta/articoli/${articolo.id}/scarico`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quantita: q, odpId: odp, odpLabel: odp }),
+        body: JSON.stringify({ quantita: q, odpId: odpMatch?.id ?? odp, odpLabel: odp }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok && res.status !== 207) throw new Error(data?.error ?? `Errore ${res.status}`);
