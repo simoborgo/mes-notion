@@ -150,6 +150,7 @@ function pageToScheda(page: any): Scheda {
     parentId: getRelationId(prop(page, "Parent item")),
     notionUrl: notionUrl(page.id),
     kitFerramenta: getText(prop(page, "Kit Ferramenta")),
+    noteStato: getText(prop(page, "Note Stato")),
   };
 }
 
@@ -574,8 +575,8 @@ export async function updateSchedaConsegnaFatta(pageId: string): Promise<void> {
   });
 }
 
-// Scrive SOLO la property "Kit Ferramenta" — dedicata e isolata per non avvicinarsi
-// al path di updateScheda()/SchedaUpdate (che ha un bug dormiente sulla property Stato).
+// Scrive SOLO la property "Kit Ferramenta" — dedicata e isolata per non passare
+// dal path generico di updateScheda()/SchedaUpdate, pensato per il form di modifica.
 export async function updateSchedaKitFerramenta(id: string, stato: "Si" | "No" | null): Promise<Scheda> {
   await notion.pages.update({
     page_id: id,
@@ -685,17 +686,13 @@ export async function updateScheda(id: string, data: SchedaUpdate): Promise<Sche
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const properties: Record<string, any> = {};
   if (data.statoProduzione !== undefined)
-    properties["Stato Produzione"] = { select: data.statoProduzione ? { name: data.statoProduzione } : null };
+    properties["Stato"] = { select: data.statoProduzione ? { name: data.statoProduzione } : null };
   if (data.dataProduzionePrevista !== undefined)
     properties["Data Produzione Prevista"] = { date: data.dataProduzionePrevista ? { start: data.dataProduzionePrevista } : null };
   if (data.produzioneEsterna !== undefined)
     properties["Produzione Esterna"] = { checkbox: data.produzioneEsterna };
   if (data.statoProdEsterna !== undefined)
     properties["Stato Produzione Esterna"] = { select: data.statoProdEsterna ? { name: data.statoProdEsterna } : null };
-  if (data.fornitore !== undefined)
-    properties["Fornitore"] = { rich_text: [{ text: { content: data.fornitore } }] };
-  if (data.ordineFornitore !== undefined)
-    properties["Ordine Fornitore"] = { rich_text: [{ text: { content: data.ordineFornitore } }] };
   if (data.dataRientroPrevista !== undefined)
     properties["Data Rientro Prevista"] = { date: data.dataRientroPrevista ? { start: data.dataRientroPrevista } : null };
   if (data.dataUscitaMateriale !== undefined)
@@ -704,6 +701,16 @@ export async function updateScheda(id: string, data: SchedaUpdate): Promise<Sche
     properties["Data Rientro Effettiva"] = { date: data.dataRientroEffettiva ? { start: data.dataRientroEffettiva } : null };
   if (data.note !== undefined)
     properties["Descrizione/Fasi/Piano/Stanza"] = { rich_text: [{ text: { content: data.note } }] };
+  if (data.codiceArticolo !== undefined)
+    properties["Codice Art."] = { rich_text: [{ text: { content: data.codiceArticolo } }] };
+  if (data.posizione !== undefined)
+    properties["Posizione"] = { rich_text: [{ text: { content: data.posizione } }] };
+  if (data.quantita !== undefined)
+    properties["Quantità"] = { number: data.quantita };
+  if (data.dataSchedaRicevuta !== undefined)
+    properties["Data Scheda Ricevuta"] = { date: data.dataSchedaRicevuta ? { start: data.dataSchedaRicevuta } : null };
+  if (data.noteStato !== undefined)
+    properties["Note Stato"] = { rich_text: [{ text: { content: data.noteStato } }] };
 
   const page = await notion.pages.update({ page_id: id, properties });
   return pageToScheda(page);

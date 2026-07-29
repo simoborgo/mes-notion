@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Scheda } from "@/lib/types";
 import BadgeStato from "./BadgeStato";
 import PdfAnnotatoreModal, { type AnnotazioneData } from "./PdfAnnotatoreModal";
+import FormModificaScheda from "./FormModificaScheda";
 
 interface Props {
   scheda: Scheda;
@@ -11,6 +12,8 @@ interface Props {
   onClose: () => void;
   onRilavorazioneCreata?: () => void;
   onViewScheda?: (s: Scheda) => void;
+  userRole?: string;
+  onSchedaAggiornata?: (updated: Scheda) => void;
 }
 
 function fmt(d: string | null) {
@@ -282,9 +285,10 @@ function RilavorazioneWizard({
   );
 }
 
-export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, onRilavorazioneCreata, onViewScheda }: Props) {
+export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, onRilavorazioneCreata, onViewScheda, userRole, onSchedaAggiornata }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const [showWizard, setShowWizard] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
   const [rilavorazioneCreata, setRilavorazioneCreata] = useState<{ pageId: string; odp: string } | null>(null);
   const [rientrando, setRientrando] = useState(false);
   const [rientroError, setRientroError] = useState<string | null>(null);
@@ -370,6 +374,17 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
             </div>
             <div className="flex flex-col items-end gap-2 shrink-0">
               <div className="flex items-center gap-2">
+                {userRole === "admin" && (
+                  <button onClick={() => setShowEditForm(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-gray-100"
+                    style={{ color: "var(--color-grey-mid)", border: "1px solid #d1d5db", background: "white" }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                      <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z" />
+                    </svg>
+                    Modifica
+                  </button>
+                )}
                 <a href={s.notionUrl} target="_blank" rel="noopener noreferrer"
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-gray-100"
                   style={{ color: "var(--color-grey-mid)", border: "1px solid #d1d5db", background: "white" }}>
@@ -518,6 +533,12 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
                 <div className="text-sm whitespace-pre-wrap" style={{ color: "var(--color-black)" }}>{s.descrizioneFasi}</div>
               </div>
             )}
+            {s.noteStato && (
+              <div className="rounded-lg px-3 py-2.5" style={{ background: "#f8f7f5", border: "1px solid #ebe9e5" }}>
+                <div className="text-[11px] font-bold uppercase tracking-widest mb-1" style={{ color: "#9c9894" }}>Note Stato</div>
+                <div className="text-sm whitespace-pre-wrap" style={{ color: "var(--color-black)" }}>{s.noteStato}</div>
+              </div>
+            )}
           </section>
 
           <section className="space-y-2">
@@ -584,6 +605,17 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
 
         </div>
       </div>
+
+      {showEditForm && (
+        <FormModificaScheda
+          scheda={s}
+          onClose={() => setShowEditForm(false)}
+          onSave={(updated) => {
+            setShowEditForm(false);
+            onSchedaAggiornata?.(updated);
+          }}
+        />
+      )}
     </div>
   );
 }

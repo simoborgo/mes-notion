@@ -4,14 +4,20 @@ import { useState } from "react";
 import type { Scheda, SchedaUpdate } from "@/lib/types";
 
 const STATI = [
-  "In lavorazione Interna",
+  "Da Iniziare",
+  "In lavorazione",
   "In lavorazione Esterna",
+  "Materiale Pronto",
+  "Verificato",
   "Completato",
-  "In attesa",
-  "Annullato",
+  "In Attesa Rilavorazione",
+  "In attesa materiale",
+  "Produzione Bloccata",
+  "Annullata",
+  "Revisione UTT",
 ];
 
-const STATI_ESTERNI = ["In attesa", "Spedito", "Rientrato", "Completato"];
+const STATI_ESTERNI = ["Da Ordinare", "Da Inviare", "In Lavorazione", "Rientrato", "In attesa Preventivo", "Fornitore in attesa materiale"];
 
 interface Props {
   scheda: Scheda;
@@ -25,12 +31,15 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
     dataProduzionePrevista: scheda.dataProduzionePrevista ?? "",
     produzioneEsterna: scheda.produzioneEsterna,
     statoProdEsterna: scheda.statoProdEsterna,
-    fornitore: scheda.fornitore,
-    ordineFornitore: scheda.ordineFornitore,
     dataRientroPrevista: scheda.dataRientroPrevista ?? "",
     dataUscitaMateriale: scheda.dataUscitaMateriale ?? "",
     dataRientroEffettiva: scheda.dataRientroEffettiva ?? "",
     note: scheda.note,
+    codiceArticolo: scheda.codiceArticolo,
+    posizione: scheda.posizione,
+    quantita: scheda.quantita,
+    dataSchedaRicevuta: scheda.dataSchedaRicevuta ?? "",
+    noteStato: scheda.noteStato,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -50,6 +59,7 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
         dataRientroPrevista: form.dataRientroPrevista || null,
         dataUscitaMateriale: form.dataUscitaMateriale || null,
         dataRientroEffettiva: form.dataRientroEffettiva || null,
+        dataSchedaRicevuta: form.dataSchedaRicevuta || null,
       };
       const res = await fetch(`/api/schede/${scheda.id}`, {
         method: "PATCH",
@@ -70,7 +80,7 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
   const labelCls = "block text-xs font-medium mb-1";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
       <div
         className="w-full max-w-2xl bg-white rounded-lg shadow-2xl overflow-y-auto max-h-[90vh]"
         style={{ borderRadius: "var(--radius-modal)" }}
@@ -87,6 +97,25 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
         </div>
 
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Codice Articolo</label>
+              <input type="text" className={inputCls} value={form.codiceArticolo ?? ""} onChange={(e) => set("codiceArticolo", e.target.value)} />
+            </div>
+            <div>
+              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Posizione</label>
+              <input type="text" className={inputCls} value={form.posizione ?? ""} onChange={(e) => set("posizione", e.target.value)} />
+            </div>
+            <div>
+              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Quantità</label>
+              <input type="number" min="0" className={inputCls} value={form.quantita ?? ""} onChange={(e) => set("quantita", e.target.value === "" ? null : Number(e.target.value))} />
+            </div>
+            <div>
+              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Data Scheda Ricevuta</label>
+              <input type="date" className={inputCls} value={form.dataSchedaRicevuta ?? ""} onChange={(e) => set("dataSchedaRicevuta", e.target.value)} />
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Stato Produzione</label>
@@ -122,14 +151,6 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
                 </select>
               </div>
               <div>
-                <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Fornitore</label>
-                <input type="text" className={inputCls} value={form.fornitore} onChange={(e) => set("fornitore", e.target.value)} />
-              </div>
-              <div>
-                <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Ordine Fornitore</label>
-                <input type="text" className={inputCls} value={form.ordineFornitore} onChange={(e) => set("ordineFornitore", e.target.value)} />
-              </div>
-              <div>
                 <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Data Uscita Materiale</label>
                 <input type="date" className={inputCls} value={form.dataUscitaMateriale ?? ""} onChange={(e) => set("dataUscitaMateriale", e.target.value)} />
               </div>
@@ -143,6 +164,11 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
               </div>
             </div>
           )}
+
+          <div>
+            <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Note Stato</label>
+            <textarea rows={2} className={inputCls + " resize-none"} value={form.noteStato ?? ""} onChange={(e) => set("noteStato", e.target.value)} />
+          </div>
 
           <div>
             <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Note</label>

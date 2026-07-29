@@ -32,6 +32,7 @@ export interface Scheda {
   parentId: string | null;
   notionUrl: string;
   kitFerramenta: string;
+  noteStato: string;
 }
 
 export interface SchedaUpdate {
@@ -45,6 +46,11 @@ export interface SchedaUpdate {
   dataUscitaMateriale?: string | null;
   dataRientroEffettiva?: string | null;
   note?: string;
+  codiceArticolo?: string;
+  posizione?: string;
+  quantita?: number | null;
+  dataSchedaRicevuta?: string | null;
+  noteStato?: string;
 }
 
 export interface Ritiro {

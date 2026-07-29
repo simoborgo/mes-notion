@@ -202,7 +202,7 @@ function RitardoBtn({ label, count, active, onToggle }: { label: string; count: 
   );
 }
 
-export default function TabellaSchede({ schede: initial, sottoschede = [], commesse = [], revalidate }: { schede: Scheda[]; sottoschede?: Scheda[]; commesse?: Commessa[]; revalidate?: () => Promise<void> }) {
+export default function TabellaSchede({ schede: initial, sottoschede = [], commesse = [], revalidate, userRole }: { schede: Scheda[]; sottoschede?: Scheda[]; commesse?: Commessa[]; revalidate?: () => Promise<void>; userRole?: string }) {
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -230,6 +230,11 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
   function handleReload() {
     if (!revalidate) return;
     startTransition(async () => { await revalidate(); router.refresh(); });
+  }
+
+  function handleSchedaAggiornata(updated: Scheda) {
+    setViewing(updated);
+    handleReload();
   }
 
   const [schede, setSchede] = useState(initial);
@@ -776,6 +781,8 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
           onClose={() => setViewing(null)}
           onRilavorazioneCreata={handleReload}
           onViewScheda={(s) => setViewing(s)}
+          userRole={userRole}
+          onSchedaAggiornata={handleSchedaAggiornata}
         />
       )}
       <CopertinaTooltip tooltip={tooltip} />

@@ -1,11 +1,12 @@
 import { getSchede, getSottoschede, getCommesse } from "@/lib/notion";
+import { getSession } from "@/lib/auth";
 import TabellaSchede from "@/components/TabellaSchede";
 import { revalidateSchede } from "./actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function SchedePage() {
-  const [schede, sottoschede, commesse] = await Promise.all([getSchede(), getSottoschede(), getCommesse()]);
+  const [schede, sottoschede, commesse, session] = await Promise.all([getSchede(), getSottoschede(), getCommesse(), getSession()]);
 
   return (
     <div className="space-y-5">
@@ -17,7 +18,7 @@ export default async function SchedePage() {
           Aggiornato al {new Date().toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" })} alle {new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
         </p>
       </div>
-      <TabellaSchede schede={schede} sottoschede={sottoschede} commesse={commesse} revalidate={revalidateSchede} />
+      <TabellaSchede schede={schede} sottoschede={sottoschede} commesse={commesse} revalidate={revalidateSchede} userRole={session?.role} />
     </div>
   );
 }
