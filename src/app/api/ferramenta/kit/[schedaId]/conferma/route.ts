@@ -5,6 +5,7 @@ import { getDistintaKitByOdp } from "@/lib/kitFerramentaRepository";
 import { sendNotifica } from "@/lib/notify";
 import { getSessionFromRequest } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
+import { getPublicBaseUrl } from "@/lib/url";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ schedaId: string }> }) {
   const session = await getSessionFromRequest(req);
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ sch
       odp: scheda.odp,
       numero_scheda: scheda.numeroScheda,
       righe: righe.length,
-      pdf_url: `${req.nextUrl.origin}/api/ferramenta/kit/${schedaId}/pdf`,
+      pdf_url: `${getPublicBaseUrl(req)}/api/ferramenta/kit/${schedaId}/pdf`,
     },
   });
 

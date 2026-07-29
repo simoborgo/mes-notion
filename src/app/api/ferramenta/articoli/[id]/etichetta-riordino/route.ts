@@ -3,6 +3,7 @@ import puppeteer from "puppeteer";
 import QRCode from "qrcode";
 import { getArticoloFerramentaById } from "@/lib/articoliFerramentaRepository";
 import { getSessionFromRequest, FERRAMENTA_ROLES } from "@/lib/auth";
+import { getPublicBaseUrl } from "@/lib/url";
 
 function esc(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       );
     }
 
-    const qrTarget = `${req.nextUrl.origin}/riordino/${id}`;
+    const qrTarget = `${getPublicBaseUrl(req)}/riordino/${id}`;
     const qrSvg = await QRCode.toString(qrTarget, {
       type: "svg", width: 200, margin: 1,
       color: { dark: "#1A1918", light: "#ffffff" },

@@ -5,6 +5,7 @@ import fs from "fs";
 import path from "path";
 import { getRitiroById, getSchedaById, getCommessaById } from "@/lib/notion";
 import { getSessionFromRequest } from "@/lib/auth";
+import { getPublicBaseUrl } from "@/lib/url";
 
 function esc(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -85,7 +86,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // QR: punta al PDF scheda (proxy MES, sempre valido) se disponibile,
     // altrimenti fallback alla pagina Notion (utile per movimenti solo-Commessa)
     const qrTarget = hasSchedaPdf
-      ? `${req.nextUrl.origin}/api/ritiri/${id}/scheda-pdf`
+      ? `${getPublicBaseUrl(req)}/api/ritiri/${id}/scheda-pdf`
       : ritiro.notionUrl;
     const qrCaption = hasSchedaPdf ? "Apri PDF Scheda" : "Apri Scheda";
 
@@ -99,7 +100,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const showQualitaQR = isRitiro && !!ritiro.rilavorazioneId;
     let qualitaQrSvg = "";
     if (showQualitaQR) {
-      const qualitaTarget = `${req.nextUrl.origin}/rientro-qualita/${ritiro.rilavorazioneId}`;
+      const qualitaTarget = `${getPublicBaseUrl(req)}/rientro-qualita/${ritiro.rilavorazioneId}`;
       qualitaQrSvg = await QRCode.toString(qualitaTarget, {
         type: "svg", width: 120, margin: 1,
         color: { dark: "#991B1B", light: "#ffffff" },

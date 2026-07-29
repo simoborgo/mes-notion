@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getArticoloFerramentaById } from "@/lib/articoliFerramentaRepository";
 import { getSessionFromRequest, FERRAMENTA_ROLES } from "@/lib/auth";
 import { buildEtichettaRiordinoZpl } from "@/lib/zpl";
+import { getPublicBaseUrl } from "@/lib/url";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       );
     }
 
-    const qrTarget = `${req.nextUrl.origin}/riordino/${id}`;
+    const qrTarget = `${getPublicBaseUrl(req)}/riordino/${id}`;
     const zpl = buildEtichettaRiordinoZpl({
       codiceOs1: articolo.codiceOs1,
       descrizione: articolo.descrizione,
