@@ -602,7 +602,10 @@ export const getSchede = unstable_cache(
     return pages.map(pageToScheda);
   },
   ["notion-schede"],
-  { revalidate: 120, tags: ["schede"] }
+  // Nessuna scadenza a tempo: tutte le scritture su Schede passano da invalidateSchedeCache(),
+  // che invalida e ri-scalda subito in background — un timer periodico costringerebbe qualcuno
+  // a pagare il fetch completo (~15-20s) anche quando nulla è cambiato.
+  { revalidate: false, tags: ["schede"] }
 );
 
 // ODP "avviati" (non chiusi) — usata da Kit Ferramenta e Fogli di scarico
@@ -620,7 +623,7 @@ export const getSottoschede = unstable_cache(
     return pages.map(pageToScheda);
   },
   ["notion-sottoschede"],
-  { revalidate: 120, tags: ["schede"] }
+  { revalidate: false, tags: ["schede"] }
 );
 
 // Invalida la cache "schede" e la ripopola subito in background (fire-and-forget): il fetch
