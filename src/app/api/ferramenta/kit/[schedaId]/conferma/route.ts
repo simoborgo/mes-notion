@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { updateSchedaKitFerramenta, getSchedaById } from "@/lib/notion";
+import { updateSchedaKitFerramenta, getSchedaById, invalidateSchedeCache } from "@/lib/notion";
 import { getDistintaKitByOdp } from "@/lib/kitFerramentaRepository";
 import { sendNotifica } from "@/lib/notify";
 import { getSessionFromRequest, FERRAMENTA_ROLES } from "@/lib/auth";
@@ -38,6 +38,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ sch
   void logOperation(session.name, "UPDATE", "kit_ferramenta", schedaId, { stato: "Si", righe: righe.length });
   revalidatePath("/admin/ferramenta/kit");
   revalidatePath("/ferramenta/fogli-scarico");
+  invalidateSchedeCache();
 
   if (result.warning) {
     return NextResponse.json({ ok: true, scheda: updated, warnings: [result.warning] }, { status: 207 });
