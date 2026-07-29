@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { revalidatePath, revalidateTag } from "next/cache";
-import { getSchedaById, updateScheda } from "@/lib/notion";
+import { revalidatePath } from "next/cache";
+import { getSchedaById, updateScheda, invalidateSchedeCache } from "@/lib/notion";
 import type { SchedaUpdate } from "@/lib/types";
 import { getSessionFromRequest } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
@@ -24,7 +24,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const updated = await updateScheda(id, body);
 
     revalidatePath("/schede");
-    revalidateTag("schede", "default");
+    invalidateSchedeCache();
 
     void logOperation(
       session?.name ?? "Sconosciuto",

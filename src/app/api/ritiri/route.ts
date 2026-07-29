@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { revalidatePath, revalidateTag } from "next/cache";
-import { getRitiri, createRitiro, getRitiroById, appendFotoToPage, getSchedaById, createRilavorazione } from "@/lib/notion";
+import { revalidatePath } from "next/cache";
+import { getRitiri, createRitiro, getRitiroById, appendFotoToPage, getSchedaById, createRilavorazione, invalidateSchedeCache } from "@/lib/notion";
 import { getSessionFromRequest, WRITE_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
     );
 
     revalidatePath("/ritiri");
-    if (isNC || schedaId) { revalidatePath("/schede"); revalidateTag("schede", "default"); }
+    if (isNC || schedaId) { revalidatePath("/schede"); invalidateSchedeCache(); }
     return NextResponse.json(ritiroFinale, { status: 201 });
   } catch (e) {
     console.error(e);

@@ -1,5 +1,5 @@
 import { Client } from "@notionhq/client";
-import { unstable_cache } from "next/cache";
+import { unstable_cache, revalidateTag } from "next/cache";
 import type { Scheda, SchedaUpdate, Ritiro, RitiroUpdate, Commessa, Area, Carico, Operatore, OdpAttivo } from "./types";
 import { STATI_CHIUSI_ODP } from "./types";
 
@@ -622,6 +622,15 @@ export const getSottoschede = unstable_cache(
   ["notion-sottoschede"],
   { revalidate: 120, tags: ["schede"] }
 );
+
+// Invalida la cache "schede" e la ripopola subito in background (fire-and-forget): il fetch
+// completo da Notion (~15-20s su ~1900 righe tra Schede e Sottoschede) lo paga questa chiamata,
+// non il prossimo utente che apre la pagina Schede/Rilevamento Ore dopo l'invalidazione.
+export function invalidateSchedeCache(): void {
+  revalidateTag("schede", "default");
+  void getSchede();
+  void getSottoschede();
+}
 
 export async function getNextRilavorazioneOdp(parentId: string, parentOdp: string): Promise<string> {
   // Query per prefisso ODP — più affidabile del relation filter (che può avere delay di indicizzazione)

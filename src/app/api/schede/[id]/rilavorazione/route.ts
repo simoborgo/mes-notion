@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
 import { getSessionFromRequest } from "@/lib/auth";
-import { createRilavorazione } from "@/lib/notion";
+import { createRilavorazione, invalidateSchedeCache } from "@/lib/notion";
 import { notionSvc } from "@/lib/verificheServices";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     revalidatePath("/schede");
-    revalidateTag("schede", "default");
+    invalidateSchedeCache();
 
     return NextResponse.json({ ok: true, odp: rilavorazione.odp, pageId: rilavorazione.id });
   } catch (err) {

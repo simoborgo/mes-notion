@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { revalidatePath, revalidateTag } from "next/cache";
-import { createRitiro, updateSchedaStato, getFornitoriList, appendFotoToPage, getSchedaById, createRilavorazione } from "@/lib/notion";
+import { revalidatePath } from "next/cache";
+import { createRitiro, updateSchedaStato, getFornitoriList, appendFotoToPage, getSchedaById, createRilavorazione, invalidateSchedeCache } from "@/lib/notion";
 import { getSessionFromRequest, CARICO_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
@@ -201,7 +201,7 @@ export async function POST(req: NextRequest) {
   );
 
   revalidatePath("/schede");
-  revalidateTag("schede", "default");
+  invalidateSchedeCache();
   revalidatePath("/ritiri");
 
   if (warnings.length > 0) {

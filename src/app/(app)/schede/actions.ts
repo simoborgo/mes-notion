@@ -1,8 +1,9 @@
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
+import { invalidateSchedeCache } from "@/lib/notion";
 
 export async function revalidateSchede() {
   revalidatePath("/schede");
-  revalidateTag("schede", "default");
+  invalidateSchedeCache();
 }

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
 import { PDFDocument } from "pdf-lib";
 import { getSessionFromRequest } from "@/lib/auth";
-import { findCommessaByNumber, getNextOdp, createSchedaPage, findFornitoreIdByName } from "@/lib/notion";
+import { findCommessaByNumber, getNextOdp, createSchedaPage, findFornitoreIdByName, invalidateSchedeCache } from "@/lib/notion";
 
 interface ParsedItem {
   numeroScheda: string;
@@ -174,7 +174,7 @@ export async function POST(req: NextRequest) {
   }
 
   revalidatePath("/schede");
-  revalidateTag("schede", "default");
+  invalidateSchedeCache();
 
   console.log(`[import-scheda] import completato — ODP ${odp}, ${created.length} pagine create`);
   return NextResponse.json({ ok: true, odp, created, n8nError });
