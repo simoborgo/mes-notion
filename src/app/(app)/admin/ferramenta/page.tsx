@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getSession } from "@/lib/auth";
+import { getSession, FERRAMENTA_ROLES } from "@/lib/auth";
 import { getArticoliFerramenta } from "@/lib/articoliFerramentaRepository";
 import TabellaArticoliFerramenta from "@/components/TabellaArticoliFerramenta";
 import FerramentaSubNav from "@/components/FerramentaSubNav";
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminFerramentaPage() {
   const session = await getSession();
-  if (!session || session.role !== "admin") {
+  if (!session || !FERRAMENTA_ROLES.includes(session.role)) {
     redirect("/");
   }
 
@@ -17,7 +17,7 @@ export default async function AdminFerramentaPage() {
 
   return (
     <div className="space-y-4">
-      <FerramentaSubNav isAdmin={true} />
+      <FerramentaSubNav canManage={true} />
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>

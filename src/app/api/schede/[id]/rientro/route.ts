@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { getSessionFromRequest } from "@/lib/auth";
+import { getSessionFromRequest, RIENTRO_QUALITA_ROLES } from "@/lib/auth";
 import { getSchedaById, updateSchedaStato, invalidateSchedeCache } from "@/lib/notion";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getSessionFromRequest(req);
-    if (!session) return NextResponse.json({ ok: false, error: "Non autorizzato" }, { status: 401 });
+    if (!session || !RIENTRO_QUALITA_ROLES.includes(session.role)) {
+      return NextResponse.json({ ok: false, error: "Non autorizzato" }, { status: 401 });
+    }
 
     const { id: rilavorazioneId } = await params;
 

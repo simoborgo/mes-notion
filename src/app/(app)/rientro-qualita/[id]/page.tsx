@@ -1,10 +1,15 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { getSession, RIENTRO_QUALITA_ROLES } from "@/lib/auth";
 import { getSchedaById } from "@/lib/notion";
 import RientroQualitaCard from "@/components/RientroQualitaCard";
 
 export const dynamic = "force-dynamic";
 
 export default async function RientroQualitaDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const session = await getSession();
+  if (!session) redirect("/login");
+  if (!RIENTRO_QUALITA_ROLES.includes(session.role)) redirect("/");
+
   const { id } = await params;
 
   let scheda;

@@ -15,7 +15,7 @@ export default async function CaricoFerramentaPage() {
 
   return (
     <div className="space-y-4">
-      <FerramentaSubNav isAdmin={session.role === "admin"} />
+      <FerramentaSubNav canManage={FERRAMENTA_ROLES.includes(session.role)} />
       <div className="max-w-md mx-auto space-y-5">
         <div>
           <h1 className="text-xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>

@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
+import { getSession, FERRAMENTA_ROLES } from "@/lib/auth";
 import { getSchedaById } from "@/lib/notion";
 import { getDistintaKitByOdp } from "@/lib/kitFerramentaRepository";
 import { getArticoliFerramenta } from "@/lib/articoliFerramentaRepository";
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function KitOdpDettaglioPage({ params }: { params: Promise<{ schedaId: string }> }) {
   const session = await getSession();
-  if (!session || session.role !== "admin") {
+  if (!session || !FERRAMENTA_ROLES.includes(session.role)) {
     redirect("/");
   }
 

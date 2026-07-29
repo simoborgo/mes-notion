@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
+import { getSession, FERRAMENTA_ROLES } from "@/lib/auth";
 import ImportFerramentaCsv from "@/components/ImportFerramentaCsv";
 
 export const dynamic = "force-dynamic";
 
 export default async function ImportFerramentaPage() {
   const session = await getSession();
-  if (!session || session.role !== "admin") {
+  if (!session || !FERRAMENTA_ROLES.includes(session.role)) {
     redirect("/");
   }
 

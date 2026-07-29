@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findFornitoreMatch, getFornitoriList } from "@/lib/notion";
 import { getCodiciOs1Esistenti } from "@/lib/articoliFerramentaRepository";
-import { getSessionFromRequest } from "@/lib/auth";
+import { getSessionFromRequest, FERRAMENTA_ROLES } from "@/lib/auth";
 
 interface MatchItem {
   idProdotto: string;
@@ -14,7 +14,7 @@ interface MatchItem {
 
 export async function POST(req: NextRequest) {
   const session = await getSessionFromRequest(req);
-  if (!session || session.role !== "admin") {
+  if (!session || !FERRAMENTA_ROLES.includes(session.role)) {
     return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
   }
 

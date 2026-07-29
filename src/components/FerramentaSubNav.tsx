@@ -18,9 +18,9 @@ const TABS: Tab[] = [
   { href: "/ferramenta/fogli-scarico", label: "Fogli di Scarico", match: (p) => p.startsWith("/ferramenta/fogli-scarico") },
 ];
 
-export default function FerramentaSubNav({ isAdmin }: { isAdmin: boolean }) {
+export default function FerramentaSubNav({ canManage }: { canManage: boolean }) {
   const pathname = usePathname();
-  const tabs = TABS.filter((t) => !t.adminOnly || isAdmin);
+  const tabs = TABS.filter((t) => !t.adminOnly || canManage);
 
   return (
     <div className="flex flex-wrap gap-2 pb-3 mb-1 border-b" style={{ borderColor: "#E4E0DA" }}>

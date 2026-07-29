@@ -23,7 +23,7 @@ export default async function InventarioPage() {
 
   return (
     <div className="space-y-4">
-      <FerramentaSubNav isAdmin={session.role === "admin"} />
+      <FerramentaSubNav canManage={FERRAMENTA_ROLES.includes(session.role)} />
       <div className="max-w-lg mx-auto space-y-4">
         <div className="flex items-center justify-between">
           <div>

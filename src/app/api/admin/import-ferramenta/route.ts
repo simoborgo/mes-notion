@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createArticoloFerramenta } from "@/lib/articoliFerramentaRepository";
-import { getSessionFromRequest } from "@/lib/auth";
+import { getSessionFromRequest, FERRAMENTA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
 interface ImportItem {
@@ -15,7 +15,7 @@ interface ImportItem {
 
 export async function POST(req: NextRequest) {
   const session = await getSessionFromRequest(req);
-  if (!session || session.role !== "admin") {
+  if (!session || !FERRAMENTA_ROLES.includes(session.role)) {
     return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
   }
 

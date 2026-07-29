@@ -39,6 +39,7 @@ const CARICO_ROLES = ["admin", "produzione"];
 const SPEDIZIONI_ROLES = ["admin", "spedizioni"];
 const RILEVAMENTO_ORE_ROLES = ["admin", "responsabile_produzione"];
 const FERRAMENTA_ROLES = ["admin", "magazziniere"];
+const RIENTRO_QUALITA_ROLES = ["admin", "operatore", "logistica", "spedizioni", "produzione", "responsabile_produzione"];
 
 const links = [
   {
@@ -107,7 +108,7 @@ const links = [
   {
     href: "/rientro-qualita",
     label: "Rientro Qualità",
-    roles: ALL_ROLES,
+    roles: RIENTRO_QUALITA_ROLES,
     icon: (
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />

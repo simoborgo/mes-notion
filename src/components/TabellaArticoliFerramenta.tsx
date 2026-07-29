@@ -13,6 +13,7 @@ interface RowState {
   codiceFornitore: string;
   saving: boolean;
   error: string | null;
+  savedAt: number | null;
 }
 
 function initRow(a: ArticoloFerramenta): RowState {
@@ -25,6 +26,7 @@ function initRow(a: ArticoloFerramenta): RowState {
     codiceFornitore: a.codiceFornitore ?? "",
     saving: false,
     error: null,
+    savedAt: null,
   };
 }
 
@@ -54,7 +56,7 @@ export default function TabellaArticoliFerramenta({ articoli: initial }: { artic
       setRow(a.id, { error: "Quantità Standard Vaschetta obbligatoria (> 0) per Kanban" });
       return;
     }
-    setRow(a.id, { saving: true, error: null });
+    setRow(a.id, { saving: true, error: null, savedAt: null });
     try {
       const res = await fetch(`/api/ferramenta/articoli/${a.id}/classificazione`, {
         method: "PATCH",
@@ -79,7 +81,8 @@ export default function TabellaArticoliFerramenta({ articoli: initial }: { artic
         ubicazione: row.ubicazione,
         codiceFornitore: row.codiceFornitore,
       } : x));
-      setRow(a.id, { saving: false });
+      setRow(a.id, { saving: false, savedAt: Date.now() });
+      setTimeout(() => setRow(a.id, { savedAt: null }), 3000);
     } catch (e) {
       setRow(a.id, { saving: false, error: e instanceof Error ? e.message : "Errore salvataggio" });
     }
@@ -212,6 +215,7 @@ export default function TabellaArticoliFerramenta({ articoli: initial }: { artic
                         {row.saving ? "Salvo…" : "Salva"}
                       </button>
                       {row.error && <div className="text-xs mt-1" style={{ color: "#991B1B" }}>{row.error}</div>}
+                      {row.savedAt && <div className="text-xs mt-1 font-medium" style={{ color: "#15803D" }}>✓ Salvato</div>}
                     </td>
                   </tr>
                 );

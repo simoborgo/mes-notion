@@ -3,13 +3,13 @@ import { revalidatePath } from "next/cache";
 import { updateSchedaKitFerramenta, getSchedaById } from "@/lib/notion";
 import { getDistintaKitByOdp } from "@/lib/kitFerramentaRepository";
 import { sendNotifica } from "@/lib/notify";
-import { getSessionFromRequest } from "@/lib/auth";
+import { getSessionFromRequest, FERRAMENTA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 import { getPublicBaseUrl } from "@/lib/url";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ schedaId: string }> }) {
   const session = await getSessionFromRequest(req);
-  if (!session || session.role !== "admin") {
+  if (!session || !FERRAMENTA_ROLES.includes(session.role)) {
     return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
   }
 

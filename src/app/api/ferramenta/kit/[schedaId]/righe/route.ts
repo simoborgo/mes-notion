@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { addDistintaRiga } from "@/lib/kitFerramentaRepository";
 import { getArticoloFerramentaById } from "@/lib/articoliFerramentaRepository";
-import { getSessionFromRequest } from "@/lib/auth";
+import { getSessionFromRequest, FERRAMENTA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ schedaId: string }> }) {
   const session = await getSessionFromRequest(req);
-  if (!session || session.role !== "admin") {
+  if (!session || !FERRAMENTA_ROLES.includes(session.role)) {
     return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
   }
 

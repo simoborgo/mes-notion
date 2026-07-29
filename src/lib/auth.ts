@@ -9,6 +9,7 @@ export const CARICO_ROLES: Role[] = ["admin", "produzione"];
 export const SPEDIZIONI_ROLES: Role[] = ["admin", "spedizioni"];
 export const RILEVAMENTO_ORE_ROLES: Role[] = ["admin", "responsabile_produzione"];
 export const FERRAMENTA_ROLES: Role[] = ["admin", "magazziniere"];
+export const RIENTRO_QUALITA_ROLES: Role[] = ["admin", "operatore", "logistica", "spedizioni", "produzione", "responsabile_produzione"];
 
 export interface Session {
   username: string;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getArticoliFerramenta } from "@/lib/articoliFerramentaRepository";
-import { getSessionFromRequest } from "@/lib/auth";
+import { getSessionFromRequest, FERRAMENTA_ROLES } from "@/lib/auth";
 import { toCsvRow } from "@/lib/csv";
 
 // Delimitatore ";" e BOM UTF-8: Excel in locale italiano si aspetta ";" come separatore CSV
@@ -10,7 +10,7 @@ const DELIMITER = ";";
 export async function GET(req: NextRequest) {
   try {
     const session = await getSessionFromRequest(req);
-    if (!session || session.role !== "admin") {
+    if (!session || !FERRAMENTA_ROLES.includes(session.role)) {
       return NextResponse.json({ error: "Non autorizzato" }, { status: 401 });
     }
 

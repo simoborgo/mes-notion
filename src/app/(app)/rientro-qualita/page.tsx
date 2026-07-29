@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { getSession, RIENTRO_QUALITA_ROLES } from "@/lib/auth";
 import { getSottoschede } from "@/lib/notion";
 import RientroQualitaList from "@/components/RientroQualitaList";
 
@@ -6,6 +8,10 @@ export const dynamic = "force-dynamic";
 const STATI_CHIUSI = new Set(["Completato", "Annullata"]);
 
 export default async function RientroQualitaPage() {
+  const session = await getSession();
+  if (!session) redirect("/login");
+  if (!RIENTRO_QUALITA_ROLES.includes(session.role)) redirect("/");
+
   const sottoschede = await getSottoschede();
   const rilavorazioni = sottoschede.filter(
     s => s.tipologia === "Rilavorazione" && !STATI_CHIUSI.has(s.statoProduzione)

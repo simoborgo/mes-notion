@@ -15,7 +15,7 @@ export default async function FerramentaPage() {
 
   return (
     <div className="space-y-4">
-      <FerramentaSubNav isAdmin={session.role === "admin"} />
+      <FerramentaSubNav canManage={FERRAMENTA_ROLES.includes(session.role)} />
       <div>
         <h1 className="text-2xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
           Ferramenta
