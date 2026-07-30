@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
     "codiceArticolo è il codice specifico dell'articolo, non la commessa. null se non trovato.",
     "fornitore: MODAR è l'azienda committente/produttrice — NON va MAI messo in 'fornitore'. Cerca il subfornitore esterno specifico della pagina (es: Cattaneo, Rossi Srl, ecc.). Se non c'è, metti null.",
     "termineDiConsegna: cerca ESATTAMENTE l'etichetta 'TERMINE DI CONSEGNA' nel testo della pagina e prendi la data associata a quell'etichetta. NON è la data di emissione/stampa del documento né una data d'ordine — se nella pagina compaiono più date, usa solo quella accanto a 'TERMINE DI CONSEGNA', ignora le altre.",
+    "'TERMINE DI CONSEGNA' e 'DATA ORDINE' sono due etichette DIVERSE e vicine tra loro nel layout — non scambiarle mai. Se 'TERMINE DI CONSEGNA' compare come etichetta ma il valore accanto è vuoto/assente, restituisci termineDiConsegna: null — NON prendere in quel caso la data di 'DATA ORDINE' né nessun'altra data della pagina come sostituto.",
     "La lista componenti/distinta base va in otherFields come testo, non come item separati.",
     "otherFields: solo valori stringa semplici, nessun oggetto annidato.",
     "Restituisci SOLO il JSON grezzo senza markdown, senza ```json, senza altro testo.",
