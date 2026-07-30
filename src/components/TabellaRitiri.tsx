@@ -670,24 +670,27 @@ export default function TabellaRitiri({
       </div>
 
       {/* ── Archivio Completati ── */}
-      <div className="pb-4">
+      <div className="pb-4 rounded-lg border" style={{ borderColor: "#e5e4e0" }}>
         <button
           onClick={() => setArchivioAperto((v) => !v)}
-          className="w-full flex items-center justify-between mb-3 text-left"
+          className="w-full flex items-center gap-2 px-3 py-2.5 text-left rounded-lg hover:bg-gray-50 transition-colors"
         >
-          <h2 className="text-sm font-bold uppercase tracking-wide" style={{ color: "var(--color-grey-mid)" }}>
-            Archivio Completati ({allFatti.length})
-          </h2>
           <span
             className="text-xs transition-transform"
             style={{ color: "var(--color-grey-icon)", transform: archivioAperto ? "rotate(90deg)" : "rotate(0deg)", display: "inline-block" }}
           >
             ▶
           </span>
+          <h2 className="text-sm font-bold uppercase tracking-wide" style={{ color: "var(--color-grey-mid)" }}>
+            Archivio Completati ({allFatti.length})
+          </h2>
+          <span className="text-xs font-normal normal-case" style={{ color: "var(--color-grey-icon)" }}>
+            {archivioAperto ? "— clicca per comprimere" : "— clicca per espandere"}
+          </span>
         </button>
 
         {archivioAperto && (
-        <>
+        <div className="px-3">
         {/* Filtri archivio */}
         <div className="flex flex-wrap gap-2 mb-3">
           <input
@@ -835,7 +838,7 @@ export default function TabellaRitiri({
             </table>
           </div>
         )}
-        </>
+        </div>
         )}
       </div>
 

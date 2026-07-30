@@ -1,6 +1,7 @@
 import { getRitiri, getSchede, getSottoschede, getFornitoriList, getCommesse } from "@/lib/notion";
 import { getSession } from "@/lib/auth";
 import TabellaRitiri from "@/components/TabellaRitiri";
+import RitiriSubNav from "@/components/RitiriSubNav";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,7 @@ export default async function RitiriPage() {
 
   return (
     <div className="space-y-5">
+      <RitiriSubNav userRole={session?.role} />
       <div>
         <h1 className="text-2xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
           Ritiri e Consegne

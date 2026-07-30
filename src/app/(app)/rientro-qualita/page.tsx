@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession, RIENTRO_QUALITA_ROLES } from "@/lib/auth";
 import { getSottoschede } from "@/lib/notion";
 import RientroQualitaList from "@/components/RientroQualitaList";
+import RitiriSubNav from "@/components/RitiriSubNav";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,7 @@ export default async function RientroQualitaPage() {
 
   return (
     <div className="space-y-5">
+      <RitiriSubNav userRole={session.role} />
       <div>
         <h1 className="text-2xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
           Rientro Qualità

@@ -39,7 +39,6 @@ const CARICO_ROLES = ["admin", "produzione"];
 const SPEDIZIONI_ROLES = ["admin", "spedizioni"];
 const RILEVAMENTO_ORE_ROLES = ["admin", "responsabile_produzione"];
 const FERRAMENTA_ROLES = ["admin", "magazziniere"];
-const RIENTRO_QUALITA_ROLES = ["admin", "operatore", "logistica", "spedizioni", "produzione", "responsabile_produzione"];
 
 const links = [
   {
@@ -102,17 +101,6 @@ const links = [
     icon: (
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="M20 4L8.12 15.88" /><path d="M14.47 14.48L20 20" /><path d="M8.12 8.12L12 12" />
-      </svg>
-    ),
-  },
-  {
-    href: "/rientro-qualita",
-    label: "Rientro Qualità",
-    roles: RIENTRO_QUALITA_ROLES,
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-        <polyline points="22 4 12 14.01 9 11.01" />
       </svg>
     ),
   },
