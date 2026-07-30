@@ -15,6 +15,7 @@ export interface Scheda {
   dataSchedaRicevuta: string | null;
   dataProduzionePrevista: string | null;
   pdfAllegato: { name: string; url: string }[];
+  foto: { name: string; url: string }[];
   produzioneEsterna: boolean;
   statoProdEsterna: string;
   fornitore: string;

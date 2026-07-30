@@ -133,6 +133,7 @@ function pageToScheda(page: any): Scheda {
     dataSchedaRicevuta: getDate(prop(page, "Data Scheda Ricevuta")),
     dataProduzionePrevista: getDate(prop(page, "Data Produzione Prevista")),
     pdfAllegato: getFiles(prop(page, "PDF Allegato")),
+    foto: getFiles(prop(page, "Foto")),
     produzioneEsterna: getCheckbox(prop(page, "Produzione Esterna")),
     statoProdEsterna: getText(prop(page, "Stato Produzione Esterna")),
     fornitore: getText(prop(page, "Nome Fornitore")),
@@ -1069,5 +1070,45 @@ export async function appendFotoToPage(pageId: string, fotoBase64Array: string[]
     const err = await updateRes.json().catch(() => ({})) as any;
     throw new Error(err.message ?? `update page: ${updateRes.status}`);
   }
+}
+
+function decodeBase64File(base64: string): { buffer: Buffer; mimeType: string } {
+  const match = base64.match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) throw new Error("File non valido");
+  return { mimeType: match[1], buffer: Buffer.from(match[2], "base64") };
+}
+
+// Aggiunge un PDF alla property "PDF Allegato" di una Scheda senza rimuovere quelli già presenti
+// — stesso spirito di appendFotoToPage, ma per un singolo file alla volta invocato dal modal di modifica.
+export async function appendPdfAllegatoToScheda(schedaId: string, pdfBase64: string, filename: string): Promise<void> {
+  const { buffer } = decodeBase64File(pdfBase64);
+  const uploadId = await uploadFileToNotionRaw(buffer, filename, "application/pdf");
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const page = await notion.pages.retrieve({ page_id: schedaId }) as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const existing = (page.properties?.["PDF Allegato"]?.files ?? []).map((f: any) => (
+    f.type === "external"
+      ? { type: "external", name: f.name, external: { url: f.external.url } }
+      : { type: "file", name: f.name, file: { url: f.file.url } }
+  ));
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const properties: Record<string, any> = {
+    "PDF Allegato": { files: [...existing, { type: "file_upload", name: filename, file_upload: { id: uploadId } }] },
+  };
+  await notion.pages.update({ page_id: schedaId, properties });
+}
+
+// Sostituisce (non aggiunge) la Copertina — è un'immagine di anteprima singola, non un elenco.
+export async function updateCopertinaScheda(schedaId: string, imageBase64: string, filename: string): Promise<void> {
+  const { buffer, mimeType } = decodeBase64File(imageBase64);
+  const uploadId = await uploadFileToNotionRaw(buffer, filename, mimeType);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const properties: Record<string, any> = {
+    "Copertina": { files: [{ type: "file_upload", name: filename, file_upload: { id: uploadId } }] },
+  };
+  await notion.pages.update({ page_id: schedaId, properties });
 }
 
