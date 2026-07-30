@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { getSession, RIENTRO_QUALITA_ROLES } from "@/lib/auth";
-import { getSchedaById } from "@/lib/notion";
+import { getSchedaById, getRitiriByScheda } from "@/lib/notion";
 import RientroQualitaCard from "@/components/RientroQualitaCard";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +21,7 @@ export default async function RientroQualitaDetailPage({ params }: { params: Pro
   if (!scheda || scheda.tipologia !== "Rilavorazione") notFound();
 
   const giaCompletata = ["Completato", "Annullata"].includes(scheda.statoProduzione);
+  const ritiriCollegati = giaCompletata ? [] : await getRitiriByScheda(scheda.id);
 
   return (
     <div className="max-w-md mx-auto space-y-5">
@@ -43,7 +44,7 @@ export default async function RientroQualitaDetailPage({ params }: { params: Pro
           </p>
         </div>
       ) : (
-        <RientroQualitaCard scheda={scheda} />
+        <RientroQualitaCard scheda={scheda} ritiriCollegati={ritiriCollegati} />
       )}
     </div>
   );

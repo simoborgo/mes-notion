@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import type { Ritiro, Scheda, Commessa } from "@/lib/types";
 
 const TIPI = ["Ritiro", "Consegna"];
@@ -22,11 +22,12 @@ interface Props {
   schede?: Scheda[];
   fornitori?: { id: string; nome: string }[];
   commesse?: Commessa[];
+  initialScheda?: Scheda | null;
   onClose: () => void;
   onCreated: (ritiro: Ritiro) => void;
 }
 
-export default function FormNuovoRitiro({ schede = [], fornitori = [], commesse = [], onClose, onCreated }: Props) {
+export default function FormNuovoRitiro({ schede = [], fornitori = [], commesse = [], initialScheda = null, onClose, onCreated }: Props) {
   const [mode, setMode] = useState<"odp" | "commessa">("odp");
   const [form, setForm] = useState({
     causale: "",
@@ -127,6 +128,13 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], commesse 
     setSchedaSearch(s.parentId ? `↳ ${s.odp} — ${s.numeroScheda}` : `${s.odp} — ${s.numeroScheda}`);
     setSchedaOpen(false);
   }
+
+  // Pre-compila con la scheda passata dal chiamante (es. "Inserisci un ritiro" da Rientro
+  // Qualità per una rilavorazione specifica) — stessa logica di selezione manuale dal dropdown.
+  useEffect(() => {
+    if (initialScheda) selectScheda(initialScheda);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function clearScheda() {
     setForm(prev => ({ ...prev, schedaId: null, commessaId: null }));

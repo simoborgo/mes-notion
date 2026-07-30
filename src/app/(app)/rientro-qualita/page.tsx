@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession, RIENTRO_QUALITA_ROLES } from "@/lib/auth";
-import { getSottoschede } from "@/lib/notion";
+import { getSottoschede, getRitiri, getFornitoriList, getCommesse } from "@/lib/notion";
 import RientroQualitaList from "@/components/RientroQualitaList";
 import RitiriSubNav from "@/components/RitiriSubNav";
 
@@ -13,10 +13,13 @@ export default async function RientroQualitaPage() {
   if (!session) redirect("/login");
   if (!RIENTRO_QUALITA_ROLES.includes(session.role)) redirect("/");
 
-  const sottoschede = await getSottoschede();
+  const [sottoschede, ritiri, fornitori, commesse] = await Promise.all([
+    getSottoschede(), getRitiri(), getFornitoriList(), getCommesse(),
+  ]);
   const rilavorazioni = sottoschede.filter(
     s => s.tipologia === "Rilavorazione" && !STATI_CHIUSI.has(s.statoProduzione)
   );
+  const ritiriRilavorazioni = ritiri.filter(r => !!r.rilavorazioneId);
 
   return (
     <div className="space-y-5">
@@ -29,7 +32,7 @@ export default async function RientroQualitaPage() {
           Rilavorazioni in attesa di rientro dal fornitore — {rilavorazioni.length} apert{rilavorazioni.length === 1 ? "a" : "e"}
         </p>
       </div>
-      <RientroQualitaList rilavorazioni={rilavorazioni} />
+      <RientroQualitaList rilavorazioni={rilavorazioni} ritiri={ritiriRilavorazioni} fornitori={fornitori} commesse={commesse} />
     </div>
   );
 }
