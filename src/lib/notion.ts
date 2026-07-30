@@ -1,6 +1,6 @@
 import { Client } from "@notionhq/client";
 import { unstable_cache } from "next/cache";
-import type { Scheda, SchedaUpdate, Ritiro, RitiroUpdate, Commessa, Area, Carico, Operatore, OdpAttivo } from "./types";
+import type { Scheda, SchedaUpdate, Ritiro, RitiroUpdate, Commessa, Area, Carico, CaricoUpdate, Operatore, OdpAttivo } from "./types";
 import { STATI_CHIUSI_ODP } from "./types";
 
 const notion = new Client({ auth: process.env.NOTION_TOKEN, fetch: globalThis.fetch });
@@ -381,30 +381,66 @@ export async function createRilavorazione({
 
 export async function createCarico({
   titolo,
+  descrizione,
   dataCarico,
   commessaId,
-  odpId,
+  odpIds,
   modalita,
+  stato,
 }: {
   titolo: string;
+  descrizione?: string;
   dataCarico: string;
   commessaId?: string | null;
-  odpId?: string | null;
+  odpIds?: string[];
   modalita?: string;
+  stato?: string;
 }): Promise<Carico> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const properties: Record<string, any> = {
     Titolo: { title: [{ text: { content: titolo || "Carico" } }] },
     "Data Carico": { date: { start: dataCarico } },
-    Stato: { status: { name: "Pianificato" } },
+    // Stato di default "Pianificato" per i carichi appena creati — sovrascrivibile solo
+    // se il chiamante passa esplicitamente uno stato (es. form di creazione con selettore).
+    Stato: { status: { name: stato || "Pianificato" } },
   };
+  if (descrizione) properties["Descrizione"] = { rich_text: [{ text: { content: descrizione } }] };
   if (commessaId) properties["Commessa"] = { relation: [{ id: commessaId }] };
-  if (odpId) properties["ODP"] = { relation: [{ id: odpId }] };
+  if (odpIds && odpIds.length) properties["ODP"] = { relation: odpIds.map((id) => ({ id })) };
   if (modalita) properties["Modalità"] = { select: { name: modalita } };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const page = await notion.pages.create({ parent: { database_id: DB_CARICHI }, properties }) as any;
   return pageToCarico(page);
+}
+
+export async function updateCarico(id: string, data: CaricoUpdate): Promise<Carico> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const properties: Record<string, any> = {};
+  if (data.titolo !== undefined)
+    properties["Titolo"] = { title: [{ text: { content: data.titolo } }] };
+  if (data.descrizione !== undefined)
+    properties["Descrizione"] = { rich_text: data.descrizione ? [{ text: { content: data.descrizione } }] : [] };
+  if (data.dataCarico !== undefined)
+    properties["Data Carico"] = { date: data.dataCarico ? { start: data.dataCarico } : null };
+  if (data.commessaId !== undefined)
+    properties["Commessa"] = data.commessaId ? { relation: [{ id: data.commessaId }] } : { relation: [] };
+  if (data.odpIds !== undefined)
+    properties["ODP"] = { relation: data.odpIds.map((odpId) => ({ id: odpId })) };
+  if (data.modalita !== undefined)
+    properties["Modalità"] = { select: data.modalita ? { name: data.modalita } : null };
+  if (data.stato !== undefined)
+    properties["Stato"] = { status: { name: data.stato } };
+
+  await notion.pages.update({ page_id: id, properties });
+  // Rilegge la pagina: la risposta del PATCH non riflette in modo affidabile i rollup
+  // (es. Commessa Cliente Info) — stesso motivo per cui updateRitiro rilegge dopo il PATCH.
+  const fresh = await notion.pages.retrieve({ page_id: id });
+  return pageToCarico(fresh);
+}
+
+export async function deleteCarico(id: string): Promise<void> {
+  await notion.pages.update({ page_id: id, archived: true });
 }
 
 export const getFornitori = unstable_cache(

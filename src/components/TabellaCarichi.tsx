@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import type { Carico, Commessa } from "@/lib/types";
+import { useState, useMemo, useEffect } from "react";
+import type { Carico, Commessa, Scheda } from "@/lib/types";
 import BadgeStato from "./BadgeStato";
+import FormCarico from "./FormCarico";
 
 function fmt(d: string | null) {
   if (!d) return "—";
@@ -12,9 +13,24 @@ function fmt(d: string | null) {
 interface Props {
   carichi: Carico[];
   commesse: Commessa[];
+  schede: Scheda[];
+  canWrite: boolean;
 }
 
-export default function TabellaCarichi({ carichi, commesse }: Props) {
+export default function TabellaCarichi({ carichi: initial, commesse, schede, canWrite }: Props) {
+  const [carichi, setCarichi] = useState(initial);
+  const [creando, setCreando] = useState(false);
+  const [editing, setEditing] = useState<Carico | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
+  const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(t);
+  }, [toast]);
+
   const commessaMap = useMemo(() => {
     const m = new Map<string, Commessa>();
     commesse.forEach(c => m.set(c.id, c));
@@ -32,6 +48,30 @@ export default function TabellaCarichi({ carichi, commesse }: Props) {
   function toggleSort(col: string) {
     if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortCol(col); setSortDir("asc"); }
+  }
+
+  function handleCreated(carico: Carico) {
+    setCarichi(prev => [carico, ...prev]);
+    setCreando(false);
+  }
+
+  function handleSave(updated: Carico) {
+    setCarichi(prev => prev.map(c => (c.id === updated.id ? updated : c)));
+    setEditing(null);
+  }
+
+  async function handleDelete(id: string) {
+    setLoadingIds(prev => new Set(prev).add(id));
+    try {
+      const res = await fetch(`/api/carichi/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Errore eliminazione");
+      setCarichi(prev => prev.filter(c => c.id !== id));
+      setConfirmDelete(null);
+    } catch {
+      setToast("Errore durante l'eliminazione. Riprova.");
+    } finally {
+      setLoadingIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+    }
   }
 
   const filtered = useMemo(() => {
@@ -83,6 +123,18 @@ export default function TabellaCarichi({ carichi, commesse }: Props) {
 
   return (
     <div className="space-y-3">
+      {toast && (
+        <div
+          className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium border"
+          style={{ background: "#FEF2F2", color: "#991B1B", borderColor: "#FECACA" }}
+          role="alert"
+        >
+          <span className="text-base leading-none">⚠</span>
+          {toast}
+          <button onClick={() => setToast(null)} className="ml-auto text-base leading-none opacity-60 hover:opacity-100" aria-label="Chiudi">×</button>
+        </div>
+      )}
+
       {/* Filtri */}
       <div className="flex flex-wrap gap-3 items-center">
         <input
@@ -127,9 +179,19 @@ export default function TabellaCarichi({ carichi, commesse }: Props) {
           )}
         </div>
 
-<span className="ml-auto text-sm" style={{ color: "var(--color-grey-mid)" }}>
+        <span className="text-sm" style={{ color: "var(--color-grey-mid)" }}>
           {filtered.length} carichi
         </span>
+
+        {canWrite && (
+          <button
+            onClick={() => setCreando(true)}
+            className="ml-auto flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold text-white rounded transition-colors hover:opacity-90"
+            style={{ background: "var(--color-primary)", borderRadius: "var(--radius-button)" }}
+          >
+            <span className="text-base leading-none">+</span> Nuovo carico
+          </button>
+        )}
       </div>
 
       {/* Tabella */}
@@ -143,7 +205,7 @@ export default function TabellaCarichi({ carichi, commesse }: Props) {
               <Th col="modalita" label="Modalità" />
               <Th col="stato" label="Stato" />
               <Th col="odp" label="ODP" className="text-right" />
-              <th className="px-4 py-3 w-16"></th>
+              <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody>
@@ -156,6 +218,7 @@ export default function TabellaCarichi({ carichi, commesse }: Props) {
             ) : (
               filtered.map(c => {
                 const commessa = commessaMap.get(c.commessaId ?? "");
+                const isLoading = loadingIds.has(c.id);
                 return (
                   <tr key={c.id} className="border-b last:border-0 hover:bg-orange-50/30 transition-colors">
                     <td className="px-4 py-3 font-medium">{c.titolo || "—"}</td>
@@ -183,15 +246,55 @@ export default function TabellaCarichi({ carichi, commesse }: Props) {
                       {c.odpIds.length > 0 ? c.odpIds.length : "—"}
                     </td>
                     <td className="px-4 py-3">
-                      <a
-                        href={c.notionUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs px-2 py-1 rounded font-medium"
-                        style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)" }}
-                      >
-                        Notion ↗
-                      </a>
+                      <div className="flex items-center gap-2 justify-end">
+                        <a
+                          href={c.notionUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs px-2 py-1 rounded font-medium whitespace-nowrap"
+                          style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)" }}
+                        >
+                          Notion ↗
+                        </a>
+                        {canWrite && (
+                          <button
+                            onClick={() => setEditing(c)}
+                            className="font-semibold px-3 py-1 rounded transition-colors hover:opacity-80 whitespace-nowrap"
+                            style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)", fontSize: "0.8rem", borderRadius: "var(--radius-badge)" }}
+                          >
+                            Modifica
+                          </button>
+                        )}
+                        {canWrite && (
+                          confirmDelete === c.id ? (
+                            <span className="inline-flex items-center gap-1">
+                              <button
+                                onClick={() => handleDelete(c.id)}
+                                disabled={isLoading}
+                                className="font-semibold px-3 py-1 rounded text-white transition-colors disabled:opacity-40 whitespace-nowrap"
+                                style={{ background: "#DC2626", fontSize: "0.8rem", borderRadius: "var(--radius-badge)" }}
+                              >
+                                Conferma
+                              </button>
+                              <button
+                                onClick={() => setConfirmDelete(null)}
+                                className="font-semibold px-2 py-1 rounded transition-colors"
+                                style={{ color: "#6B7280", background: "#F3F4F6", fontSize: "0.8rem", borderRadius: "var(--radius-badge)" }}
+                              >
+                                ✕
+                              </button>
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => setConfirmDelete(c.id)}
+                              className="font-semibold px-3 py-1 rounded transition-colors hover:opacity-80 whitespace-nowrap"
+                              style={{ color: "#DC2626", background: "rgba(220,38,38,0.07)", fontSize: "0.8rem", borderRadius: "var(--radius-badge)" }}
+                            >
+                              Elimina
+                            </button>
+                          )
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -200,6 +303,24 @@ export default function TabellaCarichi({ carichi, commesse }: Props) {
           </tbody>
         </table>
       </div>
+
+      {creando && (
+        <FormCarico
+          commesse={commesse}
+          schede={schede}
+          onClose={() => setCreando(false)}
+          onSave={handleCreated}
+        />
+      )}
+      {editing && (
+        <FormCarico
+          carico={editing}
+          commesse={commesse}
+          schede={schede}
+          onClose={() => setEditing(null)}
+          onSave={handleSave}
+        />
+      )}
     </div>
   );
 }

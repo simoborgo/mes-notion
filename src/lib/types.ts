@@ -125,6 +125,16 @@ export interface Carico {
   notionUrl: string;
 }
 
+export interface CaricoUpdate {
+  titolo?: string;
+  descrizione?: string;
+  dataCarico?: string | null;
+  commessaId?: string | null;
+  odpIds?: string[];
+  modalita?: string;
+  stato?: string;
+}
+
 export interface Area {
   id: string;
   nomeArredo: string;

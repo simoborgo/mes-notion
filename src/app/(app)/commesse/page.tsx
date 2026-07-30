@@ -1,5 +1,6 @@
 import { getCommesse, getSchede } from "@/lib/notion";
 import TabellaCommesse from "@/components/TabellaCommesse";
+import CommesseSubNav from "@/components/CommesseSubNav";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +9,7 @@ export default async function CommessePage() {
 
   return (
     <div className="space-y-5">
+      <CommesseSubNav />
       <div>
         <h1 className="text-2xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
           Commesse
