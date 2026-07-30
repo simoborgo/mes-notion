@@ -21,18 +21,32 @@ export default async function CommessePage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
           <a
-            href="/api/commesse/export"
-            className="px-4 py-2 rounded-lg text-sm font-semibold border transition-colors hover:opacity-90"
-            style={{ borderColor: "var(--color-primary)", color: "var(--color-primary)" }}
+            href="/api/commesse/programma-riunione"
+            className="px-4 py-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            style={{ background: "var(--color-primary)" }}
           >
-            CSV Commesse (riunione)
+            Stampa Programma
+          </a>
+          <a
+            href="/api/commesse/gantt"
+            className="px-4 py-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            style={{ background: "var(--color-primary)" }}
+          >
+            Stampa Gantt
+          </a>
+          <a
+            href="/api/commesse/export"
+            className="px-3 py-2 rounded-lg text-xs font-medium border transition-colors hover:opacity-90"
+            style={{ borderColor: "#d1d5db", color: "var(--color-grey-mid)" }}
+          >
+            CSV Commesse
           </a>
           <a
             href="/api/carichi/export"
-            className="px-4 py-2 rounded-lg text-sm font-semibold border transition-colors hover:opacity-90"
-            style={{ borderColor: "var(--color-primary)", color: "var(--color-primary)" }}
+            className="px-3 py-2 rounded-lg text-xs font-medium border transition-colors hover:opacity-90"
+            style={{ borderColor: "#d1d5db", color: "var(--color-grey-mid)" }}
           >
-            CSV Carichi (riunione)
+            CSV Carichi
           </a>
         </div>
       </div>
