@@ -137,14 +137,9 @@ export default function TabellaArticoliFerramenta({ articoli: initial }: { artic
                           Stampa etichetta
                         </a>
                         {a.metodoGestione === "Kanban" && (
-                          <>
-                            <a href={`/api/ferramenta/articoli/${a.id}/etichetta-riordino`} target="_blank" rel="noreferrer" className="text-xs underline" style={{ color: "var(--color-primary)" }}>
-                              Etichetta riordino (PDF)
-                            </a>
-                            <a href={`/api/ferramenta/articoli/${a.id}/etichetta-riordino-zpl`} className="text-xs underline" style={{ color: "var(--color-primary)" }}>
-                              ZPL
-                            </a>
-                          </>
+                          <a href={`/api/ferramenta/articoli/${a.id}/etichetta-riordino`} target="_blank" rel="noreferrer" className="text-xs underline" style={{ color: "var(--color-primary)" }}>
+                            Etichetta riordino (PDF)
+                          </a>
                         )}
                       </div>
                     </td>

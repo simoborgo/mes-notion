@@ -27,13 +27,27 @@ export default async function AdminFerramentaPage() {
             Classifica gli articoli (Kanban / A Pezzo) e configura soglie e quantità vaschetta
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           <a
             href="/api/ferramenta/export"
             className="px-4 py-2 rounded-lg text-sm font-semibold border transition-colors hover:opacity-90"
             style={{ borderColor: "var(--color-primary)", color: "var(--color-primary)" }}
           >
             Esporta CSV
+          </a>
+          <a
+            href="/api/ferramenta/export/kanban"
+            className="px-4 py-2 rounded-lg text-sm font-semibold border transition-colors hover:opacity-90"
+            style={{ borderColor: "var(--color-primary)", color: "var(--color-primary)" }}
+          >
+            CSV Etichette Kanban
+          </a>
+          <a
+            href="/api/ferramenta/export/etichette"
+            className="px-4 py-2 rounded-lg text-sm font-semibold border transition-colors hover:opacity-90"
+            style={{ borderColor: "var(--color-primary)", color: "var(--color-primary)" }}
+          >
+            CSV Etichette Identificative
           </a>
           <Link
             href="/admin/import-ferramenta"
