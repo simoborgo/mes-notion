@@ -84,7 +84,7 @@ export async function buildProgrammaRiunioneWorkbook(righe: CommessaConCarichi[]
   ws.getRow(6).height = 8;
 
   // Riga 7 — intestazioni colonna
-  const headerLabels = ["N° COMMESSA", "CLIENTE", "SEDE / INFO", "STATO", "TITOLO", "DATA CARICO", "INIZIO MONT.", "FINE MONT.", "GG CANTIERE"];
+  const headerLabels = ["N° COMMESSA", "CLIENTE", "SEDE / INFO", "STATO", "INFO", "DATA CARICO", "INIZIO MONT.", "FINE MONT.", "GG CANTIERE"];
   const headerRow = ws.getRow(7);
   headerRow.height = 26;
   headerLabels.forEach((label, i) => {
