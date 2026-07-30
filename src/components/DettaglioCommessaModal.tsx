@@ -83,7 +83,12 @@ function OdpStats({ schede }: { schede: Scheda[] }) {
 function AreaAccordion({ area, schede }: { area: Area; schede: Scheda[] }) {
   const [open, setOpen] = useState(false); // chiuso di default
   const schedeArea = schede.filter((s) => s.areaId === area.id);
-  const pct = area.completamento ?? 0;
+  // Calcolato dalle schede reali, non dal campo Notion "Completamento" — quel campo è un
+  // numero semplice mai scritto da nessuna parte del codice, quindi resta fermo a qualunque
+  // valore inserito a mano (o 0) indipendentemente da quante schede risultino completate.
+  const pct = schedeArea.length > 0
+    ? Math.round((schedeArea.filter(s => s.statoProduzione === "Completato").length / schedeArea.length) * 100)
+    : 0;
 
   return (
     <div className="rounded-md border" style={{ borderColor: "#e5e4e0" }}>

@@ -1,4 +1,4 @@
-import { getCommessaById, getAreeByCommessa } from "@/lib/notion";
+import { getCommessaById, getAreeByCommessa, getSchedeByCommessa } from "@/lib/notion";
 import BadgeStato from "@/components/BadgeStato";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -13,9 +13,9 @@ function fmt(d: string | null) {
 export default async function CommessaPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  let commessa, aree;
+  let commessa, aree, schede;
   try {
-    [commessa, aree] = await Promise.all([getCommessaById(id), getAreeByCommessa(id)]);
+    [commessa, aree, schede] = await Promise.all([getCommessaById(id), getAreeByCommessa(id), getSchedeByCommessa(id)]);
   } catch {
     notFound();
   }
@@ -67,7 +67,14 @@ export default async function CommessaPage({ params }: { params: Promise<{ id: s
           <p className="text-sm" style={{ color: "var(--color-grey-mid)" }}>Nessuna area collegata.</p>
         ) : (
           <div className="space-y-3">
-            {aree.map((area) => (
+            {aree.map((area) => {
+              // Calcolato dalle schede reali dell'area, non dal campo Notion "Completamento"
+              // — quel campo è un numero semplice mai scritto da nessuna parte del codice.
+              const schedeArea = schede.filter((s) => s.areaId === area.id);
+              const pct = schedeArea.length > 0
+                ? Math.round((schedeArea.filter(s => s.statoProduzione === "Completato").length / schedeArea.length) * 100)
+                : null;
+              return (
               <div key={area.id} className="rounded-lg border border-gray-200 bg-white p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
@@ -81,16 +88,16 @@ export default async function CommessaPage({ params }: { params: Promise<{ id: s
                     <BadgeStato stato={area.statoCommessa} />
                   </div>
                 </div>
-                {area.completamento !== null && (
+                {pct !== null && (
                   <div className="mt-3">
                     <div className="flex justify-between text-xs mb-1" style={{ color: "var(--color-grey-mid)" }}>
                       <span>Completamento</span>
-                      <span>{area.completamento}%</span>
+                      <span>{pct}%</span>
                     </div>
                     <div className="w-full bg-gray-100 rounded-full h-1.5">
                       <div
                         className="h-1.5 rounded-full transition-all"
-                        style={{ width: `${area.completamento}%`, background: "var(--color-primary)" }}
+                        style={{ width: `${pct}%`, background: "var(--color-primary)" }}
                       />
                     </div>
                   </div>
@@ -108,7 +115,8 @@ export default async function CommessaPage({ params }: { params: Promise<{ id: s
                   Apri in Notion ↗
                 </a>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
