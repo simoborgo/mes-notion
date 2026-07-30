@@ -4,6 +4,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ArticoloFerramenta, OdpAttivo } from "@/lib/types";
 import OdpAutocomplete from "./OdpAutocomplete";
+import AvvisoIncoerenzaModal from "./AvvisoIncoerenzaModal";
+
+interface DistintaCheck {
+  pianificato: number | null;
+  giaScaricato: number;
+}
 
 export default function ScaricoAPezzoCard({ articolo, odpList = [], initialOdp = null }: { articolo: ArticoloFerramenta; odpList?: OdpAttivo[]; initialOdp?: string | null }) {
   const router = useRouter();
@@ -11,6 +17,20 @@ export default function ScaricoAPezzoCard({ articolo, odpList = [], initialOdp =
   const [stato, setStato] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState("");
   const [odp, setOdp] = useState<string | null>(initialOdp);
+  const [distintaCheck, setDistintaCheck] = useState<DistintaCheck | null>(null);
+  const [avviso, setAvviso] = useState<string[] | null>(null);
+
+  const odpMatch = odp ? odpList.find(o => o.odp === odp) : null;
+
+  useEffect(() => {
+    if (!odpMatch?.id) { setDistintaCheck(null); return; }
+    let cancelled = false;
+    fetch(`/api/ferramenta/kit/${odpMatch.id}/scarico-check?articoloId=${articolo.id}`)
+      .then(r => r.json())
+      .then(data => { if (!cancelled) setDistintaCheck(data); })
+      .catch(() => { if (!cancelled) setDistintaCheck(null); });
+    return () => { cancelled = true; };
+  }, [odpMatch?.id, articolo.id]);
 
   // Redirect automatico dopo la conferma — altrimenti si resta bloccati sulla schermata di successo.
   useEffect(() => {
@@ -20,17 +40,12 @@ export default function ScaricoAPezzoCard({ articolo, odpList = [], initialOdp =
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stato]);
 
-  async function handleScarico() {
-    const q = Number(quantita);
-    if (!q || q <= 0) {
-      setError("Inserisci una quantità valida");
-      return;
-    }
+  async function eseguiScarico(q: number) {
+    setAvviso(null);
     if (stato === "loading" || stato === "done") return;
     setStato("loading");
     setError("");
     try {
-      const odpMatch = odp ? odpList.find(o => o.odp === odp) : null;
       const res = await fetch(`/api/ferramenta/articoli/${articolo.id}/scarico`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -43,6 +58,34 @@ export default function ScaricoAPezzoCard({ articolo, odpList = [], initialOdp =
       setStato("error");
       setError(e instanceof Error ? e.message : "Errore durante lo scarico.");
     }
+  }
+
+  function handleScarico() {
+    const q = Number(quantita);
+    if (!q || q <= 0) {
+      setError("Inserisci una quantità valida");
+      return;
+    }
+    setError("");
+
+    const messaggi: string[] = [];
+    const giacenzaRisultante = articolo.giacenzaAttuale - q;
+    if (giacenzaRisultante < 0) {
+      messaggi.push(`La giacenza diventerà negativa: ${articolo.giacenzaAttuale} − ${q} = ${giacenzaRisultante} ${articolo.unitaMisura}.`);
+    }
+
+    if (distintaCheck?.pianificato != null) {
+      const totale = distintaCheck.giaScaricato + q;
+      if (totale > distintaCheck.pianificato) {
+        messaggi.push(`Superi il pianificato in distinta per questo ODP: pianificato ${distintaCheck.pianificato}, già scaricato ${distintaCheck.giaScaricato}, ora ${q} (totale ${totale}).`);
+      }
+    }
+
+    if (messaggi.length > 0) {
+      setAvviso(messaggi);
+      return;
+    }
+    void eseguiScarico(q);
   }
 
   if (stato === "done") {
@@ -119,6 +162,16 @@ export default function ScaricoAPezzoCard({ articolo, odpList = [], initialOdp =
         )}
         {stato === "loading" ? "Registrazione in corso…" : "Conferma scarico"}
       </button>
+
+      {avviso && (
+        <AvvisoIncoerenzaModal
+          titolo="Valori non coerenti"
+          messaggi={avviso}
+          loading={stato === "loading"}
+          onAnnulla={() => setAvviso(null)}
+          onConferma={() => void eseguiScarico(Number(quantita))}
+        />
+      )}
     </div>
   );
 }

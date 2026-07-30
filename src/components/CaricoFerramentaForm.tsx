@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ArticoloFerramenta } from "@/lib/types";
 import ArticoloAutocomplete from "./ArticoloAutocomplete";
+import AvvisoIncoerenzaModal from "./AvvisoIncoerenzaModal";
 
 export default function CaricoFerramentaForm({ articoli }: { articoli: ArticoloFerramenta[] }) {
   const router = useRouter();
@@ -11,6 +12,7 @@ export default function CaricoFerramentaForm({ articoli }: { articoli: ArticoloF
   const [quantita, setQuantita] = useState("");
   const [stato, setStato] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState("");
+  const [avviso, setAvviso] = useState<string[] | null>(null);
 
   const selected = articoloId ? articoli.find(a => a.id === articoloId) : null;
 
@@ -30,10 +32,8 @@ export default function CaricoFerramentaForm({ articoli }: { articoli: ArticoloF
     quantitaNum > 0 &&
     quantitaNum % selected.quantitaStandardVaschetta !== 0;
 
-  async function handleSubmit() {
-    const q = Number(quantita);
-    if (!articoloId) { setError("Seleziona un articolo"); return; }
-    if (!q || q <= 0) { setError("Inserisci una quantità valida"); return; }
+  async function eseguiCarico(q: number) {
+    setAvviso(null);
     setStato("loading");
     setError("");
     try {
@@ -49,6 +49,18 @@ export default function CaricoFerramentaForm({ articoli }: { articoli: ArticoloF
       setStato("error");
       setError(e instanceof Error ? e.message : "Errore durante il carico.");
     }
+  }
+
+  function handleSubmit() {
+    const q = Number(quantita);
+    if (!articoloId) { setError("Seleziona un articolo"); return; }
+    if (!q || q <= 0) { setError("Inserisci una quantità valida"); return; }
+    setError("");
+    if (nonMultiploVaschetta) {
+      setAvviso([`${q} non è multiplo della Quantità Standard Vaschetta (${selected!.quantitaStandardVaschetta} ${selected!.unitaMisura}) — controlla che sia corretto per una consegna parziale.`]);
+      return;
+    }
+    void eseguiCarico(q);
   }
 
   function reset() {
@@ -100,11 +112,6 @@ export default function CaricoFerramentaForm({ articoli }: { articoli: ArticoloF
           style={{ height: 52, borderColor: "#d1d5db" }}
           placeholder="0"
         />
-        {nonMultiploVaschetta && (
-          <p className="text-xs mt-1.5" style={{ color: "#92400E" }}>
-            ⚠ {quantita} non è multiplo della Quantità Standard Vaschetta ({selected!.quantitaStandardVaschetta} {selected!.unitaMisura}) — controlla che sia corretto per una consegna parziale.
-          </p>
-        )}
       </div>
 
       {error && (
@@ -124,6 +131,16 @@ export default function CaricoFerramentaForm({ articoli }: { articoli: ArticoloF
         )}
         {stato === "loading" ? "Registrazione in corso…" : "Conferma carico"}
       </button>
+
+      {avviso && (
+        <AvvisoIncoerenzaModal
+          titolo="Valori non coerenti"
+          messaggi={avviso}
+          loading={stato === "loading"}
+          onAnnulla={() => setAvviso(null)}
+          onConferma={() => void eseguiCarico(Number(quantita))}
+        />
+      )}
     </div>
   );
 }

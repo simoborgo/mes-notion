@@ -3,10 +3,16 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ArticoloFerramenta } from "@/lib/types";
+import AvvisoIncoerenzaModal from "./AvvisoIncoerenzaModal";
 
 interface RigaInfo {
   giacenzaTeorica: number;
 }
+
+// Scostamento "sospetto": oltre il 50% del valore teorico (min. denominatore 1, per non
+// scattare sempre quando la teorica è 0/molto bassa) — soglia arbitraria, serve solo a
+// far fermare un attimo l'operatore prima di confermare un conteggio molto diverso dall'atteso.
+const SOGLIA_SCOSTAMENTO = 0.5;
 
 export default function InventarioConteggioCard({
   articolo, riga, sessioneId,
@@ -20,6 +26,7 @@ export default function InventarioConteggioCard({
   const [stato, setStato] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState("");
   const [delta, setDelta] = useState<number | null>(null);
+  const [avviso, setAvviso] = useState<string[] | null>(null);
 
   const tornaAllInventario = () => router.push(`/ferramenta/inventario/${sessioneId}`);
 
@@ -33,9 +40,8 @@ export default function InventarioConteggioCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stato]);
 
-  async function handleConta() {
-    const q = Number(quantita);
-    if (q < 0 || Number.isNaN(q)) { setError("Inserisci una quantità valida"); return; }
+  async function eseguiConta(q: number) {
+    setAvviso(null);
     setStato("loading");
     setError("");
     try {
@@ -52,6 +58,19 @@ export default function InventarioConteggioCard({
       setStato("error");
       setError(e instanceof Error ? e.message : "Errore durante il conteggio.");
     }
+  }
+
+  function handleConta() {
+    const q = Number(quantita);
+    if (q < 0 || Number.isNaN(q)) { setError("Inserisci una quantità valida"); return; }
+    setError("");
+
+    const scostamento = Math.abs(q - riga.giacenzaTeorica) / Math.max(riga.giacenzaTeorica, 1);
+    if (scostamento > SOGLIA_SCOSTAMENTO) {
+      setAvviso([`Il conteggio (${q}) si discosta molto dalla giacenza teorica (${riga.giacenzaTeorica}) — controlla di aver contato bene prima di confermare.`]);
+      return;
+    }
+    void eseguiConta(q);
   }
 
   if (stato === "done") {
@@ -128,6 +147,16 @@ export default function InventarioConteggioCard({
         )}
         {stato === "loading" ? "Registrazione in corso…" : "Conferma conteggio"}
       </button>
+
+      {avviso && (
+        <AvvisoIncoerenzaModal
+          titolo="Valori non coerenti"
+          messaggi={avviso}
+          loading={stato === "loading"}
+          onAnnulla={() => setAvviso(null)}
+          onConferma={() => void eseguiConta(Number(quantita))}
+        />
+      )}
     </div>
   );
 }

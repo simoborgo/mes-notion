@@ -4,14 +4,36 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ArticoloFerramenta, OdpAttivo } from "@/lib/types";
 import OdpAutocomplete from "./OdpAutocomplete";
+import AvvisoIncoerenzaModal from "./AvvisoIncoerenzaModal";
 
 type Stato = "idle" | "loading" | "sotto-soglia" | "done" | "error";
+
+interface DistintaCheck {
+  pianificato: number | null;
+  giaScaricato: number;
+}
 
 export default function ScaricoKanbanCard({ articolo, odpList = [], initialOdp = null }: { articolo: ArticoloFerramenta; odpList?: OdpAttivo[]; initialOdp?: string | null }) {
   const router = useRouter();
   const [stato, setStato] = useState<Stato>("idle");
   const [error, setError] = useState("");
   const [odp, setOdp] = useState<string | null>(initialOdp);
+  const [distintaCheck, setDistintaCheck] = useState<DistintaCheck | null>(null);
+  const [avviso, setAvviso] = useState<string[] | null>(null);
+
+  const odpMatch = odp ? odpList.find(o => o.odp === odp) : null;
+
+  // Ogni volta che si collega un ODP con Scheda reale, recupera pianificato/già-scaricato
+  // in distinta per questo articolo — serve per l'avviso "stai superando il pianificato".
+  useEffect(() => {
+    if (!odpMatch?.id) { setDistintaCheck(null); return; }
+    let cancelled = false;
+    fetch(`/api/ferramenta/kit/${odpMatch.id}/scarico-check?articoloId=${articolo.id}`)
+      .then(r => r.json())
+      .then(data => { if (!cancelled) setDistintaCheck(data); })
+      .catch(() => { if (!cancelled) setDistintaCheck(null); });
+    return () => { cancelled = true; };
+  }, [odpMatch?.id, articolo.id]);
 
   // Redirect automatico dopo la conferma — altrimenti si resta bloccati sulla schermata
   // di successo. Non parte se c'è il modal sotto-soglia: prima si decide se stampare.
@@ -22,12 +44,12 @@ export default function ScaricoKanbanCard({ articolo, odpList = [], initialOdp =
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stato]);
 
-  async function handleScarico() {
+  async function eseguiScarico() {
+    setAvviso(null);
     if (stato === "loading" || stato === "done") return;
     setStato("loading");
     setError("");
     try {
-      const odpMatch = odp ? odpList.find(o => o.odp === odp) : null;
       const res = await fetch(`/api/ferramenta/articoli/${articolo.id}/scarico`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -40,6 +62,29 @@ export default function ScaricoKanbanCard({ articolo, odpList = [], initialOdp =
       setStato("error");
       setError(e instanceof Error ? e.message : "Errore durante lo scarico.");
     }
+  }
+
+  function handleScarico() {
+    const quantita = articolo.quantitaStandardVaschetta ?? 0;
+    const messaggi: string[] = [];
+
+    const giacenzaRisultante = articolo.giacenzaAttuale - quantita;
+    if (giacenzaRisultante < 0) {
+      messaggi.push(`La giacenza diventerà negativa: ${articolo.giacenzaAttuale} − ${quantita} = ${giacenzaRisultante} ${articolo.unitaMisura}.`);
+    }
+
+    if (distintaCheck?.pianificato != null) {
+      const totale = distintaCheck.giaScaricato + quantita;
+      if (totale > distintaCheck.pianificato) {
+        messaggi.push(`Superi il pianificato in distinta per questo ODP: pianificato ${distintaCheck.pianificato}, già scaricato ${distintaCheck.giaScaricato}, ora ${quantita} (totale ${totale}).`);
+      }
+    }
+
+    if (messaggi.length > 0) {
+      setAvviso(messaggi);
+      return;
+    }
+    void eseguiScarico();
   }
 
   if (stato === "sotto-soglia") {
@@ -131,6 +176,16 @@ export default function ScaricoKanbanCard({ articolo, odpList = [], initialOdp =
         )}
         {stato === "loading" ? "Registrazione in corso…" : `Vaschetta vuota — scarica ${articolo.quantitaStandardVaschetta} ${articolo.unitaMisura}`}
       </button>
+
+      {avviso && (
+        <AvvisoIncoerenzaModal
+          titolo="Valori non coerenti"
+          messaggi={avviso}
+          loading={stato === "loading"}
+          onAnnulla={() => setAvviso(null)}
+          onConferma={() => void eseguiScarico()}
+        />
+      )}
     </div>
   );
 }
