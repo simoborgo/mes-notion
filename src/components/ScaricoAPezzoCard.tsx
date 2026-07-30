@@ -11,8 +11,9 @@ interface DistintaCheck {
   giaScaricato: number;
 }
 
-export default function ScaricoAPezzoCard({ articolo, odpList = [], initialOdp = null }: { articolo: ArticoloFerramenta; odpList?: OdpAttivo[]; initialOdp?: string | null }) {
+export default function ScaricoAPezzoCard({ articolo, odpList = [], initialOdp = null, ritorno = null }: { articolo: ArticoloFerramenta; odpList?: OdpAttivo[]; initialOdp?: string | null; ritorno?: string | null }) {
   const router = useRouter();
+  const destinazione = ritorno || "/ferramenta";
   const [quantita, setQuantita] = useState("");
   const [stato, setStato] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState("");
@@ -35,7 +36,7 @@ export default function ScaricoAPezzoCard({ articolo, odpList = [], initialOdp =
   // Redirect automatico dopo la conferma — altrimenti si resta bloccati sulla schermata di successo.
   useEffect(() => {
     if (stato !== "done") return;
-    const t = setTimeout(() => router.push("/ferramenta"), 1400);
+    const t = setTimeout(() => router.push(destinazione), 1400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stato]);
@@ -103,11 +104,11 @@ export default function ScaricoAPezzoCard({ articolo, odpList = [], initialOdp =
           </div>
         </div>
         <button
-          onClick={() => router.push("/ferramenta")}
+          onClick={() => router.push(destinazione)}
           className="w-full py-2.5 rounded-lg text-sm font-semibold text-white"
           style={{ background: "#166534" }}
         >
-          Torna alle giacenze →
+          {ritorno ? "Torna al foglio di scarico →" : "Torna alle giacenze →"}
         </button>
       </div>
     );

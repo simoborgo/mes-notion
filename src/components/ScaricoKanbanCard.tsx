@@ -13,8 +13,9 @@ interface DistintaCheck {
   giaScaricato: number;
 }
 
-export default function ScaricoKanbanCard({ articolo, odpList = [], initialOdp = null }: { articolo: ArticoloFerramenta; odpList?: OdpAttivo[]; initialOdp?: string | null }) {
+export default function ScaricoKanbanCard({ articolo, odpList = [], initialOdp = null, ritorno = null }: { articolo: ArticoloFerramenta; odpList?: OdpAttivo[]; initialOdp?: string | null; ritorno?: string | null }) {
   const router = useRouter();
+  const destinazione = ritorno || "/ferramenta";
   const [stato, setStato] = useState<Stato>("idle");
   const [error, setError] = useState("");
   const [odp, setOdp] = useState<string | null>(initialOdp);
@@ -39,7 +40,7 @@ export default function ScaricoKanbanCard({ articolo, odpList = [], initialOdp =
   // di successo. Non parte se c'è il modal sotto-soglia: prima si decide se stampare.
   useEffect(() => {
     if (stato !== "done") return;
-    const t = setTimeout(() => router.push("/ferramenta"), 1400);
+    const t = setTimeout(() => router.push(destinazione), 1400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stato]);
@@ -129,11 +130,11 @@ export default function ScaricoKanbanCard({ articolo, odpList = [], initialOdp =
           </div>
         </div>
         <button
-          onClick={() => router.push("/ferramenta")}
+          onClick={() => router.push(destinazione)}
           className="w-full py-2.5 rounded-lg text-sm font-semibold text-white"
           style={{ background: "#166534" }}
         >
-          Torna alle giacenze →
+          {ritorno ? "Torna al foglio di scarico →" : "Torna alle giacenze →"}
         </button>
       </div>
     );

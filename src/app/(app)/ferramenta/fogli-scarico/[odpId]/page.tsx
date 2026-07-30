@@ -104,7 +104,7 @@ export default async function FoglioScaricoDettaglioPage({ params }: { params: P
                       <td className="px-4 py-3">
                         {r.stato !== "completo" && (
                           <Link
-                            href={`/ferramenta/scarico/${r.articoloId}?odp=${odpId}`}
+                            href={`/ferramenta/scarico/${r.articoloId}?odp=${odpId}&ritorno=${encodeURIComponent(`/ferramenta/fogli-scarico/${odpId}`)}`}
                             className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors whitespace-nowrap border"
                             style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)", borderColor: "rgba(240,143,37,0.3)" }}
                           >

@@ -18,19 +18,20 @@ function isSottoSoglia(a: ArticoloFerramenta): boolean {
 }
 
 export default function ScaricoGate({
-  articolo, odpList, inventarioAperto, initialOdp,
+  articolo, odpList, inventarioAperto, initialOdp, ritorno,
 }: {
   articolo: ArticoloFerramenta;
   odpList: OdpAttivo[];
   inventarioAperto: { ambito: InventarioAmbito; ambitoValore: string | null } | null;
   initialOdp?: string | null;
+  ritorno?: string | null;
 }) {
   const [mostraForm, setMostraForm] = useState(false);
 
   if (mostraForm) {
     return articolo.metodoGestione === "Kanban"
-      ? <ScaricoKanbanCard articolo={articolo} odpList={odpList} initialOdp={initialOdp} />
-      : <ScaricoAPezzoCard articolo={articolo} odpList={odpList} initialOdp={initialOdp} />;
+      ? <ScaricoKanbanCard articolo={articolo} odpList={odpList} initialOdp={initialOdp} ritorno={ritorno} />
+      : <ScaricoAPezzoCard articolo={articolo} odpList={odpList} initialOdp={initialOdp} ritorno={ritorno} />;
   }
 
   const sotto = isSottoSoglia(articolo);

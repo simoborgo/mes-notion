@@ -7,9 +7,11 @@ import InventarioConteggioCard from "@/components/InventarioConteggioCard";
 
 export const dynamic = "force-dynamic";
 
-export default async function ScaricoFerramentaPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ odp?: string }> }) {
+export default async function ScaricoFerramentaPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ odp?: string; ritorno?: string }> }) {
   const { id } = await params;
-  const { odp: odpParam } = await searchParams;
+  const { odp: odpParam, ritorno } = await searchParams;
+  // Solo path relativi interni — evita un open redirect se qualcuno costruisce il link a mano.
+  const ritornoSicuro = ritorno && ritorno.startsWith("/") && !ritorno.startsWith("//") ? ritorno : null;
 
   let articolo;
   try {
@@ -55,6 +57,7 @@ export default async function ScaricoFerramentaPage({ params, searchParams }: { 
           odpList={odpList}
           inventarioAperto={sessione ? { ambito: sessione.ambito, ambitoValore: sessione.ambitoValore } : null}
           initialOdp={initialOdp}
+          ritorno={ritornoSicuro}
         />
       )}
     </div>
