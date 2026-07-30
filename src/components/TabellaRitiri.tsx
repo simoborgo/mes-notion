@@ -156,6 +156,7 @@ export default function TabellaRitiri({
   const [archFornitore, setArchFornitore] = useState("");
   const [archDa, setArchDa] = useState("");
   const [archA, setArchA] = useState("");
+  const [archivioAperto, setArchivioAperto] = useState(false);
 
   useEffect(() => {
     if (!toast) return;
@@ -670,12 +671,23 @@ export default function TabellaRitiri({
 
       {/* ── Archivio Completati ── */}
       <div className="pb-4">
-        <div className="flex items-center justify-between mb-3">
+        <button
+          onClick={() => setArchivioAperto((v) => !v)}
+          className="w-full flex items-center justify-between mb-3 text-left"
+        >
           <h2 className="text-sm font-bold uppercase tracking-wide" style={{ color: "var(--color-grey-mid)" }}>
-            Archivio Completati ({archivioFatti.length}{archivioFatti.length !== allFatti.length ? ` di ${allFatti.length}` : ""})
+            Archivio Completati ({allFatti.length})
           </h2>
-        </div>
+          <span
+            className="text-xs transition-transform"
+            style={{ color: "var(--color-grey-icon)", transform: archivioAperto ? "rotate(90deg)" : "rotate(0deg)", display: "inline-block" }}
+          >
+            ▶
+          </span>
+        </button>
 
+        {archivioAperto && (
+        <>
         {/* Filtri archivio */}
         <div className="flex flex-wrap gap-2 mb-3">
           <input
@@ -822,6 +834,8 @@ export default function TabellaRitiri({
               </tbody>
             </table>
           </div>
+        )}
+        </>
         )}
       </div>
 
