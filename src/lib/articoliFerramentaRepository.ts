@@ -1,6 +1,9 @@
 import { pool } from "./db";
 import { getFornitoriMap } from "./notion";
 import type { ArticoloFerramenta, ArticoloFerramentaUpdate } from "./types";
+import { normalizzaCodiceFornitore } from "./ferramentaCodici";
+
+export { normalizzaCodiceFornitore };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapRow(r: any): ArticoloFerramenta {
@@ -26,13 +29,6 @@ function mapRow(r: any): ArticoloFerramenta {
       ? new Date(r.prezzo_riferimento_aggiornato_il).toISOString()
       : null,
   };
-}
-
-// Normalizza un codice fornitore per il confronto: rimuove separatori/spazi e zeri iniziali.
-// Necessario perché il tracciato fornitore e l'anagrafica non usano sempre lo stesso formato
-// (es. tracciato "0653700400" vs anagrafica "653700400", o codici con spazio interno "071566 07").
-export function normalizzaCodiceFornitore(codice: string): string {
-  return codice.replace(/[^a-z0-9]/gi, "").replace(/^0+/, "").toLowerCase();
 }
 
 // Cerca un articolo Ferramenta per codice fornitore, solo tra quelli collegati a un fornitore il

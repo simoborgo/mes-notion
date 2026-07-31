@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { ArticoloFerramenta, MetodoGestioneFerramenta } from "@/lib/types";
 import { UBICAZIONI_FERRAMENTA } from "@/lib/types";
+import { normalizzaCodiceFornitore } from "@/lib/ferramentaCodici";
 
 interface RowState {
   metodoGestione: MetodoGestioneFerramenta | "";
@@ -42,7 +43,15 @@ export default function TabellaArticoliFerramenta({ articoli: initial }: { artic
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
     if (!q) return articoli;
-    return articoli.filter(a => `${a.descrizione} ${a.codiceOs1} ${a.fornitoreNome} ${a.codiceFornitore}`.toLowerCase().includes(q));
+    const qNormalizzata = normalizzaCodiceFornitore(search);
+    return articoli.filter(a => {
+      if (`${a.descrizione} ${a.codiceOs1} ${a.fornitoreNome} ${a.codiceFornitore}`.toLowerCase().includes(q)) return true;
+      // Cerca anche per codice fornitore normalizzato: incolla il codice così com'è nel
+      // tracciato fornitore (con zeri iniziali/spazi) e lo trova comunque — stessa logica
+      // di confronto usata dal matching della Gestione Ordini Wurth.
+      if (qNormalizzata && a.codiceFornitore && normalizzaCodiceFornitore(a.codiceFornitore).includes(qNormalizzata)) return true;
+      return false;
+    });
   }, [articoli, search]);
 
   function setRow(id: string, patch: Partial<RowState>) {
@@ -94,7 +103,7 @@ export default function TabellaArticoliFerramenta({ articoli: initial }: { artic
     <div className="space-y-3">
       <input
         className={inputCls + " min-w-52"}
-        placeholder="Cerca descrizione, codice, fornitore…"
+        placeholder="Cerca descrizione, codice OS1, cod. fornitore, fornitore…"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
