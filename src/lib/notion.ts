@@ -353,6 +353,11 @@ export async function createRilavorazione({
     fornitoreId,
     note: note ?? null,
     dataProduzionePrevista: dataRientro ?? null,
+    // Una Rilavorazione è per definizione fuori sede (dal fornitore) — senza questo flag
+    // l'alert "rientro in ritardo" già esistente per le Schede normali non scatta mai qui,
+    // e il filtro "Produzione Esterna" in Tabella Schede le esclude sempre.
+    produzioneEsterna: true,
+    dataRientroPrevista: dataRientro ?? null,
     quantita: quantita ?? parent.quantita ?? null,
     parentId,
   });
@@ -945,6 +950,8 @@ export async function createSchedaPage({
   quantita,
   dataProduzionePrevista,
   dataSchedaRicevuta,
+  produzioneEsterna,
+  dataRientroPrevista,
   note,
   parentId,
   pdfBuffer,
@@ -964,6 +971,8 @@ export async function createSchedaPage({
   quantita?: number | null;
   dataProduzionePrevista?: string | null;
   dataSchedaRicevuta?: string | null;
+  produzioneEsterna?: boolean;
+  dataRientroPrevista?: string | null;
   note?: string | null;
   parentId?: string | null;
   pdfBuffer?: Buffer;
@@ -989,6 +998,8 @@ export async function createSchedaPage({
   if (quantita != null) properties["Quantità"] = { number: quantita };
   if (dataProduzionePrevista) properties["Data Produzione Prevista"] = { date: { start: dataProduzionePrevista } };
   if (dataSchedaRicevuta) properties["Data Scheda Ricevuta"] = { date: { start: dataSchedaRicevuta } };
+  if (produzioneEsterna != null) properties["Produzione Esterna"] = { checkbox: produzioneEsterna };
+  if (dataRientroPrevista) properties["Data Rientro Prevista"] = { date: { start: dataRientroPrevista } };
   if (parentId) properties["Parent item"] = { relation: [{ id: parentId }] };
 
   if (pdfBuffer && pdfFilename) {

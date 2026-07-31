@@ -61,7 +61,7 @@ function RilavorazioneWizard({
   hasPdf: boolean;
   defaultFornitore?: string;
   defaultQuantita?: number | null;
-  onSuccess: (result: { pageId: string; odp: string }) => void;
+  onSuccess: (result: { pageId: string; odp: string; ritiroCreato: boolean }) => void;
   onCancel: () => void;
 }) {
   const [step, setStep] = useState<WizardStep>(1);
@@ -123,9 +123,9 @@ function RilavorazioneWizard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const data = await res.json() as { ok: boolean; error?: string; pageId?: string; odp?: string };
+      const data = await res.json() as { ok: boolean; error?: string; pageId?: string; odp?: string; ritiroCreato?: boolean };
       if (!res.ok || !data.ok) throw new Error(data.error ?? "Errore creazione");
-      onSuccess({ pageId: data.pageId ?? "", odp: data.odp ?? "" });
+      onSuccess({ pageId: data.pageId ?? "", odp: data.odp ?? "", ritiroCreato: data.ritiroCreato ?? false });
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -289,7 +289,7 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
   const overlayRef = useRef<HTMLDivElement>(null);
   const [showWizard, setShowWizard] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
-  const [rilavorazioneCreata, setRilavorazioneCreata] = useState<{ pageId: string; odp: string } | null>(null);
+  const [rilavorazioneCreata, setRilavorazioneCreata] = useState<{ pageId: string; odp: string; ritiroCreato: boolean } | null>(null);
   const [rientrando, setRientrando] = useState(false);
   const [rientroError, setRientroError] = useState<string | null>(null);
   const [rientroFatto, setRientroFatto] = useState(false);
@@ -311,7 +311,7 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
   const isInAttesaRilavorazione = s.statoProduzione === "In Attesa Rilavorazione";
   const hasPdf = s.pdfAllegato.length > 0;
 
-  function handleRilavorazioneSuccess(result: { pageId: string; odp: string }) {
+  function handleRilavorazioneSuccess(result: { pageId: string; odp: string; ritiroCreato: boolean }) {
     setShowWizard(false);
     setRilavorazioneCreata(result);
     onRilavorazioneCreata?.();
@@ -437,6 +437,15 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
               onSuccess={handleRilavorazioneSuccess}
               onCancel={() => setShowWizard(false)}
             />
+          )}
+
+          {rilavorazioneCreata && !rilavorazioneCreata.ritiroCreato && (
+            <div className="rounded-xl px-4 py-3 space-y-1" style={{ background: "#FFFBEB", border: "1px solid #FCD34D" }}>
+              <div className="text-sm font-semibold" style={{ color: "#92400E" }}>⚠ Nessun ritiro creato</div>
+              <p className="text-xs" style={{ color: "#92400E" }}>
+                La rilavorazione {rilavorazioneCreata.odp} è stata creata, ma senza fornitore non è stata generata alcuna riga in Ritiri e Consegne — vai lì e creane una manualmente, altrimenti nessuno saprà che il pezzo va ritirato.
+              </p>
+            </div>
           )}
 
           {/* ── Rientro rilavorazione ── */}

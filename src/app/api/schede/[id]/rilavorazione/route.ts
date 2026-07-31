@@ -98,7 +98,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     revalidatePath("/schede");
     invalidateSchedeCache();
 
-    return NextResponse.json({ ok: true, odp: rilavorazione.odp, pageId: rilavorazione.id });
+    return NextResponse.json({ ok: true, odp: rilavorazione.odp, pageId: rilavorazione.id, ritiroCreato: !!ritiro });
   } catch (err) {
     console.error("[rilavorazione] error:", err);
     return NextResponse.json({ ok: false, error: (err as Error).message ?? "Errore interno" }, { status: 500 });
