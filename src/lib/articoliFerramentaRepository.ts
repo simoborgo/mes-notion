@@ -28,6 +28,7 @@ function mapRow(r: any): ArticoloFerramenta {
     prezzoRiferimentoAggiornatoIl: r.prezzo_riferimento_aggiornato_il
       ? new Date(r.prezzo_riferimento_aggiornato_il).toISOString()
       : null,
+    descrizioneFornitore: r.descrizione_fornitore ?? "",
   };
 }
 
@@ -121,6 +122,7 @@ export async function updateArticoloFerramentaClassificazione(id: string, data: 
     sets.push(`prezzo_riferimento = $${i++}`); values.push(data.prezzoRiferimento);
     sets.push(`prezzo_riferimento_aggiornato_il = now()`);
   }
+  if (data.descrizioneFornitore !== undefined) { sets.push(`descrizione_fornitore = $${i++}`); values.push(data.descrizioneFornitore); }
   sets.push(`aggiornato_il = now()`);
 
   values.push(id);

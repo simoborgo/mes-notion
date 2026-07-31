@@ -3,6 +3,10 @@
 
 ALTER TABLE articoli_ferramenta ADD COLUMN IF NOT EXISTS prezzo_riferimento NUMERIC(10,4);
 ALTER TABLE articoli_ferramenta ADD COLUMN IF NOT EXISTS prezzo_riferimento_aggiornato_il TIMESTAMPTZ;
+-- Descrizione così come la scrive il fornitore nei tracciati (spesso diversa dalla nostra
+-- descrizione interna/OS1) — aggiornata automaticamente dal webhook ad ogni match, solo per
+-- consultazione umana in fase di revisione, non usata dal matching (che resta su codice).
+ALTER TABLE articoli_ferramenta ADD COLUMN IF NOT EXISTS descrizione_fornitore TEXT NOT NULL DEFAULT '';
 
 CREATE TABLE IF NOT EXISTS wurth_ordini (
   id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),

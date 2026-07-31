@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { creaOrdineConRighe, salvaRisultatoElaborazione, segnaErroreElaborazione } from "@/lib/wurthOrdiniRepository";
-import { matchArticoloPerCodiceFornitore } from "@/lib/articoliFerramentaRepository";
+import { matchArticoloPerCodiceFornitore, updateArticoloFerramentaClassificazione } from "@/lib/articoliFerramentaRepository";
 import { buildOs1Workbook, type RigaOs1 } from "@/lib/wurthOs1Export";
 
 // Soglia di tolleranza sul confronto prezzi (differenze di arrotondamento) — non una vera
@@ -79,6 +79,12 @@ export async function POST(req: NextRequest) {
         });
         risultatiRighe.push({ rigaId: riga.id, articoloId: null, discrepanzaPrezzo: false });
         continue;
+      }
+
+      // Best-effort: la descrizione fornitore serve solo alla revisione umana (il matching
+      // resta sul codice), un suo fallimento non deve mai bloccare l'elaborazione dell'ordine.
+      if (riga.descrizione && riga.descrizione !== articolo.descrizioneFornitore) {
+        updateArticoloFerramentaClassificazione(articolo.id, { descrizioneFornitore: riga.descrizione }).catch(() => {});
       }
 
       const discrepanza =

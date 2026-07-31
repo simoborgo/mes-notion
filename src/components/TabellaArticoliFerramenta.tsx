@@ -45,7 +45,7 @@ export default function TabellaArticoliFerramenta({ articoli: initial }: { artic
     if (!q) return articoli;
     const qNormalizzata = normalizzaCodiceFornitore(search);
     return articoli.filter(a => {
-      if (`${a.descrizione} ${a.codiceOs1} ${a.fornitoreNome} ${a.codiceFornitore}`.toLowerCase().includes(q)) return true;
+      if (`${a.descrizione} ${a.codiceOs1} ${a.fornitoreNome} ${a.codiceFornitore} ${a.descrizioneFornitore}`.toLowerCase().includes(q)) return true;
       // Cerca anche per codice fornitore normalizzato: incolla il codice così com'è nel
       // tracciato fornitore (con zeri iniziali/spazi) e lo trova comunque — stessa logica
       // di confronto usata dal matching della Gestione Ordini Wurth.
@@ -141,6 +141,11 @@ export default function TabellaArticoliFerramenta({ articoli: initial }: { artic
                     <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">{a.codiceOs1 || "—"}</td>
                     <td className="px-4 py-3 font-medium">
                       {a.descrizione}
+                      {a.descrizioneFornitore && a.descrizioneFornitore !== a.descrizione && (
+                        <div className="text-xs font-normal mt-0.5" style={{ color: "var(--color-grey-mid)" }} title="Descrizione così come la scrive il fornitore nei tracciati">
+                          Fornitore: {a.descrizioneFornitore}
+                        </div>
+                      )}
                       <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
                         <a href={`/api/ferramenta/articoli/${a.id}/etichetta`} target="_blank" rel="noreferrer" className="text-xs underline" style={{ color: "var(--color-primary)" }}>
                           Stampa etichetta

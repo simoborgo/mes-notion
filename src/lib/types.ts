@@ -196,6 +196,7 @@ export interface ArticoloFerramenta {
   notionUrl: string;
   prezzoRiferimento: number | null;
   prezzoRiferimentoAggiornatoIl: string | null;
+  descrizioneFornitore: string;
 }
 
 export interface ArticoloFerramentaUpdate {
@@ -207,6 +208,7 @@ export interface ArticoloFerramentaUpdate {
   ubicazione?: string | null;
   codiceFornitore?: string | null;
   prezzoRiferimento?: number | null;
+  descrizioneFornitore?: string;
 }
 
 export interface DistintaKitRiga {
