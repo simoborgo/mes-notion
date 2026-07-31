@@ -34,6 +34,34 @@ function NavTab({
   );
 }
 
+// Manuale MES: pagine HTML statiche servite da /public, non fanno parte del
+// routing dell'app — link normale in una nuova scheda invece di next/link.
+function NavTabExternal({ href, icon, children, onClick }: { href: string; icon: ReactNode; children: ReactNode; onClick?: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="nav-tab flex items-center gap-2 px-4 text-sm font-medium transition-all"
+      data-active={false}
+      data-hovered={hovered}
+    >
+      <span>{icon}</span>
+      {children}
+    </a>
+  );
+}
+
+const GUIDA_ICON = (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+  </svg>
+);
+
 const ALL_ROLES = ["admin", "operatore", "logistica", "spedizioni", "produzione", "responsabile_produzione", "magazziniere"];
 const CARICO_ROLES = ["admin", "produzione"];
 const SPEDIZIONI_ROLES = ["admin", "spedizioni"];
@@ -199,6 +227,9 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
               </NavTab>
             </>
           )}
+          <NavTabExternal href="/manuale-mes/index.html" icon={GUIDA_ICON}>
+            Guida
+          </NavTabExternal>
         </nav>
 
         {/* User info + Logout — solo desktop */}
@@ -284,6 +315,9 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
               </NavTab>
             </>
           )}
+          <NavTabExternal href="/manuale-mes/index.html" icon={GUIDA_ICON} onClick={() => setMenuOpen(false)}>
+            Guida
+          </NavTabExternal>
           <div className="px-4 py-2 border-t" style={{ borderColor: "#2a2724" }}>
             {userName && (
               <p className="text-xs mb-2" style={{ color: "#9ca3af" }}>
