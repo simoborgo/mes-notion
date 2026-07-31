@@ -21,7 +21,33 @@ function mapRow(r: any): ArticoloFerramenta {
     note: r.note,
     ubicazione: r.ubicazione ?? "",
     notionUrl: "", // nessuna pagina Notion per l'articolo: anagrafica migrata a Postgres
+    prezzoRiferimento: r.prezzo_riferimento != null ? Number(r.prezzo_riferimento) : null,
+    prezzoRiferimentoAggiornatoIl: r.prezzo_riferimento_aggiornato_il
+      ? new Date(r.prezzo_riferimento_aggiornato_il).toISOString()
+      : null,
   };
+}
+
+// Normalizza un codice fornitore per il confronto: rimuove separatori/spazi e zeri iniziali.
+// Necessario perché il tracciato fornitore e l'anagrafica non usano sempre lo stesso formato
+// (es. tracciato "0653700400" vs anagrafica "653700400", o codici con spazio interno "071566 07").
+export function normalizzaCodiceFornitore(codice: string): string {
+  return codice.replace(/[^a-z0-9]/gi, "").replace(/^0+/, "").toLowerCase();
+}
+
+// Cerca un articolo Ferramenta per codice fornitore, solo tra quelli collegati a un fornitore il
+// cui nome contiene "wurth" (case-insensitive) — usato dalla Gestione Ordini Wurth per evitare
+// falsi positivi con codici numerici simili di altri fornitori. Confronto fatto in JS dopo aver
+// filtrato lato SQL, perché normalizzare richiede rimuovere zeri iniziali e non alfanumerici,
+// cosa che non vale la pena esprimere come funzione SQL per il volume di righe coinvolto (poche
+// centinaia di articoli Wurth, non l'intero catalogo).
+export async function matchArticoloPerCodiceFornitore(codiceArticolo: string): Promise<ArticoloFerramenta | null> {
+  const target = normalizzaCodiceFornitore(codiceArticolo);
+  const { rows } = await pool.query(
+    `SELECT * FROM articoli_ferramenta WHERE fornitore_nome ILIKE '%wurth%'`
+  );
+  const match = rows.find((r) => normalizzaCodiceFornitore(r.codice_fornitore ?? "") === target);
+  return match ? mapRow(match) : null;
 }
 
 export async function getArticoliFerramenta(): Promise<ArticoloFerramenta[]> {
@@ -95,6 +121,10 @@ export async function updateArticoloFerramentaClassificazione(id: string, data: 
   if (data.note !== undefined) { sets.push(`note = $${i++}`); values.push(data.note); }
   if (data.ubicazione !== undefined) { sets.push(`ubicazione = $${i++}`); values.push(data.ubicazione); }
   if (data.codiceFornitore !== undefined) { sets.push(`codice_fornitore = $${i++}`); values.push(data.codiceFornitore ?? ""); }
+  if (data.prezzoRiferimento !== undefined) {
+    sets.push(`prezzo_riferimento = $${i++}`); values.push(data.prezzoRiferimento);
+    sets.push(`prezzo_riferimento_aggiornato_il = now()`);
+  }
   sets.push(`aggiornato_il = now()`);
 
   values.push(id);
