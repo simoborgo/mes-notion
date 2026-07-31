@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getRitiri, createRitiro, getRitiroById, appendFotoToPage, getSchedaById, createRilavorazione, invalidateSchedeCache } from "@/lib/notion";
-import { getSessionFromRequest, WRITE_ROLES } from "@/lib/auth";
+import { getSessionFromRequest, WRITE_ROLES, RIENTRO_QUALITA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
 export async function GET() {
@@ -17,7 +17,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const session = await getSessionFromRequest(req);
-    if (!session || !WRITE_ROLES.includes(session.role)) {
+    if (!session) {
       return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
     }
     const body = await req.json();
@@ -32,6 +32,33 @@ export async function POST(req: NextRequest) {
     const isNC = nc === true && tipoMovimento === "Consegna" && !!schedaId;
     let finalSchedaId: string | null = schedaId || null;
     let rilavorazioneId: string | null = null;
+
+    // Se schedaId punta a una Rilavorazione già esistente (non creata ora via NC — es.
+    // "Inserisci un ritiro" da Rientro Qualità per organizzare il ritiro di una
+    // rilavorazione già aperta), va collegata anche la relation "Rilavorazione": la
+    // pagina Rientro Qualità raggruppa i ritiri concordati solo per quella relation, non
+    // per "Scheda" — senza questo il movimento risulterebbe creato ma mai "concordato".
+    let schedaCollegataERilavorazione = false;
+    if (!isNC && schedaId) {
+      try {
+        const target = await getSchedaById(schedaId);
+        if (target.tipologia === "Rilavorazione") {
+          rilavorazioneId = schedaId;
+          schedaCollegataERilavorazione = true;
+        }
+      } catch {
+        // schedaId non valido: lascia proseguire, sarà Notion a segnalare l'errore sulla relation "Scheda"
+      }
+    }
+
+    // Fuori da WRITE_ROLES (admin/logistica), l'unica azione consentita è organizzare il
+    // ritiro di una Rilavorazione già aperta e in attesa (pulsante "Inserisci un ritiro" di
+    // Rientro Qualità) — mai la creazione libera di un Ritiro/Consegna qualsiasi.
+    const puoScrivereLiberamente = WRITE_ROLES.includes(session.role);
+    const puoOrganizzarePickupRilavorazione = !isNC && schedaCollegataERilavorazione && RIENTRO_QUALITA_ROLES.includes(session.role);
+    if (!puoScrivereLiberamente && !puoOrganizzarePickupRilavorazione) {
+      return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
+    }
 
     if (isNC) {
       try {

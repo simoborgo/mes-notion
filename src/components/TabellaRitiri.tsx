@@ -290,6 +290,40 @@ export default function TabellaRitiri({
   const filteredAttivi = useMemo(() => filtered.filter(r => r.stato !== "Fatto"), [filtered]);
   const allFatti       = useMemo(() => ritiri.filter(r => r.stato === "Fatto"), [ritiri]);
 
+  // Raggruppamento per giorno — usato sia dalla tabella interattiva sia da quella di stampa.
+  const gruppiGiorno = useMemo(() => {
+    const groupMap = new Map<string, { dateKey: string; label: string; items: Ritiro[] }>();
+    for (const r of filteredAttivi) {
+      const dateKey = r.dataTrasporto ? getDatePart(r.dataTrasporto) : "senza-data";
+      if (!groupMap.has(dateKey)) {
+        let label: string;
+        if (dateKey === "senza-data") {
+          label = "Senza data";
+        } else {
+          const raw = new Date(dateKey).toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+          label = raw.charAt(0).toUpperCase() + raw.slice(1);
+        }
+        groupMap.set(dateKey, { dateKey, label, items: [] });
+      }
+      groupMap.get(dateKey)!.items.push(r);
+    }
+    return Array.from(groupMap.values()).sort((a, b) => {
+      if (a.dateKey === "senza-data") return 1;
+      if (b.dateKey === "senza-data") return -1;
+      return a.dateKey.localeCompare(b.dateKey);
+    });
+  }, [filteredAttivi]);
+
+  const filtriAttiviLabel = useMemo(() => {
+    const parts: string[] = [];
+    if (search) parts.push(`Ricerca: "${search}"`);
+    if (filtroStato) parts.push(`Stato: ${filtroStato}`);
+    if (filtroTipo) parts.push(`Tipo: ${filtroTipo}`);
+    if (filtroDataAbilitato && filtroData) parts.push(`Data: ${filtroData}`);
+    if (filtroUrgente) parts.push("Solo urgenti");
+    return parts.length > 0 ? parts.join(" · ") : "Nessun filtro attivo";
+  }, [search, filtroStato, filtroTipo, filtroData, filtroDataAbilitato, filtroUrgente]);
+
   // Fornitori unici nell'archivio
   const archFornitori = useMemo(() => {
     const set = new Set(allFatti.map(r => r.fornitore).filter(Boolean));
@@ -356,8 +390,19 @@ export default function TabellaRitiri({
         </div>
       )}
 
+      {/* Riga stampa */}
+      <div className="no-print flex justify-end">
+        <button
+          onClick={() => window.print()}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-base font-semibold transition-opacity hover:opacity-90"
+          style={{ background: "var(--color-primary)", color: "white" }}
+        >
+          <span style={{ fontSize: 22 }}>🖨</span> Stampa vista corrente
+        </button>
+      </div>
+
       {/* Filtri attivi */}
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3 no-print">
         <input
           className={inputCls + " min-w-48"}
           placeholder="Cerca descrizione, ODP, fornitore…"
@@ -429,7 +474,7 @@ export default function TabellaRitiri({
       </div>
 
       {/* ── Tabella attivi ── */}
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+      <div className="no-print overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table className="min-w-full" style={{ fontSize: "0.95rem" }}>
           <thead>
             <tr className="border-b text-left text-xs font-bold uppercase tracking-wide" style={{ color: "var(--color-grey-mid)", background: "#faf9f7" }}>
@@ -455,27 +500,7 @@ export default function TabellaRitiri({
               </tr>
             ) : (
               (() => {
-                const groupMap = new Map<string, { dateKey: string; label: string; items: Ritiro[] }>();
-                for (const r of filteredAttivi) {
-                  const dateKey = r.dataTrasporto ? getDatePart(r.dataTrasporto) : "senza-data";
-                  if (!groupMap.has(dateKey)) {
-                    let label: string;
-                    if (dateKey === "senza-data") {
-                      label = "Senza data";
-                    } else {
-                      const raw = new Date(dateKey).toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-                      label = raw.charAt(0).toUpperCase() + raw.slice(1);
-                    }
-                    groupMap.set(dateKey, { dateKey, label, items: [] });
-                  }
-                  groupMap.get(dateKey)!.items.push(r);
-                }
-                const groups = Array.from(groupMap.values()).sort((a, b) => {
-                  if (a.dateKey === "senza-data") return 1;
-                  if (b.dateKey === "senza-data") return -1;
-                  return a.dateKey.localeCompare(b.dateKey);
-                });
-                return groups.flatMap(({ dateKey, label, items }) => [
+                return gruppiGiorno.flatMap(({ dateKey, label, items }) => [
                   <tr key={`day-${dateKey}`} style={{ background: "#f5f4f0" }}>
                     <td colSpan={11} className="px-5 py-2">
                       <span className="text-sm font-bold uppercase tracking-wide" style={{ color: "var(--color-grey-mid)" }}>
@@ -662,15 +687,73 @@ export default function TabellaRitiri({
         </table>
       </div>
 
+      {/* Intestazione di stampa — logo + titolo + filtri attivi */}
+      <div className="print-header hidden">
+        <div className="print-brand" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/modar-logo.png"
+            alt="Modar"
+            width={80}
+            height={80}
+            style={{ height: 80, width: 80, objectFit: "contain", background: "#000", borderRadius: 5, padding: 4, flexShrink: 0 }}
+          />
+          <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", color: "#1A1918" }}>MES DASHBOARD — RIEPILOGHI</span>
+        </div>
+        <div className="print-header-row">
+          <h1>Ritiri e Consegne</h1>
+          <div className="print-filters">
+            <strong>Filtri:</strong> {filtriAttiviLabel}
+          </div>
+        </div>
+        <div className="print-meta">
+          {filteredAttivi.length} movimenti attivi · stampato il {new Date().toLocaleDateString("it-IT")} alle {new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+        </div>
+      </div>
+
+      {/* Tabella di stampa — raggruppata per giorno come la vista interattiva, senza azioni/foto */}
+      <table className="print-table hidden">
+        <thead>
+          <tr>
+            <th>ODP / Commessa</th>
+            <th>Scheda</th>
+            <th>Descrizione</th>
+            <th>Tipo</th>
+            <th>Stato</th>
+            <th>Fornitore</th>
+          </tr>
+        </thead>
+        <tbody>
+          {gruppiGiorno.flatMap(({ dateKey, label, items }) => [
+            <tr key={`print-day-${dateKey}`}>
+              <td colSpan={6} style={{ fontWeight: 700, background: "#f3f3f3" }}>{label}</td>
+            </tr>,
+            ...items.map((r) => {
+              const scheda = r.numeroOrdineId ? schedeMap.get(r.numeroOrdineId) : null;
+              return (
+                <tr key={r.id}>
+                  <td>{r.numeroOrdine || r.commessaNr || "—"}</td>
+                  <td>{scheda ? (scheda.numeroScheda || scheda.odp) : "—"}</td>
+                  <td>{r.descrizioneMerce || "—"}</td>
+                  <td>{r.tipoMovimento || "—"}{r.urgenza ? " (Urgente)" : ""}</td>
+                  <td>{r.stato || "—"}</td>
+                  <td>{r.fornitore || "—"}</td>
+                </tr>
+              );
+            }),
+          ])}
+        </tbody>
+      </table>
+
       {/* ── Separatore archivio ── */}
-      <div className="mt-10 mb-6 flex items-center gap-4">
+      <div className="no-print mt-10 mb-6 flex items-center gap-4">
         <hr className="flex-1" style={{ borderColor: "#D1D5DB" }} />
         <span className="text-xs font-bold uppercase tracking-widest px-2" style={{ color: "var(--color-grey-mid)" }}>Archivio</span>
         <hr className="flex-1" style={{ borderColor: "#D1D5DB" }} />
       </div>
 
       {/* ── Archivio Completati ── */}
-      <div className="pb-4 rounded-lg border" style={{ borderColor: "#e5e4e0" }}>
+      <div className="no-print pb-4 rounded-lg border" style={{ borderColor: "#e5e4e0" }}>
         <button
           onClick={() => setArchivioAperto((v) => !v)}
           className="w-full flex items-center gap-2 px-3 py-2.5 text-left rounded-lg hover:bg-gray-50 transition-colors"

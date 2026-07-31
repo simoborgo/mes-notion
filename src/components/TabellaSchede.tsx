@@ -13,6 +13,25 @@ const STATI_RILAVORAZIONE_APERTA = new Set(["In lavorazione Esterna", "In lavora
 type SortKey = "odp" | "numeroScheda" | "clienteInfo" | "statoProduzione" | "dataProduzionePrevista" | "dataRientroPrevista";
 type SortDir = "asc" | "desc";
 
+const FILTRI_SCHEDE_STORAGE_KEY = "mes:schede:filtri";
+
+interface FiltriSchedeSalvati {
+  search: string;
+  filtroFornitore: string;
+  filtroCommessa: string;
+  filtroStati: string[];
+  filtroEsterna: boolean;
+  filtroRitardoProd: boolean;
+  filtroRitardoRientro: boolean;
+  dateFrom: string;
+  dateTo: string;
+  dateField: "dataProduzionePrevista" | "dataRientroPrevista";
+  sortKey: SortKey;
+  sortDir: SortDir;
+  page: number;
+  nascondiChiuse: boolean;
+}
+
 function fmt(d: string | null) {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("it-IT");
@@ -267,6 +286,50 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
   );
 
   const [nascondiChiuse, setNascondiChiuse] = useState(true);
+
+  // Ripristina filtri/ordinamento salvati quando si torna su questa pagina — sessionStorage
+  // sopravvive alla navigazione client-side tra sezioni (che smonta/rimonta il componente),
+  // non a un nuovo tab. Il ripristino avviene in un effect (non nel valore iniziale di
+  // useState) per non disallineare il render server da quello client alla prima idratazione.
+  const hydrated = useRef(false);
+  useEffect(() => {
+    if (hydrated.current) return;
+    hydrated.current = true;
+    try {
+      const raw = sessionStorage.getItem(FILTRI_SCHEDE_STORAGE_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as Partial<FiltriSchedeSalvati>;
+      if (saved.search !== undefined) setSearch(saved.search);
+      if (saved.filtroFornitore !== undefined) setFiltroFornitore(saved.filtroFornitore);
+      if (saved.filtroCommessa !== undefined) setFiltroCommessa(saved.filtroCommessa);
+      if (saved.filtroStati !== undefined) setFiltroStati(new Set(saved.filtroStati));
+      if (saved.filtroEsterna !== undefined) setFiltroEsterna(saved.filtroEsterna);
+      if (saved.filtroRitardoProd !== undefined) setFiltroRitardoProd(saved.filtroRitardoProd);
+      if (saved.filtroRitardoRientro !== undefined) setFiltroRitardoRientro(saved.filtroRitardoRientro);
+      if (saved.dateFrom !== undefined) setDateFrom(saved.dateFrom);
+      if (saved.dateTo !== undefined) setDateTo(saved.dateTo);
+      if (saved.dateField !== undefined) setDateField(saved.dateField);
+      if (saved.sortKey !== undefined) setSortKey(saved.sortKey);
+      if (saved.sortDir !== undefined) setSortDir(saved.sortDir);
+      if (saved.page !== undefined) setPage(saved.page);
+      if (saved.nascondiChiuse !== undefined) setNascondiChiuse(saved.nascondiChiuse);
+    } catch {
+      // sessionStorage non disponibile o JSON corrotto — si parte con i filtri di default
+    }
+  }, []);
+
+  useEffect(() => {
+    const data: FiltriSchedeSalvati = {
+      search, filtroFornitore, filtroCommessa, filtroStati: Array.from(filtroStati),
+      filtroEsterna, filtroRitardoProd, filtroRitardoRientro, dateFrom, dateTo, dateField,
+      sortKey, sortDir, page, nascondiChiuse,
+    };
+    try {
+      sessionStorage.setItem(FILTRI_SCHEDE_STORAGE_KEY, JSON.stringify(data));
+    } catch {
+      // storage pieno o non disponibile — non blocca l'interazione
+    }
+  }, [search, filtroFornitore, filtroCommessa, filtroStati, filtroEsterna, filtroRitardoProd, filtroRitardoRientro, dateFrom, dateTo, dateField, sortKey, sortDir, page, nascondiChiuse]);
 
   const commesseChiuseNr = useMemo(
     () => new Set(commesse.filter((c) => c.stato === "Chiusa").map((c) => c.numeroCommessa)),
