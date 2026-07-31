@@ -1,0 +1,610 @@
+<meta charset="utf-8">
+<title>MES Modar — Flusso Ritiri e Consegne</title>
+<style>
+:root{
+  --ground:#F5F2EE; --paper:#FFFFFF; --rule:#E4E0DA; --rule-soft:#F0ECE5;
+  --ink:#1A1918; --grey:#6B6560; --grey-2:#888780;
+  --accent:#E87722; --accent-deep:#C06A10; --accent-wash:#FBF3E8;
+  --alert:#991B1B; --alert-bg:#FEE2E2; --alert-line:#DC2626;
+  --warn:#92400E; --warn-bg:#FEF3C7; --warn-line:#F59E0B;
+  --ok:#065F46; --ok-bg:#D1FAE5; --ok-line:#34D399;
+  --info:#1E40AF; --info-bg:#DBEAFE; --info-line:#60A5FA;
+  --cons:#C2410C; --cons-bg:#FFF7ED; --cons-line:#FDBA74;
+  --neutral-chip:#F3F4F6; --neutral-chip-ink:#374151;
+  --display:'Cormorant Garamond',Georgia,serif;
+  --body:Arial,Helvetica,sans-serif;
+  --data:ui-monospace,Menlo,Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --ground:#161514; --paper:#1F1D1B; --rule:#332F2B; --rule-soft:#2A2724;
+    --ink:#EDE9E3; --grey:#A8A199; --grey-2:#8D867E;
+    --accent:#F0902F; --accent-deep:#F5A845; --accent-wash:#2A2018;
+    --alert:#FCA5A5; --alert-bg:#3A1A1A; --alert-line:#C4433F;
+    --warn:#FBBF24; --warn-bg:#33260F; --warn-line:#B4790C;
+    --ok:#7FE0BC; --ok-bg:#0C3126; --ok-line:#2A8F6D;
+    --info:#93BEF7; --info-bg:#12294D; --info-line:#2F63AE;
+    --cons:#F3B183; --cons-bg:#3A2313; --cons-line:#A85A22;
+    --neutral-chip:#2B2825; --neutral-chip-ink:#CFC9C1;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#161514; --paper:#1F1D1B; --rule:#332F2B; --rule-soft:#2A2724;
+  --ink:#EDE9E3; --grey:#A8A199; --grey-2:#8D867E;
+  --accent:#F0902F; --accent-deep:#F5A845; --accent-wash:#2A2018;
+  --alert:#FCA5A5; --alert-bg:#3A1A1A; --alert-line:#C4433F;
+  --warn:#FBBF24; --warn-bg:#33260F; --warn-line:#B4790C;
+  --ok:#7FE0BC; --ok-bg:#0C3126; --ok-line:#2A8F6D;
+  --info:#93BEF7; --info-bg:#12294D; --info-line:#2F63AE;
+  --cons:#F3B183; --cons-bg:#3A2313; --cons-line:#A85A22;
+  --neutral-chip:#2B2825; --neutral-chip-ink:#CFC9C1;
+}
+:root[data-theme="light"]{
+  --ground:#F5F2EE; --paper:#FFFFFF; --rule:#E4E0DA; --rule-soft:#F0ECE5;
+  --ink:#1A1918; --grey:#6B6560; --grey-2:#888780;
+  --accent:#E87722; --accent-deep:#C06A10; --accent-wash:#FBF3E8;
+  --alert:#991B1B; --alert-bg:#FEE2E2; --alert-line:#DC2626;
+  --warn:#92400E; --warn-bg:#FEF3C7; --warn-line:#F59E0B;
+  --ok:#065F46; --ok-bg:#D1FAE5; --ok-line:#34D399;
+  --info:#1E40AF; --info-bg:#DBEAFE; --info-line:#60A5FA;
+  --cons:#C2410C; --cons-bg:#FFF7ED; --cons-line:#FDBA74;
+  --neutral-chip:#F3F4F6; --neutral-chip-ink:#374151;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55;-webkit-text-size-adjust:100%}
+.sheet{max-width:1120px;margin:0 auto;padding:32px 24px 80px;display:flex;flex-direction:column;gap:40px}
+h1,h2,h3{font-family:var(--display);font-weight:600;text-wrap:balance;margin:0;line-height:1.12}
+p{margin:0}
+a{color:var(--accent-deep)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+
+/* ---- masthead ---- */
+.masthead{display:flex;flex-direction:column;gap:18px;border-top:6px solid var(--accent);padding-top:20px}
+.mast-top{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.logo{width:44px;height:44px;object-fit:contain;background:#fff;border-radius:4px;padding:3px;flex-shrink:0}
+.eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--grey-2);font-weight:700}
+.mast-title{font-size:clamp(38px,6vw,62px);letter-spacing:-.01em}
+.mast-title em{font-style:normal;color:var(--accent)}
+.mast-sub{max-width:66ch;color:var(--grey);font-size:15px}
+.mast-meta{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--grey-2);border-top:1px solid var(--rule);padding-top:12px}
+
+/* ---- generic section ---- */
+.sec{display:flex;flex-direction:column;gap:18px}
+.sec-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:8px}
+.sec-num{font-family:var(--data);font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.08em}
+.sec-head h2{font-size:30px}
+.sec-note{margin-left:auto;font-size:12px;color:var(--grey-2);max-width:46ch}
+
+.card{background:var(--paper);border:1px solid var(--rule);border-radius:10px;padding:18px 20px;display:flex;flex-direction:column;gap:10px}
+.card h3{font-size:21px}
+.card p{font-size:13.5px;color:var(--grey)}
+.grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+
+.route{font-family:var(--data);font-size:11.5px;color:var(--accent-deep);background:var(--accent-wash);border-radius:4px;padding:2px 7px;display:inline-block;word-break:break-all}
+.chip{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:99px;padding:3px 9px}
+.chip-ok{background:var(--ok-bg);color:var(--ok)}
+.chip-warn{background:var(--warn-bg);color:var(--warn)}
+.chip-alert{background:var(--alert-bg);color:var(--alert)}
+.chip-info{background:var(--info-bg);color:var(--info)}
+.chip-cons{background:var(--cons-bg);color:var(--cons)}
+.chip-neutral{background:var(--neutral-chip);color:var(--neutral-chip-ink)}
+.chip-excl{background:var(--accent);color:#fff}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+ul.tight{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:5px;font-size:13.5px;color:var(--grey)}
+ul.tight strong{color:var(--ink)}
+.kv{font-family:var(--data);font-size:12px;font-variant-numeric:tabular-nums}
+
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:520px}
+th{text-align:left;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--grey-2);border-bottom:1px solid var(--rule);padding:8px 12px 8px 0;font-weight:700}
+td{padding:9px 12px 9px 0;border-bottom:1px solid var(--rule-soft);vertical-align:top;color:var(--grey)}
+td strong{color:var(--ink);font-weight:700}
+tr:last-child td{border-bottom:0}
+
+/* ---- matrice permessi ---- */
+.matrix{min-width:640px;font-size:12px}
+.matrix th,.matrix td{padding:7px 6px;text-align:center;border-bottom:1px solid var(--rule-soft)}
+.matrix th:first-child,.matrix td:first-child{text-align:left;padding-left:0;padding-right:14px;width:38%}
+.matrix thead th{border-bottom:1px solid var(--rule);vertical-align:bottom}
+.matrix td:first-child strong{display:block;color:var(--ink);font-weight:700}
+.matrix td:first-child small{display:block;color:var(--grey-2);font-size:10.5px;margin-top:2px;font-weight:400;text-transform:none;letter-spacing:0}
+.matrix .col-hl{background:var(--accent-wash)}
+.matrix thead .col-hl{color:var(--accent-deep)}
+.yes{color:var(--accent);font-weight:700;font-size:14px}
+.no{color:var(--rule);font-weight:700;font-size:14px}
+.matrix tbody tr.rule-break td{border-top:1px solid var(--rule)}
+
+/* ---- schema relation ---- */
+.relmap{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px}
+.relmap .relbox{background:var(--paper);border:1px solid var(--rule);border-radius:10px;padding:16px 18px}
+.relmap .relbox h4{margin:0 0 6px;font-family:var(--display);font-size:19px;font-weight:600}
+.relmap .relbox p{font-size:13px;color:var(--grey)}
+.relmap .relmid{display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--grey-2);font-size:20px}
+@media (max-width:720px){.relmap{grid-template-columns:1fr}.relmap .relmid{flex-direction:row;justify-content:center}}
+
+/* ---- flusso a step ---- */
+.flow{display:flex;flex-direction:column;gap:0}
+.flow-step{display:grid;grid-template-columns:52px 1fr;gap:16px;padding:16px 0;border-bottom:1px solid var(--rule-soft)}
+.flow-step:last-child{border-bottom:0}
+.step-n{font-family:var(--data);font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.06em;padding-top:4px;border-right:1px solid var(--rule);padding-right:12px}
+.step-body{display:flex;flex-direction:column;gap:8px;min-width:0}
+.step-body h3{font-size:19px}
+.step-body p{font-size:13.5px;color:var(--grey);max-width:74ch}
+.step-where{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--grey-2);font-weight:700}
+
+/* ---- catena stati ---- */
+.chain{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:12px}
+.node{display:inline-flex;align-items:center;gap:7px;border:1px solid;border-radius:99px;padding:5px 13px;font-weight:700;font-size:12px}
+.node.todo{background:var(--warn-bg);color:var(--warn);border-color:var(--warn-line)}
+.node.prog{background:var(--info-bg);color:var(--info);border-color:var(--info-line)}
+.node.done{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-line)}
+.node.nc{background:var(--alert-bg);color:var(--alert);border-color:var(--alert-line)}
+.node.info{background:var(--info-bg);color:var(--info);border-color:var(--info-line)}
+.arrow{color:var(--grey-2);font-weight:700;font-size:14px}
+.arrow.back{color:var(--rule);font-size:12px}
+
+/* ---- biforcazioni ---- */
+.branch{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:0;border:1px solid var(--rule);border-radius:10px;overflow:hidden;background:var(--paper)}
+.branch>div{padding:16px 18px;display:flex;flex-direction:column;gap:8px;border-top:4px solid var(--rule)}
+.branch .b-yes{border-top-color:var(--alert-line)}
+.branch .b-no{border-top-color:var(--warn-line)}
+.branch .b-info{border-top-color:var(--info-line)}
+.branch .b-cons{border-top-color:var(--cons-line)}
+.branch .b-ok{border-top-color:var(--ok-line)}
+.branch h4{margin:0;font-family:var(--display);font-size:18px;font-weight:600}
+.branch p{font-size:13px;color:var(--grey)}
+.cond{font-family:var(--data);font-size:11px;color:var(--grey-2);letter-spacing:.02em}
+
+.callout{background:var(--paper);border:1px solid var(--rule);border-left:4px solid var(--accent);border-radius:8px;padding:14px 18px;display:flex;flex-direction:column;gap:6px}
+.callout p{font-size:13.5px;color:var(--grey)}
+.callout strong{color:var(--ink)}
+.callout.warn{border-left-color:var(--warn-line)}
+.callout.alert{border-left-color:var(--alert-line)}
+.callout.ok{border-left-color:var(--ok-line)}
+.callout h4{margin:0;font-family:var(--display);font-size:19px;font-weight:600}
+
+/* ---- prima/ora bug fix ---- */
+.fix{border:1px solid var(--rule);border-radius:10px;overflow:hidden;background:var(--paper)}
+.fix-head{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--rule-soft);flex-wrap:wrap}
+.fix-head h4{margin:0;font-family:var(--display);font-size:20px;font-weight:600}
+.fix-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.fix-before,.fix-after{padding:16px 18px;display:flex;flex-direction:column;gap:8px}
+.fix-before{border-right:1px solid var(--rule-soft);background:var(--alert-bg)}
+.fix-after{background:var(--ok-bg)}
+.fix-label{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:700}
+.fix-before .fix-label{color:var(--alert)}
+.fix-after .fix-label{color:var(--ok)}
+.fix p{font-size:13.5px;color:var(--ink)}
+@media (max-width:640px){.fix-before{border-right:0;border-bottom:1px solid var(--rule-soft)}}
+
+.foot{border-top:1px solid var(--rule);padding-top:14px;display:flex;flex-wrap:wrap;gap:6px 20px;font-size:11px;color:var(--grey-2)}
+.foot .kv{color:var(--grey-2)}
+
+@media print{
+  @page{size:A4 portrait;margin:14mm}
+  body{background:#fff;font-size:10.5pt}
+  .sheet{max-width:none;padding:0;gap:22px}
+  .card,.flow-step,.callout,.branch>div,.fix{break-inside:avoid}
+  .sec{break-inside:auto}
+  .matrix{min-width:0;font-size:8pt}
+  .scroll{overflow-x:visible}
+  .no-print{display:none}
+  .chip,.node,.route,.branch>div{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .fix-before,.fix-after{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="sheet">
+
+  <header class="masthead">
+    <div class="mast-top">
+      <img class="logo" src="data:image/png;base64,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" alt="Modar">
+      <span class="eyebrow">MES Modar · Manuale operativo · Processo 09</span>
+    </div>
+    <h1 class="mast-title">Flusso Ritiri e Consegne<br><em>Dal movimento alla Rilavorazione, fino al rientro qualità</em></h1>
+    <p class="mast-sub">Le schede 02, 03 e 04 raccontano <em>Ritiri e Consegne</em> e <em>Rientro Qualità</em> dal punto di vista di ciascun ruolo. Questa pagina racconta la stessa storia dal punto di vista dell'<em>oggetto</em>: un movimento di trasporto che nasce con un clic e può, a certe condizioni, generare una Rilavorazione — una sotto-scheda che blocca la Scheda madre finché il pezzo non rientra controllato dal fornitore. È il percorso più lungo del MES e quello con più insidie: due relation Notion che si assomigliano nel nome, e due bug corretti in questa sessione che vale la pena conoscere.</p>
+    <div class="mast-meta">
+      <span>Attraversa 3 sezioni del menu</span>
+      <span>2 relation Notion da non confondere</span>
+      <span>2 bug corretti in questa sessione</span>
+      <span>Riferimento: src/app/api/ritiri/</span>
+    </div>
+  </header>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">A</span>
+      <h2>Il ciclo di vita, in breve</h2>
+      <p class="sec-note">Sei tappe. Le prime tre vivono in <strong>Ritiri e Consegne</strong>, le ultime tre in <strong>Rientro Qualità</strong> — la stessa sotto-navigazione, due schermate diverse.</p>
+    </div>
+
+    <p style="font-size:13.5px;color:var(--grey);max-width:76ch">Non ogni movimento percorre tutta la catena: la maggior parte sono trasporti ordinari che vanno da "Da Fare" a "Fatto" e finiscono in archivio. La catena completa si attiva solo quando una <strong>Consegna</strong> verso un fornitore esterno viene marcata <strong>NC — Non Conformità</strong>: da lì nasce una Rilavorazione, e il resto del flusso qui sotto esiste apposta per farla rientrare e chiudersi in sicurezza.</p>
+
+    <div class="chain">
+      <span class="node todo">01 Creazione movimento</span>
+      <span class="arrow">→</span>
+      <span class="node nc">02 Bivio NC</span>
+      <span class="arrow">→</span>
+      <span class="node prog">03 Stato → Fatto</span>
+      <span class="arrow">→</span>
+      <span class="node info">04 Rientro Qualità</span>
+      <span class="arrow">→</span>
+      <span class="node prog">05 Ritiro concordato?</span>
+      <span class="arrow">→</span>
+      <span class="node done">06 Segna Rientrata</span>
+    </div>
+
+    <div class="grid-3">
+      <div class="card">
+        <span class="chip chip-neutral">Ritiri e Consegne</span>
+        <h3>Dove nasce il movimento</h3>
+        <p>Ogni Ritiro o Consegna si crea da qui, collegato a una Scheda ODP o a una Commessa. È anche il luogo dove — solo per admin e logistica — si fa avanzare lo stato fino a "Fatto".</p>
+        <div class="chips"><span class="route">/ritiri</span></div>
+      </div>
+      <div class="card">
+        <span class="chip chip-neutral">Notion, dietro le quinte</span>
+        <h3>Dove nasce la Rilavorazione</h3>
+        <p>Una Rilavorazione è una Scheda a tutti gli effetti (<span class="kv">Tipologia = "Rilavorazione"</span>), figlia della Scheda madre. Non ha una propria schermata di creazione: nasce sempre come effetto collaterale di un'altra azione.</p>
+        <div class="chips"><span class="route">src/lib/notion.ts · createRilavorazione</span></div>
+      </div>
+      <div class="card">
+        <span class="chip chip-neutral">Rientro Qualità</span>
+        <h3>Dove il ciclo si chiude</h3>
+        <p>Sotto-sezione di Ritiri e Consegne, aperta a un gruppo di ruoli più ampio (<span class="kv">RIENTRO_QUALITA_ROLES</span>). Elenca solo le Rilavorazioni aperte e le incrocia con i ritiri concordati per organizzarne il rientro.</p>
+        <div class="chips"><span class="route">/rientro-qualita</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">B</span>
+      <h2>Le due relation da non confondere</h2>
+      <p class="sec-note">La fonte primaria di confusione in tutto questo processo: sulla pagina Notion di un Ritiro esistono <strong>due</strong> campi relation verso il database Schede, non uno.</p>
+    </div>
+
+    <div class="relmap">
+      <div class="relbox">
+        <h4>Relation <span class="kv">"Scheda"</span></h4>
+        <p>Punta a <strong>qualunque</strong> pagina Scheda collegata dal campo "Collega a → Scheda ODP" del form — una Scheda normale o una Rilavorazione, il sistema non distingue a questo livello.</p>
+      </div>
+      <div class="relmid">↔<span style="font-size:11px">stessa pagina<br>Ritiro</span></div>
+      <div class="relbox">
+        <h4>Relation <span class="kv">"Rilavorazione"</span></h4>
+        <p>Punta <strong>solo</strong> a una pagina Scheda con <span class="kv">Tipologia = "Rilavorazione"</span>, e solo quando il codice che crea o modifica il Ritiro sa esplicitamente di trovarsi davanti a una Rilavorazione.</p>
+      </div>
+    </div>
+
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Chi valorizza la relation</th><th>"Scheda"</th><th>"Rilavorazione"</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>NC in creazione o in modifica</strong> — nasce una Rilavorazione nuova<span class="route" style="margin-top:4px">POST · PATCH /api/ritiri</span></td>
+            <td class="yes">●</td><td class="yes">●</td>
+          </tr>
+          <tr>
+            <td><strong>Wizard "Invia in Rilavorazione"</strong> dal dettaglio Scheda, con "Crea riga in Ritiri e Consegne"<span class="route" style="margin-top:4px">createRilavorazione()</span></td>
+            <td class="yes">●</td><td class="yes">●</td>
+          </tr>
+          <tr>
+            <td><strong>"Inserisci un ritiro"</strong> da Rientro Qualità, su una Rilavorazione già aperta<span class="route" style="margin-top:4px">POST /api/ritiri</span></td>
+            <td class="yes">●</td><td class="yes">● <span class="chip chip-ok" style="margin-left:4px">dal fix</span></td>
+          </tr>
+          <tr>
+            <td><strong>Collegamento a una Scheda ODP normale</strong> (nessuna Rilavorazione coinvolta)</td>
+            <td class="yes">●</td><td class="no">—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Chi legge la relation</th><th>Property usata</th><th>Effetto se assente</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Rientro Qualità</strong> — lista principale, raggruppa i ritiri concordati per rilavorazione<span class="route" style="margin-top:4px">/rientro-qualita</span></td>
+            <td><span class="kv">Rilavorazione</span></td>
+            <td>La Rilavorazione resta segnalata <strong>"⚠ Nessun ritiro concordato"</strong> anche se un ritiro esiste già</td>
+          </tr>
+          <tr>
+            <td><strong>Vista da QR fisico</strong> — sola lettura, sul dettaglio di una Rilavorazione<span class="route" style="margin-top:4px">/rientro-qualita/[id]</span></td>
+            <td><span class="kv">Scheda</span></td>
+            <td>Il ritiro non compare nemmeno qui — <span class="kv">getRitiriByScheda()</span> filtra su "Scheda", non su "Rilavorazione"</td>
+          </tr>
+          <tr>
+            <td><strong>Avanzamento di stato a "Fatto"</strong> — sceglie updateSchedaRientrato/ConsegnaFatta oppure updateRilavorazioneRientrata<span class="route" style="margin-top:4px">PATCH /api/ritiri/[id]</span></td>
+            <td><span class="kv">Rilavorazione</span> (se presente)</td>
+            <td>Il movimento viene trattato come una Scheda normale invece che come rientro di una Rilavorazione</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout warn">
+      <h4>Perché serve tenerle allineate</h4>
+      <p>Le due tabelle sopra si leggono insieme: quando un Ritiro nasce collegato a una Rilavorazione, <strong>vanno valorizzate entrambe le relation</strong> — non basta "Scheda" da sola. Ogni schermata del MES legge una relation diversa a seconda di cosa deve fare, e nessuna delle due può dedurre l'altra da sé.</p>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">C</span>
+      <h2>Il diagramma completo</h2>
+      <p class="sec-note">Sette passaggi, tre bivi. Il percorso "corto" — nessuna NC, nessuna Rilavorazione — salta i passi 04‑07 e finisce in archivio dopo il passo 03.</p>
+    </div>
+
+    <div class="flow">
+
+      <div class="flow-step">
+        <div class="step-n">01</div>
+        <div class="step-body">
+          <span class="step-where">Ritiri e Consegne → <strong>+ Nuovo ritiro</strong></span>
+          <h3>Creazione del movimento</h3>
+          <p>Un solo campo obbligatorio, la <strong>descrizione</strong>. Il movimento si collega in una di due modalità alternative — <strong>Scheda ODP</strong> oppure <strong>Solo Commessa</strong> — e porta con sé tipo movimento, data e ora di trasporto, fornitore, colli e foto. Selezionando una Scheda, il form auto-compila commessa, fornitore e tipo movimento suggerito.</p>
+          <div class="chips">
+            <span class="route">src/components/FormNuovoRitiro.tsx</span>
+            <span class="route">POST /api/ritiri</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-n">02</div>
+        <div class="step-body">
+          <span class="step-where">Spunta <strong>NC</strong> in creazione (o aggiunta poco dopo, in modifica)</span>
+          <h3>Il bivio della Non Conformità</h3>
+          <p>La spunta NC da sola marca solo il movimento. Ma se ricorrono <strong>tutte e tre</strong> le condizioni — NC attiva, Tipo Movimento = Consegna, Scheda ODP collegata — il sistema crea molto di più di un flag.</p>
+          <div class="branch">
+            <div class="b-yes">
+              <span class="cond">NC ✓ &nbsp;+&nbsp; Consegna &nbsp;+&nbsp; Scheda collegata</span>
+              <h4>Nasce una Rilavorazione</h4>
+              <p><span class="kv">createRilavorazione()</span> crea la sotto-scheda <strong>«Rilavorazione NC – &lt;scheda&gt;»</strong>, figlia della Scheda madre. La madre passa a <strong>"In Attesa Rilavorazione"</strong> e si blocca. Il movimento in creazione si ricollega alla Rilavorazione appena nata: valorizza <strong>sia</strong> la relation "Scheda" <strong>che</strong> "Rilavorazione" (sezione B) — qui il collegamento è sempre corretto, il fix di questa sessione riguarda un percorso diverso, il passo 06.</p>
+            </div>
+            <div class="b-no">
+              <span class="cond">manca anche solo una delle tre condizioni</span>
+              <h4>Solo il flag NC</h4>
+              <p>Nessuna Rilavorazione. Il movimento resta un trasporto ordinario marcato come non conforme, bordo rosso in tabella e nient'altro.</p>
+            </div>
+          </div>
+          <div class="callout">
+            <p><strong>Il fix di questa sessione su createRilavorazione():</strong> la Rilavorazione ora nasce sempre con <span class="kv">Produzione Esterna = true</span> e <span class="kv">Data Rientro Prevista</span> valorizzata. Prima mancavano entrambe: l'alert "rientro in ritardo" (già esistente per le Schede normali) non scattava mai per una Rilavorazione, e il filtro "Produzione Esterna" in Tabella Schede la escludeva sempre — pur essendo per definizione fuori sede.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-n">03</div>
+        <div class="step-body">
+          <span class="step-where">Pulsanti nella prima colonna — solo admin e logistica</span>
+          <h3>Avanzamento di stato</h3>
+          <div class="chain">
+            <span class="node todo">○ Da Fare</span>
+            <span class="arrow">→</span>
+            <span class="node prog">▶ In corso</span>
+            <span class="arrow">→</span>
+            <span class="node done">✓ Fatto</span>
+          </div>
+          <p>Transizioni reversibili in entrambe le direzioni. Quando lo stato tocca <strong>"Fatto"</strong> scatta in background una logica che dipende da <em>a che cosa è collegato</em> il movimento — vedi il passo successivo.</p>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-n">04</div>
+        <div class="step-body">
+          <span class="step-where">Effetto automatico di "Fatto" — <span class="route">PATCH /api/ritiri/[id]</span></span>
+          <h3>Che cosa succede alla Scheda collegata</h3>
+          <p>Il server distingue tre casi in base a <span class="kv">rilavorazioneId</span> e <span class="kv">tipoMovimento</span> del ritiro appena completato:</p>
+          <div class="branch">
+            <div class="b-info">
+              <span class="cond">rilavorazioneId presente &nbsp;+&nbsp; Tipo = Ritiro</span>
+              <h4>Pezzo tornato fisicamente</h4>
+              <p><span class="kv">updateRilavorazioneRientrata()</span> — solo <strong>Stato Produzione Esterna → "Rientrato"</strong>. La Scheda madre resta bloccata in "In Attesa Rilavorazione" finché non arriva la conferma manuale del passo 07.</p>
+            </div>
+            <div class="b-cons">
+              <span class="cond">rilavorazioneId presente &nbsp;+&nbsp; Tipo = Consegna</span>
+              <h4>Solo tracking logistico</h4>
+              <p>Nessun cambio di stato: la Consegna verso il fornitore è solo un movimento di trasporto, non ancora un rientro.</p>
+            </div>
+            <div class="b-ok">
+              <span class="cond">nessuna Rilavorazione — Scheda ODP normale</span>
+              <h4>Serve l'unanimità</h4>
+              <p>Lo stato della Scheda avanza solo quando <strong>tutti</strong> i ritiri collegati risultano "Fatto" (<span class="kv">updateSchedaRientrato</span> o <span class="kv">updateSchedaConsegnaFatta</span> a seconda del tipo movimento). Un solo ritiro ancora aperto blocca l'aggiornamento.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-n">05</div>
+        <div class="step-body">
+          <span class="step-where">Ritiri e Consegne → sotto-nav <strong>Rientro Qualità</strong></span>
+          <h3>La Rilavorazione compare nell'elenco</h3>
+          <p>Solo se resta <em>aperta</em>: la pagina mostra tutte le sotto-schede di tipologia <strong>Rilavorazione</strong> non ancora <em>Completato</em> né <em>Annullata</em>, incrociate con i ritiri collegati per <span class="kv">rilavorazioneId</span> — non per la relation "Scheda" (sezione B). Ogni scheda mostra ODP, numero, fornitore e cliente.</p>
+          <div class="chips"><span class="route">/rientro-qualita</span><span class="route">src/components/RientroQualitaList.tsx</span></div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-n">06</div>
+        <div class="step-body">
+          <span class="step-where">Card della Rilavorazione, in Rientro Qualità</span>
+          <h3>Il bivio del ritiro concordato</h3>
+          <div class="branch">
+            <div class="b-ok">
+              <span class="cond">almeno un movimento collegato via "Rilavorazione"</span>
+              <h4>Ritiro concordato</h4>
+              <p>La card elenca i movimenti con data e stato — <span class="chip chip-warn">Da Fare</span> <span class="chip chip-info">In corso</span> <span class="chip chip-ok">Fatto</span>. Basta seguirne l'avanzamento.</p>
+            </div>
+            <div class="b-yes">
+              <span class="cond">nessun movimento collegato</span>
+              <h4>⚠ Nessun ritiro concordato</h4>
+              <p>Bordo rosso, avviso esplicito e pulsante <strong>«Inserisci un ritiro»</strong>: apre <span class="kv">FormNuovoRitiro</span> pre-compilato su questa Rilavorazione. Queste schede vengono ordinate <strong>per prime</strong> nell'elenco — sono quelle su cui nessuno ha ancora preso un impegno con il fornitore.</p>
+            </div>
+          </div>
+          <div class="callout alert">
+            <h4>I due bug corretti in questa sessione riguardano proprio questo passo</h4>
+            <p>«Inserisci un ritiro» chiamava lo stesso <span class="kv">POST /api/ritiri</span> del passo 01, ma con due difetti separati: collegava il nuovo movimento con la relation Notion sbagliata, e negava il permesso a chiunque non fosse admin o logistica. Dettagli completi in sezione E.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-n">07</div>
+        <div class="step-body">
+          <span class="step-where">Pulsante verde <strong>✓ Conferma controllo qualità e segna rientrata</strong></span>
+          <h3>Segna Rientrata — la scheda madre si sblocca</h3>
+          <p>Un solo clic, nessun modulo: <span class="kv">POST /api/schede/[id]/rientro</span> imposta la Rilavorazione a <strong>Completato</strong> e riporta la Scheda madre a <strong>"In lavorazione"</strong> — la produzione interna riparte da dove si era fermata.</p>
+          <div class="chain">
+            <span class="node nc">Rilavorazione: aperta</span>
+            <span class="arrow">→</span>
+            <span class="node done">Rilavorazione: Completato</span>
+            <span class="arrow">→</span>
+            <span class="node prog">Scheda madre: In lavorazione</span>
+          </div>
+          <p>Da qui la Rilavorazione esce dalla lista di Rientro Qualità. Esiste anche una vista da QR fisico, in sola lettura fino a questo stesso pulsante — nessuna creazione di ritiro lì, solo la conferma.</p>
+          <div class="chips">
+            <span class="route">src/app/api/schede/[id]/rientro/route.ts</span>
+            <span class="route">src/app/(app)/rientro-qualita/[id]/page.tsx</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="callout">
+      <h4>L'anello completo, in una riga</h4>
+      <p>NC su una consegna → nasce la Rilavorazione e la madre si blocca → il pezzo esce verso il fornitore → si concorda il ritiro (o si scopre che manca) → il pezzo rientra fisicamente → controllo qualità e conferma → la madre riparte.</p>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">D</span>
+      <h2>Permessi lungo il processo</h2>
+      <p class="sec-note">Due costanti diverse governano questo flusso, e non coincidono. Confonderle è il secondo modo più comune di restare bloccati.</p>
+    </div>
+
+    <div class="scroll">
+      <table class="matrix">
+        <thead>
+          <tr>
+            <th>Azione</th>
+            <th class="col-hl">Admin</th>
+            <th>Opera­tore</th>
+            <th>Logi­stica</th>
+            <th>Spedi­zioni</th>
+            <th>Produ­zione</th>
+            <th>Resp. Prod.</th>
+            <th>Magaz­ziniere</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Creare un Ritiro/Consegna qualsiasi</strong><small>POST /api/ritiri — WRITE_ROLES</small></td>
+            <td class="col-hl yes">●</td><td class="no">—</td><td class="yes">●</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td>
+          </tr>
+          <tr>
+            <td><strong>Cambiare stato, eliminare un movimento</strong><small>PATCH · DELETE /api/ritiri/[id] — WRITE_ROLES</small></td>
+            <td class="col-hl yes">●</td><td class="no">—</td><td class="yes">●</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td>
+          </tr>
+          <tr class="rule-break">
+            <td><strong>Vedere l'elenco Rientro Qualità</strong><small>/rientro-qualita — RIENTRO_QUALITA_ROLES</small></td>
+            <td class="col-hl yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="no">—</td>
+          </tr>
+          <tr>
+            <td><strong>Confermare "Segna Rientrata"</strong><small>POST /api/schede/[id]/rientro — RIENTRO_QUALITA_ROLES</small></td>
+            <td class="col-hl yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="no">—</td>
+          </tr>
+          <tr>
+            <td><strong>«Inserisci un ritiro» su una Rilavorazione già aperta</strong><small>POST /api/ritiri — eccezione stretta, sezione E</small></td>
+            <td class="col-hl yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="no">—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <h4>Perché l'ultima riga non è semplicemente "RIENTRO_QUALITA_ROLES"</h4>
+      <p><span class="route">POST /api/ritiri</span> resta protetto da <span class="kv">WRITE_ROLES</span> per la creazione libera. L'eccezione per <span class="kv">RIENTRO_QUALITA_ROLES</span> scatta <strong>solo</strong> quando lo <span class="kv">schedaId</span> inviato punta a una pagina già esistente con <span class="kv">Tipologia = "Rilavorazione"</span> e non creata al volo da una spunta NC in questa stessa chiamata. È una porta stretta, ritagliata sul solo caso «Inserisci un ritiro»: la creazione di un Ritiro/Consegna qualunque resta riservata a admin e logistica.</p>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">E</span>
+      <h2>I due bug corretti in questa sessione</h2>
+      <p class="sec-note">Stesso pulsante, stessa chiamata — <span class="kv">POST /api/ritiri</span> da «Inserisci un ritiro» in Rientro Qualità — due difetti indipendenti, corretti insieme.</p>
+    </div>
+
+    <div class="fix">
+      <div class="fix-head">
+        <span class="chip chip-alert">Bug 1</span>
+        <h4>Il ritiro non risultava mai "concordato"</h4>
+      </div>
+      <div class="fix-body">
+        <div class="fix-before">
+          <span class="fix-label">Prima</span>
+          <p>«Inserisci un ritiro» creava il movimento collegandolo <strong>solo</strong> tramite la relation "Scheda" — quella generica, usata per qualunque Scheda. La relation "Rilavorazione" restava vuota, ma è proprio quella su cui la lista principale di Rientro Qualità raggruppa i ritiri concordati.</p>
+          <p>Effetto osservato: il ritiro veniva creato correttamente su Notion, ma la card restava bloccata su <strong>"⚠ Nessun ritiro concordato"</strong> — come se nulla fosse successo.</p>
+        </div>
+        <div class="fix-after">
+          <span class="fix-label">Ora</span>
+          <p><span class="kv">POST /api/ritiri</span> rileva se lo <span class="kv">schedaId</span> ricevuto punta a una pagina con <span class="kv">Tipologia = "Rilavorazione"</span> e, in quel caso, valorizza <strong>anche</strong> la relation "Rilavorazione", oltre a "Scheda". La card lo riconosce al primo salvataggio.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="fix">
+      <div class="fix-head">
+        <span class="chip chip-alert">Bug 2</span>
+        <h4>Il pulsante era visibile ma inutilizzabile per quasi tutti</h4>
+      </div>
+      <div class="fix-body">
+        <div class="fix-before">
+          <span class="fix-label">Prima</span>
+          <p><span class="kv">POST /api/ritiri</span> richiedeva <span class="kv">WRITE_ROLES</span> (solo admin e logistica) per qualunque scrittura. Operatore, spedizioni, produzione e responsabile produzione <strong>vedono</strong> la pagina Rientro Qualità e il pulsante «Inserisci un ritiro» — ma al salvataggio ricevevano <span class="kv">403 Permesso negato</span>, senza un modo evidente di capire perché.</p>
+        </div>
+        <div class="fix-after">
+          <span class="fix-label">Ora</span>
+          <p>Aggiunta un'eccezione stretta: se lo <span class="kv">schedaId</span> punta a una Rilavorazione <strong>già esistente e aperta</strong> (non creata al volo da una spunta NC nella stessa chiamata), anche i ruoli di <span class="kv">RIENTRO_QUALITA_ROLES</span> possono salvare. La creazione libera di un Ritiro/Consegna qualsiasi resta riservata a <span class="kv">WRITE_ROLES</span> — vedi le variabili <span class="kv">schedaCollegataERilavorazione</span> e <span class="kv">puoOrganizzarePickupRilavorazione</span> in <span class="route">src/app/api/ritiri/route.ts</span>.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <p><strong>Se un'altra pagina del manuale descrive ancora un 403 su questa azione</strong>, si riferisce al comportamento precedente a questo fix. Il comportamento corrente è quello descritto qui e nella sezione D.</p>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">F</span>
+      <h2>Promemoria operativi</h2>
+    </div>
+    <div class="grid-3">
+      <div class="card">
+        <h3>Due relation, non una</h3>
+        <p>Se un ritiro sembra "invisibile" da qualche schermata, prima di sospettare un bug controlla quale relation legge quella pagina — "Scheda" o "Rilavorazione" — e se il ritiro le ha entrambe valorizzate. Sezione B, tabelle e schema.</p>
+      </div>
+      <div class="card">
+        <h3>WRITE_ROLES ≠ RIENTRO_QUALITA_ROLES</h3>
+        <p>Sono due costanti diverse su due porte diverse dello stesso endpoint. Un 403 su «Inserisci un ritiro» oggi indica quasi sempre che lo <span class="kv">schedaId</span> non punta a una Rilavorazione già aperta — non un problema di ruolo. Sezione D.</p>
+      </div>
+      <div class="card">
+        <h3>Se qualcosa non torna</h3>
+        <p>I file da riaprire in ordine: <span class="kv">FormNuovoRitiro.tsx</span> per cosa parte dal client, <span class="kv">api/ritiri/route.ts</span> e <span class="kv">[id]/route.ts</span> per la logica server, <span class="kv">notion.ts</span> per le property scritte pagina per pagina.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="foot">
+    <span>MES Modar · Manuale operativo · Processo 09 — Flusso Ritiri e Consegne</span>
+    <span class="kv">src/app/api/ritiri/route.ts · src/app/api/ritiri/[id]/route.ts · src/lib/notion.ts</span>
+    <span class="kv">src/app/(app)/rientro-qualita/ · src/components/RientroQualita*.tsx · src/lib/auth.ts</span>
+  </div>
+
+</div>

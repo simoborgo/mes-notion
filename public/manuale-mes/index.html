@@ -54,6 +54,8 @@ a{color:inherit;text-decoration:none}
 .arrow{font-size:20px;color:var(--grey-2)}
 .item:hover .arrow{color:var(--accent)}
 
+.group-label{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--grey-2);font-weight:700;margin:8px 4px 0}
+
 .foot{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--grey-2);border-top:1px solid var(--rule);padding-top:14px}
 
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -67,10 +69,11 @@ a{color:inherit;text-decoration:none}
       <span class="eyebrow">MES Modar · Manuale operativo</span>
     </div>
     <h1 class="mast-title">Indice del manuale</h1>
-    <p class="mast-sub">Sette pagine autonome: una panoramica generale in formato poster A3, più una guida per ciascun gruppo di ruoli. Ogni pagina è un HTML indipendente — si può aprire offline, stampare o condividere singolarmente.</p>
+    <p class="mast-sub">Dieci pagine autonome: una panoramica generale in formato poster A3, una guida per ciascun gruppo di ruoli, e quattro pagine di processo con lo schema di flusso dei cicli che attraversano più ruoli. Ogni pagina è un HTML indipendente — si può aprire offline, stampare o condividere singolarmente.</p>
   </header>
 
   <nav class="list">
+    <p class="group-label">Guide per ruolo</p>
     <a class="item" href="00-panoramica-generale.html">
       <span class="num">00</span>
       <span>
@@ -116,6 +119,40 @@ a{color:inherit;text-decoration:none}
       <span>
         <h2>Magazziniere</h2>
         <p>Ferramenta: giacenze, anagrafica, Kit ODP, inventario, carico e scarico.</p>
+      </span>
+      <span class="arrow">→</span>
+    </a>
+
+    <p class="group-label">Guide per processo</p>
+    <a class="item" href="06-flusso-carico-esterno.html">
+      <span class="num">06</span>
+      <span>
+        <h2>Flusso: Carico verso l'esterno</h2>
+        <p>Dalla Scheda in lavorazione al Carico Magazzino o al wizard Rilavorazione, fino al Ritiro collegato.</p>
+      </span>
+      <span class="arrow">→</span>
+    </a>
+    <a class="item" href="07-flusso-spedizioni.html">
+      <span class="num">07</span>
+      <span>
+        <h2>Flusso: Spedizioni</h2>
+        <p>Il ciclo di verifica pre-spedizione: lock, foto, avanzamento, verifica normale o forzata, finalizzazione.</p>
+      </span>
+      <span class="arrow">→</span>
+    </a>
+    <a class="item" href="08-flusso-ferramenta.html">
+      <span class="num">08</span>
+      <span>
+        <h2>Flusso: Ferramenta</h2>
+        <p>Il ciclo di vita di un articolo: classificazione, Kit ODP, scarico Kanban/A Pezzo, riordino, reintegro, inventario.</p>
+      </span>
+      <span class="arrow">→</span>
+    </a>
+    <a class="item" href="09-flusso-ritiri-consegne.html">
+      <span class="num">09</span>
+      <span>
+        <h2>Flusso: Ritiri, Consegne e Rientro Qualità</h2>
+        <p>Creazione movimento, Non Conformità e Rilavorazioni, fino a "Segna Rientrata" e sblocco della Scheda madre.</p>
       </span>
       <span class="arrow">→</span>
     </a>

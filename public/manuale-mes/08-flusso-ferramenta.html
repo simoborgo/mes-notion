@@ -1,0 +1,445 @@
+<meta charset="utf-8">
+<title>MES Modar — Flusso Ferramenta</title>
+<style>
+:root{
+  --ground:#F5F2EE; --paper:#FFFFFF; --rule:#E4E0DA; --rule-soft:#F0ECE5;
+  --ink:#1A1918; --grey:#6B6560; --grey-2:#888780;
+  --accent:#E87722; --accent-deep:#C06A10; --accent-wash:#FBF3E8;
+  --alert:#991B1B; --alert-bg:#FEE2E2; --alert-line:#DC2626;
+  --warn:#92400E; --warn-bg:#FEF3C7; --warn-line:#F59E0B;
+  --ok:#166534; --ok-bg:#F0FDF4; --ok-line:#34D399;
+  --neutral-chip:#F3F4F6; --neutral-chip-ink:#374151;
+  --display:'Cormorant Garamond',Georgia,serif;
+  --body:Arial,Helvetica,sans-serif;
+  --data:ui-monospace,Menlo,Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --ground:#161514; --paper:#1F1D1B; --rule:#332F2B; --rule-soft:#2A2724;
+    --ink:#EDE9E3; --grey:#A8A199; --grey-2:#8D867E;
+    --accent:#F0902F; --accent-deep:#F5A845; --accent-wash:#2A2018;
+    --alert:#FCA5A5; --alert-bg:#3A1A1A; --alert-line:#C4433F;
+    --warn:#FBBF24; --warn-bg:#33260F; --warn-line:#B4790C;
+    --ok:#86EFAC; --ok-bg:#12301E; --ok-line:#2A8F6D;
+    --neutral-chip:#2B2825; --neutral-chip-ink:#CFC9C1;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#161514; --paper:#1F1D1B; --rule:#332F2B; --rule-soft:#2A2724;
+  --ink:#EDE9E3; --grey:#A8A199; --grey-2:#8D867E;
+  --accent:#F0902F; --accent-deep:#F5A845; --accent-wash:#2A2018;
+  --alert:#FCA5A5; --alert-bg:#3A1A1A; --alert-line:#C4433F;
+  --warn:#FBBF24; --warn-bg:#33260F; --warn-line:#B4790C;
+  --ok:#86EFAC; --ok-bg:#12301E; --ok-line:#2A8F6D;
+  --neutral-chip:#2B2825; --neutral-chip-ink:#CFC9C1;
+}
+:root[data-theme="light"]{
+  --ground:#F5F2EE; --paper:#FFFFFF; --rule:#E4E0DA; --rule-soft:#F0ECE5;
+  --ink:#1A1918; --grey:#6B6560; --grey-2:#888780;
+  --accent:#E87722; --accent-deep:#C06A10; --accent-wash:#FBF3E8;
+  --alert:#991B1B; --alert-bg:#FEE2E2; --alert-line:#DC2626;
+  --warn:#92400E; --warn-bg:#FEF3C7; --warn-line:#F59E0B;
+  --ok:#166534; --ok-bg:#F0FDF4; --ok-line:#34D399;
+  --neutral-chip:#F3F4F6; --neutral-chip-ink:#374151;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55;-webkit-text-size-adjust:100%}
+.sheet{max-width:1120px;margin:0 auto;padding:32px 24px 80px;display:flex;flex-direction:column;gap:40px}
+h1,h2,h3{font-family:var(--display);font-weight:600;text-wrap:balance;margin:0;line-height:1.12}
+p{margin:0}
+a{color:var(--accent-deep)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+
+/* ---- masthead ---- */
+.masthead{display:flex;flex-direction:column;gap:18px;border-top:6px solid var(--accent);padding-top:20px}
+.mast-top{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.logo{width:44px;height:44px;object-fit:contain;background:#fff;border-radius:4px;padding:3px;flex-shrink:0}
+.eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--grey-2);font-weight:700}
+.mast-title{font-size:clamp(38px,6vw,62px);letter-spacing:-.01em}
+.mast-title em{font-style:normal;color:var(--accent)}
+.mast-sub{max-width:68ch;color:var(--grey);font-size:15px}
+.mast-meta{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--grey-2);border-top:1px solid var(--rule);padding-top:12px}
+
+/* ---- generic section ---- */
+.sec{display:flex;flex-direction:column;gap:18px}
+.sec-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:8px}
+.sec-num{font-family:var(--data);font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.08em}
+.sec-head h2{font-size:30px}
+.sec-note{margin-left:auto;font-size:12px;color:var(--grey-2);max-width:46ch}
+
+.card{background:var(--paper);border:1px solid var(--rule);border-radius:10px;padding:18px 20px;display:flex;flex-direction:column;gap:10px}
+.card h3{font-size:21px}
+.card p{font-size:13.5px;color:var(--grey)}
+.grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+
+.route{font-family:var(--data);font-size:11.5px;color:var(--accent-deep);background:var(--accent-wash);border-radius:4px;padding:2px 7px;display:inline-block;word-break:break-all}
+.chip{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:99px;padding:3px 9px}
+.chip-ok{background:var(--ok-bg);color:var(--ok)}
+.chip-warn{background:var(--warn-bg);color:var(--warn)}
+.chip-alert{background:var(--alert-bg);color:var(--alert)}
+.chip-neutral{background:var(--neutral-chip);color:var(--neutral-chip-ink)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+ul.tight{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:5px;font-size:13.5px;color:var(--grey)}
+ul.tight strong{color:var(--ink)}
+.kv{font-family:var(--data);font-size:12px;font-variant-numeric:tabular-nums}
+
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:520px}
+th{text-align:left;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--grey-2);border-bottom:1px solid var(--rule);padding:8px 12px 8px 0;font-weight:700}
+td{padding:9px 12px 9px 0;border-bottom:1px solid var(--rule-soft);vertical-align:top;color:var(--grey)}
+td strong{color:var(--ink);font-weight:700}
+tr:last-child td{border-bottom:0}
+
+/* ---- scala di stazioni (ciclo di vita) ---- */
+.ladder{display:flex;flex-direction:column;gap:0;border-left:3px solid var(--accent);padding-left:0;margin-left:15px}
+.station{position:relative;padding:0 0 22px 30px}
+.station:last-child{padding-bottom:0}
+.station::before{content:attr(data-n);position:absolute;left:-16px;top:0;width:29px;height:29px;border-radius:50%;background:var(--accent);color:#fff;font-family:var(--data);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.station-in{background:var(--paper);border:1px solid var(--rule);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:9px}
+.station h3{font-size:20px}
+.station p{font-size:13.5px;color:var(--grey)}
+.tracks{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin-top:2px}
+.track{border:1px solid var(--rule);border-radius:8px;padding:13px 15px;display:flex;flex-direction:column;gap:7px;background:var(--ground)}
+.track-k{border-top:3px solid var(--accent)}
+.track-p{border-top:3px solid var(--grey-2)}
+.track h4{margin:0;font-family:var(--display);font-size:18px;font-weight:600}
+.track p{font-size:12.5px;color:var(--grey);margin:0}
+
+/* ---- variante ladder per la colonna A Pezzo (grigia) ---- */
+.ladder-p{border-left-color:var(--grey-2)}
+.ladder-p .station::before{background:var(--grey-2)}
+
+/* ---- diagramma ciclico a due colonne ---- */
+.cycle-head{display:flex;align-items:center;gap:10px;margin-bottom:2px}
+.cycle-head .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.cycle-head h3{font-size:19px}
+.cycle-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:26px;align-items:start}
+.loop-banner{display:flex;align-items:center;gap:16px;background:var(--paper);border:1px solid var(--rule);border-radius:10px;padding:16px 20px}
+.loop-banner .loop-icon{font-size:26px;color:var(--accent);flex-shrink:0;line-height:1}
+.loop-banner p{font-size:13.5px;color:var(--grey)}
+.loop-banner strong{color:var(--ink)}
+
+/* ---- flusso a step ---- */
+.flow{display:flex;flex-direction:column;gap:0}
+.flow-step{display:grid;grid-template-columns:52px 1fr;gap:16px;padding:16px 0;border-bottom:1px solid var(--rule-soft)}
+.flow-step:last-child{border-bottom:0}
+.step-n{font-family:var(--data);font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.06em;padding-top:4px;border-right:1px solid var(--rule);padding-right:12px}
+.step-body{display:flex;flex-direction:column;gap:8px;min-width:0}
+.step-body h3{font-size:19px}
+.step-body p{font-size:13.5px;color:var(--grey);max-width:72ch}
+.step-where{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--grey-2);font-weight:700}
+
+/* ---- biforcazione a due vie (non yes/no, due metodi alternativi) ---- */
+.branch{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:0;border:1px solid var(--rule);border-radius:10px;overflow:hidden;background:var(--paper)}
+.branch>div{padding:16px 18px;display:flex;flex-direction:column;gap:8px;border-top:4px solid var(--rule)}
+.branch .b-qr{border-top-color:var(--accent)}
+.branch .b-foglio{border-top-color:var(--grey-2)}
+.branch h4{margin:0;font-family:var(--display);font-size:18px;font-weight:600}
+.branch p{font-size:13px;color:var(--grey)}
+.cond{font-family:var(--data);font-size:11px;color:var(--grey-2);letter-spacing:.02em}
+
+/* ---- tabella comparativa Kanban / A Pezzo ---- */
+.compare{min-width:640px;font-size:13px}
+.compare th,.compare td{padding:8px 10px;border-bottom:1px solid var(--rule-soft)}
+.compare th:first-child,.compare td:first-child{padding-left:0;width:34%}
+.compare th:not(:first-child),.compare td:not(:first-child){width:33%}
+.compare thead th{border-bottom:1px solid var(--rule);vertical-align:bottom}
+.compare .col-k{background:var(--accent-wash)}
+.compare thead .col-k{color:var(--accent-deep)}
+.compare td:first-child strong{display:block;color:var(--ink);font-weight:700}
+
+.callout{background:var(--paper);border:1px solid var(--rule);border-left:4px solid var(--accent);border-radius:8px;padding:14px 18px;display:flex;flex-direction:column;gap:6px}
+.callout p{font-size:13.5px;color:var(--grey)}
+.callout strong{color:var(--ink)}
+.callout h4{margin:0;font-family:var(--display);font-size:19px;font-weight:600}
+.callout.warn{border-left-color:var(--warn-line)}
+.callout.grey{border-left-color:var(--grey-2)}
+
+@media print{
+  @page{size:A4 portrait;margin:14mm}
+  body{background:#fff;font-size:10.5pt}
+  .sheet{max-width:none;padding:0;gap:22px}
+  .card,.station,.flow-step,.callout,.branch>div{break-inside:avoid}
+  .sec{break-inside:auto}
+  .compare{min-width:0;font-size:8pt}
+  .scroll{overflow-x:visible}
+  .no-print{display:none}
+  .chip,.route,.branch>div{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="sheet">
+
+  <header class="masthead">
+    <div class="mast-top">
+      <img class="logo" src="data:image/png;base64,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" alt="Modar">
+      <span class="eyebrow">MES Modar · Manuale operativo · Processo 08</span>
+    </div>
+    <h1 class="mast-title">Flusso Ferramenta<br><em>Dalla classificazione al reintegro</em></h1>
+    <p class="mast-sub">Non è la scheda del ruolo magazziniere — quella è la Scheda 05, organizzata per schermate e permessi. Questa pagina segue lo stesso oggetto nel tempo: un articolo di ferramenta e la sua giacenza, dal giorno in cui entra a catalogo fino all'ultimo scarico prima di essere disattivato. Nel mezzo il ciclo si ripete all'infinito — scarico, soglia, reintegro — con una biforcazione permanente che nasce da un'unica scelta: <strong>Kanban</strong> o <strong>A Pezzo</strong>.</p>
+    <div class="mast-meta">
+      <span>Giacenze e distinte su PostgreSQL</span>
+      <span>Notion: solo riepilogo testuale del Kit</span>
+      <span>Due metodi di gestione, un solo ciclo</span>
+      <span>Inventario: controllo trasversale, non una tappa</span>
+    </div>
+  </header>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">A</span>
+      <h2>Il bivio che decide tutto</h2>
+      <p class="sec-note">Un solo campo, in Anagrafica, apre due cicli di vita completamente diversi. Il dettaglio di soglie e ubicazione è nella Scheda 05 — qui conta solo la diramazione.</p>
+    </div>
+
+    <div class="ladder">
+      <div class="station" data-n="1">
+        <div class="station-in">
+          <h3>Nasce senza metodo, poi si classifica</h3>
+          <p>Un articolo entra a catalogo — da CSV o a mano — con giacenza <span class="kv">0</span> e nessun metodo di gestione. Finché resta così lo scarico è respinto con <em>«Articolo non ancora classificato»</em>: nessuna delle due strade di questa pagina è ancora percorribile. La classificazione, in <span class="route">PATCH /api/ferramenta/articoli/[id]/classificazione</span>, è la porta d'ingresso al ciclo.</p>
+          <div class="tracks">
+            <div class="track track-k">
+              <h4>Kanban</h4>
+              <p>Minuteria a vaschetta, ad alta rotazione e consumo prevedibile: viti, cerniere, ferramenta standard. Richiede una <strong>Quantità Standard Vaschetta</strong> &gt; 0 — è il numero che verrà scaricato e ricaricato sempre uguale, senza mai digitarlo.</p>
+            </div>
+            <div class="track track-p">
+              <h4>A Pezzo</h4>
+              <p>Componenti a consumo variabile o legati a una distinta di commessa specifica: maniglie speciali, accessori su misura. Ogni scarico e ogni carico richiedono una quantità digitata a mano.</p>
+            </div>
+          </div>
+          <p>Il metodo scelto qui non è un dettaglio anagrafico: determina se l'articolo potrà mai comparire in un Kit Ferramenta ODP (sezione B), se avrà un QR di riordino (sezione B) e come reagirà il form di scarico (sezione C). Cambiare metodo più avanti è possibile, ma sposta l'articolo di netto da un ciclo all'altro.</p>
+        </div>
+      </div>
+    </div>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">B</span>
+      <h2>Il ciclo continuo: due percorsi, una giacenza</h2>
+      <p class="sec-note">A differenza dell'import Scheda o del rientro qualità, qui non c'è un traguardo. Il ciclo si ripete finché l'articolo resta attivo a catalogo.</p>
+    </div>
+
+    <p class="mast-sub">Dalla classificazione in poi, ogni articolo percorre sempre lo stesso anello a quattro tappe: <strong>domanda di materiale → scarico → sotto soglia → reintegro</strong>, e da qui di nuovo allo scarico. Il metodo di gestione non cambia le tappe, cambia <em>come</em> ciascuna si comporta — al punto che un Kanban e un A Pezzo non si incrociano quasi mai sulla stessa schermata.</p>
+
+    <div class="cycle-grid">
+      <div>
+        <div class="cycle-head">
+          <span class="dot" style="background:var(--accent)"></span>
+          <h3>Kanban</h3>
+        </div>
+        <div class="ladder">
+          <div class="station" data-n="1">
+            <div class="station-in">
+              <h3>Domanda di materiale</h3>
+              <p>Non esiste una distinta da soddisfare: il Kit Ferramenta di un ODP accetta <strong>solo articoli A Pezzo</strong> — <span class="route">POST /api/ferramenta/kit/[schedaId]/righe</span> respinge un Kanban con <em>«Il kit accetta solo articoli attivi con metodo A Pezzo»</em>. La vaschetta serve indistintamente qualunque commessa la stia consumando in quel momento.</p>
+            </div>
+          </div>
+          <div class="station" data-n="2">
+            <div class="station-in">
+              <h3>Scarico</h3>
+              <p>Un solo pulsante — <em>«Vaschetta vuota — scarica N»</em> — con quantità fissa pari alla Quantità Standard Vaschetta. Un ODP si può comunque collegare, ma solo per tracciabilità nello storico movimenti: non esiste un pianificato con cui confrontarlo.</p>
+            </div>
+          </div>
+          <div class="station" data-n="3">
+            <div class="station-in">
+              <h3>Sotto soglia</h3>
+              <p>Al primo scarico che fa attraversare la soglia minima, l'app mostra subito <em>«Giacenza sotto soglia minima»</em> con il pulsante <strong>Stampa etichetta di riordino</strong> — un PDF generato al volo che punta a <span class="route">/riordino/{id}</span>.</p>
+            </div>
+          </div>
+          <div class="station" data-n="4">
+            <div class="station-in">
+              <h3>Reintegro</h3>
+              <p>In Carico, selezionare l'articolo precompila la quantità con la vaschetta piena — il caso più comune è «è arrivata una vaschetta». Si corregge solo per le consegne parziali.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="cycle-head">
+          <span class="dot" style="background:var(--grey-2)"></span>
+          <h3>A Pezzo</h3>
+        </div>
+        <div class="ladder ladder-p">
+          <div class="station" data-n="1">
+            <div class="station-in">
+              <h3>Domanda di materiale</h3>
+              <p>Nasce nel <strong>Kit Ferramenta</strong> dell'ODP: riga per riga si compone la distinta di articolo e quantità prevista, su Postgres. Con <em>«Conferma Kit e notifica magazziniere»</em> l'ODP passa a <span class="kv">Kit Ferramenta = Si</span> e parte il PDF di preparazione — l'unica scrittura verso Notion è il riepilogo testuale in <span class="kv">Descrizione Kit Ferramenta</span>.</p>
+            </div>
+          </div>
+          <div class="station" data-n="2">
+            <div class="station-in">
+              <h3>Scarico</h3>
+              <p>La quantità consumata si digita ogni volta. Collegando l'ODP, <span class="route">GET /api/ferramenta/kit/[schedaId]/scarico-check</span> confronta in tempo reale quanto già scaricato con il pianificato in distinta e avvisa — non blocca — se lo si sta per superare.</p>
+            </div>
+          </div>
+          <div class="station" data-n="3">
+            <div class="station-in">
+              <h3>Sotto soglia</h3>
+              <p>Nessun QR di riordino, nessun avviso in interfaccia: il form di scarico A Pezzo non ha la schermata dedicata che ha il Kanban. Il rifornimento si decide guardando le giacenze in <span class="route">/ferramenta</span>, o dal filtro <strong>Da riordinare</strong>.</p>
+            </div>
+          </div>
+          <div class="station" data-n="4">
+            <div class="station-in">
+              <h3>Reintegro</h3>
+              <p>Il carico è manuale e libero: si digita la quantità realmente arrivata, senza alcuna precompilazione.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="loop-banner">
+      <span class="loop-icon">↻</span>
+      <p><strong>Il cerchio si chiude sul carico, non prima.</strong> In entrambe le colonne il reintegro somma alla giacenza e registra un movimento di tipo <span class="kv">carico</span>. Da qui il ciclo torna alla tappa 2 — lo scarico — e ricomincia: per un articolo attivo non esiste un ultimo giro.</p>
+    </div>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">C</span>
+      <h2>Le due vie per scaricare</h2>
+      <p class="sec-note">Stessa schermata di scarico in fondo — <span class="kv">ScaricoGate</span> — raggiunta da due punti di partenza diversi, per due modi di lavorare diversi.</p>
+    </div>
+
+    <div class="branch">
+      <div class="b-qr">
+        <span class="cond">Punto di partenza: l'etichetta fisica sull'articolo</span>
+        <h4>QR singolo</h4>
+        <p>Si scansiona l'etichetta identificativa incollata sul contenitore e si apre direttamente <span class="route">/ferramenta/scarico/{id}</span>. È il percorso naturale quando si lavora fisicamente al magazzino, articolo per articolo, senza sapere in anticipo quale ODP lo sta consumando — l'ODP, se lo si conosce, si aggiunge lì sul momento, cercandolo per numero o cliente.</p>
+      </div>
+      <div class="b-foglio">
+        <span class="cond">Punto di partenza: la distinta di un ODP specifico</span>
+        <h4>Foglio di Scarico</h4>
+        <p>Si parte al contrario: da <span class="route">/ferramenta/fogli-scarico</span> si apre l'ODP che interessa e si vede l'intera distinta A Pezzo con lo stato di ogni riga — <span class="chip chip-neutral">Scaricato</span>, <span class="chip chip-warn">Parziale</span>, <span class="chip chip-alert">Da scaricare</span>. Da ogni riga non completa, <strong>Scarica</strong> apre lo stesso <span class="kv">ScaricoGate</span> già collegato a quell'ODP, e al termine riporta al foglio. È un lavoro riga per riga guidato dalla distinta, non un'unica conferma collettiva: ogni articolo resta un movimento a sé, ma nessuno va cercato né scansionato — lo si prende dalla lista.</p>
+      </div>
+    </div>
+
+    <div class="callout">
+      <h4>Perché il Kanban compare comunque nei Fogli di Scarico</h4>
+      <p>Un Kanban non ha mai una riga in distinta, ma può comunque essere collegato a un ODP al momento dello scarico via QR — per pura tracciabilità nello storico movimenti della pagina di dettaglio del foglio. In quel caso <span class="kv">scarico-check</span> restituisce sempre <span class="kv">pianificato: null</span>: l'avviso «superi il pianificato» in pratica scatta solo per gli articoli A Pezzo, perché solo loro possono avere una riga di distinta da superare.</p>
+    </div>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">D</span>
+      <h2>Inventario: il controllo trasversale</h2>
+      <p class="sec-note">Non è una quinta tappa del ciclo della sezione B. È un processo che lo attraversa dall'esterno, a intervalli, per correggerne le derive.</p>
+    </div>
+
+    <p class="mast-sub">Il ciclo scarico → soglia → reintegro non si ferma mai per fare spazio a un conteggio: l'inventario si apre <em>sopra</em> quel ciclo, lo intercetta articolo per articolo, e lo lascia proseguire identico a prima. Non ha una tappa fissa nell'anello perché può capitare in qualunque momento della vita di un articolo — anche a metà tra uno scarico e il successivo.</p>
+
+    <div class="flow">
+      <div class="flow-step">
+        <div class="step-n">01</div>
+        <div class="step-body">
+          <span class="step-where"><span class="route">/ferramenta/inventario</span> — un solo inventario aperto alla volta</span>
+          <h3>Apertura per ambito</h3>
+          <p>Si sceglie l'ambito da fotografare — <strong>tutto il catalogo</strong>, <strong>solo Kanban</strong>, <strong>una singola ubicazione</strong> o <strong>solo sotto scorta</strong> — e il sistema congela la giacenza teorica di ogni articolo compreso in quel momento. Aprirne un secondo mentre uno è già attivo viene rifiutato: <em>«Esiste già un inventario aperto — chiudilo prima di aprirne uno nuovo»</em>.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-n">02</div>
+        <div class="step-body">
+          <span class="step-where">Stessa etichetta QR dello scarico, comportamento diverso</span>
+          <h3>Il gate si sostituisce allo scarico</h3>
+          <p>Quando si scansiona l'etichetta di un articolo che fa parte dell'inventario aperto, <span class="route">/ferramenta/scarico/{id}</span> non mostra il modulo di scarico ma la card di conteggio: la stessa etichetta fisica serve a due scopi diversi a seconda che un inventario sia in corso o no, senza margine di errore per chi scansiona.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-n">03</div>
+        <div class="step-body">
+          <span class="step-where">Delta calcolato sulla giacenza corrente, non sulla fotografia iniziale</span>
+          <h3>Conteggio e rettifica automatica</h3>
+          <p>Il numero contato si confronta con la giacenza <strong>aggiornata al momento del conteggio</strong>, non con lo snapshot preso all'apertura: eventuali scarichi avvenuti a inventario già aperto restano validi e non vengono annullati dalla rettifica. Se il contato differisce, la giacenza viene corretta e nasce un movimento di tipo <span class="kv">rettifica</span> con il delta esatto.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-n">04</div>
+        <div class="step-body">
+          <span class="step-where"><span class="route">/ferramenta/inventario/storico</span></span>
+          <h3>Chiusura e archivio</h3>
+          <p>Contati tutti gli articoli dell'ambito, la sessione si chiude e passa allo storico. Da lì in poi il ciclo ordinario dell'articolo — sezione B — riprende esattamente da dove l'inventario lo aveva trovato, con la sola differenza di una giacenza ora allineata alla realtà.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout grey">
+      <h4>Perché non è una tappa del ciclo</h4>
+      <p>Le quattro tappe della sezione B esistono per ogni articolo, sempre, in quell'ordine. L'inventario no: è un evento periodico, deciso da chi gestisce il magazzino, che riguarda un insieme di articoli scelto di volta in volta e che può cadere su un Kanban a metà vaschetta o su un A Pezzo appena consegnato. Per questo è trattato come processo trasversale e non come quinta stazione dell'anello.</p>
+    </div>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">E</span>
+      <h2>Kanban vs A Pezzo: differenze pratiche</h2>
+      <p class="sec-note">Le sette righe che cambiano davvero il lavoro di chi scarica materiale ogni giorno.</p>
+    </div>
+
+    <div class="scroll">
+      <table class="compare">
+        <thead>
+          <tr>
+            <th>Sul campo</th>
+            <th class="col-k">Kanban</th>
+            <th>A Pezzo</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Quantità allo scarico</strong></td>
+            <td class="col-k">Fissa — la Quantità Standard Vaschetta, un solo pulsante</td>
+            <td>Libera — si digita ogni volta quanto consumato</td>
+          </tr>
+          <tr>
+            <td><strong>Distinta Kit ODP</strong></td>
+            <td class="col-k">Non applicabile — il kit rifiuta gli articoli Kanban</td>
+            <td>Sì — riga con quantità pianificata, verificata a ogni scarico</td>
+          </tr>
+          <tr>
+            <td><strong>QR di riordino dedicato</strong></td>
+            <td class="col-k">Sì — <span class="kv">/riordino/{id}</span> con etichetta PDF di emergenza</td>
+            <td>No — nessuna scheda di riordino esiste per un A Pezzo</td>
+          </tr>
+          <tr>
+            <td><strong>Avviso sotto soglia in interfaccia</strong></td>
+            <td class="col-k">Sì, immediato — propone di stampare l'etichetta di riordino</td>
+            <td>No — il form non ha quella schermata; si scopre dal filtro giacenze</td>
+          </tr>
+          <tr>
+            <td><strong>Precompilazione del carico</strong></td>
+            <td class="col-k">Sì — la vaschetta piena, correggibile per consegne parziali</td>
+            <td>No — quantità sempre libera</td>
+          </tr>
+          <tr>
+            <td><strong>Avviso di coerenza specifico</strong></td>
+            <td class="col-k">«Non multiplo della vaschetta» al carico</td>
+            <td>«Superi il pianificato in distinta» allo scarico con ODP</td>
+          </tr>
+          <tr>
+            <td><strong>Quando si sceglie questo metodo</strong></td>
+            <td class="col-k">Minuteria standard, alta rotazione, consumo prevedibile a vista</td>
+            <td>Componenti su misura o legati a una commessa specifica</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="grid-2">
+      <div class="callout">
+        <h4>Cosa resta uguale per entrambi</h4>
+        <p>La notifica webhook di sotto scorta verso n8n parte per <strong>entrambi</strong> i metodi al primo attraversamento della soglia minima — cambia solo se compare o no un'azione immediata in interfaccia. Anche il registro movimenti è identico nella forma: operatore, quantità, giacenza precedente e risultante, qualunque sia il metodo.</p>
+      </div>
+      <div class="callout warn">
+        <h4>Cambiare metodo a un articolo già in uso</h4>
+        <p>Riclassificare un articolo da un metodo all'altro è possibile dall'Anagrafica in qualsiasi momento, ma sposta di netto il suo ciclo da una colonna all'altra della sezione B: un Kanban appena diventato A Pezzo perde il QR di riordino, un A Pezzo diventato Kanban esce da ogni distinta Kit già scritta per lui. Conviene farlo solo fuori da una lavorazione in corso.</p>
+      </div>
+    </div>
+
+  <footer class="mast-meta" style="border-top:2px solid var(--ink);padding-top:14px">
+    <span>MES Modar · Processo 08 · Flusso Ferramenta</span>
+    <span>Documento generato dal codice sorgente del MES</span>
+  </footer>
+
+</div>

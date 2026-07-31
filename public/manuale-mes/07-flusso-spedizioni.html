@@ -1,0 +1,893 @@
+<title>MES Modar — Flusso Spedizioni</title>
+<style>
+  :root {
+    --brand:        #E87722;
+    --brand-ui:     #F08F25;
+    --brand-deep:   #C06A10;
+    --ink:          #1A1918;
+    --grey:         #6B6560;
+    --grey-soft:    #888780;
+    --paper:        #F5F2EE;
+    --card:         #FFFFFF;
+    --rule:         #E2DDD5;
+    --rule-soft:    #EEE9E2;
+
+    --ok:           #2E8B4F;
+    --ok-bg:        #EAF6EE;
+    --ok-ink:       #1F6337;
+    --stop:         #C0392B;
+    --stop-bg:      #FBECEA;
+    --stop-ink:     #97281C;
+    --mark:         #FFE066;
+    --info-bg:      #EDF2FA;
+    --info-ink:     #1E40AF;
+
+    --font-display: 'Cormorant Garamond', 'Cormorant', Georgia, 'Times New Roman', serif;
+    --font-body:    Arial, Helvetica, 'Helvetica Neue', sans-serif;
+    --font-data:    ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+
+    --measure: 62rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:     #131211;
+      --card:      #1C1A18;
+      --ink:       #F2EDE6;
+      --grey:      #B2ABA3;
+      --grey-soft: #8B837B;
+      --rule:      #322E2A;
+      --rule-soft: #262320;
+      --brand:     #F1913D;
+      --brand-ui:  #F5A845;
+
+      --ok-bg:   #16261C;
+      --ok-ink:  #7BC894;
+      --stop-bg: #2A1715;
+      --stop-ink:#EC8377;
+      --info-bg: #171E2C;
+      --info-ink:#93B4F0;
+      --mark:    #6E5C1E;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:     #131211;
+    --card:      #1C1A18;
+    --ink:       #F2EDE6;
+    --grey:      #B2ABA3;
+    --grey-soft: #8B837B;
+    --rule:      #322E2A;
+    --rule-soft: #262320;
+    --brand:     #F1913D;
+    --brand-ui:  #F5A845;
+
+    --ok-bg:   #16261C;
+    --ok-ink:  #7BC894;
+    --stop-bg: #2A1715;
+    --stop-ink:#EC8377;
+    --info-bg: #171E2C;
+    --info-ink:#93B4F0;
+    --mark:    #6E5C1E;
+  }
+  :root[data-theme="light"] {
+    --paper:     #F5F2EE;
+    --card:      #FFFFFF;
+    --ink:       #1A1918;
+    --grey:      #6B6560;
+    --grey-soft: #888780;
+    --rule:      #E2DDD5;
+    --rule-soft: #EEE9E2;
+    --brand:     #E87722;
+    --brand-ui:  #F08F25;
+
+    --ok-bg:   #EAF6EE;
+    --ok-ink:  #1F6337;
+    --stop-bg: #FBECEA;
+    --stop-ink:#97281C;
+    --info-bg: #EDF2FA;
+    --info-ink:#1E40AF;
+    --mark:    #FFE066;
+  }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .sheet {
+    max-width: var(--measure);
+    margin: 0 auto;
+    padding: 40px 28px 72px;
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+  }
+
+  /* ── Testata ─────────────────────────────────────────── */
+  .masthead {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 18px;
+  }
+  .brandline {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .brandline img {
+    width: 42px; height: 42px;
+    object-fit: contain;
+    background: #fff;
+    border-radius: 3px;
+    padding: 3px;
+    box-sizing: border-box;
+  }
+  .brandline .wordmark {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--grey);
+  }
+  .brandline .chapter {
+    margin-left: auto;
+    font-family: var(--font-data);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--grey-soft);
+  }
+  .masthead h1 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(2.4rem, 6vw, 3.6rem);
+    line-height: 1.02;
+    letter-spacing: -0.01em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .masthead h1 em {
+    font-style: normal;
+    color: var(--brand);
+  }
+  .standfirst {
+    max-width: 48rem;
+    margin: 0;
+    font-size: 16px;
+    color: var(--grey);
+  }
+  .standfirst a { color: var(--brand-deep); }
+
+  /* ── Sezioni ─────────────────────────────────────────── */
+  section { display: flex; flex-direction: column; gap: 16px; }
+
+  .eyebrow {
+    font-family: var(--font-data);
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--brand);
+    margin: 0;
+  }
+  h2 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(1.5rem, 3.4vw, 2rem);
+    line-height: 1.12;
+    margin: 0;
+    text-wrap: balance;
+  }
+  h3 {
+    font-family: var(--font-display);
+    font-size: 19px;
+    font-weight: 700;
+    margin: 0;
+  }
+  h4 {
+    font-family: var(--font-display);
+    font-size: 16.5px;
+    font-weight: 700;
+    margin: 0;
+  }
+  p { margin: 0; max-width: 46rem; }
+  .lede { color: var(--grey); }
+
+  code, .mono {
+    font-family: var(--font-data);
+    font-size: 0.86em;
+    background: var(--rule-soft);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 1px 5px;
+    white-space: nowrap;
+  }
+  a { color: var(--brand-deep); }
+
+  /* ── Catena stati ────────────────────────────────────── */
+  .chain-wrap { overflow-x: auto; padding-bottom: 4px; }
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    min-width: max-content;
+  }
+  .state {
+    font-size: 12.5px;
+    padding: 6px 11px;
+    border-radius: 3px;
+    border: 1px solid var(--rule);
+    background: var(--card);
+    color: var(--grey);
+    white-space: nowrap;
+  }
+  .state.here {
+    border-color: var(--brand);
+    background: var(--brand);
+    color: #fff;
+    font-weight: 700;
+  }
+  .state.prev { border-color: var(--rule); background: var(--info-bg); color: var(--info-ink); }
+  .state.next { background: var(--ok-bg); color: var(--ok-ink); border-color: transparent; }
+  .arrow { color: var(--grey-soft); font-size: 13px; }
+
+  /* ── Flusso a step (rif. 01 · Il flusso Import Scheda) ── */
+  .flow { display: flex; flex-direction: column; gap: 0; }
+  .flow-step {
+    display: grid;
+    grid-template-columns: 52px 1fr;
+    gap: 16px;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .flow-step:last-child { border-bottom: 0; }
+  .step-n {
+    font-family: var(--font-data);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--brand);
+    letter-spacing: 0.06em;
+    padding-top: 4px;
+    border-right: 1px solid var(--rule);
+    padding-right: 12px;
+  }
+  .step-body { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+  .step-body h3 { font-size: 18.5px; }
+  .step-body p { font-size: 13.5px; color: var(--grey); max-width: 72ch; }
+  .step-where {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--grey-soft);
+    font-weight: 700;
+  }
+  .tight { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; max-width: 72ch; }
+  .tight li { font-size: 13.5px; color: var(--grey); }
+  .tight li strong { color: var(--ink); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .route {
+    font-family: var(--font-data);
+    font-size: 11px;
+    color: var(--ink);
+    background: var(--rule-soft);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 3px 8px;
+  }
+  .route .verb { color: var(--brand); font-weight: 700; }
+
+  /* ── Bivio (rif. 02 · branch) ────────────────────────── */
+  .branch {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 0;
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--card);
+  }
+  .branch > div {
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border-top: 4px solid var(--rule);
+  }
+  .branch > div + div { border-left: 1px solid var(--rule); }
+  .branch .b-normale { border-top-color: var(--brand); }
+  .branch .b-forza { border-top-color: var(--stop); }
+  .branch .cond {
+    font-family: var(--font-data);
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--grey-soft);
+    font-weight: 700;
+  }
+  .branch h4 { font-size: 17px; }
+  .branch p { font-size: 13px; color: var(--grey); }
+  .branch .tight { margin-top: 2px; }
+
+  /* ── Tabelle ─────────────────────────────────────────── */
+  .table-wrap { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+  }
+  th {
+    text-align: left;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--grey-soft);
+    font-weight: 700;
+    padding: 9px 13px;
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+  td {
+    padding: 9px 13px;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: top;
+    color: var(--grey);
+  }
+  td:first-child { color: var(--ink); font-weight: 700; }
+  tr:last-child td { border-bottom: none; }
+  td .verb { display: inline-block; min-width: 3.2em; font-weight: 700; color: var(--brand); font-family: var(--font-data); }
+
+  /* ── Callout ─────────────────────────────────────────── */
+  .callout {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--brand);
+    border-radius: 5px;
+    padding: 14px 18px;
+    font-size: 13.5px;
+    color: var(--grey);
+    max-width: 52rem;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .callout strong { color: var(--ink); }
+  .callout.stop { border-left-color: var(--stop); }
+  .callout .lock-title {
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  /* ── Infra / archivi ─────────────────────────────────── */
+  .infra {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+  }
+  .store {
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--brand);
+    border-radius: 5px;
+    background: var(--card);
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .store .who { font-weight: 700; font-size: 13.5px; }
+  .store .what { font-size: 12.5px; color: var(--grey); }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 16px;
+    font-size: 11.5px;
+    color: var(--grey-soft);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  footer .files { font-family: var(--font-data); font-size: 11px; line-height: 1.9; }
+
+  @media (max-width: 720px) {
+    .flow-step { grid-template-columns: 30px 1fr; }
+    .step-n { font-size: 11px; padding-right: 8px; }
+    .branch { grid-template-columns: 1fr; }
+    .branch > div + div { border-left: none; }
+  }
+
+  /* ── Stampa A4 ───────────────────────────────────────── */
+  @media print {
+    @page { size: A4 portrait; margin: 14mm 13mm; }
+    :root {
+      --paper: #FFFFFF; --card: #FFFFFF; --ink: #1A1918;
+      --grey: #57524D; --grey-soft: #7C766F;
+      --rule: #D6D0C8; --rule-soft: #E8E3DB;
+      --brand: #E87722; --brand-ui: #F08F25;
+    }
+    body { background: #fff; font-size: 10.2pt; line-height: 1.45; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .sheet { max-width: none; padding: 0; gap: 20px; }
+    .masthead h1 { font-size: 26pt; }
+    h2 { font-size: 15pt; }
+    section, .flow-step, .tile, .store, .callout, table, .branch > div { break-inside: avoid; }
+    section { break-inside: auto; }
+    .chain-wrap, .table-wrap { overflow: visible; }
+    .chain { flex-wrap: wrap; min-width: 0; }
+    footer { break-before: avoid; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+  :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+</style>
+
+<div class="sheet">
+
+  <header class="masthead">
+    <div class="brandline">
+      <img src="data:image/jpeg;base64,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" alt="Modar" />
+      <span class="wordmark">Modar &middot; MES Dashboard</span>
+      <span class="chapter">Manuale di processo &mdash; 07</span>
+    </div>
+    <h1>Flusso <em>Spedizioni</em></h1>
+    <p class="standfirst">
+      Un ODP entra nell'elenco &ldquo;da spedire&rdquo;, viene preso in carico, verificato pezzo per pezzo &mdash; o
+      forzato &mdash; e si chiude con la merce pronta a lasciare l'azienda. Questa pagina segue quella sequenza
+      attraverso le tre tecnologie che la sostengono &mdash; PostgreSQL, Google Drive, Notion &mdash; passo per passo,
+      lock compreso. Per permessi e interfaccia per ruolo vedi il capitolo <strong>04 &mdash; Ruolo Spedizioni</strong>:
+      qui il taglio è il processo, non lo schermo.
+    </p>
+  </header>
+
+  <!-- 1. INGRESSO -->
+  <section>
+    <p class="eyebrow">01 &mdash; Il punto di ingresso</p>
+    <h2>Da &ldquo;Materiale Pronto&rdquo; all'elenco da spedire</h2>
+    <p class="lede">
+      La verifica di spedizione non fa avanzare l'ODP lungo tutta la produzione: interviene su un solo tratto del
+      percorso, quello evidenziato. Tutto ciò che precede &mdash; lavorazione interna o esterna, carico a magazzino
+      &mdash; è già accaduto quando la scheda compare in <code>/spedizioni</code>.
+    </p>
+
+    <div class="chain-wrap">
+      <div class="chain">
+        <span class="state">Da Iniziare</span>
+        <span class="arrow">&rarr;</span>
+        <span class="state">In lavorazione</span>
+        <span class="arrow">&rarr;</span>
+        <span class="state">In lavorazione Esterna</span>
+        <span class="arrow">&rarr;</span>
+        <span class="state here">Materiale Pronto</span>
+        <span class="arrow">&rarr;</span>
+        <span class="state next">Verificato</span>
+        <span class="arrow">&rarr;</span>
+        <span class="state">Completato</span>
+      </div>
+    </div>
+
+    <p class="lede">
+      <strong>Materiale Pronto</strong> è lo stato Notion che porta una scheda in questa lista: non è un filtro
+      lato server, è una spunta &ldquo;Solo Materiale Pronto&rdquo; attiva di default nell'interfaccia. Da qui in poi
+      il processo lascia il dominio esclusivo di Notion ed entra in un sotto-sistema proprio &mdash; tabella
+      PostgreSQL <code>verifiche_spedizione</code> &mdash; che tiene lock, annotazioni, foto e log per ogni scheda.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Chi popola la lista</th><th>Cosa legge</th><th>A cosa serve</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Pagina <span class="mono">/spedizioni</span></td>
+            <td>Notion, lato server: <span class="mono">getSchede()</span> + <span class="mono">getSottoschede()</span>,
+              filtrate sul formato ODP <span class="mono">/^MP\d{2}-\d{3}$/i</span></td>
+            <td>Genera l'elenco iniziale mostrato al caricamento della pagina, sottoschede annidate sotto la scheda padre</td>
+          </tr>
+          <tr>
+            <td><span class="route"><span class="verb">GET</span> /api/verifiche</span></td>
+            <td>PostgreSQL: due liste, <span class="mono">inVerifica</span> e <span class="mono">verificate</span></td>
+            <td>Colora le righe già note al database &mdash; pallino rosso lampeggiante o verde &mdash; sovrapponendosi all'elenco Notion</td>
+          </tr>
+          <tr>
+            <td><span class="route"><span class="verb">GET</span> /api/verifiche/odp-list</span></td>
+            <td>Stessa query Notion e stesso filtro ODP della pagina, ma dietro una route JSON autonoma</td>
+            <td>Non è chiamata dall'interfaccia attuale: espone la stessa lista senza passare dal rendering server della pagina, utile per un refresh mirato o un consumo esterno</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 2. LA SEQUENZA -->
+  <section>
+    <p class="eyebrow">02 &mdash; La sequenza, passo per passo</p>
+    <h2>Dalla lista alla scheda chiusa</h2>
+    <p class="lede">
+      Sette passaggi reali, con un bivio al centro. I primi due valgono per qualunque scheda; al terzo si decide se
+      procedere con la verifica passo&#8209;passo o con la forzatura; gli ultimi convergono comunque sullo stesso esito.
+    </p>
+
+    <div class="flow">
+
+      <div class="flow-step">
+        <div class="step-n">01</div>
+        <div class="step-body">
+          <span class="step-where">Nel browser &middot; /spedizioni</span>
+          <h3>Si sceglie l'ODP</h3>
+          <p>
+            L'operatore filtra per commessa o cerca il codice, espande le eventuali sottoschede e valuta la riga:
+            se la proprietà Notion <span class="mono">PDF Allegato</span> è vuota compare l'etichetta
+            <strong>NO SCHEDA</strong> al posto del pulsante <strong>Apri</strong> &mdash; su quella riga l'unica
+            strada praticabile sarà la forzatura al passo 03.
+          </p>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-n">02</div>
+        <div class="step-body">
+          <span class="step-where">Server &middot; concorrenza</span>
+          <h3>Presa in carico: il lock</h3>
+          <p>
+            Aprire la scheda richiede prima un lock pessimistico sulla riga <span class="mono">verifiche_spedizione</span>
+            corrispondente al <span class="mono">notion_page_id</span>. Se nessuno la sta lavorando &mdash; o il lock
+            di un collega è scaduto &mdash; viene concesso con validità <strong>30 minuti</strong> e l'apertura
+            prosegue al passo 03. Se è di un altro operatore e non è scaduto, la richiesta torna <span class="mono">423</span>
+            con nome e orario di scadenza: l'operatore resta sulla lista.
+          </p>
+          <div class="chips">
+            <span class="route"><span class="verb">POST</span> /api/verifiche/&lt;id&gt;/lock</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-n">03</div>
+        <div class="step-body">
+          <h3>Il bivio: verifica passo-passo o forzatura</h3>
+          <p class="step-where">Pulsante premuto in tabella &mdash; decide tutto il resto del percorso</p>
+          <p>
+            Il pulsante <strong>Forza&nbsp;&#10003;</strong> non compare solo quando manca il PDF: per i ruoli
+            <code>admin</code> e <code>spedizioni</code> resta disponibile anche accanto a una scheda con PDF
+            regolare, come scorciatoia deliberata. È la condizione reale a decidere quale percorso ha senso seguire.
+          </p>
+          <div class="branch">
+            <div class="b-normale">
+              <span class="cond">PDF presente &middot; si vuole una prova firmata</span>
+              <h4>Verifica passo-passo</h4>
+              <p>
+                Si apre il PDF originale, si annotano righe e mancanze, si documenta con foto e si finalizza: la
+                scheda produce un PDF di verifica allegato su Drive e su Notion. È il percorso ordinario, descritto
+                nei passi 04&ndash;06.
+              </p>
+            </div>
+            <div class="b-forza">
+              <span class="cond">PDF assente, oppure scorciatoia admin/spedizioni</span>
+              <h4>Forzatura</h4>
+              <p>
+                Un'unica chiamata marca la scheda come verificata, senza annotazioni, senza foto, senza alcun PDF
+                generato. Riservata ai ruoli <code>admin</code> e <code>spedizioni</code>, richiede conferma esplicita
+                nell'interfaccia ed è registrata nel log come le altre azioni. Salta direttamente al passo 07.
+              </p>
+              <div class="chips">
+                <span class="route"><span class="verb">POST</span> /api/verifiche/&lt;id&gt;/force-verify</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-n">04</div>
+        <div class="step-body">
+          <span class="step-where">Solo verifica passo-passo &middot; browser + server</span>
+          <h3>Si apre il PDF e si ritrova lo stato pregresso</h3>
+          <p>
+            Il server scarica il file dalla proprietà <span class="mono">PDF Allegato</span> della pagina Notion; nel
+            frattempo il record PostgreSQL della scheda torna indietro con tratti, bolli, pagina corrente e foto già
+            presenti, se la verifica era stata aperta e interrotta in precedenza. L'operatore riprende esattamente
+            da dove l'aveva lasciata, anche da un altro dispositivo.
+          </p>
+          <div class="chips">
+            <span class="route"><span class="verb">GET</span> /api/verifiche/&lt;id&gt;</span>
+            <span class="route"><span class="verb">GET</span> /api/verifiche/&lt;id&gt;/pdf-originale</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-n">05</div>
+        <div class="step-body">
+          <span class="step-where">Solo verifica passo-passo &middot; browser + server</span>
+          <h3>Si annota e si fotografa</h3>
+          <p>
+            Ogni tratto e bollo viene salvato 2 secondi dopo l'ultima modifica; un secondo timer, indipendente dalle
+            modifiche, rinnova comunque tutto ogni <strong>10 minuti</strong>. Le foto non aspettano la fine: vengono
+            ridotte a 1400&nbsp;px lato lungo, caricate su Drive e registrate <strong>allo scatto</strong>, non alla
+            finalizzazione &mdash; anche chiudendo la scheda a metà, nessuna foto già scattata va perduta.
+          </p>
+          <ul class="tight">
+            <li>Ogni salvataggio e ogni foto <strong>richiedono il lock</strong>: se nel frattempo è scaduto o è stato
+              tolto, la richiesta torna <span class="mono">423</span> e occorre riaprire la scheda</li>
+            <li>Il limite per singola foto è <strong>2&nbsp;MB</strong>, applicato lato server oltre che nella compressione client</li>
+          </ul>
+          <div class="chips">
+            <span class="route"><span class="verb">POST</span> /api/verifiche/&lt;id&gt;/progress</span>
+            <span class="route"><span class="verb">POST</span> /api/verifiche/&lt;id&gt;/foto</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-n">06</div>
+        <div class="step-body">
+          <span class="step-where">Solo verifica passo-passo &middot; server</span>
+          <h3>Si finalizza</h3>
+          <p>
+            Un'unica chiamata costruisce il PDF definitivo lato server: PDF originale da Notion, tratti e bolli
+            dalle annotazioni salvate in PostgreSQL, e <strong>tutte</strong> le foto della scheda scaricate da Drive
+            &mdash; comprese quelle di sessioni precedenti, non solo quelle dell'ultimo aperto/chiuso. Il documento
+            finito viene ricaricato su Drive, la verifica marcata <span class="mono">verificato</span> in PostgreSQL
+            e il lock rilasciato. Un secondo tentativo sulla stessa scheda torna <span class="mono">409</span>: non
+            viene mai generato un secondo PDF.
+          </p>
+          <div class="chips">
+            <span class="route"><span class="verb">POST</span> /api/verifiche/&lt;id&gt;/finalize</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-n">07</div>
+        <div class="step-body">
+          <span class="step-where">Esito comune ai due percorsi</span>
+          <h3>La scheda risulta verificata</h3>
+          <p>
+            In entrambi i casi la proprietà Notion <span class="mono">Stato</span> passa a <strong>Verificato</strong>
+            e la lista viene rigenerata (<span class="mono">revalidatePath("/spedizioni")</span>): la riga smette di
+            lampeggiare rossa e diventa verde per chiunque la guardi. Ciò che resta diverso è cosa c'è dietro quel
+            colore &mdash; la tabella in fondo alla pagina lo mette a confronto archivio per archivio.
+          </p>
+          <p>
+            Se Notion non risponde in questo momento, l'operazione non si annulla: il PDF (quando esiste) resta al
+            sicuro su Drive e la verifica risulta comunque chiusa in PostgreSQL; la mancata sincronizzazione resta
+            marcata per il recupero, non silenziosamente persa.
+          </p>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="callout">
+      <strong>Uscire senza finalizzare.</strong> Chiudere la scheda dall'interfaccia salva il progresso corrente e
+      rilascia subito il lock, senza toccare lo stato: la riga torna disponibile per chiunque, incluso lo stesso
+      operatore in un secondo momento. È la via normale per una verifica lunga che continua più tardi o su un altro
+      dispositivo &mdash; diversa dalla scadenza automatica del lock dopo 30 minuti di inattività.
+    </div>
+  </section>
+
+  <!-- 3. IL LOCK -->
+  <section>
+    <p class="eyebrow">03 &mdash; Concorrenza</p>
+    <h2>Il lock: perché esiste, cosa non copre</h2>
+    <p class="lede">
+      Una sola riga PostgreSQL per <span class="mono">notion_page_id</span> tiene lo stato dell'intera verifica:
+      chi la sta lavorando, fino a quando, con quali tratti e quali foto. Il lock è il meccanismo che decide chi ha
+      il diritto di scriverci in un dato momento.
+    </p>
+
+    <div class="callout">
+      <span class="lock-title">A cosa serve</span>
+      <p>
+        Senza un lock, due operatori potrebbero aprire lo stesso ODP da due dispositivi e annotarlo in parallelo:
+        ogni autosalvataggio sovrascrive l'intero campo <span class="mono">annotazioni</span>, quindi l'ultimo che
+        salva cancellerebbe silenziosamente il lavoro dell'altro. Il lock rende l'apertura esclusiva: <strong>un
+        solo operatore alla volta</strong> può annotare, fotografare o finalizzare una data scheda.
+      </p>
+      <p>
+        Il TTL è di <strong>30 minuti</strong> e si rinnova automaticamente a ogni salvataggio (2 secondi dopo una
+        modifica) e da un heartbeat indipendente ogni <strong>10 minuti</strong>, così anche una lunga sessione di
+        sola lettura &mdash; senza modifiche che scatenino un salvataggio &mdash; resta protetta. Scaduto il TTL,
+        chiunque può subentrare: la richiesta di lock lo segnala nel registro come <span class="mono">lock_subentro</span>
+        invece di <span class="mono">lock_acquisito</span>.
+      </p>
+    </div>
+
+    <div class="callout stop">
+      <span class="lock-title">Cosa NON previene</span>
+      <p>
+        <strong>La forzatura non controlla il lock, non lo richiede e non lo rispetta.</strong> La query di
+        <span class="mono">force-verify</span> marca la riga come <span class="mono">verificato</span> e azzera
+        <span class="mono">lock_operatore</span>/<span class="mono">lock_scadenza</span> <em>incondizionatamente</em>,
+        indipendentemente da chi li deteneva in quel momento.
+      </p>
+      <p>
+        Scenario concreto: l'operatore A ha il lock e sta ancora annotando la scheda; nel frattempo un admin preme
+        <strong>Forza&nbsp;&#10003;</strong> sulla stessa riga per sveltire l'uscita del carico. Il prossimo
+        salvataggio di A &mdash; automatico o manuale &mdash; trova il lock azzerato e torna <span class="mono">423
+        &ldquo;Lock non detenuto o scaduto&rdquo;</span>: A deve chiudere la scheda. Le annotazioni già salvate
+        restano in PostgreSQL, ma nessun PDF verrà mai costruito da esse, perché la scheda risulta già verificata.
+        Utile da sapere in fase di debug se un operatore segnala un salvataggio rifiutato senza una spiegazione
+        visibile in interfaccia.
+      </p>
+    </div>
+  </section>
+
+  <!-- 4. ARCHIVI A CONFRONTO -->
+  <section>
+    <p class="eyebrow">04 &mdash; Stesso esito, archivi diversi</p>
+    <h2>Cosa scrive davvero ciascun percorso</h2>
+    <p class="lede">
+      Il badge in tabella diventa verde in entrambi i casi. Dietro quel colore, i tre archivi coinvolti nel processo
+      finiscono in stati molto diversi a seconda del percorso seguito.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Archivio</th><th>Verifica passo-passo</th><th>Forzatura</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>PostgreSQL<br /><span class="mono" style="white-space:normal;">verifiche_spedizione</span></td>
+            <td><span class="mono">stato=verificato</span>, <span class="mono">annotazioni</span> e
+              <span class="mono">foto_count</span> valorizzati, <span class="mono">pdf_drive_id/url</span> compilati</td>
+            <td><span class="mono">stato=verificato</span>, nessun'altra colonna toccata &mdash; se la riga non
+              esisteva viene creata vuota, se esisteva resta com'era</td>
+          </tr>
+          <tr>
+            <td>Google Drive</td>
+            <td>Sottocartella ODP con tutte le foto scattate e il PDF di verifica finale</td>
+            <td>Nessuna scrittura: nessun file creato o modificato</td>
+          </tr>
+          <tr>
+            <td>Notion &mdash; pagina ODP</td>
+            <td><span class="mono">Stato</span> &rarr; Verificato, PDF allegato in <span class="mono">PDF Scheda Verificata</span></td>
+            <td><span class="mono">Stato</span> &rarr; Verificato, proprietà PDF non toccata</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="infra">
+      <div class="store">
+        <span class="who">Registro azioni</span>
+        <span class="what">
+          Entrambi i percorsi scrivono in <span class="mono">verifiche_log</span>: la verifica passo-passo con
+          l'azione <span class="mono">finalizzazione</span> e il dettaglio del PDF; la forzatura con la stessa
+          azione ma dettaglio ridotto all'esito della sincronizzazione Notion.
+        </span>
+      </div>
+      <div class="store">
+        <span class="who">Notifica Telegram</span>
+        <span class="what">
+          Parte solo dalla finalizzazione ordinaria, con scheda, operatore, numero di foto e link al PDF. La
+          forzatura non genera alcuna notifica: è pensata come scorciatoia silenziosa, non come evento da segnalare al canale.
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. TABELLA API PER DEBUG -->
+  <section>
+    <p class="eyebrow">05 &mdash; Per chi deve fare debug</p>
+    <h2>Tutte le route del sotto-sistema, in un colpo d'occhio</h2>
+    <p class="lede">
+      Tredici combinazioni metodo+endpoint, tutte sotto <span class="mono">/api/verifiche</span>. La colonna
+      guardia indica cosa blocca la richiesta prima ancora di toccare il database.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Endpoint</th><th>Cosa fa</th><th>Guardia</th><th>Nota per il debug</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="verb">GET</span> /api/verifiche</td>
+            <td>Liste PostgreSQL <span class="mono">inVerifica</span> / <span class="mono">verificate</span></td>
+            <td>Sessione autenticata</td>
+            <td>Colora le righe dell'elenco; non tocca Notion</td>
+          </tr>
+          <tr>
+            <td><span class="verb">GET</span> /api/verifiche/odp-list</td>
+            <td>Stessa query Notion e stesso filtro ODP della SSR di <span class="mono">/spedizioni</span></td>
+            <td>Sessione autenticata</td>
+            <td>Non richiamata dall'interfaccia attuale; utile per un fetch diretto senza passare dalla pagina</td>
+          </tr>
+          <tr>
+            <td><span class="verb">GET</span> /api/verifiche/[scheda]</td>
+            <td>Record PostgreSQL della scheda + elenco foto</td>
+            <td>Sessione autenticata</td>
+            <td>Alimenta il ripristino di tratti/bolli/pagina alla riapertura</td>
+          </tr>
+          <tr>
+            <td><span class="verb">DELETE</span> /api/verifiche/[scheda]</td>
+            <td>Elimina la verifica e le foto associate (anche da Drive)</td>
+            <td>Solo <code>admin</code></td>
+            <td>Irreversibile; scrive <span class="mono">eliminata_admin</span> nel log</td>
+          </tr>
+          <tr>
+            <td><span class="verb">POST</span> /api/verifiche/[scheda]/lock</td>
+            <td>Acquisisce o rinnova il lock, TTL 30 minuti</td>
+            <td>Sessione autenticata</td>
+            <td><span class="mono">423</span> se il lock è di un altro operatore e non è scaduto</td>
+          </tr>
+          <tr>
+            <td><span class="verb">DELETE</span> /api/verifiche/[scheda]/lock</td>
+            <td>Rilascia il lock esplicitamente</td>
+            <td>Sessione autenticata, solo se proprio operatore</td>
+            <td>Chiamata alla chiusura scheda dall'interfaccia, dopo l'ultimo salvataggio</td>
+          </tr>
+          <tr>
+            <td><span class="verb">GET</span> /api/verifiche/[scheda]/pdf-originale</td>
+            <td>Proxy del PDF dalla proprietà Notion <span class="mono">PDF Allegato</span></td>
+            <td>Sessione autenticata</td>
+            <td><span class="mono">404</span> se la property è vuota su Notion</td>
+          </tr>
+          <tr>
+            <td><span class="verb">POST</span> /api/verifiche/[scheda]/progress</td>
+            <td>Salva tratti/bolli/pagina corrente e rinnova il lock</td>
+            <td>Lock detenuto dal chiamante</td>
+            <td><span class="mono">423</span> se il lock è scaduto o è stato tolto (vedi forzatura)</td>
+          </tr>
+          <tr>
+            <td><span class="verb">POST</span> /api/verifiche/[scheda]/foto</td>
+            <td>Carica una foto su Drive (max 2&nbsp;MB) e la registra</td>
+            <td>Lock detenuto dal chiamante</td>
+            <td>Scrittura immediata: sopravvive anche a una sessione interrotta</td>
+          </tr>
+          <tr>
+            <td><span class="verb">DELETE</span> /api/verifiche/[scheda]/foto/[fotoId]</td>
+            <td>Rimuove una foto da Drive e da PostgreSQL</td>
+            <td>Lock detenuto dal chiamante</td>
+            <td>Fallimento della pulizia Drive loggato ma non bloccante</td>
+          </tr>
+          <tr>
+            <td><span class="verb">POST</span> /api/verifiche/[scheda]/finalize</td>
+            <td>Costruisce il PDF unito, lo carica su Drive, marca verificato, aggiorna Notion</td>
+            <td>Lock detenuto dal chiamante</td>
+            <td><span class="mono">409</span> se già finalizzata (<span class="mono">ALREADY_FINALIZED</span>)</td>
+          </tr>
+          <tr>
+            <td><span class="verb">POST</span> /api/verifiche/[scheda]/force-verify</td>
+            <td>Marca verificato senza PDF, aggiorna Notion</td>
+            <td>Solo <code>admin</code> / <code>spedizioni</code></td>
+            <td><strong>Non controlla il lock</strong>: lo azzera comunque, anche se detenuto da altri</td>
+          </tr>
+          <tr>
+            <td><span class="verb">GET</span> /api/verifiche/[scheda]/log</td>
+            <td>Cronologia azioni della scheda, append-only</td>
+            <td>Sessione autenticata</td>
+            <td>Prima cosa da controllare quando un operatore segnala un comportamento inatteso</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <div>MES Modar &mdash; manuale di processo, capitolo 07. Documento ricostruito dal codice sorgente del progetto.</div>
+    <div class="files">
+      src/app/(app)/spedizioni/page.tsx &middot; src/components/SpedizioneVerifica.tsx<br />
+      src/app/api/verifiche/ &mdash; route.ts, odp-list/, [scheda]/route.ts, lock/, foto/, foto/[fotoId]/,
+      progress/, force-verify/, finalize/, pdf-originale/, log/<br />
+      src/lib/verificheServices.ts &middot; src/lib/auth.ts<br />
+      verifiche-backend/ &mdash; verificheRepository.js, notionService.js, driveService.js, pdfBuilder.js, schema.sql
+    </div>
+  </footer>
+
+</div>
