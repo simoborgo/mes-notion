@@ -1,0 +1,558 @@
+<title>MES Modar — Panoramica Generale</title>
+
+<style>
+/* ============================================================
+   MES Modar — Panoramica generale (poster A3 orizzontale)
+   Palette e tipografia derivate dai materiali esistenti:
+   - #E87722  arancio Modar        (src/lib/excel/programmaRiunione.ts)
+   - #1A1918  nero testo           (src/app/globals.css --color-black)
+   - #6B6560  grigio testo         (--color-grey-mid)
+   - #888780  grigio dati          (programmaRiunione.ts GRIGIO_TESTO)
+   - #F5F2EE  off-white sfondo     (--color-offwhite)
+   - badge area = badge stato commessa dei report Excel
+   ============================================================ */
+
+:root {
+  --accent:      #E87722;
+  --accent-deep: #C06A10;
+  --accent-soft: #FDE8D0;
+
+  --ink:    #1A1918;
+  --muted:  #6B6560;
+  --faint:  #888780;
+
+  --paper:  #F5F2EE;
+  --card:   #FFFFFF;
+  --band:   #F5F5F3;
+  --rule:   #E0DED8;
+  --rule-soft: #F0ECE5;
+
+  /* Aree funzionali — stessi accoppiamenti sfondo/testo dei badge
+     stato commessa nei report Excel del MES */
+  --prod-bg: #E6F1FB;  --prod-fg: #0C447C;
+  --log-bg:  #EAF3DE;  --log-fg:  #27500A;
+  --ferr-bg: #FAEEDA;  --ferr-fg: #633806;
+  --amm-bg:  #EEEDFE;  --amm-fg:  #3C3489;
+
+  --desk: #DAD4CB;
+  --desk-line: rgba(26, 25, 24, .10);
+
+  --display: 'Cormorant Garamond', Garamond, 'Times New Roman', Times, serif;
+  --body: Arial, 'Helvetica Neue', Helvetica, sans-serif;
+}
+
+/* Il foglio è carta stampata: resta sempre color carta.
+   Cambia solo il piano d'appoggio attorno, per non abbagliare al buio. */
+@media (prefers-color-scheme: dark) {
+  :root { --desk: #201E1C; --desk-line: rgba(255, 255, 255, .06); }
+}
+:root[data-theme="dark"]  { --desk: #201E1C; --desk-line: rgba(255, 255, 255, .06); }
+:root[data-theme="light"] { --desk: #DAD4CB; --desk-line: rgba(26, 25, 24, .10); }
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--desk);
+  background-image: linear-gradient(var(--desk-line) 1px, transparent 1px),
+                    linear-gradient(90deg, var(--desk-line) 1px, transparent 1px);
+  background-size: 24px 24px;
+  font-family: var(--body);
+  color: var(--ink);
+  display: flex;
+  justify-content: center;
+  padding: 24px 0 48px;
+}
+
+.stage { overflow-x: auto; }
+
+.sheet {
+  width: 420mm;
+  height: 297mm;
+  flex: none;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 2px 4px rgba(0,0,0,.10), 0 18px 48px rgba(0,0,0,.22);
+  transform-origin: top center;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  padding: 13mm 14mm 10mm;
+  gap: 7mm;
+}
+
+/* ---------- tipografia ---------- */
+.sheet h1, .sheet h2, .sheet h3 { margin: 0; font-family: var(--display); font-weight: 700; text-wrap: balance; }
+
+.eyebrow {
+  font-family: var(--body);
+  font-size: 7pt;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.route {
+  font-family: var(--body);
+  font-size: 6.6pt;
+  letter-spacing: .02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--faint);
+}
+
+/* ---------- pastiglie sorgente dati ---------- */
+.src {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 6.2pt;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  padding: 1px 4px 1px 3px;
+  border-radius: 2px;
+  border: 1px solid;
+}
+.src svg { display: block; flex: none; }
+.src-notion   { color: var(--muted); border-color: var(--rule);   background: #FFFFFF; }
+.src-postgres { color: var(--accent-deep); border-color: #F1D3AE; background: var(--accent-soft); }
+.src-mix      { color: var(--muted); border-color: var(--rule);   background: linear-gradient(100deg, #FFFFFF 46%, var(--accent-soft) 54%); }
+
+/* ---------- intestazione ---------- */
+.masthead {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: end;
+  gap: 8mm;
+  padding-bottom: 4mm;
+  border-bottom: 2px solid var(--ink);
+}
+.masthead::after {
+  content: "";
+  grid-column: 1 / -1;
+  height: 3px;
+  background: var(--accent);
+  margin-bottom: -4mm;
+}
+.mark { display: flex; align-items: center; gap: 5mm; }
+.mark img { width: 26mm; height: 26mm; object-fit: contain; background: #FFFFFF; border: 1px solid var(--rule); }
+.mark h1 { font-size: 30pt; line-height: .94; letter-spacing: -.01em; }
+.mark h1 em { font-style: normal; color: var(--accent); }
+.mark .sub { font-size: 8.5pt; color: var(--muted); margin-top: 1.5mm; max-width: 92mm; line-height: 1.35; }
+
+.head-note { font-size: 7.6pt; color: var(--muted); line-height: 1.5; max-width: 76mm; }
+.head-note b { color: var(--ink); }
+
+.head-legend { display: flex; flex-direction: column; gap: 2mm; align-items: flex-end; text-align: right; }
+.head-legend .row { display: flex; align-items: center; gap: 3mm; }
+.head-legend .row span { font-size: 7.4pt; color: var(--muted); }
+.head-legend .row b { color: var(--ink); font-weight: 700; }
+
+/* ---------- titolo di fascia ---------- */
+.band-head { display: flex; align-items: baseline; gap: 4mm; margin-bottom: 3.5mm; }
+.band-head h2 { font-size: 15pt; line-height: 1; }
+.band-head p { margin: 0; font-size: 7.8pt; color: var(--muted); }
+.band-head .tick { flex: 1; height: 1px; background: var(--rule); }
+
+/* ---------- catena del flusso ---------- */
+.chain {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  column-gap: 8mm;
+  align-items: start;
+}
+.step { position: relative; display: flex; flex-direction: column; gap: 2.2mm; }
+
+/* freccia di passaggio, allineata a metà della prima scheda */
+.step.link::after,
+.step.link::before { content: ""; position: absolute; top: 16mm; }
+.step.link::after  { right: -8mm; width: 8mm; height: 1.2px; background: var(--accent); }
+.step.link::before {
+  right: -8mm; transform: translate(6.1mm, -1.5mm);
+  width: 0; height: 0;
+  border-left: 2.2mm solid var(--accent);
+  border-top: 1.6mm solid transparent;
+  border-bottom: 1.6mm solid transparent;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: 3mm 3.2mm;
+  display: flex;
+  flex-direction: column;
+  gap: 1.6mm;
+}
+.card.main { min-height: 32mm; }
+.card.side { border-style: dashed; background: transparent; }
+
+.card-head { display: flex; align-items: flex-start; gap: 2.4mm; }
+.num {
+  font-family: var(--display);
+  font-size: 17pt;
+  font-weight: 700;
+  line-height: .8;
+  color: var(--accent);
+  flex: none;
+  min-width: 6mm;
+}
+.card h3 { font-size: 11pt; line-height: 1.05; }
+.card .desc { margin: 0; font-size: 7.4pt; line-height: 1.42; color: var(--muted); }
+.card .desc b { color: var(--ink); font-weight: 700; }
+.card-foot { margin-top: auto; padding-top: 1.6mm; display: flex; align-items: center; justify-content: space-between; gap: 2mm; flex-wrap: wrap; }
+
+.chip {
+  font-size: 6.2pt; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  padding: 1.2px 4px; border-radius: 2px; border: 1px solid transparent; white-space: nowrap;
+}
+.chip-prod { background: var(--prod-bg); color: var(--prod-fg); border-color: #C9DFF4; }
+.chip-log  { background: var(--log-bg);  color: var(--log-fg);  border-color: #CFE2B7; }
+.chip-ferr { background: var(--ferr-bg); color: var(--ferr-fg); border-color: #EBD5AE; }
+.chip-amm  { background: var(--amm-bg);  color: var(--amm-fg);  border-color: #D6D3F5; }
+
+.branch { font-size: 6.6pt; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); padding-left: 1mm; }
+
+/* ritorno della rilavorazione */
+.loopback {
+  grid-column: 3 / 6;
+  margin-top: 2.5mm;
+  position: relative;
+  border-top: 1.2px dashed var(--accent);
+  height: 4.6mm;
+}
+.loopback::before {
+  content: ""; position: absolute; left: 0; top: -1.6mm;
+  width: 0; height: 0;
+  border-right: 2.2mm solid var(--accent);
+  border-top: 1.6mm solid transparent;
+  border-bottom: 1.6mm solid transparent;
+}
+.loopback span {
+  position: absolute; left: 50%; top: -1.35mm; transform: translateX(-50%);
+  background: var(--paper); padding: 0 2mm;
+  font-size: 6.6pt; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent-deep);
+}
+
+/* ---------- binario Ferramenta ---------- */
+.rail {
+  grid-column: 2 / -1;
+  margin-top: 1mm;
+  position: relative;
+  background: var(--ferr-bg);
+  border: 1px solid #EBD5AE;
+  border-radius: 2px;
+  padding: 3mm 3.5mm;
+  display: grid;
+  grid-template-columns: 46mm 1fr;
+  gap: 4mm;
+  align-items: center;
+}
+.rail .plug { position: absolute; top: -4.2mm; width: 1.2px; height: 4.2mm; background: #D8B98A; }
+.rail .plug::after {
+  content: ""; position: absolute; top: -0.2mm; left: -1.5mm;
+  width: 0; height: 0;
+  border-bottom: 1.8mm solid #D8B98A;
+  border-left: 1.6mm solid transparent;
+  border-right: 1.6mm solid transparent;
+}
+.rail h3 { font-size: 12pt; color: var(--ferr-fg); line-height: 1.02; }
+.rail .lead { margin: 1mm 0 0; font-size: 7.2pt; line-height: 1.4; color: #7A5A2A; }
+.rail-nodes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; }
+.node {
+  background: #FFFFFF;
+  border: 1px solid #EBD5AE;
+  border-radius: 2px;
+  padding: 2.2mm 2.6mm;
+  display: flex; flex-direction: column; gap: 1mm;
+}
+.node h4 { margin: 0; font-family: var(--display); font-size: 9.5pt; font-weight: 700; line-height: 1.05; color: var(--ferr-fg); }
+.node p { margin: 0; font-size: 6.8pt; line-height: 1.38; color: var(--muted); }
+
+/* ---------- mappa dei moduli ---------- */
+.map-band { display: flex; flex-direction: column; min-height: 0; }
+.map { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5mm; flex: 1; min-height: 0; }
+
+.area {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.area-head { padding: 2.6mm 3.2mm; border-bottom: 1px solid var(--rule); }
+.area-head h3 { font-size: 11.5pt; line-height: 1.02; }
+.area-head p { margin: .8mm 0 0; font-size: 6.9pt; line-height: 1.35; color: var(--muted); }
+.area-prod .area-head { background: var(--prod-bg); } .area-prod .area-head h3 { color: var(--prod-fg); }
+.area-log  .area-head { background: var(--log-bg);  } .area-log  .area-head h3 { color: var(--log-fg); }
+.area-ferr .area-head { background: var(--ferr-bg); } .area-ferr .area-head h3 { color: var(--ferr-fg); }
+.area-amm  .area-head { background: var(--amm-bg);  } .area-amm  .area-head h3 { color: var(--amm-fg); }
+
+.area-list { display: flex; flex-direction: column; }
+.mod { padding: 2.2mm 3.2mm; border-bottom: 1px solid var(--rule-soft); display: grid; grid-template-columns: 1fr auto; gap: .6mm 2mm; }
+.mod:last-child { border-bottom: 0; }
+.mod h4 { margin: 0; font-size: 8pt; font-weight: 700; line-height: 1.15; }
+.mod .src { grid-row: 1 / span 2; align-self: start; }
+.mod .route { grid-column: 1; }
+.mod .mod-desc { grid-column: 1 / -1; margin: .7mm 0 0; font-size: 6.9pt; line-height: 1.34; color: var(--muted); }
+.mod-sub { grid-column: 1 / -1; margin: .9mm 0 0; font-size: 6.4pt; line-height: 1.3; color: var(--faint); }
+.mod-sub b { color: var(--muted); font-weight: 700; }
+
+/* ---------- piede ---------- */
+.foot {
+  margin-top: 4mm;
+  padding-top: 2.6mm;
+  border-top: 1px solid var(--ink);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6mm;
+  font-size: 7pt;
+  color: var(--muted);
+}
+.foot p { margin: 0; }
+.foot b { color: var(--ink); }
+.foot .right { text-align: right; color: var(--faint); white-space: nowrap; }
+
+/* ---------- stampa: A3 orizzontale a dimensione reale ---------- */
+@media print {
+  @page { size: A3 landscape; margin: 0; }
+  body { background: none; padding: 0; display: block; }
+  .stage { overflow: visible; }
+  .sheet {
+    transform: none !important;
+    margin: 0 !important;
+    box-shadow: none;
+    break-inside: avoid;
+  }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+</style>
+
+<div class="stage">
+  <div class="sheet" id="sheet">
+    <!-- INTESTAZIONE -->
+    <header class="masthead">
+      <div class="mark">
+        <img src="__LOGO__" alt="Modar">
+        <div>
+          <p class="eyebrow" style="margin:0 0 1.5mm">Manuale del sistema · Tavola 00</p>
+          <h1>Il MES <em>Modar</em><br>a colpo d'occhio</h1>
+          <p class="sub">Come il lavoro attraversa l'azienda, dalla commessa del cliente
+            alla merce che parte per il cantiere — e quale schermata governa ogni passaggio.</p>
+        </div>
+      </div>
+
+      <p class="head-note">
+        Il MES è l'unico posto in cui produzione, logistica e magazzino guardano
+        <b>gli stessi numeri nello stesso momento</b>. Ogni riquadro di questa tavola
+        è una schermata reale dell'applicazione: chi la usa la riconosce dal nome.
+      </p>
+
+      <div class="head-legend">
+        <p class="eyebrow" style="margin:0">Dove vivono i dati</p>
+        <div class="row">
+          <span class="src src-notion">
+            <svg width="7" height="8" viewBox="0 0 7 8" aria-hidden="true"><ellipse cx="3.5" cy="1.6" rx="3" ry="1.1" fill="none" stroke="currentColor" stroke-width="1"/><path d="M.5 1.6v4.8c0 .6 1.34 1.1 3 1.1s3-.5 3-1.1V1.6" fill="none" stroke="currentColor" stroke-width="1"/></svg>
+            Notion
+          </span>
+          <span>archivio condiviso con l'ufficio</span>
+        </div>
+        <div class="row">
+          <span class="src src-postgres">
+            <svg width="7" height="8" viewBox="0 0 7 8" aria-hidden="true"><ellipse cx="3.5" cy="1.6" rx="3" ry="1.1" fill="none" stroke="currentColor" stroke-width="1"/><path d="M.5 1.6v4.8c0 .6 1.34 1.1 3 1.1s3-.5 3-1.1V1.6" fill="none" stroke="currentColor" stroke-width="1"/></svg>
+            Postgres
+          </span>
+          <span>banca dati del MES, <b>più veloce</b></span>
+        </div>
+      </div>
+    </header>
+
+    <!-- FLUSSO -->
+    <section>
+      <div class="band-head">
+        <h2>Il percorso di un lavoro</h2>
+        <p>dal PDF che arriva in ufficio alla merce che parte per il cantiere</p>
+        <div class="tick"></div>
+      </div>
+
+      <div class="chain">
+
+        <div class="step link">
+          <article class="card main">
+            <div class="card-head">
+              <span class="num">1</span>
+              <div>
+                <h3>Import Schede</h3>
+                <p class="route">/admin/import</p>
+              </div>
+            </div>
+            <p class="desc">Il PDF della scheda tecnica entra qui. L'intelligenza artificiale ne legge commessa, fornitore, quantità e termine di consegna e crea l'ODP con <b>numerazione automatica</b>.</p>
+            <div class="card-foot">
+              <span class="chip chip-amm">Amministrazione</span>
+              <span class="src src-notion"><svg width="7" height="8" viewBox="0 0 7 8" aria-hidden="true"><ellipse cx="3.5" cy="1.6" rx="3" ry="1.1" fill="none" stroke="currentColor" stroke-width="1"/><path d="M.5 1.6v4.8c0 .6 1.34 1.1 3 1.1s3-.5 3-1.1V1.6" fill="none" stroke="currentColor" stroke-width="1"/></svg>Notion</span>
+            </div>
+          </article>
+        </div>
+
+        <div class="step link">
+          <article class="card main">
+            <div class="card-head">
+              <span class="num">2</span>
+              <div>
+                <h3>Commesse</h3>
+                <p class="route">/commesse · /carichi</p>
+              </div>
+            </div>
+            <p class="desc">La commessa cliente porta le date che comandano tutto il resto: <b>data di carico</b>, inizio e fine montaggio. Da qui escono il Gantt e il programma della riunione di produzione.</p>
+            <div class="card-foot">
+              <span class="chip chip-prod">Produzione</span>
+              <span class="src src-notion"><svg width="7" height="8" viewBox="0 0 7 8" aria-hidden="true"><ellipse cx="3.5" cy="1.6" rx="3" ry="1.1" fill="none" stroke="currentColor" stroke-width="1"/><path d="M.5 1.6v4.8c0 .6 1.34 1.1 3 1.1s3-.5 3-1.1V1.6" fill="none" stroke="currentColor" stroke-width="1"/></svg>Notion</span>
+            </div>
+          </article>
+        </div>
+
+        <div class="step link">
+          <article class="card main">
+            <div class="card-head">
+              <span class="num">3</span>
+              <div>
+                <h3>Schede di Produzione</h3>
+                <p class="route">/schede</p>
+              </div>
+            </div>
+            <p class="desc">La commessa si scompone in ODP e sottoschede. È la <b>tavola di controllo del reparto</b>: stato e fase corrente di ogni pezzo, dalla sezionatura al montaggio finale.</p>
+            <div class="card-foot">
+              <span class="chip chip-prod">Produzione</span>
+              <span class="src src-notion"><svg width="7" height="8" viewBox="0 0 7 8" aria-hidden="true"><ellipse cx="3.5" cy="1.6" rx="3" ry="1.1" fill="none" stroke="currentColor" stroke-width="1"/><path d="M.5 1.6v4.8c0 .6 1.34 1.1 3 1.1s3-.5 3-1.1V1.6" fill="none" stroke="currentColor" stroke-width="1"/></svg>Notion</span>
+            </div>
+          </article>
+        </div>
+
+        <div class="step link">
+          <article class="card main">
+            <div class="card-head">
+              <span class="num">4</span>
+              <div>
+                <h3>Carico Magazzino</h3>
+                <p class="route">/carico</p>
+              </div>
+            </div>
+            <p class="desc">Il reparto dichiara il materiale <b>pronto per il ritiro o la spedizione</b>: è il segnale che fa scattare la logistica.</p>
+            <div class="card-foot">
+              <span class="chip chip-prod">Produzione</span>
+              <span class="src src-notion"><svg width="7" height="8" viewBox="0 0 7 8" aria-hidden="true"><ellipse cx="3.5" cy="1.6" rx="3" ry="1.1" fill="none" stroke="currentColor" stroke-width="1"/><path d="M.5 1.6v4.8c0 .6 1.34 1.1 3 1.1s3-.5 3-1.1V1.6" fill="none" stroke="currentColor" stroke-width="1"/></svg>Notion</span>
+            </div>
+          </article>
+          <p class="branch">In parallelo</p>
+          <article class="card side">
+            <h3>Rilevamento Ore</h3>
+            <p class="route">/ore</p>
+            <p class="desc">Le ore di ogni operatore si imputano all'ODP a fine turno: costo del lavoro, rifacimenti e KPI di reparto.</p>
+            <div class="card-foot">
+              <span class="chip chip-prod">Produzione</span>
+              <span class="src src-postgres"><svg width="7" height="8" viewBox="0 0 7 8" aria-hidden="true"><ellipse cx="3.5" cy="1.6" rx="3" ry="1.1" fill="none" stroke="currentColor" stroke-width="1"/><path d="M.5 1.6v4.8c0 .6 1.34 1.1 3 1.1s3-.5 3-1.1V1.6" fill="none" stroke="currentColor" stroke-width="1"/></svg>Postgres</span>
+            </div>
+          </article>
+        </div>
+
+        <div class="step link">
+          <article class="card main">
+            <div class="card-head">
+              <span class="num">5</span>
+              <div>
+                <h3>Ritiri e Consegne</h3>
+                <p class="route">/ritiri</p>
+              </div>
+            </div>
+            <p class="desc">Ogni movimento da e verso i <b>fornitori esterni</b>, con etichetta stampabile e foto del carico a documentare la partenza.</p>
+            <div class="card-foot">
+              <span class="chip chip-log">Logistica</span>
+              <span class="src src-notion"><svg width="7" height="8" viewBox="0 0 7 8" aria-hidden="true"><ellipse cx="3.5" cy="1.6" rx="3" ry="1.1" fill="none" stroke="currentColor" stroke-width="1"/><path d="M.5 1.6v4.8c0 .6 1.34 1.1 3 1.1s3-.5 3-1.1V1.6" fill="none" stroke="currentColor" stroke-width="1"/></svg>Notion</span>
+            </div>
+          </article>
+          <p class="branch">Se non conforme</p>
+          <article class="card side">
+            <h3>Rientro Qualità</h3>
+            <p class="route">/rientro-qualita</p>
+            <p class="desc">Il pezzo che non passa il controllo rientra come rilavorazione e torna in lavorazione dal fornitore.</p>
+            <div class="card-foot">
+              <span class="chip chip-log">Logistica</span>
+              <span class="src src-notion"><svg width="7" height="8" viewBox="0 0 7 8" aria-hidden="true"><ellipse cx="3.5" cy="1.6" rx="3" ry="1.1" fill="none" stroke="currentColor" stroke-width="1"/><path d="M.5 1.6v4.8c0 .6 1.34 1.1 3 1.1s3-.5 3-1.1V1.6" fill="none" stroke="currentColor" stroke-width="1"/></svg>Notion</span>
+            </div>
+          </article>
+        </div>
+
+        <div class="step">
+          <article class="card main">
+            <div class="card-head">
+              <span class="num">6</span>
+              <div>
+                <h3>Spedizione Merci</h3>
+                <p class="route">/spedizioni</p>
+              </div>
+            </div>
+            <p class="desc">Verifica finale dell'ODP prima della partenza: foto e annotazioni sul disegno, archiviate su Drive. Poi la merce parte per il cantiere.</p>
+            <div class="card-foot">
+              <span class="chip chip-log">Logistica</span>
+              <span class="src src-mix"><svg width="7" height="8" viewBox="0 0 7 8" aria-hidden="true"><ellipse cx="3.5" cy="1.6" rx="3" ry="1.1" fill="none" stroke="currentColor" stroke-width="1"/><path d="M.5 1.6v4.8c0 .6 1.34 1.1 3 1.1s3-.5 3-1.1V1.6" fill="none" stroke="currentColor" stroke-width="1"/></svg>Entrambi</span>
+            </div>
+          </article>
+        </div>
+
+        <div class="loopback"><span>La rilavorazione rientra in produzione</span></div>
+
+        <div class="rail">
+          <div class="plug" style="left: 12%"></div>
+          <div class="plug" style="left: 32%"></div>
+          <div class="plug" style="left: 52%"></div>
+          <div>
+            <span class="chip chip-ferr">Magazzino Ferramenta</span>
+            <h3 style="margin-top:1.6mm">Un supporto che<br>attraversa tutto</h3>
+            <p class="lead">Viti, cerniere e minuteria non seguono la commessa: stanno a magazzino e servono ogni ODP che passa in reparto.</p>
+          </div>
+          <div class="rail-nodes">
+            <div class="node">
+              <h4>Kit per ODP</h4>
+              <p>La distinta della ferramenta che serve a quell'ODP, preparata prima che il pezzo arrivi al banco.</p>
+            </div>
+            <div class="node">
+              <h4>Prelievo con QR</h4>
+              <p>Si inquadra il QR sulla vaschetta e si scarica: <b>Kanban</b> per vaschetta vuota, <b>A Pezzo</b> per quantità esatta.</p>
+            </div>
+            <div class="node">
+              <h4>Giacenze e riordino</h4>
+              <p>Sotto la soglia minima parte l'etichetta di riordino da mandare al fornitore.</p>
+            </div>
+            <div class="node">
+              <h4>Inventario</h4>
+              <p>Sessioni di conteggio guidate dallo stesso QR, con storico delle rettifiche.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- MAPPA MODULI -->
+  </div>
+</div>
+
+<script>
+// A schermo il foglio A3 viene rimpicciolito per entrare nella finestra.
+// In stampa resta a dimensione reale.
+(function () {
+  var sheet = document.getElementById('sheet');
+  function fit() {
+    var w = sheet.offsetWidth, h = sheet.offsetHeight;
+    if (!w) return;
+    var s = Math.min(1, (window.innerWidth - 48) / w, (window.innerHeight - 72) / h);
+    sheet.style.transform = s < 1 ? 'scale(' + s + ')' : 'none';
+    sheet.style.marginBottom = s < 1 ? (-(h * (1 - s))) + 'px' : '0';
+  }
+  fit();
+  window.addEventListener('resize', fit);
+})();
+</script>

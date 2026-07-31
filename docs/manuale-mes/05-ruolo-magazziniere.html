@@ -1,0 +1,423 @@
+<meta charset="utf-8">
+<title>MES Modar — Magazziniere / Ferramenta</title>
+<style>
+:root{
+  --ground:#F5F2EE; --paper:#FFFFFF; --rule:#E4E0DA; --rule-soft:#F0ECE5;
+  --ink:#1A1918; --grey:#6B6560; --grey-2:#888780;
+  --accent:#E87722; --accent-deep:#C06A10; --accent-wash:#FBF3E8;
+  --alert:#991B1B; --alert-bg:#FEE2E2; --warn:#92400E; --warn-bg:#FEF3C7;
+  --ok:#166534; --ok-bg:#F0FDF4; --neutral-chip:#F3F4F6; --neutral-chip-ink:#374151;
+  --display:'Cormorant Garamond',Georgia,serif;
+  --body:Arial,Helvetica,sans-serif;
+  --data:ui-monospace,Menlo,Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --ground:#161514; --paper:#1F1D1B; --rule:#332F2B; --rule-soft:#2A2724;
+    --ink:#EDE9E3; --grey:#A8A199; --grey-2:#8D867E;
+    --accent:#F0902F; --accent-deep:#F5A845; --accent-wash:#2A2018;
+    --alert:#FCA5A5; --alert-bg:#3A1A1A; --warn:#FBBF24; --warn-bg:#33260F;
+    --ok:#86EFAC; --ok-bg:#12301E; --neutral-chip:#2B2825; --neutral-chip-ink:#CFC9C1;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#161514; --paper:#1F1D1B; --rule:#332F2B; --rule-soft:#2A2724;
+  --ink:#EDE9E3; --grey:#A8A199; --grey-2:#8D867E;
+  --accent:#F0902F; --accent-deep:#F5A845; --accent-wash:#2A2018;
+  --alert:#FCA5A5; --alert-bg:#3A1A1A; --warn:#FBBF24; --warn-bg:#33260F;
+  --ok:#86EFAC; --ok-bg:#12301E; --neutral-chip:#2B2825; --neutral-chip-ink:#CFC9C1;
+}
+:root[data-theme="light"]{
+  --ground:#F5F2EE; --paper:#FFFFFF; --rule:#E4E0DA; --rule-soft:#F0ECE5;
+  --ink:#1A1918; --grey:#6B6560; --grey-2:#888780;
+  --accent:#E87722; --accent-deep:#C06A10; --accent-wash:#FBF3E8;
+  --alert:#991B1B; --alert-bg:#FEE2E2; --warn:#92400E; --warn-bg:#FEF3C7;
+  --ok:#166534; --ok-bg:#F0FDF4; --neutral-chip:#F3F4F6; --neutral-chip-ink:#374151;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55;-webkit-text-size-adjust:100%}
+.sheet{max-width:1120px;margin:0 auto;padding:32px 24px 80px;display:flex;flex-direction:column;gap:40px}
+h1,h2,h3{font-family:var(--display);font-weight:600;text-wrap:balance;margin:0;line-height:1.12}
+p{margin:0}
+a{color:var(--accent-deep)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+
+/* ---- masthead ---- */
+.masthead{display:flex;flex-direction:column;gap:18px;border-top:6px solid var(--accent);padding-top:20px}
+.mast-top{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.logo{width:44px;height:44px;object-fit:contain;background:#fff;border-radius:4px;padding:3px;flex-shrink:0}
+.eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--grey-2);font-weight:700}
+.mast-title{font-size:clamp(38px,6vw,62px);letter-spacing:-.01em}
+.mast-title em{font-style:normal;color:var(--accent)}
+.mast-sub{max-width:64ch;color:var(--grey);font-size:15px}
+.mast-meta{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--grey-2);border-top:1px solid var(--rule);padding-top:12px}
+
+/* ---- generic section ---- */
+.sec{display:flex;flex-direction:column;gap:18px}
+.sec-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:8px}
+.sec-num{font-family:var(--data);font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.08em}
+.sec-head h2{font-size:30px}
+.sec-note{margin-left:auto;font-size:12px;color:var(--grey-2);max-width:44ch}
+
+.card{background:var(--paper);border:1px solid var(--rule);border-radius:10px;padding:18px 20px;display:flex;flex-direction:column;gap:10px}
+.card h3{font-size:21px}
+.card p{font-size:13.5px;color:var(--grey)}
+.grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+
+.route{font-family:var(--data);font-size:11.5px;color:var(--accent-deep);background:var(--accent-wash);border-radius:4px;padding:2px 7px;display:inline-block;word-break:break-all}
+.chip{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:99px;padding:3px 9px}
+.chip-ok{background:var(--ok-bg);color:var(--ok)}
+.chip-warn{background:var(--warn-bg);color:var(--warn)}
+.chip-alert{background:var(--alert-bg);color:var(--alert)}
+.chip-neutral{background:var(--neutral-chip);color:var(--neutral-chip-ink)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+ul.tight{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:5px;font-size:13.5px;color:var(--grey)}
+ul.tight strong{color:var(--ink)}
+.kv{font-family:var(--data);font-size:12px;font-variant-numeric:tabular-nums}
+
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:520px}
+th{text-align:left;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--grey-2);border-bottom:1px solid var(--rule);padding:8px 12px 8px 0;font-weight:700}
+td{padding:9px 12px 9px 0;border-bottom:1px solid var(--rule-soft);vertical-align:top;color:var(--grey)}
+td strong{color:var(--ink);font-weight:700}
+tr:last-child td{border-bottom:0}
+
+/* ---- scala di stazioni (ciclo di vita) ---- */
+.ladder{display:flex;flex-direction:column;gap:0;border-left:3px solid var(--accent);padding-left:0;margin-left:15px}
+.station{position:relative;padding:0 0 22px 30px}
+.station:last-child{padding-bottom:0}
+.station::before{content:attr(data-n);position:absolute;left:-16px;top:0;width:29px;height:29px;border-radius:50%;background:var(--accent);color:#fff;font-family:var(--data);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.station-in{background:var(--paper);border:1px solid var(--rule);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:9px}
+.station h3{font-size:20px}
+.station p{font-size:13.5px;color:var(--grey)}
+.tracks{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin-top:2px}
+.track{border:1px solid var(--rule);border-radius:8px;padding:13px 15px;display:flex;flex-direction:column;gap:7px;background:var(--ground)}
+.track-k{border-top:3px solid var(--accent)}
+.track-p{border-top:3px solid var(--grey-2)}
+.track h4{margin:0;font-family:var(--display);font-size:18px;font-weight:600}
+.track p{font-size:12.5px;color:var(--grey);margin:0}
+
+/* ---- avvisi soft ---- */
+.warn-list{display:flex;flex-direction:column;gap:10px}
+.warn-item{display:flex;gap:13px;align-items:flex-start;background:var(--warn-bg);border-radius:8px;padding:12px 15px}
+.warn-when{font-family:var(--data);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--warn);flex:0 0 92px;padding-top:1px}
+.warn-item p{font-size:13px;color:var(--ink)}
+
+/* ---- flusso kit ---- */
+.flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px;align-items:stretch}
+.flow-step{background:var(--paper);border:1px solid var(--rule);border-top:3px solid var(--accent);border-radius:8px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.flow-step .eyebrow{color:var(--accent)}
+.flow-step h3{font-size:18px}
+.flow-step p{font-size:12.5px;color:var(--grey)}
+
+@media print{
+  @page{size:A4 portrait;margin:14mm}
+  body{background:#fff;font-size:10.5pt}
+  .sheet{max-width:none;padding:0;gap:22px}
+  .card,.sec,.station,.flow-step{break-inside:avoid}
+  .sec{break-inside:auto}
+  .no-print{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="sheet">
+
+  <header class="masthead">
+    <div class="mast-top">
+      <img class="logo" src="data:image/png;base64,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" alt="Modar">
+      <span class="eyebrow">MES Modar · Manuale operativo · Scheda 05</span>
+    </div>
+    <h1 class="mast-title">Magazziniere<br><em>Ferramenta</em></h1>
+    <p class="mast-sub">Il magazziniere gestisce per intero il modulo Ferramenta — la minuteria di produzione: viti, cerniere, maniglie, scorrevoli. Su quest'area ha gli stessi identici permessi dell'amministratore: tutte le pagine e tutte le API di Ferramenta autorizzano il ruolo con la stessa costante, <span class="kv">FERRAMENTA_ROLES = ["admin", "magazziniere"]</span>.</p>
+    <div class="mast-meta">
+      <span>Anagrafica e giacenze su PostgreSQL</span>
+      <span>Nessuna lettura da Notion</span>
+      <span>Scarico via QR</span>
+      <span>Etichette Zebra da CSV</span>
+    </div>
+  </header>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">A</span>
+      <h2>Che cosa vede il magazziniere</h2>
+      <p class="sec-note">Il menu principale filtra le voci per ruolo. Ferramenta è la sua area; le altre voci di base restano visibili in sola consultazione.</p>
+    </div>
+    <div class="grid-3">
+      <div class="card">
+        <span class="chip chip-ok">Area di competenza</span>
+        <h3>Ferramenta</h3>
+        <p>Controllo completo, pari ad admin: cinque sotto-sezioni, tutte le scritture, tutti gli export.</p>
+        <span class="route">/ferramenta</span>
+      </div>
+      <div class="card">
+        <span class="chip chip-neutral">Consultazione</span>
+        <h3>Commesse · Schede ODP · Ritiri</h3>
+        <p>Voci aperte a tutti i ruoli: servono per capire a quale commessa si riferisce un ODP quando si collega uno scarico.</p>
+        <div class="chips">
+          <span class="route">/commesse</span>
+          <span class="route">/schede</span>
+          <span class="route">/ritiri</span>
+        </div>
+      </div>
+      <div class="card">
+        <span class="chip chip-alert">Non accessibile</span>
+        <h3>Fuori perimetro</h3>
+        <p>Rientro Qualità è escluso esplicitamente: la scheda è nascosta dal menu di Ritiri e il server rimanda alla home.</p>
+        <ul class="tight">
+          <li>Rientro Qualità <span class="route">/rientro-qualita</span></li>
+          <li>Carico Magazzino, Rilevamento Ore, Spedizione Merci</li>
+          <li>Import Schede, Audit Log</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">B</span>
+      <h2>Le cinque sotto-sezioni</h2>
+      <p class="sec-note">Sono le schede della barra interna di Ferramenta. Tutte e cinque sono visibili al magazziniere, compresa l'Anagrafica.</p>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th style="width:16%">Scheda</th><th style="width:22%">Percorso</th><th>Che cosa si fa</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Giacenze</strong></td>
+            <td><span class="route">/ferramenta</span></td>
+            <td>L'elenco degli articoli attivi: codice OS1, descrizione, fornitore, metodo, giacenza, soglia minima. Ricerca libera su descrizione, codice, fornitore e codice fornitore; filtro per fornitore; interruttore <strong>Da riordinare</strong> con il contatore degli articoli sotto soglia. Gli articoli ancora senza metodo portano il badge <span class="chip chip-warn">Non classificato</span>.</td>
+          </tr>
+          <tr>
+            <td><strong>Anagrafica</strong></td>
+            <td><span class="route">/admin/ferramenta</span></td>
+            <td>Il pannello di configurazione: classificazione Kanban / A Pezzo, quantità standard vaschetta, soglia minima, ubicazione, codice fornitore, note, attivazione. Da qui partono i tre export CSV e l'importazione del catalogo da CSV.</td>
+          </tr>
+          <tr>
+            <td><strong>Inventario</strong></td>
+            <td><span class="route">/ferramenta/inventario</span></td>
+            <td>Sessioni di conteggio fisico. Si apre scegliendo l'ambito, si conta articolo per articolo, si chiude. Un solo inventario aperto per volta: aprendone un secondo il sistema risponde <em>«Esiste già un inventario aperto — chiudilo prima di aprirne uno nuovo»</em>. Lo storico conserva le sessioni chiuse.</td>
+          </tr>
+          <tr>
+            <td><strong>Carico</strong></td>
+            <td><span class="route">/ferramenta/carico</span></td>
+            <td>Registrazione dei rifornimenti. Si cerca l'articolo e si indica la quantità arrivata; per un Kanban il campo è già compilato con la quantità standard vaschetta, modificabile per le consegne parziali.</td>
+          </tr>
+          <tr>
+            <td><strong>Fogli di Scarico</strong></td>
+            <td><span class="route">/ferramenta/fogli-scarico</span></td>
+            <td>Il consuntivo per commessa: gli ODP avviati con Kit Ferramenta confermato, con il confronto fra quanto pianificato in distinta e quanto realmente scaricato. Gli ODP senza alcun movimento sono marcati <span class="chip chip-alert">Senza scarico</span>.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">C</span>
+      <h2>Ciclo di vita di un articolo</h2>
+      <p class="sec-note">Sette stazioni in sequenza, dall'ingresso in anagrafica al conteggio periodico. La numerazione segue l'ordine reale in cui l'articolo attraversa il sistema.</p>
+    </div>
+    <div class="ladder">
+
+      <div class="station" data-n="1">
+        <div class="station-in">
+          <h3>Ingresso in anagrafica</h3>
+          <p>L'articolo arriva importando il catalogo da CSV oppure creandolo a mano. Nasce con giacenza <span class="kv">0</span>, attivo e <strong>senza metodo di gestione</strong>: finché resta così compare come <span class="chip chip-warn">Non classificato</span> e lo scarico è rifiutato con <em>«Articolo non ancora classificato»</em>. È il primo lavoro del magazziniere su ogni articolo nuovo.</p>
+        </div>
+      </div>
+
+      <div class="station" data-n="2">
+        <div class="station-in">
+          <h3>Classificazione e soglie</h3>
+          <p>Dall'Anagrafica si sceglie il metodo di gestione. È la decisione che determina tutto il comportamento successivo dell'articolo.</p>
+          <div class="tracks">
+            <div class="track track-k">
+              <h4>Kanban</h4>
+              <p>Minuteria in vaschetta. Si configura la <strong>quantità standard vaschetta</strong>: quando la vaschetta si svuota si scarica sempre quella quantità fissa, senza digitare nulla. Ha un QR di riordino ed etichetta dedicata.</p>
+              <span class="chip chip-neutral">Quantità fissa</span>
+            </div>
+            <div class="track track-p">
+              <h4>A Pezzo</h4>
+              <p>Articoli consumati in misura variabile. Allo scarico si digita la quantità effettivamente usata. Nessun QR di riordino: il rifornimento si decide guardando le giacenze.</p>
+              <span class="chip chip-neutral">Quantità libera</span>
+            </div>
+          </div>
+          <p>Per entrambi si imposta la <strong>soglia minima</strong>, che alimenta il filtro «Da riordinare» e la notifica di sotto scorta, e l'<strong>ubicazione</strong> fra i 21 valori di scaffale, che serve poi a inventariare per zona.</p>
+        </div>
+      </div>
+
+      <div class="station" data-n="3">
+        <div class="station-in">
+          <h3>Etichette fisiche</h3>
+          <p>Il sistema non genera più ZPL: produce <strong>CSV</strong> da impaginare e stampare in batch con Zebra Designer. Due tracciati distinti, due QR diversi.</p>
+          <div class="tracks">
+            <div class="track track-p">
+              <h4>Etichette identificative</h4>
+              <p>Tutti gli articoli attivi. Il QR punta a <span class="route">/ferramenta/scarico/{id}</span> — è l'etichetta che si scansiona per scaricare e per contare in inventario.</p>
+            </div>
+            <div class="track track-k">
+              <h4>Etichette Kanban</h4>
+              <p>Solo i Kanban attivi. Portano la quantità da riordinare e un QR verso <span class="route">/riordino/{id}</span>. È il cartellino che accompagna la vaschetta.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="station" data-n="4">
+        <div class="station-in">
+          <h3>Scarico via QR</h3>
+          <p>Si scansiona l'etichetta identificativa dell'articolo e si apre la schermata di scarico. Prima di tutto il sistema controlla se è aperto un inventario che comprende quell'articolo: in quel caso <strong>mostra il conteggio invece dello scarico</strong>, così la stessa etichetta serve a entrambi gli usi senza sbagliare operazione.</p>
+          <p>Altrimenti appare la giacenza attuale con la soglia minima, evidenziata in rosso se già sotto scorta, e si conferma:</p>
+          <div class="tracks">
+            <div class="track track-k">
+              <h4>Kanban</h4>
+              <p>Un solo pulsante: <em>«Vaschetta vuota — scarica N»</em>. La quantità è quella standard, non si digita.</p>
+            </div>
+            <div class="track track-p">
+              <h4>A Pezzo</h4>
+              <p>Si digita la quantità consumata e si conferma.</p>
+            </div>
+          </div>
+          <p>In entrambi i casi si può <strong>collegare un ODP</strong> — facoltativo, ma è ciò che alimenta i Fogli di Scarico. Il movimento viene registrato con operatore, quantità, giacenza prima e dopo.</p>
+        </div>
+      </div>
+
+      <div class="station" data-n="5">
+        <div class="station-in">
+          <h3>Sotto soglia e riordino</h3>
+          <p>Se lo scarico fa <strong>attraversare</strong> la soglia minima — cioè la giacenza era pari o sopra e finisce sotto — parte una notifica di sotto scorta verso n8n e, sui Kanban, compare subito la proposta di <em>stampare l'etichetta di riordino</em> in PDF. L'avviso scatta una volta sola, al passaggio, non a ogni scarico successivo.</p>
+          <p>Il QR di riordino apre una <strong>scheda di riordino</strong> con codice articolo, fornitore, codice fornitore, quantità da riordinare e ubicazione: è il duplicato di emergenza del cartellino fisico, da consegnare a chi effettua l'ordine. Se l'articolo non è più attivo o non è più gestito a Kanban, la scheda lo segnala in testa.</p>
+        </div>
+      </div>
+
+      <div class="station" data-n="6">
+        <div class="station-in">
+          <h3>Carico</h3>
+          <p>Quando la merce arriva si registra il rifornimento dalla scheda Carico: la giacenza viene sommata e resta traccia di un movimento di tipo <span class="kv">carico</span>. Selezionando un Kanban la quantità è precompilata con la vaschetta piena, il caso più frequente, ma si può correggere per una consegna parziale.</p>
+        </div>
+      </div>
+
+      <div class="station" data-n="7">
+        <div class="station-in">
+          <h3>Inventario periodico</h3>
+          <p>Si apre una sessione scegliendo l'ambito — <strong>tutto il catalogo</strong>, <strong>solo Kanban</strong>, <strong>per ubicazione</strong> o <strong>solo sotto scorta</strong> — e il sistema fotografa la giacenza teorica di ogni articolo compreso. Si conta poi articolo per articolo, dalla lista o scansionando l'etichetta sullo scaffale.</p>
+          <p>Se il contato differisce dal reale la giacenza viene <strong>rettificata automaticamente</strong> e nasce un movimento di tipo <span class="kv">rettifica</span> con il delta. Il delta è calcolato sulla giacenza aggiornata al momento del conteggio, non sulla fotografia iniziale: così gli scarichi avvenuti a inventario aperto non vengono cancellati. A fine giro si chiude la sessione, che passa nello storico.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">D</span>
+      <h2>Avvisi soft</h2>
+      <p class="sec-note">Quattro controlli di coerenza, distribuiti su tre stazioni diverse. Nessuno blocca l'operazione.</p>
+    </div>
+    <div class="card">
+      <p>Quando un valore non torna, il sistema apre la finestra <strong>«Valori non coerenti»</strong> con due sole scelte: <em>Annulla</em> oppure <em>Conferma</em>. Il magazziniere può sempre procedere — il magazzino reale ha la precedenza sul dato — ma lo fa consapevolmente. Serve a intercettare l'errore di battitura, non a impedire il lavoro.</p>
+      <div class="warn-list">
+        <div class="warn-item">
+          <span class="warn-when">Scarico</span>
+          <p>La giacenza diventerebbe <strong>negativa</strong>. Segnala che un carico non è stato registrato, o che la giacenza è da rettificare.</p>
+        </div>
+        <div class="warn-item">
+          <span class="warn-when">Scarico</span>
+          <p>Con un ODP collegato, il totale scaricato <strong>supera il pianificato in distinta</strong>. L'avviso riporta pianificato, già scaricato e quantità in corso.</p>
+        </div>
+        <div class="warn-item">
+          <span class="warn-when">Carico</span>
+          <p>Su un Kanban, la quantità <strong>non è un multiplo della vaschetta</strong>. Normale per una consegna parziale, sospetto altrimenti.</p>
+        </div>
+        <div class="warn-item">
+          <span class="warn-when">Inventario</span>
+          <p>Il conteggio <strong>si discosta dal teorico di oltre il 50%</strong>. Invita a ricontare prima di generare una rettifica importante.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">E</span>
+      <h2>Kit Ferramenta ODP · dal pianificato al consuntivo</h2>
+      <p class="sec-note">Il Kit è la distinta della minuteria necessaria a costruire una commessa. I Fogli di Scarico ne verificano il consumo reale.</p>
+    </div>
+    <div class="flow">
+      <div class="flow-step">
+        <span class="eyebrow">Pianificato</span>
+        <h3>Distinta del Kit</h3>
+        <p>Sulla scheda ODP si compone la distinta: riga per riga, articolo di ferramenta e quantità prevista. Vive su Postgres; su Notion resta solo un riepilogo testuale.</p>
+      </div>
+      <div class="flow-step">
+        <span class="eyebrow">Conferma</span>
+        <h3>Kit confermato</h3>
+        <p>Con <em>«Conferma Kit e notifica magazziniere»</em> l'ODP viene marcato <span class="kv">Kit Ferramenta = Si</span> e parte la notifica con il PDF della distinta di preparazione. Serve almeno una riga.</p>
+      </div>
+      <div class="flow-step">
+        <span class="eyebrow">Prelievo</span>
+        <h3>Scarico sull'ODP</h3>
+        <p>Il magazziniere prepara il kit e scarica gli articoli collegando l'ODP. Partendo dal foglio, dopo la conferma si torna direttamente al foglio stesso.</p>
+      </div>
+      <div class="flow-step">
+        <span class="eyebrow">Consuntivo</span>
+        <h3>Foglio di Scarico</h3>
+        <p>Il confronto riga per riga fra pianificato e scaricato, con lo stato di ciascun articolo.</p>
+        <div class="chips">
+          <span class="chip chip-neutral">Scaricato</span>
+          <span class="chip chip-warn">Parziale</span>
+          <span class="chip chip-alert">Da scaricare</span>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Come leggere l'elenco</h3>
+      <p>La scheda <strong>Fogli di Scarico</strong> elenca gli ODP avviati che hanno il Kit confermato. Il badge <span class="chip chip-alert">Senza scarico</span> indica un kit dichiarato pronto per cui non risulta ancora alcun movimento: è la segnalazione principale da presidiare, perché significa materiale pianificato ma mai prelevato — o prelevato senza collegare l'ODP. Nel dettaglio, uno stato <em>Parziale</em> su una riga può essere legittimo a lavorazione in corso; <em>Da scaricare</em> a commessa avanzata merita una verifica.</p>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">F</span>
+      <h2>Note tecniche</h2>
+      <p class="sec-note">Dettagli utili a chi amministra il modulo.</p>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <h3>Dati su PostgreSQL</h3>
+        <p>Anagrafica articoli, distinte Kit, movimenti e sessioni di inventario risiedono su Postgres: la migrazione da Notion è stata fatta per prestazioni. <strong>Nessun percorso di lettura della Ferramenta interroga più Notion.</strong> Restano due sole scritture verso Notion, entrambe non critiche: il riepilogo testuale della distinta e il flag <span class="kv">Kit Ferramenta</span> sulla scheda. Il nome del fornitore viene risolto una volta sola, in scrittura.</p>
+      </div>
+      <div class="card">
+        <h3>Registro dei movimenti</h3>
+        <p>Ogni variazione di giacenza lascia un movimento con operatore, quantità, giacenza precedente e risultante. Quattro tipi:</p>
+        <div class="chips">
+          <span class="chip chip-neutral">scarico_kanban</span>
+          <span class="chip chip-neutral">scarico_a_pezzo</span>
+          <span class="chip chip-neutral">carico</span>
+          <span class="chip chip-neutral">rettifica</span>
+        </div>
+        <p>È la base sia dei Fogli di Scarico sia della tracciabilità delle rettifiche di inventario.</p>
+      </div>
+      <div class="card">
+        <h3>Export CSV</h3>
+        <p>Tre export dall'Anagrafica, tutti con separatore <span class="kv">;</span> e BOM UTF-8 per aprirsi correttamente in Excel italiano senza storpiare gli accenti: catalogo completo, etichette Kanban, etichette identificative. I due tracciati etichette sono pensati per l'impaginazione in Zebra Designer.</p>
+      </div>
+      <div class="card">
+        <h3>Perimetro effettivo dei permessi</h3>
+        <p>La parità con l'admin vale per tutta l'area: anche <strong>Kit Ferramenta ODP</strong> e <strong>Import Ferramenta da CSV</strong> autorizzano il magazziniere lato server, pur non comparendo nel suo menu — sono raggiungibili per link diretto. L'unica esclusione esplicita è Rientro Qualità, negata sia in interfaccia sia lato server.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="mast-meta" style="border-top:2px solid var(--ink);padding-top:14px">
+    <span>MES Modar · Scheda 05 · Magazziniere / Ferramenta</span>
+    <span>Documento generato dal codice sorgente del MES</span>
+  </footer>
+
+</div>

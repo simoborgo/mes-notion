@@ -1,0 +1,522 @@
+<meta charset="utf-8">
+<title>MES Modar — Ruolo Admin</title>
+<style>
+:root{
+  --ground:#F5F2EE; --paper:#FFFFFF; --rule:#E4E0DA; --rule-soft:#F0ECE5;
+  --ink:#1A1918; --grey:#6B6560; --grey-2:#888780;
+  --accent:#E87722; --accent-deep:#C06A10; --accent-wash:#FBF3E8;
+  --alert:#991B1B; --alert-bg:#FEE2E2; --warn:#92400E; --warn-bg:#FEF3C7;
+  --ok:#166534; --ok-bg:#F0FDF4; --neutral-chip:#F3F4F6; --neutral-chip-ink:#374151;
+  --display:'Cormorant Garamond',Georgia,serif;
+  --body:Arial,Helvetica,sans-serif;
+  --data:ui-monospace,Menlo,Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --ground:#161514; --paper:#1F1D1B; --rule:#332F2B; --rule-soft:#2A2724;
+    --ink:#EDE9E3; --grey:#A8A199; --grey-2:#8D867E;
+    --accent:#F0902F; --accent-deep:#F5A845; --accent-wash:#2A2018;
+    --alert:#FCA5A5; --alert-bg:#3A1A1A; --warn:#FBBF24; --warn-bg:#33260F;
+    --ok:#86EFAC; --ok-bg:#12301E; --neutral-chip:#2B2825; --neutral-chip-ink:#CFC9C1;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#161514; --paper:#1F1D1B; --rule:#332F2B; --rule-soft:#2A2724;
+  --ink:#EDE9E3; --grey:#A8A199; --grey-2:#8D867E;
+  --accent:#F0902F; --accent-deep:#F5A845; --accent-wash:#2A2018;
+  --alert:#FCA5A5; --alert-bg:#3A1A1A; --warn:#FBBF24; --warn-bg:#33260F;
+  --ok:#86EFAC; --ok-bg:#12301E; --neutral-chip:#2B2825; --neutral-chip-ink:#CFC9C1;
+}
+:root[data-theme="light"]{
+  --ground:#F5F2EE; --paper:#FFFFFF; --rule:#E4E0DA; --rule-soft:#F0ECE5;
+  --ink:#1A1918; --grey:#6B6560; --grey-2:#888780;
+  --accent:#E87722; --accent-deep:#C06A10; --accent-wash:#FBF3E8;
+  --alert:#991B1B; --alert-bg:#FEE2E2; --warn:#92400E; --warn-bg:#FEF3C7;
+  --ok:#166534; --ok-bg:#F0FDF4; --neutral-chip:#F3F4F6; --neutral-chip-ink:#374151;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55;-webkit-text-size-adjust:100%}
+.sheet{max-width:1120px;margin:0 auto;padding:32px 24px 80px;display:flex;flex-direction:column;gap:40px}
+h1,h2,h3{font-family:var(--display);font-weight:600;text-wrap:balance;margin:0;line-height:1.12}
+p{margin:0}
+a{color:var(--accent-deep)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+
+/* ---- masthead ---- */
+.masthead{display:flex;flex-direction:column;gap:18px;border-top:6px solid var(--accent);padding-top:20px}
+.mast-top{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.logo{width:44px;height:44px;object-fit:contain;background:#fff;border-radius:4px;padding:3px;flex-shrink:0}
+.eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--grey-2);font-weight:700}
+.mast-title{font-size:clamp(38px,6vw,62px);letter-spacing:-.01em}
+.mast-title em{font-style:normal;color:var(--accent)}
+.mast-sub{max-width:64ch;color:var(--grey);font-size:15px}
+.mast-meta{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--grey-2);border-top:1px solid var(--rule);padding-top:12px}
+
+/* ---- generic section ---- */
+.sec{display:flex;flex-direction:column;gap:18px}
+.sec-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:8px}
+.sec-num{font-family:var(--data);font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.08em}
+.sec-head h2{font-size:30px}
+.sec-note{margin-left:auto;font-size:12px;color:var(--grey-2);max-width:44ch}
+
+.card{background:var(--paper);border:1px solid var(--rule);border-radius:10px;padding:18px 20px;display:flex;flex-direction:column;gap:10px}
+.card h3{font-size:21px}
+.card p{font-size:13.5px;color:var(--grey)}
+.grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+
+.route{font-family:var(--data);font-size:11.5px;color:var(--accent-deep);background:var(--accent-wash);border-radius:4px;padding:2px 7px;display:inline-block;word-break:break-all}
+.chip{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:99px;padding:3px 9px}
+.chip-ok{background:var(--ok-bg);color:var(--ok)}
+.chip-warn{background:var(--warn-bg);color:var(--warn)}
+.chip-alert{background:var(--alert-bg);color:var(--alert)}
+.chip-neutral{background:var(--neutral-chip);color:var(--neutral-chip-ink)}
+.chip-excl{background:var(--accent);color:#fff}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+ul.tight{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:5px;font-size:13.5px;color:var(--grey)}
+ul.tight strong{color:var(--ink)}
+.kv{font-family:var(--data);font-size:12px;font-variant-numeric:tabular-nums}
+
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:520px}
+th{text-align:left;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--grey-2);border-bottom:1px solid var(--rule);padding:8px 12px 8px 0;font-weight:700}
+td{padding:9px 12px 9px 0;border-bottom:1px solid var(--rule-soft);vertical-align:top;color:var(--grey)}
+td strong{color:var(--ink);font-weight:700}
+tr:last-child td{border-bottom:0}
+
+/* ---- matrice permessi ---- */
+.matrix{min-width:680px;font-size:12px}
+.matrix th,.matrix td{padding:7px 6px;text-align:center;border-bottom:1px solid var(--rule-soft)}
+.matrix th:first-child,.matrix td:first-child{text-align:left;padding-left:0;padding-right:14px;width:34%}
+.matrix thead th{border-bottom:1px solid var(--rule);vertical-align:bottom}
+.matrix td:first-child strong{display:block;color:var(--ink);font-weight:700}
+.matrix td:first-child .route{margin-top:3px}
+.matrix .col-admin{background:var(--accent-wash)}
+.matrix thead .col-admin{color:var(--accent-deep)}
+.yes{color:var(--accent);font-weight:700;font-size:14px}
+.no{color:var(--rule);font-weight:700}
+.matrix tbody tr.rule-break td{border-top:1px solid var(--rule)}
+
+/* ---- flusso a step ---- */
+.flow{display:flex;flex-direction:column;gap:0}
+.flow-step{display:grid;grid-template-columns:52px 1fr;gap:16px;padding:16px 0;border-bottom:1px solid var(--rule-soft)}
+.flow-step:last-child{border-bottom:0}
+.step-n{font-family:var(--data);font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.06em;padding-top:4px;border-right:1px solid var(--rule);padding-right:12px}
+.step-body{display:flex;flex-direction:column;gap:8px;min-width:0}
+.step-body h3{font-size:19px}
+.step-body p{font-size:13.5px;color:var(--grey);max-width:72ch}
+.step-where{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--grey-2);font-weight:700}
+
+.callout{background:var(--paper);border:1px solid var(--rule);border-left:4px solid var(--accent);border-radius:8px;padding:14px 18px;display:flex;flex-direction:column;gap:6px}
+.callout p{font-size:13.5px;color:var(--grey)}
+.callout strong{color:var(--ink)}
+
+@media print{
+  @page{size:A4 portrait;margin:14mm}
+  body{background:#fff;font-size:10.5pt}
+  .sheet{max-width:none;padding:0;gap:22px}
+  .card,.flow-step,.callout{break-inside:avoid}
+  .sec{break-inside:auto}
+  .matrix{min-width:0;font-size:8pt}
+  .scroll{overflow-x:visible}
+  .no-print{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="sheet">
+
+  <header class="masthead">
+    <div class="mast-top">
+      <img class="logo" src="data:image/png;base64,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" alt="Modar">
+      <span class="eyebrow">MES Modar · Manuale operativo · Scheda 01</span>
+    </div>
+    <h1 class="mast-title">Amministratore<br><em>Accesso completo</em></h1>
+    <p class="mast-sub">L'admin è l'unico ruolo presente in <em>tutte</em> le costanti di autorizzazione del sistema. Ogni sezione del menu, ogni API di scrittura e ogni schermata di gestione lo includono: dove gli altri ruoli vedono una fetta del MES, l'admin vede l'intero impianto. In più governa quattro aree che nessun altro ruolo può raggiungere.</p>
+    <div class="mast-meta">
+      <span>7 ruoli · 1 con accesso totale</span>
+      <span>Import PDF con AI</span>
+      <span>Audit log di sistema</span>
+      <span>Modifica completa delle Schede</span>
+    </div>
+  </header>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">A</span>
+      <h2>La matrice dei permessi</h2>
+      <p class="sec-note">Ogni sezione è protetta da una costante in <span class="kv">src/lib/auth.ts</span>. L'admin compare in tutte: è l'unica colonna piena.</p>
+    </div>
+    <div class="scroll">
+      <table class="matrix">
+        <thead>
+          <tr>
+            <th>Sezione o azione</th>
+            <th class="col-admin">Admin</th>
+            <th>Opera­tore</th>
+            <th>Logi­stica</th>
+            <th>Spedi­zioni</th>
+            <th>Produ­zione</th>
+            <th>Resp. Prod.</th>
+            <th>Magaz­ziniere</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Commesse</strong><span class="route">/commesse</span></td>
+            <td class="col-admin yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td>
+          </tr>
+          <tr>
+            <td><strong>Schede di Produzione (ODP)</strong><span class="route">/schede</span></td>
+            <td class="col-admin yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td>
+          </tr>
+          <tr>
+            <td><strong>Ritiri e Consegne</strong><span class="route">/ritiri</span></td>
+            <td class="col-admin yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td>
+          </tr>
+          <tr class="rule-break">
+            <td><strong>Rientro Qualità</strong><span class="route">RIENTRO_QUALITA_ROLES</span></td>
+            <td class="col-admin yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="no">—</td>
+          </tr>
+          <tr>
+            <td><strong>Scrittura Ritiri e Carichi</strong><span class="route">WRITE_ROLES</span></td>
+            <td class="col-admin yes">●</td><td class="no">—</td><td class="yes">●</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td>
+          </tr>
+          <tr>
+            <td><strong>Carico Magazzino</strong><span class="route">CARICO_ROLES</span></td>
+            <td class="col-admin yes">●</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">●</td><td class="no">—</td><td class="no">—</td>
+          </tr>
+          <tr>
+            <td><strong>Spedizione Merci</strong><span class="route">SPEDIZIONI_ROLES</span></td>
+            <td class="col-admin yes">●</td><td class="no">—</td><td class="no">—</td><td class="yes">●</td><td class="no">—</td><td class="no">—</td><td class="no">—</td>
+          </tr>
+          <tr>
+            <td><strong>Rilevamento Ore</strong><span class="route">RILEVAMENTO_ORE_ROLES</span></td>
+            <td class="col-admin yes">●</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">●</td><td class="no">—</td>
+          </tr>
+          <tr>
+            <td><strong>Ferramenta (tutta l'area)</strong><span class="route">FERRAMENTA_ROLES</span></td>
+            <td class="col-admin yes">●</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">●</td>
+          </tr>
+          <tr class="rule-break">
+            <td><strong>Import Schede da PDF</strong><span class="route">/admin/import</span></td>
+            <td class="col-admin yes">●</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td>
+          </tr>
+          <tr>
+            <td><strong>Audit Log</strong><span class="route">/admin/log</span></td>
+            <td class="col-admin yes">●</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td>
+          </tr>
+          <tr>
+            <td><strong>Modifica completa Scheda</strong><span class="route">PATCH /api/schede/[id]</span></td>
+            <td class="col-admin yes">●</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td>
+          </tr>
+          <tr>
+            <td><strong>Elimina verifica di spedizione</strong><span class="route">DELETE /api/verifiche/[scheda]</span></td>
+            <td class="col-admin yes">●</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <p><strong>Da leggere così:</strong> l'admin non ha un menu proprio — eredita quello di tutti. Le tre righe finali sono le uniche voci che nessun altro ruolo può raggiungere, più la modifica completa dei campi Scheda che appare solo a lui dentro il dettaglio ODP.</p>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">B</span>
+      <h2>Le quattro aree di governo</h2>
+      <p class="sec-note">Le stesse pagine che gli altri ruoli vedono a spicchi, raccolte per funzione di fabbrica.</p>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <span class="chip chip-neutral">Produzione</span>
+        <h3>Commesse, ODP e ore</h3>
+        <p>Il cuore del MES: le commesse Notion, le Schede di Produzione con le loro sottoschede, il rilevamento delle ore a bordo macchina e i KPI che ne derivano.</p>
+        <ul class="tight">
+          <li><strong>Commesse</strong> — elenco, dettaglio, export Excel, Gantt e Programma Riunione</li>
+          <li><strong>Schede di Produzione (ODP)</strong> — stati, sottoschede, allegati, rilavorazioni</li>
+          <li><strong>Rilevamento Ore</strong> — Oggi, Rifacimenti da classificare, Storico ODP, Storico Operatore, Dashboard KPI</li>
+        </ul>
+        <div class="chips">
+          <span class="route">/commesse</span>
+          <span class="route">/schede</span>
+          <span class="route">/ore</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="chip chip-neutral">Logistica</span>
+        <h3>Ritiri, carichi e spedizioni</h3>
+        <p>Movimentazione in ingresso e in uscita. Sui Carichi e sui Ritiri l'admin condivide la scrittura con la logistica; sulla spedizione merci con il ruolo spedizioni.</p>
+        <ul class="tight">
+          <li><strong>Ritiri e Consegne</strong> — creazione, modifica, foto, etichette, eliminazione</li>
+          <li><strong>Rientro Qualità</strong> — presa in carico dei rientri dai fornitori</li>
+          <li><strong>Carichi</strong> — CRUD completo riservato ad admin e logistica</li>
+          <li><strong>Carico Magazzino</strong> e <strong>Spedizione Merci</strong> — con verifica dei colli</li>
+        </ul>
+        <div class="chips">
+          <span class="route">/ritiri</span>
+          <span class="route">/carichi</span>
+          <span class="route">/carico</span>
+          <span class="route">/spedizioni</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="chip chip-warn">Condivisa con magazziniere</span>
+        <h3>Magazzino Ferramenta</h3>
+        <p>Dall'ultimo aggiornamento il magazziniere ha <strong>piena parità</strong> con l'admin su quest'area: tutte le pagine e tutte le API rispondono alla stessa costante <span class="kv">FERRAMENTA_ROLES</span>. Nulla qui è esclusivo dell'admin.</p>
+        <ul class="tight">
+          <li><strong>Giacenze</strong> e scarico via QR</li>
+          <li><strong>Anagrafica</strong> — classificazione Kanban / A Pezzo, soglie, quantità vaschetta</li>
+          <li><strong>Kit Ferramenta per ODP</strong> — distinta articoli di commessa</li>
+          <li><strong>Inventario</strong>, <strong>Carico</strong>, <strong>Fogli di Scarico</strong></li>
+          <li>Export CSV giacenze ed etichette, import CSV anagrafica</li>
+        </ul>
+        <div class="chips">
+          <span class="route">/ferramenta</span>
+          <span class="route">/admin/ferramenta</span>
+          <span class="route">/admin/ferramenta/kit</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="chip chip-excl">Solo admin</span>
+        <h3>Amministrazione e configurazione</h3>
+        <p>L'area che definisce il ruolo. Da qui entrano nel sistema le nuove Schede e da qui si controlla che cosa è stato scritto, da chi e quando.</p>
+        <ul class="tight">
+          <li><strong>Import Schede</strong> — creazione di ODP a partire da un PDF, con estrazione AI</li>
+          <li><strong>Audit Log</strong> — cronologia di tutte le operazioni di scrittura</li>
+          <li><strong>Modifica Scheda</strong> — l'unico modo per correggere i campi di un ODP dall'interfaccia</li>
+          <li><strong>Eliminazione verifiche di spedizione</strong> — con rimozione delle foto da Google Drive</li>
+        </ul>
+        <div class="chips">
+          <span class="route">/admin/import</span>
+          <span class="route">/admin/log</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">C</span>
+      <h2>Che cosa può fare solo l'admin</h2>
+      <p class="sec-note">Quattro capacità che il codice riserva con un controllo esplicito <span class="kv">role !== "admin"</span>.</p>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <span class="chip chip-excl">Esclusiva</span>
+        <h3>Import Schede da PDF</h3>
+        <p>L'unico punto in cui nascono nuove Schede di Produzione dall'interfaccia del MES. Il PDF della scheda tecnica viene letto, interpretato dall'AI e trasformato in pagine Notion con ODP progressivo. Il flusso completo è nella sezione D.</p>
+        <div class="chips">
+          <span class="route">/admin/import</span>
+          <span class="route">POST /api/admin/import-scheda</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="chip chip-excl">Esclusiva</span>
+        <h3>Modifica completa dei campi Scheda</h3>
+        <p>Nel dettaglio di un ODP il pulsante <strong>Modifica</strong> compare solo all'admin. Gli altri ruoli possono al massimo far avanzare uno stato dalle rispettive schermate; l'admin corregge qualunque campo.</p>
+        <ul class="tight">
+          <li>Codice articolo, posizione, quantità, data scheda ricevuta</li>
+          <li>Stato di produzione e data di produzione prevista</li>
+          <li>Blocco produzione esterna: stato, uscita materiale, rientro previsto ed effettivo</li>
+          <li>Note e note di stato</li>
+          <li>Upload <strong>PDF allegato</strong>, <strong>foto</strong> (compresse lato browser) e <strong>copertina</strong></li>
+        </ul>
+        <div class="chips">
+          <span class="route">PATCH /api/schede/[id]</span>
+          <span class="route">/pdf-allegato</span>
+          <span class="route">/foto</span>
+          <span class="route">/copertina</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="chip chip-excl">Esclusiva</span>
+        <h3>Audit Log</h3>
+        <p>La cronologia in sola lettura di ogni scrittura fatta nel sistema, ordinata dalla più recente. Le ultime 200 operazioni, con operatore, azione, risorsa toccata e differenze salvate.</p>
+        <div class="chips">
+          <span class="route">/admin/log</span>
+          <span class="route">src/lib/audit.ts</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="chip chip-excl">Esclusiva</span>
+        <h3>Eliminazione di una verifica di spedizione</h3>
+        <p>Cancella il record di verifica di una scheda e rimuove da Google Drive tutte le foto collegate. L'operazione resta tracciata nel log delle verifiche come <span class="kv">eliminata_admin</span>.</p>
+        <div class="chips">
+          <span class="route">DELETE /api/verifiche/[scheda]</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <p><strong>Attenzione a una voce che non è più esclusiva.</strong> Il <em>Kit Ferramenta per ODP</em> vive sotto <span class="kv">/admin/</span> ma non è riservato all'admin: pagina e API usano <span class="kv">FERRAMENTA_ROLES</span>, quindi anche il magazziniere lo gestisce per intero. Vale lo stesso per l'Anagrafica Ferramenta e per l'import CSV degli articoli.</p>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">D</span>
+      <h2>Il flusso Import Scheda</h2>
+      <p class="sec-note">Un PDF entra, un ODP completo di sottoschede esce. Cinque passaggi, due dei quali chiedono conferma all'admin.</p>
+    </div>
+
+    <div class="flow">
+      <div class="flow-step">
+        <div class="step-n">01</div>
+        <div class="step-body">
+          <span class="step-where">Nel browser · nessun dato ancora inviato</span>
+          <h3>Si carica il PDF della scheda tecnica</h3>
+          <p>L'admin trascina il file nell'area di caricamento. La lettura avviene interamente sul suo computer: il MES estrae il testo di ogni pagina e genera l'immagine della prima pagina, che diventerà la copertina della Scheda. Il PDF originale viene tenuto da parte per l'allegato.</p>
+          <div class="chips">
+            <span class="route">/admin/import</span>
+            <span class="route">pdfjs-dist</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-n">02</div>
+        <div class="step-body">
+          <span class="step-where">Server · chiamata a Claude</span>
+          <h3>L'AI estrae i metadati, una riga per pagina</h3>
+          <p>Il testo delle pagine viene inviato al modello, che restituisce un record per ogni pagina del PDF — non per ogni riga della distinta base. Il modello lavora con regole rigide scritte nel prompt, pensate sugli errori tipici di queste schede.</p>
+          <ul class="tight">
+            <li><strong>Numero commessa</strong>: solo la parte numerica, da non confondere col codice articolo</li>
+            <li><strong>Termine di consegna</strong>: si prende solo la data accanto a quell'etichetta. Se il campo è vuoto resta vuoto — non si ripiega mai sulla data ordine</li>
+            <li><strong>Fornitore</strong>: si cerca il subfornitore esterno; MODAR, che è l'azienda committente, non va mai in questo campo</li>
+            <li>La distinta componenti finisce tra i campi accessori, non come voce a sé</li>
+          </ul>
+          <div class="chips">
+            <span class="route">POST /api/admin/import-scheda/parse</span>
+            <span class="route">claude-haiku-4-5</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-n">03</div>
+        <div class="step-body">
+          <span class="step-where">Nel browser · passaggio di controllo</span>
+          <h3>L'admin verifica l'anteprima e decide la struttura</h3>
+          <p>Prima di scrivere qualunque cosa su Notion il MES mostra i dati estratti, tutti correggibili a mano accanto alla miniatura del PDF. Qui si decide che forma avrà l'ODP.</p>
+          <ul class="tight">
+            <li>La <strong>prima pagina</strong> è sempre la Scheda principale</li>
+            <li>Ogni pagina successiva si può <strong>promuovere a Sottoscheda</strong> oppure lasciare inclusa nella scheda principale. Il MES propone già la spunta per le pagine con un fornitore esterno</li>
+            <li>Assegnando lo stesso <strong>numero di gruppo</strong> a più pagine, queste confluiscono in un'unica Sottoscheda con il PDF unito</li>
+            <li>Lo <strong>stato iniziale</strong> è preselezionato: <em>In lavorazione Esterna</em> se c'è un fornitore esterno, altrimenti <em>In lavorazione</em></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-n">04</div>
+        <div class="step-body">
+          <span class="step-where">Server · scrittura su Notion</span>
+          <h3>Il sistema crea le pagine e allega i file</h3>
+          <p>Alla conferma il MES cerca la commessa per numero e si ferma se non la trova. Poi assegna il numero di ODP successivo e costruisce l'albero delle pagine.</p>
+          <ul class="tight">
+            <li><strong>Scheda principale</strong> con il PDF completo in allegato e la copertina generata al passo 01</li>
+            <li><strong>Una Sottoscheda per gruppo</strong>, ciascuna con il proprio PDF ritagliato dalle sole pagine che le competono, collegata alla scheda madre</li>
+            <li>I nomi dei fornitori vengono risolti nelle relazioni Notion corrispondenti</li>
+            <li>Data prevista di produzione dal termine di consegna, o la data odierna se assente</li>
+          </ul>
+          <div class="chips">
+            <span class="route">POST /api/admin/import-scheda</span>
+            <span class="route">pdf-lib</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-n">05</div>
+        <div class="step-body">
+          <span class="step-where">Server · code di coda</span>
+          <h3>Notifica esterna e aggiornamento delle viste</h3>
+          <p>Se configurato, parte un avviso al sistema di automazione con l'ODP creato e tutti i campi estratti, compresi quelli accessori. Un errore qui non annulla l'import: viene solo segnalato nella schermata di esito. Infine la lista Schede viene rigenerata perché il nuovo ODP compaia subito.</p>
+          <p>La schermata finale elenca le pagine create con il collegamento diretto a Notion.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <p><strong>Se qualcosa va storto.</strong> Commessa inesistente su Notion, chiave AI non configurata o risposta del modello illeggibile fermano l'import prima di ogni scrittura: nessuna pagina viene creata a metà. Si corregge il dato e si riprova dallo stesso PDF.</p>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">E</span>
+      <h2>L'Audit Log</h2>
+      <p class="sec-note">Chi ha toccato che cosa, quando e con quale modifica. Sola lettura, ultime 200 operazioni.</p>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h3>Che cosa viene registrato</h3>
+        <p>Ogni riga porta l'operatore, il tipo di azione, la risorsa toccata e il contenuto della modifica. La scrittura del log non rallenta l'operazione: parte in parallelo alla risposta.</p>
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr><th>Azione</th><th>Risorse tracciate</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><strong>CREATE</strong></td><td>ritiro, carico, commessa, ore registrate</td></tr>
+              <tr><td><strong>UPDATE</strong></td><td>scheda, ritiro, carico, articolo ferramenta, kit ferramenta, inventario ferramenta</td></tr>
+              <tr><td><strong>DELETE</strong></td><td>ritiro, carico, ore registrate</td></tr>
+              <tr><td><strong>UPLOAD_FOTO</strong></td><td>ritiro, scheda</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Come si legge la tabella</h3>
+        <ul class="tight">
+          <li><strong>Timestamp</strong> — data e ora dell'operazione, dalla più recente</li>
+          <li><strong>Operatore</strong> — il nome dell'utente che l'ha eseguita, non il ruolo</li>
+          <li><strong>Azione</strong> — colorata per tipo: verde per le creazioni, rosso per le eliminazioni, blu per le modifiche</li>
+          <li><strong>ID Risorsa</strong> — identificativo abbreviato, per esteso passandoci sopra</li>
+          <li><strong>Modifiche</strong> — i campi cambiati con il valore scritto</li>
+        </ul>
+        <p>Se il database del log non è configurato la pagina lo segnala e le operazioni restano solo nei log applicativi del server.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">F</span>
+      <h2>Promemoria operativi</h2>
+    </div>
+    <div class="grid-3">
+      <div class="card">
+        <h3>L'ODP si assegna da solo</h3>
+        <p>Il numero progressivo lo calcola il sistema al momento dell'import. Non va inserito a mano e non va riusato: ogni import consuma il numero successivo.</p>
+      </div>
+      <div class="card">
+        <h3>Verificare sempre l'anteprima</h3>
+        <p>La data di consegna e il fornitore sono i due campi che l'AI sbaglia più facilmente. Un controllo al passo 03 costa meno di una correzione a valle su più pagine Notion.</p>
+      </div>
+      <div class="card">
+        <h3>Ferramenta non è più terreno esclusivo</h3>
+        <p>Anagrafica, Kit ODP ed export sono condivisi col magazziniere: prima di modificare soglie o distinte conviene accordarsi, perché entrambi scrivono sugli stessi dati.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="mast-meta" style="border-top:1px solid var(--rule);padding-top:14px">
+    <span>MES Modar · Manuale operativo</span>
+    <span>Scheda 01 — Ruolo Admin</span>
+    <span>Riferimento: src/lib/auth.ts</span>
+  </footer>
+
+</div>

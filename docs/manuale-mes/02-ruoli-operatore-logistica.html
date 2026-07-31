@@ -1,0 +1,508 @@
+<meta charset="utf-8">
+<title>MES Modar — Operatore e Logistica</title>
+<style>
+@font-face{font-family:'Cormorant Garamond';font-style:normal;font-weight:300 700;font-display:swap;src:url(data:font/woff2;base64,__CG__) format('woff2')}
+:root{
+  --ground:#F5F2EE; --paper:#FFFFFF; --rule:#E4E0DA; --rule-soft:#F0ECE5;
+  --ink:#1A1918; --grey:#6B6560; --grey-2:#888780;
+  --accent:#E87722; --accent-deep:#C06A10; --accent-wash:#FBF3E8;
+  --alert:#991B1B; --alert-bg:#FEE2E2; --alert-line:#DC2626;
+  --warn:#92400E; --warn-bg:#FEF3C7; --warn-line:#F59E0B;
+  --ok:#065F46; --ok-bg:#D1FAE5; --ok-line:#34D399;
+  --info:#1E40AF; --info-bg:#DBEAFE; --info-line:#60A5FA;
+  --cons:#C2410C; --cons-bg:#FFF7ED; --cons-line:#FDBA74;
+  --neutral-chip:#F3F4F6; --neutral-chip-ink:#374151;
+  --band:#1A1918; --band-rule:#2A2724; --band-ink:#FFFFFF; --band-grey:#6B6966;
+  --display:'Cormorant Garamond',Georgia,serif;
+  --body:Arial,Helvetica,sans-serif;
+  --data:ui-monospace,Menlo,Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --ground:#161514; --paper:#1F1D1B; --rule:#332F2B; --rule-soft:#2A2724;
+    --ink:#EDE9E3; --grey:#A8A199; --grey-2:#8D867E;
+    --accent:#F0902F; --accent-deep:#F5A845; --accent-wash:#2A2018;
+    --alert:#FCA5A5; --alert-bg:#3A1A1A; --alert-line:#C4433F;
+    --warn:#FBBF24; --warn-bg:#33260F; --warn-line:#B4790C;
+    --ok:#7FE0BC; --ok-bg:#0C3126; --ok-line:#2A8F6D;
+    --info:#93BEF7; --info-bg:#12294D; --info-line:#2F63AE;
+    --cons:#F3B183; --cons-bg:#3A2313; --cons-line:#A85A22;
+    --neutral-chip:#2B2825; --neutral-chip-ink:#CFC9C1;
+    --band:#0E0D0C; --band-rule:#2A2724; --band-ink:#F5F2EE; --band-grey:#7C7873;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#161514; --paper:#1F1D1B; --rule:#332F2B; --rule-soft:#2A2724;
+  --ink:#EDE9E3; --grey:#A8A199; --grey-2:#8D867E;
+  --accent:#F0902F; --accent-deep:#F5A845; --accent-wash:#2A2018;
+  --alert:#FCA5A5; --alert-bg:#3A1A1A; --alert-line:#C4433F;
+  --warn:#FBBF24; --warn-bg:#33260F; --warn-line:#B4790C;
+  --ok:#7FE0BC; --ok-bg:#0C3126; --ok-line:#2A8F6D;
+  --info:#93BEF7; --info-bg:#12294D; --info-line:#2F63AE;
+  --cons:#F3B183; --cons-bg:#3A2313; --cons-line:#A85A22;
+  --neutral-chip:#2B2825; --neutral-chip-ink:#CFC9C1;
+  --band:#0E0D0C; --band-rule:#2A2724; --band-ink:#F5F2EE; --band-grey:#7C7873;
+}
+:root[data-theme="light"]{
+  --ground:#F5F2EE; --paper:#FFFFFF; --rule:#E4E0DA; --rule-soft:#F0ECE5;
+  --ink:#1A1918; --grey:#6B6560; --grey-2:#888780;
+  --accent:#E87722; --accent-deep:#C06A10; --accent-wash:#FBF3E8;
+  --alert:#991B1B; --alert-bg:#FEE2E2; --alert-line:#DC2626;
+  --warn:#92400E; --warn-bg:#FEF3C7; --warn-line:#F59E0B;
+  --ok:#065F46; --ok-bg:#D1FAE5; --ok-line:#34D399;
+  --info:#1E40AF; --info-bg:#DBEAFE; --info-line:#60A5FA;
+  --cons:#C2410C; --cons-bg:#FFF7ED; --cons-line:#FDBA74;
+  --neutral-chip:#F3F4F6; --neutral-chip-ink:#374151;
+  --band:#1A1918; --band-rule:#2A2724; --band-ink:#FFFFFF; --band-grey:#6B6966;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55;-webkit-text-size-adjust:100%}
+.sheet{max-width:1120px;margin:0 auto;padding:32px 24px 80px;display:flex;flex-direction:column;gap:40px}
+h1,h2,h3{font-family:var(--display);font-weight:600;text-wrap:balance;margin:0;line-height:1.12}
+p{margin:0}
+a{color:var(--accent-deep)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+
+/* ---- masthead ---- */
+.masthead{display:flex;flex-direction:column;gap:18px;border-top:6px solid var(--accent);padding-top:20px}
+.mast-top{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.logo{width:44px;height:44px;object-fit:contain;background:#fff;border-radius:4px;padding:3px;flex-shrink:0}
+.eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--grey-2);font-weight:700}
+.mast-title{font-size:clamp(38px,6vw,62px);letter-spacing:-.01em}
+.mast-title em{font-style:normal;color:var(--accent)}
+.mast-sub{max-width:64ch;color:var(--grey);font-size:15px}
+.mast-meta{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--grey-2);border-top:1px solid var(--rule);padding-top:12px}
+
+/* ---- generic section ---- */
+.sec{display:flex;flex-direction:column;gap:18px}
+.sec-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:8px}
+.sec-num{font-family:var(--data);font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.08em}
+.sec-head h2{font-size:30px}
+.sec-note{margin-left:auto;font-size:12px;color:var(--grey-2);max-width:44ch}
+
+.card{background:var(--paper);border:1px solid var(--rule);border-radius:10px;padding:18px 20px;display:flex;flex-direction:column;gap:10px}
+.card h3{font-size:21px}
+.card p{font-size:13.5px;color:var(--grey)}
+.grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+
+.route{font-family:var(--data);font-size:11.5px;color:var(--accent-deep);background:var(--accent-wash);border-radius:4px;padding:2px 7px;display:inline-block;word-break:break-all}
+.chip{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:99px;padding:3px 9px}
+.chip-ok{background:var(--ok-bg);color:var(--ok)}
+.chip-warn{background:var(--warn-bg);color:var(--warn)}
+.chip-alert{background:var(--alert-bg);color:var(--alert)}
+.chip-info{background:var(--info-bg);color:var(--info)}
+.chip-cons{background:var(--cons-bg);color:var(--cons)}
+.chip-neutral{background:var(--neutral-chip);color:var(--neutral-chip-ink)}
+.chip-excl{background:var(--accent);color:#fff}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+ul.tight{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:5px;font-size:13.5px;color:var(--grey)}
+ul.tight strong{color:var(--ink)}
+.kv{font-family:var(--data);font-size:12px;font-variant-numeric:tabular-nums}
+
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:520px}
+th{text-align:left;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--grey-2);border-bottom:1px solid var(--rule);padding:8px 12px 8px 0;font-weight:700}
+td{padding:9px 12px 9px 0;border-bottom:1px solid var(--rule-soft);vertical-align:top;color:var(--grey)}
+td strong{color:var(--ink);font-weight:700}
+tr:last-child td{border-bottom:0}
+
+/* ---- barra di navigazione riprodotta ---- */
+.navstrip{background:var(--band);border-radius:8px;padding:0 14px;display:flex;align-items:stretch;gap:0;overflow-x:auto;border:1px solid var(--band-rule)}
+.navstrip .nlogo{display:flex;align-items:center;gap:10px;padding:12px 16px 12px 0;border-right:1px solid var(--band-rule);flex-shrink:0}
+.navstrip .nlogo img{width:30px;height:30px;object-fit:contain;background:#fff;border-radius:3px;padding:2px}
+.navstrip .nlogo span{font-size:10.5px;font-weight:700;letter-spacing:.12em;color:var(--band-ink);white-space:nowrap}
+.ntab{display:flex;align-items:center;gap:7px;padding:14px 14px;font-size:12.5px;font-weight:500;white-space:nowrap;border-bottom:2px solid transparent;flex-shrink:0}
+.ntab.on{color:var(--band-ink);border-bottom-color:var(--accent)}
+.ntab.off{color:var(--band-grey);text-decoration:line-through;text-decoration-thickness:1px;opacity:.75}
+.ntab .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0}
+.ntab.off .dot{background:var(--band-grey)}
+.strip-legend{display:flex;flex-wrap:wrap;gap:8px 22px;font-size:11px;color:var(--grey-2);letter-spacing:.06em;text-transform:uppercase;font-weight:700}
+.strip-legend b{color:var(--accent);font-weight:700}
+
+/* ---- delta operatore / logistica ---- */
+.delta{min-width:640px;font-size:12.5px}
+.delta th,.delta td{padding:8px 10px;border-bottom:1px solid var(--rule-soft)}
+.delta th:first-child,.delta td:first-child{padding-left:0;width:44%}
+.delta th:not(:first-child),.delta td:not(:first-child){text-align:center;width:18%}
+.delta thead th{border-bottom:1px solid var(--rule);vertical-align:bottom}
+.delta .col-log{background:var(--accent-wash)}
+.delta thead .col-log{color:var(--accent-deep)}
+.yes{color:var(--accent);font-weight:700;font-size:14px}
+.no{color:var(--rule);font-weight:700;font-size:14px}
+.delta td:first-child strong{display:block;color:var(--ink);font-weight:700}
+.delta td small{display:block;color:var(--grey-2);font-size:11px;margin-top:2px}
+
+/* ---- flusso a step ---- */
+.flow{display:flex;flex-direction:column;gap:0}
+.flow-step{display:grid;grid-template-columns:52px 1fr;gap:16px;padding:16px 0;border-bottom:1px solid var(--rule-soft)}
+.flow-step:last-child{border-bottom:0}
+.step-n{font-family:var(--data);font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.06em;padding-top:4px;border-right:1px solid var(--rule);padding-right:12px}
+.step-body{display:flex;flex-direction:column;gap:8px;min-width:0}
+.step-body h3{font-size:19px}
+.step-body p{font-size:13.5px;color:var(--grey);max-width:72ch}
+.step-where{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--grey-2);font-weight:700}
+
+/* ---- catena stati ---- */
+.chain{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:12px}
+.node{display:inline-flex;align-items:center;gap:7px;border:1px solid;border-radius:99px;padding:5px 13px;font-weight:700;font-size:12px}
+.node.todo{background:var(--warn-bg);color:var(--warn);border-color:var(--warn-line)}
+.node.prog{background:var(--info-bg);color:var(--info);border-color:var(--info-line)}
+.node.done{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-line)}
+.node.nc{background:var(--alert-bg);color:var(--alert);border-color:var(--alert-line)}
+.arrow{color:var(--grey-2);font-weight:700;font-size:14px}
+.arrow.back{color:var(--rule);font-size:12px}
+
+/* ---- biforcazione NC ---- */
+.branch{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:0;border:1px solid var(--rule);border-radius:10px;overflow:hidden;background:var(--paper)}
+.branch>div{padding:16px 18px;display:flex;flex-direction:column;gap:8px;border-top:4px solid var(--rule)}
+.branch .b-yes{border-top-color:var(--alert-line)}
+.branch .b-no{border-top-color:var(--warn-line)}
+.branch h4{margin:0;font-family:var(--display);font-size:18px;font-weight:600}
+.branch p{font-size:13px;color:var(--grey)}
+.cond{font-family:var(--data);font-size:11px;color:var(--grey-2);letter-spacing:.02em}
+
+.callout{background:var(--paper);border:1px solid var(--rule);border-left:4px solid var(--accent);border-radius:8px;padding:14px 18px;display:flex;flex-direction:column;gap:6px}
+.callout p{font-size:13.5px;color:var(--grey)}
+.callout strong{color:var(--ink)}
+.callout.warn{border-left-color:var(--warn-line)}
+.callout.alert{border-left-color:var(--alert-line)}
+.callout h4{margin:0;font-family:var(--display);font-size:19px;font-weight:600}
+
+.foot{border-top:1px solid var(--rule);padding-top:14px;display:flex;flex-wrap:wrap;gap:6px 20px;font-size:11px;color:var(--grey-2)}
+.foot .kv{color:var(--grey-2)}
+
+@media print{
+  @page{size:A4 portrait;margin:14mm}
+  body{background:#fff;font-size:10.5pt}
+  .sheet{max-width:none;padding:0;gap:22px}
+  .card,.flow-step,.callout,.branch>div,.navstrip{break-inside:avoid}
+  .sec{break-inside:auto}
+  .delta{min-width:0;font-size:8pt}
+  .navstrip{overflow-x:visible;flex-wrap:wrap;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .ntab{padding:8px 10px;font-size:8pt}
+  .scroll{overflow-x:visible}
+  .no-print{display:none}
+  .chip,.node,.route,.branch>div,.navstrip{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="sheet">
+
+  <header class="masthead">
+    <div class="mast-top">
+      <img class="logo" src="__LOGO__" alt="Modar">
+      <span class="eyebrow">MES Modar · Manuale operativo · Scheda 02</span>
+    </div>
+    <h1 class="mast-title">Operatore e Logistica<br><em>Lo stesso perimetro, due mani diverse</em></h1>
+    <p class="mast-sub">Sono i due ruoli generalisti del MES. Vedono esattamente le stesse tre sezioni — Commesse, Schede di Produzione e Ritiri e Consegne — e leggono gli stessi dati. La differenza sta tutta in una riga di <span class="kv">src/lib/auth.ts</span>: <span class="kv">WRITE_ROLES = ["admin", "logistica"]</span>. Logistica muove i movimenti di trasporto; operatore li osserva. Sul Rientro Qualità, invece, agiscono entrambi.</p>
+    <div class="mast-meta">
+      <span>3 sezioni su 7</span>
+      <span>1 sotto-sezione: Rientro Qualità</span>
+      <span>Scrittura movimenti: solo logistica</span>
+      <span>Conferma rientro: entrambi</span>
+    </div>
+  </header>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">A</span>
+      <h2>Il perimetro: cosa compare nel menu</h2>
+      <p class="sec-note">La barra nera in alto filtra le voci sul ruolo. Per operatore e logistica il risultato è identico: tre voci accese, quattro assenti.</p>
+    </div>
+
+    <div class="navstrip">
+      <div class="nlogo"><img src="__LOGO__" alt="Modar"><span>MES DASHBOARD v1.1</span></div>
+      <span class="ntab on"><span class="dot"></span>Commesse</span>
+      <span class="ntab on"><span class="dot"></span>Schede di Produzione (ODP)</span>
+      <span class="ntab on"><span class="dot"></span>Ritiri e Consegne</span>
+      <span class="ntab off"><span class="dot"></span>Carico Magazzino</span>
+      <span class="ntab off"><span class="dot"></span>Rilevamento Ore</span>
+      <span class="ntab off"><span class="dot"></span>Ferramenta</span>
+      <span class="ntab off"><span class="dot"></span>Spedizione Merci</span>
+    </div>
+    <div class="strip-legend">
+      <span><b>Sottolineato arancio</b> — visibile a operatore e logistica</span>
+      <span>Barrato — riservato ad altri ruoli</span>
+      <span class="kv">Navbar.tsx · roles: ALL_ROLES</span>
+    </div>
+
+    <div class="grid-3">
+      <div class="card">
+        <h3>Commesse</h3>
+        <span class="route">/commesse</span>
+        <p>Elenco delle commesse con le schede collegate. Sola consultazione: nessun campo è modificabile da qui.</p>
+        <ul class="tight">
+          <li>Sotto-navigazione <strong>Commesse | Carichi</strong></li>
+          <li>Stampa <strong>Programma di riunione</strong> e <strong>Gantt</strong> (Excel)</li>
+          <li>Export <strong>CSV Commesse</strong> e <strong>CSV Carichi</strong></li>
+          <li>Su <span class="route">/carichi</span> la scrittura resta a <strong>WRITE_ROLES</strong>: logistica sì, operatore no</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Schede di Produzione</h3>
+        <span class="route">/schede</span>
+        <p>La tabella degli ODP con sottoschede e rilavorazioni annidate. Si apre il dettaglio, si leggono stato, fase corrente, fornitore e allegati.</p>
+        <ul class="tight">
+          <li>Il pulsante <strong>Modifica</strong> nel dettaglio è <strong>solo admin</strong></li>
+          <li>Link diretto alla pagina <strong>Notion</strong> della scheda</li>
+          <li><strong>Invia in Rilavorazione</strong>: il wizard richiede solo una sessione valida, quindi è alla portata di entrambi i ruoli</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Ritiri e Consegne</h3>
+        <span class="route">/ritiri</span>
+        <p>Il cuore operativo dei due ruoli: i movimenti di merce da e verso i fornitori esterni, raggruppati per giorno di trasporto.</p>
+        <ul class="tight">
+          <li>Sotto-navigazione <strong>Ritiri e Consegne | Rientro Qualità</strong></li>
+          <li>Filtri, ricerca, <strong>Solo urgenti</strong>, archivio comprimibile</li>
+          <li>Etichetta PDF stampabile da ogni riga</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="scroll">
+      <table class="delta">
+        <thead>
+          <tr>
+            <th>Azione</th>
+            <th>Operatore</th>
+            <th class="col-log">Logistica</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Vedere le tre sezioni e i dettagli</strong><small>Commesse, Schede, Ritiri, Rientro Qualità</small></td>
+            <td class="yes">●</td><td class="col-log yes">●</td>
+          </tr>
+          <tr>
+            <td><strong>Stampare etichette, esportare CSV, Gantt e Programma</strong><small>nessun controllo di ruolo</small></td>
+            <td class="yes">●</td><td class="col-log yes">●</td>
+          </tr>
+          <tr>
+            <td><strong>Creare un movimento di Ritiro / Consegna</strong><small>POST /api/ritiri — WRITE_ROLES</small></td>
+            <td class="no">○</td><td class="col-log yes">●</td>
+          </tr>
+          <tr>
+            <td><strong>Cambiare stato, data, dati di un movimento</strong><small>PATCH /api/ritiri/[id] — WRITE_ROLES</small></td>
+            <td class="no">○</td><td class="col-log yes">●</td>
+          </tr>
+          <tr>
+            <td><strong>Riassegnare a oggi i movimenti scaduti</strong><small>serie di PATCH sugli stessi endpoint</small></td>
+            <td class="no">○</td><td class="col-log yes">●</td>
+          </tr>
+          <tr>
+            <td><strong>Eliminare un movimento</strong><small>DELETE — solo admin e logistica</small></td>
+            <td class="no">○</td><td class="col-log yes">●</td>
+          </tr>
+          <tr>
+            <td><strong>Scrivere sui Carichi</strong><small>/carichi — canWrite = WRITE_ROLES</small></td>
+            <td class="no">○</td><td class="col-log yes">●</td>
+          </tr>
+          <tr>
+            <td><strong>Inviare una scheda in Rilavorazione</strong><small>POST /api/schede/[id]/rilavorazione — solo sessione</small></td>
+            <td class="yes">●</td><td class="col-log yes">●</td>
+          </tr>
+          <tr>
+            <td><strong>Confermare il rientro qualità e sbloccare la scheda madre</strong><small>POST /api/schede/[id]/rientro — RIENTRO_QUALITA_ROLES</small></td>
+            <td class="yes">●</td><td class="col-log yes">●</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <h4>La riga che separa i due ruoli</h4>
+      <p><span class="kv">WRITE_ROLES = ["admin", "logistica"]</span> — tutto il resto discende da qui. Operatore è un ruolo di lettura sui movimenti; logistica è lo stesso ruolo con la penna in mano. Sul Rientro Qualità la costante cambia (<span class="kv">RIENTRO_QUALITA_ROLES</span>) e la distinzione sparisce: lì scrivono entrambi.</p>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">B</span>
+      <h2>Il ciclo di vita di un movimento</h2>
+      <p class="sec-note">Dalla creazione all'archivio. I passaggi 1, 2, 4 e 6 sono azioni di scrittura: le esegue logistica, operatore le segue.</p>
+    </div>
+
+    <div class="chips">
+      <span class="chip chip-info">↙ Ritiro</span>
+      <span class="chip chip-cons">↗ Consegna</span>
+      <span class="chip chip-neutral">merce da e verso fornitori esterni</span>
+    </div>
+
+    <div class="flow">
+
+      <div class="flow-step">
+        <div class="step-n">01</div>
+        <div class="step-body">
+          <h3>Creazione</h3>
+          <p class="step-where">Ritiri e Consegne → <strong>+ Nuovo ritiro</strong></p>
+          <p>Un solo campo è obbligatorio: la <strong>descrizione</strong> della merce. Attorno si compilano tipo movimento (Ritiro o Consegna), data e ora del trasporto, fornitore, numero di collo su totale colli e le foto, caricate direttamente sulla pagina Notion del movimento.</p>
+          <div class="chips">
+            <span class="chip chip-alert">⚠ Urgente</span>
+            <span class="chip chip-alert">NC — Non Conformità</span>
+            <span class="chip chip-neutral">Colli — n° di tot</span>
+            <span class="chip chip-neutral">Foto</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-n">02</div>
+        <div class="step-body">
+          <h3>Collegamento a Scheda o Commessa</h3>
+          <p class="step-where">Campo <strong>Collega a</strong> — due modalità alternative</p>
+          <p>Il movimento si aggancia a una <strong>Scheda ODP</strong> oppure direttamente a una <strong>Commessa</strong>. Scegliendo la scheda, il form si auto-compila: la commessa arriva dall'ODP, il fornitore viene riconosciuto per nome e il tipo movimento viene suggerito dalla scheda stessa. La ricerca copre ODP, numero scheda e cliente.</p>
+          <p>Dal collegamento discendono anche gli allegati mostrati in tabella: PDF della scheda, PDF dell'ordine fornitore. Per una rilavorazione, che non ha un PDF proprio, il sistema ricade sul disegno tecnico della <strong>scheda madre</strong>.</p>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-n">03</div>
+        <div class="step-body">
+          <h3>Il bivio della Non Conformità</h3>
+          <p class="step-where">Spunta <strong>NC</strong> in creazione</p>
+          <p>La spunta NC da sola marca il movimento — la riga prende un bordo rosso a sinistra. Ma se ricorrono <strong>tutte e tre</strong> le condizioni, il sistema fa molto di più: crea automaticamente una Rilavorazione su Notion.</p>
+          <div class="branch">
+            <div class="b-yes">
+              <span class="cond">NC ✓ &nbsp;+&nbsp; Tipo = Consegna &nbsp;+&nbsp; Scheda ODP collegata</span>
+              <h4>Nasce una Rilavorazione</h4>
+              <p>Viene creata la sottoscheda <strong>«Rilavorazione NC – &lt;scheda&gt;»</strong> con fornitore e data di rientro presi dal movimento. La <strong>scheda madre passa a “In Attesa Rilavorazione”</strong> e si blocca. Il movimento appena creato non punta più alla madre ma <strong>alla rilavorazione</strong>: da lì in poi l'ODP mostrato in tabella è quello della rilavorazione, che è la scheda da cui partirà il rientro.</p>
+            </div>
+            <div class="b-no">
+              <span class="cond">manca anche solo una delle tre condizioni</span>
+              <h4>Solo il flag NC</h4>
+              <p>Nessuna rilavorazione viene creata. Il form lo dichiara prima del salvataggio: <em>«serve una Scheda ODP collegata e Tipo Movimento Consegna»</em>. Il movimento resta un normale trasporto marcato come non conforme.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-n">04</div>
+        <div class="step-body">
+          <h3>Avanzamento di stato</h3>
+          <p class="step-where">Pulsanti nella prima colonna della tabella</p>
+          <div class="chain">
+            <span class="node todo">○ Da Fare</span>
+            <span class="arrow">→</span>
+            <span class="node prog">▶ In corso</span>
+            <span class="arrow">→</span>
+            <span class="node done">✓ Fatto</span>
+          </div>
+          <p>Le transizioni sono reversibili: da <em>In corso</em> si torna a <em>Da Fare</em>, da <em>Fatto</em> si torna indietro. Lo stato <em>In corso</em> lampeggia in tabella per farsi notare. L'aggiornamento è ottimistico — la riga cambia subito e, se Notion rifiuta, torna allo stato precedente con un avviso.</p>
+          <p><strong>Guardia sulla data.</strong> Se il movimento non è di oggi, il sistema chiede prima di procedere: spostarlo a oggi e aggiornare lo stato, aggiornare solo lo stato mantenendo la data, oppure annullare. Gli orari già impostati vengono conservati.</p>
+          <p><strong>Movimenti scaduti.</strong> Quando esistono movimenti non completati con data passata, compare <strong>⏰ Riassegna a oggi (n)</strong>: una sola conferma li riporta tutti alla data odierna, orari inclusi.</p>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-n">05</div>
+        <div class="step-body">
+          <h3>Completamento</h3>
+          <p class="step-where">Stato <strong>Fatto</strong></p>
+          <p>Il movimento esce dalla tabella dei giorni attivi e viene registrata la data di <strong>Completato il</strong>. Il contatore in testa alla pagina distingue sempre <span class="kv">n attivi · n completati</span>.</p>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-n">06</div>
+        <div class="step-body">
+          <h3>Archivio Completati</h3>
+          <p class="step-where">In fondo alla pagina — sezione <strong>comprimibile</strong></p>
+          <p>L'archivio è chiuso di default e si apre con un clic sull'intestazione: tiene la pagina leggera anche con centinaia di movimenti alle spalle. Ha filtri propri, indipendenti da quelli della tabella attiva: ricerca testuale, tipo, fornitore e intervallo di date da/a.</p>
+          <p>Da ogni riga archiviata restano disponibili l'<strong>etichetta PDF</strong> e, per logistica, <strong>↩ Riapri</strong>, che riporta il movimento a <em>In corso</em> e lo fa tornare fra gli attivi.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="callout warn">
+      <h4>Cosa vede operatore in questa pagina</h4>
+      <p>Tutto: righe, badge, allegati, foto, filtri, archivio ed etichette di stampa. Ciò che non gli riesce è <strong>cambiare qualcosa</strong>: creazione, modifica, cambio stato, riassegnazione ed eliminazione sono respinti dal server con un <span class="kv">403 Permesso negato</span>.</p>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">C</span>
+      <h2>Rientro Qualità: chiudere l'anello</h2>
+      <p class="sec-note">Sotto-sezione annidata in Ritiri e Consegne. Aperta a operatore <em>e</em> logistica: qui la differenza fra i due ruoli non esiste.</p>
+    </div>
+
+    <p class="mast-sub">Una rilavorazione è un pezzo dichiarato non conforme e mandato fuori a un fornitore esterno. Finché non rientra, la scheda madre resta ferma in <strong>“In Attesa Rilavorazione”</strong>. Questa pagina esiste per una sola domanda: <em>cosa sta ancora fuori, e chi lo riporta dentro?</em></p>
+
+    <div class="flow">
+
+      <div class="flow-step">
+        <div class="step-n">01</div>
+        <div class="step-body">
+          <h3>La rilavorazione è aperta</h3>
+          <p class="step-where">Elenco a schede — <span class="route">/rientro-qualita</span></p>
+          <p>Compaiono tutte le sottoschede di tipologia <strong>Rilavorazione</strong> che non siano già <em>Completato</em> o <em>Annullata</em>. Ogni scheda mostra ODP, numero scheda, fornitore e cliente. La ricerca filtra per fornitore, ODP o cliente.</p>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-n">02</div>
+        <div class="step-body">
+          <h3>Il ritiro concordato col fornitore</h3>
+          <p class="step-where">Collegamento fra rilavorazione e movimenti</p>
+          <p>A ogni rilavorazione possono essere agganciati i movimenti di Ritiro e Consegna che la riguardano: la scheda li elenca con data e stato, così si vede a colpo d'occhio se il rientro è già programmato e a che punto è.</p>
+          <div class="chips">
+            <span class="chip chip-warn">Da Fare</span>
+            <span class="chip chip-info">In corso</span>
+            <span class="chip chip-ok">Fatto</span>
+          </div>
+          <p><strong>Se nessun ritiro è collegato</strong>, la scheda si segnala da sola: bordo rosso, avviso <em>«⚠ Nessun ritiro concordato»</em> e un pulsante <strong>Inserisci un ritiro</strong> che apre il form già precompilato su quella rilavorazione. Le schede senza ritiro vengono ordinate <strong>per prime</strong> — sono quelle su cui nessuno ha ancora preso un impegno con il fornitore.</p>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-n">03</div>
+        <div class="step-body">
+          <h3>Conferma del rientro</h3>
+          <p class="step-where">Pulsante verde <strong>✓ Conferma controllo qualità e segna rientrata</strong></p>
+          <p>È il gesto di chi ha il pezzo in mano e lo ha verificato. Un solo clic, nessun modulo da compilare: la scheda si trasforma in una conferma verde e il ciclo si chiude.</p>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-n">04</div>
+        <div class="step-body">
+          <h3>La scheda madre si sblocca</h3>
+          <p class="step-where">Effetto automatico della conferma</p>
+          <div class="chain">
+            <span class="node nc">Rilavorazione aperta</span>
+            <span class="arrow">→</span>
+            <span class="node done">Rilavorazione: Completato</span>
+            <span class="arrow">→</span>
+            <span class="node prog">Scheda madre: In lavorazione</span>
+          </div>
+          <p>La rilavorazione passa a <strong>Completato</strong> e la scheda madre torna <strong>In lavorazione</strong>: la produzione interna riparte da dove si era fermata. Le viste Schede vengono rigenerate subito, senza attendere la cache.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="callout">
+      <h4>L'anello completo</h4>
+      <p>NC su una consegna → nasce la rilavorazione e la madre si blocca → il pezzo esce verso il fornitore → si concorda il ritiro → il pezzo rientra e viene controllato → conferma → la madre riparte. La sezione B apre l'anello, la sezione C lo chiude.</p>
+    </div>
+
+    <div class="callout warn">
+      <h4>Area in evoluzione</h4>
+      <p>Il collegamento fra rilavorazione e ritiri specifici e l'avviso di ritiro mancante sono stati aggiunti di recente e possono ancora cambiare nei dettagli. Quello che non cambia è la logica: <strong>rilavorazione aperta → attesa del rientro → conferma → scheda madre sbloccata</strong>.</p>
+    </div>
+  </section>
+
+  <!--SEC-D-->
+
+  <div class="foot">
+    <span>MES Modar · Manuale operativo · Scheda 02 — Operatore e Logistica</span>
+    <span class="kv">src/lib/auth.ts · src/components/Navbar.tsx · src/components/RitiriSubNav.tsx</span>
+    <span class="kv">src/components/TabellaRitiri.tsx · src/app/(app)/rientro-qualita/</span>
+  </div>
+
+</div>

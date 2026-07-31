@@ -20,6 +20,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const { id } = await params;
     const session = await getSessionFromRequest(req);
+    if (!session || session.role !== "admin") {
+      return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
+    }
     const body: SchedaUpdate = await req.json();
     const updated = await updateScheda(id, body);
 
