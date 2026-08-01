@@ -12,6 +12,7 @@ interface RigaInput {
   descrizione: string;
   quantita: number;
   prezzoNettoPezzo: number;
+  codiceAbarre?: string | null;
 }
 
 // Contratto: n8n scarica via FTP il tracciato, lo parsa (Code node) e chiama questa route in

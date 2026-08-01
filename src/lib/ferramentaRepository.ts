@@ -1,7 +1,7 @@
 import { pool } from "./db";
 
 export type MovimentoTipo = "scarico_kanban" | "scarico_a_pezzo" | "carico" | "rettifica";
-export type MovimentoFonte = "mes" | "webhook_notion";
+export type MovimentoFonte = "mes" | "webhook_notion" | "wurth";
 
 export interface MovimentoFerramenta {
   id: string;
