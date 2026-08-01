@@ -9,9 +9,22 @@ function isSottoSoglia(a: ArticoloFerramenta): boolean {
 }
 
 export default function FerramentaHome({ articoli }: { articoli: ArticoloFerramenta[] }) {
+  // Bozza (controlla gli input) vs applicato (guida il filtro/render della tabella) — con
+  // 6897 articoli filtrare/ri-renderizzare ad ogni tasto digitato appesantiva la ricerca.
+  // Si applica solo con il pulsante "Cerca" o Invio nella casella di testo.
+  const [searchInput, setSearchInput] = useState("");
+  const [fornitoreInput, setFornitoreInput] = useState("");
+  const [soloDaRiordinareInput, setSoloDaRiordinareInput] = useState(false);
+
   const [search, setSearch] = useState("");
   const [soloDaRiordinare, setSoloDaRiordinare] = useState(false);
   const [fornitoreFiltro, setFornitoreFiltro] = useState("");
+
+  function applicaFiltri() {
+    setSearch(searchInput);
+    setFornitoreFiltro(fornitoreInput);
+    setSoloDaRiordinare(soloDaRiordinareInput);
+  }
 
   const attivi = useMemo(() => articoli.filter(a => a.attivo), [articoli]);
 
@@ -43,21 +56,22 @@ export default function FerramentaHome({ articoli }: { articoli: ArticoloFerrame
         <input
           className="border rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300 min-w-52"
           placeholder="Cerca descrizione, codice, fornitore…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") applicaFiltri(); }}
         />
         <select
           className="border rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300"
-          value={fornitoreFiltro}
-          onChange={(e) => setFornitoreFiltro(e.target.value)}
+          value={fornitoreInput}
+          onChange={(e) => setFornitoreInput(e.target.value)}
         >
           <option value="">Tutti i fornitori</option>
           {fornitoriOptions.map(f => <option key={f} value={f}>{f}</option>)}
         </select>
         <button
-          onClick={() => setSoloDaRiordinare(v => !v)}
+          onClick={() => setSoloDaRiordinareInput(v => !v)}
           className="flex items-center gap-1.5 px-3 py-2 rounded border text-sm font-medium transition-colors"
-          style={soloDaRiordinare
+          style={soloDaRiordinareInput
             ? { background: "#FEE2E2", color: "#991B1B", borderColor: "#FCA5A5" }
             : { background: "white", color: "var(--color-grey-mid)", borderColor: "#d1d5db" }}
         >
@@ -65,11 +79,18 @@ export default function FerramentaHome({ articoli }: { articoli: ArticoloFerrame
           {daRiordinareCount > 0 && (
             <span
               className="inline-flex items-center justify-center rounded-full text-xs font-bold w-5 h-5"
-              style={soloDaRiordinare ? { background: "#991B1B", color: "white" } : { background: "#FEE2E2", color: "#991B1B" }}
+              style={soloDaRiordinareInput ? { background: "#991B1B", color: "white" } : { background: "#FEE2E2", color: "#991B1B" }}
             >
               {daRiordinareCount}
             </span>
           )}
+        </button>
+        <button
+          onClick={applicaFiltri}
+          className="px-4 py-2 rounded-lg text-sm font-semibold text-white"
+          style={{ background: "var(--color-primary)" }}
+        >
+          Cerca
         </button>
       </div>
 

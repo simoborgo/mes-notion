@@ -26,8 +26,36 @@ export default function InventarioDettaglio({
   const [soloDaContare, setSoloDaContare] = useState(stato === "aperto");
   const [chiudendo, setChiudendo] = useState(false);
   const [error, setError] = useState("");
+  const [disattivando, setDisattivando] = useState(false);
+  const [disattivati, setDisattivati] = useState<Set<string>>(new Set());
 
-  const daContareCount = useMemo(() => righe.filter(r => r.giacenzaContata == null).length, [righe]);
+  const daContare = useMemo(() => righe.filter(r => r.giacenzaContata == null), [righe]);
+  const daContareCount = daContare.length;
+
+  async function disattivaNonContati() {
+    const daDisattivare = daContare.filter(r => !disattivati.has(r.articoloId));
+    if (daDisattivare.length === 0) return;
+    if (!confirm(`Disattivare ${daDisattivare.length} articoli non contati in questo inventario? Restano nello storico ma spariscono dalle liste attive di Ferramenta — puoi sempre riattivarli a mano dall'Anagrafica.`)) return;
+
+    setDisattivando(true);
+    setError("");
+    const falliti: string[] = [];
+    for (const r of daDisattivare) {
+      try {
+        const res = await fetch(`/api/ferramenta/articoli/${r.articoloId}/classificazione`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ attivo: false }),
+        });
+        if (!res.ok) throw new Error();
+        setDisattivati(prev => new Set(prev).add(r.articoloId));
+      } catch {
+        falliti.push(r.descrizione || r.codiceOs1 || r.articoloId);
+      }
+    }
+    setDisattivando(false);
+    if (falliti.length > 0) setError(`Non disattivati: ${falliti.join(", ")}`);
+  }
 
   const filtrate = useMemo(
     () => righe.filter(r => !soloDaContare || r.giacenzaContata == null),
@@ -70,6 +98,17 @@ export default function InventarioDettaglio({
           )}
         </button>
 
+        {puoChiudere && daContareCount > disattivati.size && (
+          <button
+            onClick={disattivaNonContati}
+            disabled={disattivando}
+            className="px-3 py-2 rounded-lg text-sm font-semibold border disabled:opacity-60"
+            style={{ color: "#991B1B", background: "#FEF2F2", borderColor: "#FECACA" }}
+          >
+            {disattivando ? "Disattivo…" : `Disattiva non contati (${daContareCount - disattivati.size})`}
+          </button>
+        )}
+
         {stato === "aperto" && puoChiudere && (
           <button
             onClick={chiudi}
@@ -82,6 +121,11 @@ export default function InventarioDettaglio({
         )}
       </div>
       {error && <p className="text-xs font-medium" style={{ color: "#991B1B" }}>{error}</p>}
+      {disattivati.size > 0 && (
+        <p className="text-xs font-medium" style={{ color: "#166534" }}>
+          {disattivati.size} articol{disattivati.size === 1 ? "o disattivato" : "i disattivati"} — restano in Anagrafica con &quot;Attivo&quot; spento, riattivabili da lì in qualsiasi momento.
+        </p>
+      )}
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table className="w-full text-sm">
@@ -106,7 +150,14 @@ export default function InventarioDettaglio({
               filtrate.map(r => (
                 <tr key={r.id} className="border-b last:border-0">
                   <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">{r.codiceOs1 || "—"}</td>
-                  <td className="px-4 py-3">{r.descrizione || "—"}</td>
+                  <td className="px-4 py-3">
+                    {r.descrizione || "—"}
+                    {disattivati.has(r.articoloId) && (
+                      <span className="ml-2 text-xs px-1.5 py-0.5 rounded font-medium" style={{ background: "#FEE2E2", color: "#991B1B" }}>
+                        Disattivato
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 tabular-nums">{r.giacenzaTeorica}</td>
                   <td className="px-4 py-3 tabular-nums">{r.giacenzaContata ?? "—"}</td>
                   <td className="px-4 py-3 tabular-nums">

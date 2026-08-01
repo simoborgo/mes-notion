@@ -33,6 +33,9 @@ function initRow(a: ArticoloFerramenta): RowState {
 
 export default function TabellaArticoliFerramenta({ articoli: initial }: { articoli: ArticoloFerramenta[] }) {
   const [articoli, setArticoli] = useState(initial);
+  // Bozza (controlla l'input) vs applicato (guida filtro/render) — con 6897 articoli filtrare
+  // ad ogni tasto digitato appesantiva la tabella. Si applica con "Cerca" o Invio nel campo.
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [rows, setRows] = useState<Record<string, RowState>>(() => {
     const map: Record<string, RowState> = {};
@@ -101,12 +104,22 @@ export default function TabellaArticoliFerramenta({ articoli: initial }: { artic
 
   return (
     <div className="space-y-3">
-      <input
-        className={inputCls + " min-w-52"}
-        placeholder="Cerca descrizione, codice OS1, cod. fornitore, fornitore…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+      <div className="flex flex-wrap gap-2 items-center">
+        <input
+          className={inputCls + " min-w-52"}
+          placeholder="Cerca descrizione, codice OS1, cod. fornitore, fornitore…"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") setSearch(searchInput); }}
+        />
+        <button
+          onClick={() => setSearch(searchInput)}
+          className="px-4 py-2 rounded-lg text-sm font-semibold text-white"
+          style={{ background: "var(--color-primary)" }}
+        >
+          Cerca
+        </button>
+      </div>
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table className="w-full text-sm">
