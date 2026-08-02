@@ -26,6 +26,13 @@ interface Assenza {
   oraFine: string | null;
 }
 
+interface AssenzaManuale {
+  ore: number | null; // null = intera giornata
+  modificataManualmente: boolean;
+  conflitto: boolean;
+  permessoOreSuggerite: number | null;
+}
+
 interface PresenteRow {
   matricola: string;
   cognome: string;
@@ -34,8 +41,25 @@ interface PresenteRow {
   reparto: string;
   tipo: string;
   assenza: Assenza | null;
-  ultimoOdp: string | null;
+  assenzaManuale: AssenzaManuale | null;
+  odpGiornoPrecedente: string | null;
   registrazioni: RegistrazioneRow[];
+}
+
+interface OperatoreDerivato {
+  p: PresenteRow;
+  totaleRegistrato: number;
+  oreAssenza: number;
+  rimanenti: number;
+  giornataCompleta: boolean;
+}
+
+interface SezioneDerivata {
+  reparto: string;
+  operatori: OperatoreDerivato[];
+  capacitaNetta: number;
+  oreRegistrate: number;
+  residuo: number;
 }
 
 // Giornata standard attuale — in futuro spostabile in una pagina di configurazioni
@@ -65,6 +89,13 @@ function arrotondaMezzo(n: number): number {
   return Math.round(n * 2) / 2;
 }
 
+// Ore da togliere dal conteggio per via dell'assenza — null = intera giornata, risolto sul valore
+// di "totale giornata" corrente (impostabile dall'utente nel navigatore in alto).
+function oreAssenzaEffettiva(a: AssenzaManuale | null, totaleGiornata: number): number {
+  if (!a) return 0;
+  return a.ore ?? totaleGiornata;
+}
+
 const inputCls = "rounded-lg border px-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300";
 
 export default function VistaOggi() {
@@ -74,7 +105,6 @@ export default function VistaOggi() {
   const [loading, setLoading] = useState(true);
   const [warning, setWarning] = useState<string | null>(null);
   const [errore, setErrore] = useState<string | null>(null);
-  const [ordinaPerReparto, setOrdinaPerReparto] = useState(false);
   const [selezionati, setSelezionati] = useState<Set<string>>(new Set());
   const [totaleGiornata, setTotaleGiornata] = useState(DEFAULT_TOTALE_GIORNATA);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
@@ -116,12 +146,46 @@ export default function VistaOggi() {
       });
   }, []);
 
-  const presentiOrdinati = useMemo(() => {
-    const arr = [...presenti];
-    if (ordinaPerReparto) arr.sort((a, b) => a.reparto.localeCompare(b.reparto) || a.cognome.localeCompare(b.cognome));
-    else arr.sort((a, b) => a.cognome.localeCompare(b.cognome));
-    return arr;
-  }, [presenti, ordinaPerReparto]);
+  // Derivata da odpList (stessa fonte dell'autocomplete: ODP_SPECIALI in src/lib/notion.ts)
+  // invece di una lista propria, per non poterla mai disallineare dai tag realmente accettati.
+  const tagSpeciali = useMemo(() => odpList.filter(o => o.isSpeciale), [odpList]);
+
+  // Un solo giro di calcolo per operatore/reparto/globale — evitare di ripetere le stesse
+  // somme in ogni RigaOperatore e in ogni header di sezione.
+  const sezioni = useMemo<SezioneDerivata[]>(() => {
+    const perReparto = new Map<string, PresenteRow[]>();
+    for (const p of presenti) {
+      const list = perReparto.get(p.reparto) ?? [];
+      list.push(p);
+      perReparto.set(p.reparto, list);
+    }
+    const reparti = [...perReparto.keys()].sort((a, b) => a.localeCompare(b));
+    return reparti.map(reparto => {
+      const operatori: OperatoreDerivato[] = perReparto.get(reparto)!
+        .slice()
+        .sort((a, b) => a.cognome.localeCompare(b.cognome))
+        .map(p => {
+          const totaleRegistrato = p.registrazioni.reduce((s, r) => s + r.ore, 0);
+          const oreAssenza = oreAssenzaEffettiva(p.assenzaManuale, totaleGiornata);
+          const rimanenti = Math.max(arrotondaMezzo(totaleGiornata - oreAssenza - totaleRegistrato), 0);
+          return { p, totaleRegistrato, oreAssenza, rimanenti, giornataCompleta: rimanenti <= 0 };
+        });
+      const capacitaLorda = operatori.length * totaleGiornata;
+      const oreAssenzaTot = operatori.reduce((s, o) => s + o.oreAssenza, 0);
+      const capacitaNetta = arrotondaMezzo(capacitaLorda - oreAssenzaTot);
+      const oreRegistrate = arrotondaMezzo(operatori.reduce((s, o) => s + o.totaleRegistrato, 0));
+      const residuo = arrotondaMezzo(capacitaNetta - oreRegistrate);
+      return { reparto, operatori, capacitaNetta, oreRegistrate, residuo };
+    });
+  }, [presenti, totaleGiornata]);
+
+  const globale = useMemo(() => {
+    const capacitaNetta = arrotondaMezzo(sezioni.reduce((s, sez) => s + sez.capacitaNetta, 0));
+    const oreRegistrate = arrotondaMezzo(sezioni.reduce((s, sez) => s + sez.oreRegistrate, 0));
+    const nOperatori = sezioni.reduce((s, sez) => s + sez.operatori.length, 0);
+    const residuo = arrotondaMezzo(capacitaNetta - oreRegistrate);
+    return { capacitaNetta, oreRegistrate, nOperatori, residuo };
+  }, [sezioni]);
 
   function toggleSelezionato(matricola: string) {
     setSelezionati(prev => {
@@ -151,6 +215,23 @@ export default function VistaOggi() {
     await caricaPresenti(data, false);
   }
 
+  async function salvaAssenza(matricola: string, ore: number | null) {
+    const res = await fetch("/api/ore/assenze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data, matricola, ore }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error ?? "Errore salvataggio assenza");
+    await caricaPresenti(data, false);
+  }
+
+  async function eliminaAssenza(matricola: string) {
+    const res = await fetch(`/api/ore/assenze?data=${data}&matricola=${matricola}`, { method: "DELETE" });
+    if (!res.ok) throw new Error("Errore rimozione assenza");
+    await caricaPresenti(data, false);
+  }
+
   async function assegnaBulk(odp: string, ore: number) {
     const operatori = presenti.filter(p => selezionati.has(p.matricola));
     const voci = operatori.map(p => ({
@@ -171,6 +252,31 @@ export default function VistaOggi() {
 
   return (
     <div className="space-y-4 pb-24">
+      {/* Legenda causali speciali — cosa digitare nel campo ODP quando non si tratta di una commessa */}
+      {tagSpeciali.length > 0 && (
+        <div
+          className="rounded-lg border px-4 py-3 flex flex-wrap items-center gap-x-5 gap-y-2"
+          style={{ borderColor: "#FDE8D0", background: "#FFF7ED" }}
+        >
+          <span className="text-xs font-bold uppercase tracking-wide flex-shrink-0" style={{ color: "var(--color-primary)" }}>
+            Causali speciali
+          </span>
+          {tagSpeciali.map(t => (
+            <span key={t.odp} className="flex items-center gap-1.5 text-xs">
+              <span
+                className="font-mono font-bold px-1.5 py-0.5 rounded"
+                style={{ background: "white", border: "1px solid #FDE8D0", color: "var(--color-black)" }}
+              >
+                {t.odp}
+              </span>
+              <span style={{ color: "var(--color-grey-mid)" }}>
+                {t.label.includes(" — ") ? t.label.split(" — ")[1] : t.label}
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* Day navigator */}
       <div className="flex items-center gap-2 flex-wrap">
         <button
@@ -211,13 +317,22 @@ export default function VistaOggi() {
           <input type="checkbox" checked={preselezionaUltimoOdp} onChange={e => setPreselezionaUltimoOdp(e.target.checked)} className="accent-orange-500" />
           Preseleziona ODP in lavorazione dal giorno precedente
         </label>
-        <label className="flex items-center gap-2 text-sm cursor-pointer">
-          <input type="checkbox" checked={ordinaPerReparto} onChange={e => setOrdinaPerReparto(e.target.checked)} className="accent-orange-500" />
-          Ordina per reparto
-        </label>
       </div>
 
       <h2 className="text-lg font-semibold" style={{ color: "var(--color-black)" }}>{fmtDataLunga(data)}</h2>
+
+      {!loading && presenti.length > 0 && (
+        <div
+          className="rounded-lg px-4 py-2.5 text-sm font-semibold flex items-center gap-2"
+          style={globale.residuo <= 0
+            ? { background: "#DCFCE7", color: "#166534", border: "1px solid #86EFAC" }
+            : { background: "#FEF3C7", color: "#92400E", border: "1px solid #FCD34D" }}
+        >
+          {globale.residuo <= 0
+            ? "Giornata chiusa ✓ — tutte le ore attese sono state registrate"
+            : `⚠ Mancano ancora ${globale.residuo}h su ${globale.nOperatori} operatori per chiudere la giornata`}
+        </div>
+      )}
 
       {warning && (
         <div className="rounded-lg px-3 py-2 text-sm" style={{ background: "#FFFBEB", border: "1px solid #FCD34D", color: "#92400E" }}>
@@ -232,21 +347,23 @@ export default function VistaOggi() {
 
       {loading ? (
         <p className="text-sm" style={{ color: "var(--color-grey-mid)" }}>Caricamento…</p>
-      ) : presentiOrdinati.length === 0 ? (
+      ) : sezioni.length === 0 ? (
         <p className="text-sm" style={{ color: "var(--color-grey-mid)" }}>Nessun operatore in forza trovato.</p>
       ) : (
-        <div className="space-y-2">
-          {presentiOrdinati.map(p => (
-            <RigaOperatore
-              key={p.matricola}
-              p={p}
+        <div className="space-y-6">
+          {sezioni.map(sez => (
+            <SezioneReparto
+              key={sez.reparto}
+              sez={sez}
               odpList={odpList}
               totaleGiornata={totaleGiornata}
               preselezionaUltimoOdp={preselezionaUltimoOdp}
-              selezionato={selezionati.has(p.matricola)}
-              onToggleSelezionato={() => toggleSelezionato(p.matricola)}
-              onSalva={voce => salvaVoce(voce)}
+              selezionati={selezionati}
+              onToggleSelezionato={toggleSelezionato}
+              onSalva={salvaVoce}
               onElimina={eliminaVoce}
+              onSalvaAssenza={salvaAssenza}
+              onEliminaAssenza={eliminaAssenza}
             />
           ))}
         </div>
@@ -273,33 +390,107 @@ export default function VistaOggi() {
   );
 }
 
+function SezioneReparto({
+  sez, odpList, totaleGiornata, preselezionaUltimoOdp, selezionati, onToggleSelezionato, onSalva, onElimina, onSalvaAssenza, onEliminaAssenza,
+}: {
+  sez: SezioneDerivata;
+  odpList: OdpAttivo[];
+  totaleGiornata: number;
+  preselezionaUltimoOdp: boolean;
+  selezionati: Set<string>;
+  onToggleSelezionato: (matricola: string) => void;
+  onSalva: (voce: { matricola: string; cognome: string; nome: string; azienda: string | null; reparto: string | null; odp: string; ore: number; rif: boolean; causale: Causale | null; note: string | null }) => Promise<void>;
+  onElimina: (id: string) => Promise<void>;
+  onSalvaAssenza: (matricola: string, ore: number | null) => Promise<void>;
+  onEliminaAssenza: (matricola: string) => Promise<void>;
+}) {
+  const chiusa = sez.residuo <= 0;
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between flex-wrap gap-2 px-1">
+        <h3 className="text-sm font-bold uppercase tracking-wide" style={{ color: "var(--color-black)" }}>
+          {sez.reparto}
+          <span className="font-normal normal-case ml-2" style={{ color: "var(--color-grey-mid)" }}>
+            · {sez.operatori.length} operator{sez.operatori.length === 1 ? "e" : "i"}
+          </span>
+        </h3>
+        <div className="flex items-center gap-2 text-xs flex-wrap" style={{ color: "var(--color-grey-mid)" }}>
+          <span>capacità {sez.capacitaNetta}h · registrate {sez.oreRegistrate}h</span>
+          <span
+            className="font-bold px-2 py-0.5 rounded-full"
+            style={chiusa ? { background: "#DCFCE7", color: "#166534" } : { background: "#FEF3C7", color: "#92400E" }}
+          >
+            {chiusa ? "Chiuso ✓" : `Mancano ${sez.residuo}h`}
+          </span>
+        </div>
+      </div>
+      <div className="space-y-2">
+        {sez.operatori.map(o => (
+          <RigaOperatore
+            key={o.p.matricola}
+            p={o.p}
+            odpList={odpList}
+            totaleGiornata={totaleGiornata}
+            preselezionaUltimoOdp={preselezionaUltimoOdp}
+            totaleRegistrato={o.totaleRegistrato}
+            oreAssenza={o.oreAssenza}
+            rimanenti={o.rimanenti}
+            giornataCompleta={o.giornataCompleta}
+            selezionato={selezionati.has(o.p.matricola)}
+            onToggleSelezionato={() => onToggleSelezionato(o.p.matricola)}
+            onSalva={onSalva}
+            onElimina={onElimina}
+            onSalvaAssenza={ore => onSalvaAssenza(o.p.matricola, ore)}
+            onEliminaAssenza={() => onEliminaAssenza(o.p.matricola)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function RigaOperatore({
-  p, odpList, totaleGiornata, preselezionaUltimoOdp, selezionato, onToggleSelezionato, onSalva, onElimina,
+  p, odpList, totaleGiornata, preselezionaUltimoOdp, totaleRegistrato, oreAssenza, rimanenti, giornataCompleta,
+  selezionato, onToggleSelezionato, onSalva, onElimina, onSalvaAssenza, onEliminaAssenza,
 }: {
   p: PresenteRow;
   odpList: OdpAttivo[];
   totaleGiornata: number;
   preselezionaUltimoOdp: boolean;
+  totaleRegistrato: number;
+  oreAssenza: number;
+  rimanenti: number;
+  giornataCompleta: boolean;
   selezionato: boolean;
   onToggleSelezionato: () => void;
   onSalva: (voce: { matricola: string; cognome: string; nome: string; azienda: string | null; reparto: string | null; odp: string; ore: number; rif: boolean; causale: Causale | null; note: string | null }) => Promise<void>;
   onElimina: (id: string) => Promise<void>;
+  onSalvaAssenza: (ore: number | null) => Promise<void>;
+  onEliminaAssenza: () => Promise<void>;
 }) {
-  const totaleOre = p.registrazioni.reduce((s, r) => s + r.ore, 0);
-  const oltreLimite = totaleOre > 11;
-  const rimanenti = Math.max(arrotondaMezzo(totaleGiornata - totaleOre), 0);
-  const giornataCompleta = rimanenti <= 0;
+  const oltreLimite = totaleRegistrato > 11;
 
   // undefined = non ancora toccato dall'utente, segue la spunta "preseleziona";
   // null/stringa = scelta esplicita dell'utente (selezione, cancellazione o dopo un salvataggio)
   const [odpOverride, setOdpOverride] = useState<string | null | undefined>(undefined);
-  const odp = odpOverride !== undefined ? odpOverride : (preselezionaUltimoOdp ? p.ultimoOdp : null);
+  const odp = odpOverride !== undefined ? odpOverride : (preselezionaUltimoOdp ? p.odpGiornoPrecedente : null);
   // null = segui il residuo calcolato; un numero = l'utente ha digitato un valore proprio
   const [oreOverride, setOreOverride] = useState<number | null>(null);
   const ore = oreOverride ?? rimanenti;
   const [rif, setRif] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+
+  // Assenza manuale: undefined = segue p.assenzaManuale (server), un numero = modifica in corso non ancora salvata
+  const [oreAssenzaOverride, setOreAssenzaOverride] = useState<number | undefined>(undefined);
+  const [savingAssenza, setSavingAssenza] = useState(false);
+  const [errAssenza, setErrAssenza] = useState("");
+  const assenzaManuale = p.assenzaManuale;
+  const assenteChecked = assenzaManuale !== null;
+  const assenzaSincronizzata = assenzaManuale?.modificataManualmente === false;
+  const oreAssenzaVisualizzate = oreAssenzaOverride !== undefined
+    ? oreAssenzaOverride
+    : (assenzaManuale ? (assenzaManuale.ore ?? totaleGiornata) : totaleGiornata);
 
   async function handleAggiungi() {
     if (!odp) { setErr("Seleziona un ODP"); return; }
@@ -322,6 +513,38 @@ function RigaOperatore({
     }
   }
 
+  async function handleToggleAssenza(checked: boolean) {
+    setSavingAssenza(true);
+    setErrAssenza("");
+    try {
+      if (checked) {
+        await onSalvaAssenza(null); // default: intera giornata
+      } else {
+        await onEliminaAssenza();
+      }
+      setOreAssenzaOverride(undefined);
+    } catch (e) {
+      setErrAssenza(e instanceof Error ? e.message : "Errore assenza");
+    } finally {
+      setSavingAssenza(false);
+    }
+  }
+
+  async function handleBlurOreAssenza() {
+    if (oreAssenzaOverride === undefined) return; // non modificato
+    setSavingAssenza(true);
+    setErrAssenza("");
+    try {
+      const oreDaSalvare = oreAssenzaOverride === totaleGiornata ? null : oreAssenzaOverride;
+      await onSalvaAssenza(oreDaSalvare);
+      setOreAssenzaOverride(undefined);
+    } catch (e) {
+      setErrAssenza(e instanceof Error ? e.message : "Errore assenza");
+    } finally {
+      setSavingAssenza(false);
+    }
+  }
+
   return (
     <div className="rounded-xl border" style={{ borderColor: p.assenza ? "#FCA5A5" : "#e5e4e0", background: p.assenza ? "#FEF2F2" : "white" }}>
       <div className="flex items-center gap-3 px-4 py-3">
@@ -336,13 +559,49 @@ function RigaOperatore({
             )}
             {oltreLimite && (
               <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "#FEF3C7", color: "#92400E" }}>
-                ⚠ {totaleOre}h/giorno
+                ⚠ {totaleRegistrato}h/giorno
               </span>
             )}
           </div>
           <div className="text-xs mt-0.5" style={{ color: "var(--color-grey-mid)" }}>
             {p.azienda} · {p.reparto}
           </div>
+
+          <div className="flex items-center gap-2 flex-wrap mt-1.5">
+            <label
+              className="flex items-center gap-1.5 text-xs cursor-pointer"
+              title={assenzaSincronizzata ? "Assenza da Gestione Permessi — per rimuoverla, modifica la richiesta in Permessi" : undefined}
+            >
+              <input
+                type="checkbox"
+                checked={assenteChecked}
+                disabled={assenzaSincronizzata || savingAssenza}
+                onChange={e => handleToggleAssenza(e.target.checked)}
+                className="w-3.5 h-3.5 accent-orange-500"
+              />
+              <span style={{ color: "var(--color-grey-mid)" }}>Assente per malattia o permesso</span>
+            </label>
+            {assenteChecked && (
+              <>
+                <input
+                  type="number" step={0.5} min={0.5} max={totaleGiornata}
+                  className={inputCls}
+                  style={{ width: 64, height: 28 }}
+                  value={oreAssenzaVisualizzate}
+                  disabled={savingAssenza}
+                  onChange={e => setOreAssenzaOverride(Number(e.target.value))}
+                  onBlur={handleBlurOreAssenza}
+                />
+                <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>h da togliere dal conteggio</span>
+              </>
+            )}
+            {assenzaManuale?.conflitto && (
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "#FEF3C7", color: "#92400E" }}>
+                ⚠ verifica: mismatch con permessi ({assenzaManuale.permessoOreSuggerite != null ? `Permessi indica ${assenzaManuale.permessoOreSuggerite}h` : "Permessi indica giornata intera"})
+              </span>
+            )}
+          </div>
+          {errAssenza && <p className="text-xs font-medium mt-1" style={{ color: "#991B1B" }}>{errAssenza}</p>}
         </div>
       </div>
 
@@ -384,7 +643,7 @@ function RigaOperatore({
         <button
           onClick={handleAggiungi}
           disabled={saving || giornataCompleta}
-          title={giornataCompleta ? `Giornata completa (${totaleGiornata}h) — elimina una voce per aggiungerne altre` : "Aggiungi riga"}
+          title={giornataCompleta ? `Giornata completa (${totaleGiornata}h considerando eventuali assenze) — elimina una voce per aggiungerne altre` : "Aggiungi riga"}
           className="flex items-center justify-center rounded-lg text-white font-bold disabled:opacity-60 flex-shrink-0"
           style={{ width: 44, height: 44, background: "var(--color-primary)", fontSize: 20 }}
         >
@@ -393,7 +652,7 @@ function RigaOperatore({
       </div>
       {giornataCompleta && !err && (
         <p className="px-4 pb-3 text-xs font-medium" style={{ color: "#92400E" }}>
-          Giornata completa ({totaleGiornata}h) — elimina una voce per aggiungerne altre
+          Giornata completa ({totaleGiornata}h{oreAssenza > 0 ? `, di cui ${oreAssenza}h di assenza` : ""}) — elimina una voce per aggiungerne altre
         </p>
       )}
       {err && <p className="px-4 pb-3 text-xs font-medium" style={{ color: "#991B1B" }}>{err}</p>}

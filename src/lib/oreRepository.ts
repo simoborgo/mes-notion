@@ -90,11 +90,6 @@ export async function upsertRegistrazione(entry: {
     [entry.data, entry.matricola, entry.cognome, entry.nome, entry.azienda, entry.reparto,
      entry.odp, categoria, entry.ore, entry.rif, entry.causale, entry.note, costoRif]
   );
-  await pool.query(
-    `INSERT INTO ultimo_odp (matricola, ultimo_odp, aggiornato_il) VALUES ($1,$2,now())
-     ON CONFLICT (matricola) DO UPDATE SET ultimo_odp = EXCLUDED.ultimo_odp, aggiornato_il = now()`,
-    [entry.matricola, entry.odp]
-  );
   return mapRow(rows[0]);
 }
 
@@ -111,15 +106,24 @@ export async function classificaCausale(id: string, causale: OreCausale): Promis
   return mapRow(rows[0]);
 }
 
-export async function getUltimoOdpMap(matricole: string[]): Promise<Record<string, string>> {
+// ODP dominante di ciascun operatore nella data indicata (di norma il giorno prima di quello
+// visualizzato) — usato per precompilare la selezione ODP. Query diretta su ore_registrate,
+// non una cache denormalizzata: la vecchia tabella ultimo_odp veniva aggiornata ad ogni salvataggio
+// indipendentemente dalla data della voce (anche correggendo una data passata), quindi poteva
+// mostrare l'ODP di settimane prima come se fosse "di ieri" — bug reale, non solo un rischio.
+// "Dominante" = più ore in quella data; a parità, la voce inserita per prima.
+export async function getOdpGiornoPrecedenteMap(matricole: string[], dataPrecedente: string): Promise<Record<string, string>> {
   if (matricole.length === 0) return {};
   const { rows } = await pool.query(
-    `SELECT matricola, ultimo_odp FROM ultimo_odp WHERE matricola = ANY($1)`,
-    [matricole]
+    `SELECT DISTINCT ON (matricola) matricola, odp
+     FROM ore_registrate
+     WHERE data = $1 AND matricola = ANY($2)
+     ORDER BY matricola, ore DESC, created_at ASC`,
+    [dataPrecedente, matricole]
   );
   const map: Record<string, string> = {};
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  rows.forEach((r: any) => { map[r.matricola] = r.ultimo_odp; });
+  rows.forEach((r: any) => { map[r.matricola] = r.odp; });
   return map;
 }
 

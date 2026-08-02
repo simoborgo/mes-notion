@@ -1,8 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOperatori } from "@/lib/notion";
-import { getRegistrazioniPerData, getUltimoOdpMap } from "@/lib/oreRepository";
+import { getRegistrazioniPerData, getOdpGiornoPrecedenteMap } from "@/lib/oreRepository";
 import { getAssenzeApprovatePerData, isAssente } from "@/lib/permessiRepository";
+import {
+  type AssenzaManuale, getAssenzeManualiPerData, oreDaPermesso, reconciliaAssenzeConPermessi, oreEqual,
+} from "@/lib/assenzeRepository";
 import { getSessionFromRequest, RILEVAMENTO_ORE_ROLES } from "@/lib/auth";
+
+// Calcolo esplicito su anno/mese/giorno (non new Date(dataStr) + setDate) per evitare
+// spostamenti di fuso orario — stessa tecnica già usata lato client in VistaOggi.tsx.
+function giornoPrecedente(dataStr: string): string {
+  const [y, m, d] = dataStr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d - 1);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())}`;
+}
 
 export async function GET(req: NextRequest) {
   const session = await getSessionFromRequest(req);
@@ -20,9 +32,9 @@ export async function GET(req: NextRequest) {
     const operatori = await getOperatori();
     const matricole = operatori.map(o => o.matricola);
 
-    const [registrazioni, ultimoOdpMap, assenzeResult] = await Promise.all([
+    const [registrazioni, odpGiornoPrecedenteMap, assenzeResult] = await Promise.all([
       getRegistrazioniPerData(data),
-      getUltimoOdpMap(matricole),
+      getOdpGiornoPrecedenteMap(matricole, giornoPrecedente(data)),
       getAssenzeApprovatePerData(data).then(
         assenze => ({ ok: true as const, assenze }),
         e => ({ ok: false as const, error: (e as Error).message })
@@ -36,8 +48,43 @@ export async function GET(req: NextRequest) {
       registrazioniPerMatricola.set(r.matricola, list);
     }
 
+    // Permesso live per operatore (join con Gestione Permessi) — invariato rispetto a prima.
+    const permessoPerMatricola = new Map<string, ReturnType<typeof isAssente>>();
+    if (assenzeResult.ok) {
+      for (const o of operatori) {
+        permessoPerMatricola.set(o.matricola, isAssente(o.cognome, o.nome, assenzeResult.assenze));
+      }
+    }
+
+    // Assenze manuali/riconciliate: se Permessi è raggiungibile, riconcilia (crea/aggiorna le righe
+    // auto-sincronizzate, non tocca quelle modificate a mano) — altrimenti sola lettura di quanto già
+    // salvato. Un errore di scrittura qui non deve impedire il caricamento della pagina.
+    let assenzeManualiMap: Map<string, AssenzaManuale>;
+    if (assenzeResult.ok) {
+      const permessiOreMap = new Map<string, number | null>();
+      for (const [matricola, permesso] of permessoPerMatricola) {
+        if (permesso) permessiOreMap.set(matricola, oreDaPermesso(permesso));
+      }
+      try {
+        assenzeManualiMap = await reconciliaAssenzeConPermessi(data, permessiOreMap);
+      } catch (e) {
+        console.error("[ore/presenti] riconciliazione assenze fallita", e);
+        assenzeManualiMap = await getAssenzeManualiPerData(data).catch(() => new Map());
+      }
+    } else {
+      assenzeManualiMap = await getAssenzeManualiPerData(data).catch(() => new Map());
+    }
+
     const presenti = operatori.map(o => {
-      const assenza = assenzeResult.ok ? isAssente(o.cognome, o.nome, assenzeResult.assenze) : null;
+      const permesso = permessoPerMatricola.get(o.matricola) ?? null;
+      const manuale = assenzeManualiMap.get(o.matricola) ?? null;
+      const permessoOre = permesso ? oreDaPermesso(permesso) : null;
+      const assenzaManuale = manuale ? {
+        ore: manuale.ore,
+        modificataManualmente: manuale.modificataManualmente,
+        conflitto: manuale.modificataManualmente && permesso !== null && !oreEqual(manuale.ore, permessoOre),
+        permessoOreSuggerite: permesso ? permessoOre : null,
+      } : null;
       return {
         matricola: o.matricola,
         cognome: o.cognome,
@@ -45,8 +92,9 @@ export async function GET(req: NextRequest) {
         azienda: o.azienda,
         reparto: o.reparto,
         tipo: o.tipo,
-        assenza,
-        ultimoOdp: ultimoOdpMap[o.matricola] ?? null,
+        assenza: permesso,
+        assenzaManuale,
+        odpGiornoPrecedente: odpGiornoPrecedenteMap[o.matricola] ?? null,
         registrazioni: registrazioniPerMatricola.get(o.matricola) ?? [],
       };
     });
