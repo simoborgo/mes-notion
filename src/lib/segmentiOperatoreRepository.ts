@@ -119,25 +119,41 @@ async function chiudiSegmentoInterno(client: PoolClient, op: DatiOperatore): Pro
   if (rows.length === 0) return;
   const aperto = rows[0];
   const iniziatoAlle: Date = aperto.iniziato_alle;
+  const dataSegmento = aperto.data instanceof Date ? formatData(aperto.data) : aperto.data;
   const oreEsatte = (Date.now() - iniziatoAlle.getTime()) / 3_600_000;
   const anomalo = oreEsatte > SOGLIA_ANOMALIA_ORE;
-  const oreDaSommare = arrotondaMezzo(Math.min(oreEsatte, SOGLIA_ANOMALIA_ORE));
+  const oreSegmento = Math.min(oreEsatte, SOGLIA_ANOMALIA_ORE); // valore "contabile" (capped), non ancora arrotondato
 
   await client.query(
     `UPDATE ore_segmenti_odp SET chiuso_alle = now(), ore = $2, anomalo = $3 WHERE id = $1`,
-    [aperto.id, oreDaSommare, anomalo]
+    [aperto.id, Math.round(oreSegmento * 100) / 100, anomalo]
   );
 
-  if (oreDaSommare > 0) {
+  // Arrotondare ogni segmento isolatamente perderebbe silenziosamente i cambi rapidi (es. tre
+  // passaggi da 10 minuti sullo stesso ODP farebbero 0h ciascuno, anche se insieme fanno 0,5h).
+  // Si arrotonda invece il TOTALE cumulato (esatto, dai timestamp) di oggi su questo ODP, e si
+  // somma solo la differenza rispetto a quanto già arrotondato prima di questo segmento — così
+  // nessun minuto va perso finché il cumulato giornaliero sull'ODP non supera i 15 minuti.
+  const { rows: totRows } = await client.query(
+    `SELECT COALESCE(SUM(LEAST(EXTRACT(EPOCH FROM (chiuso_alle - iniziato_alle)) / 3600, $4)), 0) AS totale
+     FROM ore_segmenti_odp
+     WHERE matricola = $1 AND data = $2 AND odp = $3 AND chiuso_alle IS NOT NULL`,
+    [op.matricola, dataSegmento, aperto.odp, SOGLIA_ANOMALIA_ORE]
+  );
+  const totaleConQuesto = Number(totRows[0].totale);
+  const totalePrima = totaleConQuesto - oreSegmento;
+  const delta = arrotondaMezzo(totaleConQuesto) - arrotondaMezzo(totalePrima);
+
+  if (delta > 0) {
     await aggiungiOreRegistrate({
-      data: aperto.data instanceof Date ? formatData(aperto.data) : aperto.data,
+      data: dataSegmento,
       matricola: op.matricola,
       cognome: op.cognome,
       nome: op.nome,
       azienda: op.azienda,
       reparto: op.reparto,
       odp: aperto.odp,
-      oreDelta: oreDaSommare,
+      oreDelta: delta,
       rif: aperto.rif,
     }, client);
   }
