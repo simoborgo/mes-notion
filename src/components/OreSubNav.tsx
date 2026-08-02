@@ -5,6 +5,7 @@ import Link from "next/link";
 const TABS = [
   { href: "/ore", key: "oggi", label: "Oggi" },
   { href: "/ore/rifacimenti", key: "rifacimenti", label: "Rifacimenti da Classificare" },
+  { href: "/ore/segmenti-anomali", key: "segmenti-anomali", label: "Segmenti da Rivedere" },
   { href: "/ore/storico-odp", key: "storico-odp", label: "Storico ODP" },
   { href: "/ore/storico-operatore", key: "storico-operatore", label: "Storico Operatore" },
   { href: "/ore/kpi", key: "kpi", label: "Dashboard KPI" },

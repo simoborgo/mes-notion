@@ -1,3 +1,4 @@
+import type { Pool, PoolClient } from "pg";
 import { pool } from "./db";
 
 export type OreCategoria = "COMMESSA" | "SETUP" | "MANUTENZIONE" | "RIUNIONE" | "FORMAZIONE" | "PULIZIE";
@@ -89,6 +90,41 @@ export async function upsertRegistrazione(entry: {
      RETURNING *`,
     [entry.data, entry.matricola, entry.cognome, entry.nome, entry.azienda, entry.reparto,
      entry.odp, categoria, entry.ore, entry.rif, entry.causale, entry.note, costoRif]
+  );
+  return mapRow(rows[0]);
+}
+
+// Upsert additivo — a differenza di upsertRegistrazione (che sostituisce il totale, uso del
+// responsabile per correggere una voce) questa SOMMA oreDelta a quanto già presente per
+// (data, matricola, odp). Usata dal flusso operatore/tablet, dove più segmenti di lavoro sullo
+// stesso ODP nella stessa giornata devono accumularsi, non sovrascriversi. Accetta un client/pool
+// esplicito per poter partecipare a una transazione (vedi segmentiOperatoreRepository.ts).
+export async function aggiungiOreRegistrate(
+  entry: {
+    data: string;
+    matricola: string;
+    cognome: string;
+    nome: string;
+    azienda: string | null;
+    reparto: string | null;
+    odp: string;
+    oreDelta: number;
+    rif: boolean;
+  },
+  executor: Pool | PoolClient = pool
+): Promise<OreRegistrata> {
+  const categoria = categoriaFromOdp(entry.odp);
+  const { rows } = await executor.query(
+    `INSERT INTO ore_registrate (data, matricola, cognome, nome, azienda, reparto, odp, categoria, ore, rif, causale, note, costo_rif)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NULL,NULL,$11)
+     ON CONFLICT (data, matricola, odp) DO UPDATE SET
+       cognome = EXCLUDED.cognome, nome = EXCLUDED.nome, azienda = EXCLUDED.azienda, reparto = EXCLUDED.reparto,
+       categoria = EXCLUDED.categoria, ore = ore_registrate.ore + EXCLUDED.ore, rif = EXCLUDED.rif,
+       causale = CASE WHEN EXCLUDED.rif THEN ore_registrate.causale ELSE NULL END,
+       costo_rif = CASE WHEN EXCLUDED.rif THEN round((ore_registrate.ore + EXCLUDED.ore) * ${COSTO_ORARIO} * 100) / 100 ELSE NULL END
+     RETURNING *`,
+    [entry.data, entry.matricola, entry.cognome, entry.nome, entry.azienda, entry.reparto,
+     entry.odp, categoria, entry.oreDelta, entry.rif, entry.rif ? Math.round(entry.oreDelta * COSTO_ORARIO * 100) / 100 : null]
   );
   return mapRow(rows[0]);
 }

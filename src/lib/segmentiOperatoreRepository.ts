@@ -1,0 +1,144 @@
+import type { PoolClient } from "pg";
+import { pool } from "./db";
+import { aggiungiOreRegistrate } from "./oreRepository";
+
+// Oltre questa soglia un segmento aperto è quasi certamente stato dimenticato (tablet spento,
+// operatore andato via senza premere "Ho finito per oggi") — si chiude comunque ma si marca
+// come anomalo e si limita l'importo sommato a ore_registrate, invece di sommare ore assurde.
+const SOGLIA_ANOMALIA_ORE = 12;
+
+export interface Segmento {
+  id: string;
+  matricola: string;
+  data: string;
+  odp: string;
+  rif: boolean;
+  iniziatoAlle: string;
+  chiusoAlle: string | null;
+  ore: number | null;
+  anomalo: boolean;
+}
+
+function formatData(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapRow(r: any): Segmento {
+  return {
+    id: r.id,
+    matricola: r.matricola,
+    data: r.data instanceof Date ? formatData(r.data) : r.data,
+    odp: r.odp,
+    rif: r.rif,
+    iniziatoAlle: r.iniziato_alle instanceof Date ? r.iniziato_alle.toISOString() : r.iniziato_alle,
+    chiusoAlle: r.chiuso_alle instanceof Date ? r.chiuso_alle.toISOString() : r.chiuso_alle,
+    ore: r.ore != null ? Number(r.ore) : null,
+    anomalo: r.anomalo,
+  };
+}
+
+function arrotondaMezzo(n: number): number {
+  return Math.round(n * 2) / 2;
+}
+
+export async function getSegmentoAperto(matricola: string): Promise<Segmento | null> {
+  const { rows } = await pool.query(
+    `SELECT * FROM ore_segmenti_odp WHERE matricola = $1 AND chiuso_alle IS NULL`,
+    [matricola]
+  );
+  return rows[0] ? mapRow(rows[0]) : null;
+}
+
+export async function getSegmentiOggi(matricola: string, data: string): Promise<Segmento[]> {
+  const { rows } = await pool.query(
+    `SELECT * FROM ore_segmenti_odp WHERE matricola = $1 AND data = $2 AND chiuso_alle IS NOT NULL ORDER BY iniziato_alle`,
+    [matricola, data]
+  );
+  return rows.map(mapRow);
+}
+
+export async function getSegmentiAnomali(): Promise<Segmento[]> {
+  const { rows } = await pool.query(
+    `SELECT * FROM ore_segmenti_odp WHERE anomalo = true ORDER BY data DESC, iniziato_alle DESC`
+  );
+  return rows.map(mapRow);
+}
+
+interface DatiOperatore {
+  matricola: string;
+  cognome: string;
+  nome: string;
+  azienda: string | null;
+  reparto: string | null;
+}
+
+// Chiude il segmento aperto (se esiste), somma le ore risultanti a ore_registrate, poi ne
+// apre uno nuovo — tutto in un'unica transazione. Un solo segmento aperto per matricola è
+// garantito dall'indice univoco parziale su ore_segmenti_odp(matricola) WHERE chiuso_alle IS NULL.
+export async function apriSegmento(op: DatiOperatore, odp: string, rif: boolean): Promise<Segmento> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await chiudiSegmentoInterno(client, op);
+    const oggi = formatData(new Date());
+    const { rows } = await client.query(
+      `INSERT INTO ore_segmenti_odp (matricola, data, odp, rif) VALUES ($1, $2, $3, $4) RETURNING *`,
+      [op.matricola, oggi, odp, rif]
+    );
+    await client.query("COMMIT");
+    return mapRow(rows[0]);
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+export async function chiudiSegmentoCorrente(op: DatiOperatore): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await chiudiSegmentoInterno(client, op);
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+async function chiudiSegmentoInterno(client: PoolClient, op: DatiOperatore): Promise<void> {
+  const { rows } = await client.query(
+    `SELECT * FROM ore_segmenti_odp WHERE matricola = $1 AND chiuso_alle IS NULL FOR UPDATE`,
+    [op.matricola]
+  );
+  if (rows.length === 0) return;
+  const aperto = rows[0];
+  const iniziatoAlle: Date = aperto.iniziato_alle;
+  const oreEsatte = (Date.now() - iniziatoAlle.getTime()) / 3_600_000;
+  const anomalo = oreEsatte > SOGLIA_ANOMALIA_ORE;
+  const oreDaSommare = arrotondaMezzo(Math.min(oreEsatte, SOGLIA_ANOMALIA_ORE));
+
+  await client.query(
+    `UPDATE ore_segmenti_odp SET chiuso_alle = now(), ore = $2, anomalo = $3 WHERE id = $1`,
+    [aperto.id, oreDaSommare, anomalo]
+  );
+
+  if (oreDaSommare > 0) {
+    await aggiungiOreRegistrate({
+      data: aperto.data instanceof Date ? formatData(aperto.data) : aperto.data,
+      matricola: op.matricola,
+      cognome: op.cognome,
+      nome: op.nome,
+      azienda: op.azienda,
+      reparto: op.reparto,
+      odp: aperto.odp,
+      oreDelta: oreDaSommare,
+      rif: aperto.rif,
+    }, client);
+  }
+}
