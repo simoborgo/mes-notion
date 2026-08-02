@@ -5,6 +5,9 @@ import { NextRequest } from "next/server";
 export type Role = "admin" | "operatore" | "logistica" | "spedizioni" | "produzione" | "responsabile_produzione" | "magazziniere";
 
 export const WRITE_ROLES: Role[] = ["admin", "logistica"];
+// Solo la creazione di un nuovo Ritiro/Consegna — non modifica/eliminazione (restano
+// WRITE_ROLES) né i Carichi, che condividono WRITE_ROLES ma non vanno estesi qui.
+export const RITIRI_CREATE_ROLES: Role[] = ["admin", "logistica", "produzione"];
 export const CARICO_ROLES: Role[] = ["admin", "produzione"];
 export const SPEDIZIONI_ROLES: Role[] = ["admin", "spedizioni"];
 export const RILEVAMENTO_ORE_ROLES: Role[] = ["admin", "responsabile_produzione"];

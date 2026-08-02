@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getRitiri, createRitiro, getRitiroById, appendFotoToPage, getSchedaById, createRilavorazione, invalidateSchedeCache } from "@/lib/notion";
-import { getSessionFromRequest, WRITE_ROLES, RIENTRO_QUALITA_ROLES } from "@/lib/auth";
+import { getSessionFromRequest, RITIRI_CREATE_ROLES, RIENTRO_QUALITA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
 export async function GET() {
@@ -51,10 +51,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Fuori da WRITE_ROLES (admin/logistica), l'unica azione consentita è organizzare il
-    // ritiro di una Rilavorazione già aperta e in attesa (pulsante "Inserisci un ritiro" di
-    // Rientro Qualità) — mai la creazione libera di un Ritiro/Consegna qualsiasi.
-    const puoScrivereLiberamente = WRITE_ROLES.includes(session.role);
+    // Fuori da RITIRI_CREATE_ROLES (admin/logistica/produzione), l'unica azione consentita è
+    // organizzare il ritiro di una Rilavorazione già aperta e in attesa (pulsante "Inserisci
+    // un ritiro" di Rientro Qualità) — mai la creazione libera di un Ritiro/Consegna qualsiasi.
+    const puoScrivereLiberamente = RITIRI_CREATE_ROLES.includes(session.role);
     const puoOrganizzarePickupRilavorazione = !isNC && schedaCollegataERilavorazione && RIENTRO_QUALITA_ROLES.includes(session.role);
     if (!puoScrivereLiberamente && !puoOrganizzarePickupRilavorazione) {
       return NextResponse.json({ error: "Permesso negato" }, { status: 403 });

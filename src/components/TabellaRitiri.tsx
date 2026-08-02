@@ -133,6 +133,9 @@ export default function TabellaRitiri({
 }) {
   const canWrite = userRole === "admin" || userRole === "operatore" || userRole === "logistica";
   const canDelete = userRole === "admin" || userRole === "logistica";
+  // Solo la creazione di un nuovo Ritiro/Consegna, non le altre azioni di canWrite
+  // (modifica, transizioni di stato, riassegnazione) — produzione non le ha.
+  const canCreate = canWrite || userRole === "produzione";
   const [ritiri, setRitiri] = useState(initial);
   const [search, setSearch] = useState("");
   const [filtroStato, setFiltroStato] = useState("");
@@ -461,7 +464,7 @@ export default function TabellaRitiri({
             <span className={refreshing ? "inline-block animate-spin" : ""}>↻</span>
             {refreshing ? "Aggiornamento…" : "Aggiorna"}
           </button>
-          {canWrite && (
+          {canCreate && (
             <button
               onClick={() => setCreando(true)}
               className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold text-white rounded transition-colors hover:opacity-90"
