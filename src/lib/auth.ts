@@ -9,6 +9,7 @@ export const WRITE_ROLES: Role[] = ["admin", "logistica"];
 // WRITE_ROLES) né i Carichi, che condividono WRITE_ROLES ma non vanno estesi qui.
 export const RITIRI_CREATE_ROLES: Role[] = ["admin", "logistica", "produzione"];
 export const CARICO_ROLES: Role[] = ["admin", "produzione"];
+export const SCARICO_MATERIALE_ROLES: Role[] = ["admin", "logistica"];
 export const SPEDIZIONI_ROLES: Role[] = ["admin", "spedizioni"];
 export const RILEVAMENTO_ORE_ROLES: Role[] = ["admin", "responsabile_produzione"];
 export const FERRAMENTA_ROLES: Role[] = ["admin", "magazziniere", "produzione"];

@@ -67,6 +67,7 @@ const CARICO_ROLES = ["admin", "produzione"];
 const SPEDIZIONI_ROLES = ["admin", "spedizioni"];
 const RILEVAMENTO_ORE_ROLES = ["admin", "responsabile_produzione"];
 const FERRAMENTA_ROLES = ["admin", "magazziniere", "produzione"];
+const SCARICO_MATERIALE_ROLES = ["admin", "logistica"];
 
 const links = [
   {
@@ -108,6 +109,16 @@ const links = [
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
         <polyline points="17 8 12 3 7 8"/>
         <line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+    ),
+  },
+  {
+    href: "/scarico-materiale",
+    label: "Scarico Materiale",
+    roles: SCARICO_MATERIALE_ROLES,
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 9l9-7 9 7" /><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><line x1="12" y1="2" x2="12" y2="14" />
       </svg>
     ),
   },
