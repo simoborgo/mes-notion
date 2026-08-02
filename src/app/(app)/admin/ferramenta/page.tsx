@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSession, FERRAMENTA_ROLES } from "@/lib/auth";
 import { getArticoliFerramenta } from "@/lib/articoliFerramentaRepository";
+import { getFornitoriList } from "@/lib/notion";
 import TabellaArticoliFerramenta from "@/components/TabellaArticoliFerramenta";
 import FerramentaSubNav from "@/components/FerramentaSubNav";
 
@@ -13,7 +14,7 @@ export default async function AdminFerramentaPage() {
     redirect("/");
   }
 
-  const articoli = await getArticoliFerramenta();
+  const [articoli, fornitori] = await Promise.all([getArticoliFerramenta(), getFornitoriList()]);
 
   return (
     <div className="space-y-4">
@@ -58,7 +59,7 @@ export default async function AdminFerramentaPage() {
           </Link>
         </div>
       </div>
-      <TabellaArticoliFerramenta articoli={articoli} />
+      <TabellaArticoliFerramenta articoli={articoli} fornitori={fornitori} />
     </div>
   );
 }

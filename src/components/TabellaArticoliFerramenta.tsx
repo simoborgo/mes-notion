@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { ArticoloFerramenta, MetodoGestioneFerramenta } from "@/lib/types";
 import { UBICAZIONI_FERRAMENTA } from "@/lib/types";
 import { normalizzaCodiceFornitore } from "@/lib/ferramentaCodici";
+import FormNuovoArticoloFerramenta from "./FormNuovoArticoloFerramenta";
 
 interface RowState {
   metodoGestione: MetodoGestioneFerramenta | "";
@@ -31,8 +32,15 @@ function initRow(a: ArticoloFerramenta): RowState {
   };
 }
 
-export default function TabellaArticoliFerramenta({ articoli: initial }: { articoli: ArticoloFerramenta[] }) {
+export default function TabellaArticoliFerramenta({
+  articoli: initial,
+  fornitori,
+}: {
+  articoli: ArticoloFerramenta[];
+  fornitori: { id: string; nome: string; codiceOs1: string }[];
+}) {
   const [articoli, setArticoli] = useState(initial);
+  const [modalAperto, setModalAperto] = useState(false);
   // Bozza (controlla l'input) vs applicato (guida filtro/render) — con 6897 articoli filtrare
   // ad ogni tasto digitato appesantiva la tabella. Si applica con "Cerca" o Invio nel campo.
   const [searchInput, setSearchInput] = useState("");
@@ -56,6 +64,12 @@ export default function TabellaArticoliFerramenta({ articoli: initial }: { artic
       return false;
     });
   }, [articoli, search]);
+
+  function handleArticoloCreato(articolo: ArticoloFerramenta) {
+    setArticoli(prev => [articolo, ...prev]);
+    setRows(prev => ({ ...prev, [articolo.id]: initRow(articolo) }));
+    setModalAperto(false);
+  }
 
   function setRow(id: string, patch: Partial<RowState>) {
     setRows(prev => ({ ...prev, [id]: { ...prev[id], ...patch } }));
@@ -119,7 +133,22 @@ export default function TabellaArticoliFerramenta({ articoli: initial }: { artic
         >
           Cerca
         </button>
+        <button
+          onClick={() => setModalAperto(true)}
+          className="ml-auto px-4 py-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
+          style={{ background: "var(--color-primary)" }}
+        >
+          + Nuovo articolo
+        </button>
       </div>
+
+      {modalAperto && (
+        <FormNuovoArticoloFerramenta
+          fornitori={fornitori}
+          onClose={() => setModalAperto(false)}
+          onCreato={handleArticoloCreato}
+        />
+      )}
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table className="w-full text-sm">
