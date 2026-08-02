@@ -284,19 +284,21 @@ export default function Dashboard({ schede, ritiri, commesse, carichi }: Dashboa
   const meseStr = oggi.toLocaleDateString("it-IT", { month: "long" });
 
   const commesseInProduzione = commesse.filter((c) => c.stato === "In produzione").length;
-  const commesseInSpedizioneMese = commesse.filter((c) => {
+  const carichiMese = carichi.filter((c) => {
     if (!c.dataCarico) return false;
     const d = new Date(c.dataCarico);
     return d >= meseStart && d <= meseEnd;
   }).length;
-  const commesseShopDrawing = commesse.filter((c) => c.stato === "ShopDrawing").length;
+  const commesseInMontaggio = commesse
+    .filter((c) => c.stato === "In montaggio")
+    .sort((a, b) => (a.inizioMontaggio ?? "") < (b.inizioMontaggio ?? "") ? -1 : 1);
   const STATI_ESCLUSI_ODP = new Set(["Completato", "Materiale Pronto", "Annullata", "Da Iniziare"]);
   const odpInLavorazione = schede.filter((s) => !STATI_ESCLUSI_ODP.has(s.statoProduzione)).length;
 
   const kpis: KpiCardProps[] = [
     { label: "Commesse in produzione", value: commesseInProduzione, accent: "#F08F25", bg: "#FFF7ED", sublabel: "attive" },
-    { label: `In spedizione — ${meseStr}`, value: commesseInSpedizioneMese, accent: "#3B82F6", bg: "#EFF6FF", sublabel: "commesse questo mese" },
-    { label: "Shop Drawing", value: commesseShopDrawing, accent: "#8B5CF6", bg: "#F5F3FF", sublabel: "in fase di progettazione" },
+    { label: `Carichi — ${meseStr}`, value: carichiMese, accent: "#3B82F6", bg: "#EFF6FF", sublabel: "carichi programmati questo mese" },
+    { label: "In Montaggio", value: commesseInMontaggio.length, accent: "#10B981", bg: "#ECFDF5", sublabel: "commesse in cantiere" },
     { label: "ODP in lavorazione", value: odpInLavorazione, accent: "#059669", bg: "#ECFDF5", sublabel: "schede di produzione attive" },
   ];
 
@@ -327,10 +329,6 @@ export default function Dashboard({ schede, ritiri, commesse, carichi }: Dashboa
       montaggioStart: parseDate(c.inizioMontaggio),
       montaggioEnd: parseDate(c.fineMontaggio),
     }));
-
-  const commesseInMontaggio = commesse
-    .filter((c) => c.stato === "In montaggio")
-    .sort((a, b) => (a.inizioMontaggio ?? "") < (b.inizioMontaggio ?? "") ? -1 : 1);
 
   return (
     <div className="space-y-8">
