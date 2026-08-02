@@ -289,8 +289,15 @@ export default function Dashboard({ schede, ritiri, commesse, carichi }: Dashboa
     const d = new Date(c.dataCarico);
     return d >= meseStart && d <= meseEnd;
   }).length;
+  // In pratica nessuno aggiorna lo Stato a "In montaggio" (si passa da "In produzione" a
+  // "Chiusa" direttamente) — l'unico segnale affidabile è se oggi cade dentro il range
+  // Inizio/Fine Montaggio, a prescindere da cosa dice lo Stato in quel momento.
   const commesseInMontaggio = commesse
-    .filter((c) => c.stato === "In montaggio")
+    .filter((c) => {
+      const inizio = parseDate(c.inizioMontaggio);
+      const fine = parseDate(c.fineMontaggio);
+      return inizio && fine && inizio <= oggi && oggi <= fine;
+    })
     .sort((a, b) => (a.inizioMontaggio ?? "") < (b.inizioMontaggio ?? "") ? -1 : 1);
   const STATI_ESCLUSI_ODP = new Set(["Completato", "Materiale Pronto", "Annullata", "Da Iniziare"]);
   const odpInLavorazione = schede.filter((s) => !STATI_ESCLUSI_ODP.has(s.statoProduzione)).length;
