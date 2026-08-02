@@ -190,11 +190,12 @@ tr:last-child td{border-bottom:0}
       <span class="eyebrow">MES Modar · Manuale operativo · Scheda 03</span>
     </div>
     <h1 class="mast-title">Produzione<br><em>e Responsabile Produzione</em></h1>
-    <p class="mast-sub">Sono i due ruoli del reparto produttivo. Condividono lo stesso perimetro di base — Commesse, Schede di Produzione (ODP), Ritiri e Consegne, Rientro Qualità — e si distinguono per una sola riga ciascuno in <span class="kv">src/lib/auth.ts</span>: <span class="kv">CARICO_ROLES = ["admin", "produzione"]</span> apre a Produzione il Carico Magazzino, <span class="kv">RILEVAMENTO_ORE_ROLES = ["admin", "responsabile_produzione"]</span> apre a Responsabile Produzione il tracciamento ore. Nessuno dei due tocca Ferramenta, Spedizione Merci o l'amministrazione.</p>
+    <p class="mast-sub">Sono i due ruoli del reparto produttivo. Condividono lo stesso perimetro di base — Commesse, Schede di Produzione (ODP), Ritiri e Consegne, Rientro Qualità — e si distinguono per le aree esclusive assegnate a ciascuno in <span class="kv">src/lib/auth.ts</span>. Produzione ne ha due: <span class="kv">CARICO_ROLES = ["admin", "produzione"]</span> apre il Carico Magazzino e <span class="kv">FERRAMENTA_ROLES = ["admin", "magazziniere", "produzione"]</span> apre l'intero modulo Ferramenta, a parità con admin e magazziniere. Responsabile Produzione ne ha una: <span class="kv">RILEVAMENTO_ORE_ROLES = ["admin", "responsabile_produzione"]</span> apre il tracciamento ore. Una terza costante, <span class="kv">RITIRI_CREATE_ROLES = ["admin", "logistica", "produzione"]</span>, apre a Produzione — ma non a Responsabile Produzione — la sola <strong>creazione</strong> di un nuovo Ritiro o Consegna: modificarlo o eliminarlo resta riservato a <span class="kv">WRITE_ROLES</span> (admin e logistica). Nessuno dei due tocca Spedizione Merci o l'amministrazione.</p>
     <div class="mast-meta">
       <span>4 sezioni condivise su 7</span>
-      <span>Carico Magazzino — solo Produzione</span>
+      <span>Carico Magazzino e Ferramenta — solo Produzione</span>
       <span>Rilevamento Ore — solo Resp. Produzione</span>
+      <span>Creare un Ritiro — ora anche Produzione</span>
       <span>Rilavorazioni: tre porte, un solo flusso</span>
     </div>
   </header>
@@ -209,7 +210,7 @@ tr:last-child td{border-bottom:0}
       <div class="card">
         <span class="chip chip-ok">Condiviso da entrambi</span>
         <h3>Commesse · Schede ODP · Ritiri</h3>
-        <p>Le tre sezioni generaliste, in sola consultazione: si leggono commesse, si segue l'avanzamento degli ODP, si vedono i movimenti di trasporto verso i fornitori esterni.</p>
+        <p>Le tre sezioni generaliste: si leggono commesse, si segue l'avanzamento degli ODP, si vedono i movimenti di trasporto verso i fornitori esterni. Su Ritiri, Produzione può anche <strong>creare</strong> un nuovo movimento — l'unica scrittura di queste tre sezioni, dettagliata più sotto.</p>
         <div class="chips">
           <span class="route">/commesse</span>
           <span class="route">/schede</span>
@@ -223,13 +224,19 @@ tr:last-child td{border-bottom:0}
         <span class="route">/rientro-qualita</span>
       </div>
       <div class="card">
-        <span class="chip chip-warn">Una sola area a testa</span>
-        <h3>Carico Magazzino · Rilevamento Ore</h3>
-        <p>Le due aree che giustificano ruoli separati invece di uno solo: uscita materiale per Produzione, tracciamento ore e KPI per Responsabile Produzione.</p>
+        <span class="chip chip-excl">Solo Produzione</span>
+        <h3>Carico Magazzino · Ferramenta</h3>
+        <p>Le due aree esclusive di Produzione: uscita materiale interno/esterno da un lato, l'intero modulo Ferramenta — a parità con admin e magazziniere — dall'altro. Responsabile Produzione non accede a nessuna delle due.</p>
         <div class="chips">
           <span class="route">/carico</span>
-          <span class="route">/ore</span>
+          <span class="route">/ferramenta</span>
         </div>
+      </div>
+      <div class="card">
+        <span class="chip chip-excl">Solo Resp. Produzione</span>
+        <h3>Rilevamento Ore</h3>
+        <p>L'unica area esclusiva di Responsabile Produzione: tracciamento ore, rifacimenti e KPI di reparto.</p>
+        <span class="route">/ore</span>
       </div>
     </div>
 
@@ -256,11 +263,19 @@ tr:last-child td{border-bottom:0}
             <td class="col-a yes">●</td><td class="col-b yes">●</td>
           </tr>
           <tr>
-            <td><strong>Creare/modificare un Ritiro o Consegna</strong><small>POST/PATCH /api/ritiri — WRITE_ROLES: solo admin e logistica</small></td>
+            <td><strong>Creare un nuovo Ritiro o Consegna</strong><small>POST /api/ritiri — RITIRI_CREATE_ROLES: admin, logistica, produzione</small></td>
+            <td class="col-a yes">●</td><td class="col-b no">—</td>
+          </tr>
+          <tr>
+            <td><strong>Modificare o eliminare un Ritiro o Consegna</strong><small>PATCH/DELETE /api/ritiri/[id] — WRITE_ROLES: solo admin e logistica</small></td>
             <td class="col-a no">—</td><td class="col-b no">—</td>
           </tr>
           <tr>
             <td><strong>Carico Magazzino</strong><small>/carico — CARICO_ROLES</small></td>
+            <td class="col-a yes">●</td><td class="col-b no">—</td>
+          </tr>
+          <tr>
+            <td><strong>Ferramenta</strong><small>/ferramenta e sotto-sezioni — FERRAMENTA_ROLES</small></td>
             <td class="col-a yes">●</td><td class="col-b no">—</td>
           </tr>
           <tr>
@@ -273,7 +288,7 @@ tr:last-child td{border-bottom:0}
 
     <div class="callout warn">
       <h4>Il bottone che non sempre scrive</h4>
-      <p>Su Rientro Qualità, una rilavorazione senza ritiro concordato mostra il pulsante <strong>«Inserisci un ritiro»</strong> a chiunque veda la pagina, quindi anche a Produzione e Responsabile Produzione. Il form però invia a <span class="kv">POST /api/ritiri</span>, protetto da <span class="kv">WRITE_ROLES</span>: senza essere admin o logistica il salvataggio torna <span class="kv">403 Permesso negato</span>. Per far comparire un ritiro mancante bisogna appoggiarsi a logistica, oppure passare dal wizard <em>Invia in Rilavorazione</em> sulla scheda (sezione C), che crea il ritiro con un percorso diverso e non soffre di questo limite.</p>
+      <p>Su Rientro Qualità, una rilavorazione senza ritiro concordato mostra il pulsante <strong>«Inserisci un ritiro»</strong> a chiunque veda la pagina. Il form invia a <span class="kv">POST /api/ritiri</span>: da quando <span class="kv">RITIRI_CREATE_ROLES</span> include anche <span class="kv">"produzione"</span>, per questo ruolo il salvataggio va sempre a buon fine, come per admin e logistica. Per Responsabile Produzione, che resta fuori da <span class="kv">RITIRI_CREATE_ROLES</span>, il salvataggio può ancora tornare <span class="kv">403 Permesso negato</span> fuori dal caso stretto già previsto per organizzare il ritiro di una rilavorazione già aperta. In alternativa resta sempre disponibile il wizard <em>Invia in Rilavorazione</em> sulla scheda (sezione C), che crea il ritiro con un percorso diverso.</p>
     </div>
   </section>
 
@@ -295,7 +310,7 @@ tr:last-child td{border-bottom:0}
       </div>
       <div class="card">
         <h3>Schede di Produzione (ODP)</h3>
-        <p>La tabella degli ODP, con sottoschede e rilavorazioni annidate ed espandibili. Il dettaglio mostra dati scheda, date, produzione esterna, PDF allegati. Il pulsante <strong>Modifica</strong> è riservato all'admin: né Produzione né Responsabile Produzione possono correggere i campi da qui.</p>
+        <p>La tabella degli ODP, con sottoschede e rilavorazioni annidate ed espandibili. Il dettaglio mostra dati scheda, date, produzione esterna, PDF allegati. Il pulsante <strong>Modifica</strong> ora compare anche per Produzione (<span class="kv">MODIFICA_SCHEDA_ROLES = ["admin", "produzione"]</span>), che può correggere qualunque campo — Responsabile Produzione resta escluso.</p>
         <ul class="tight">
           <li>Link diretto alla pagina <strong>Notion</strong> della scheda</li>
           <li>Filtri per stato, fornitore, commessa, ritardo produzione/rientro</li>
@@ -335,13 +350,13 @@ tr:last-child td{border-bottom:0}
           <tr><td><strong>Verificato</strong></td><td>Ruolo Spedizioni</td><td>Il collo è stato controllato prima della spedizione — fuori dal perimetro di Produzione, ma visibile nel dettaglio.</td></tr>
           <tr><td><strong>Completato</strong></td><td>Ruolo Spedizioni / flusso a valle</td><td>Ciclo di produzione e spedizione chiuso.</td></tr>
           <tr><td><strong>In Attesa Rilavorazione</strong></td><td>Wizard rilavorazione; Carico Magazzino con NC</td><td>La Scheda madre è bloccata: una sua parte è fuori per una rilavorazione. Si sblocca solo confermando il rientro — sezione C.</td></tr>
-          <tr><td><strong>Annullata</strong></td><td>Modifica Scheda (solo admin)</td><td>ODP annullato. Esclusa dai conteggi di ritardo e dai filtri «attivi».</td></tr>
-          <tr><td><strong>In attesa materiale</strong>, <strong>Produzione Bloccata</strong>, <strong>Revisione UTT</strong></td><td>Modifica Scheda (solo admin)</td><td>Stati eccezionali per fermi non riconducibili a una rilavorazione formale.</td></tr>
+          <tr><td><strong>Annullata</strong></td><td>Modifica Scheda (admin, Produzione)</td><td>ODP annullato. Esclusa dai conteggi di ritardo e dai filtri «attivi».</td></tr>
+          <tr><td><strong>In attesa materiale</strong>, <strong>Produzione Bloccata</strong>, <strong>Revisione UTT</strong></td><td>Modifica Scheda (admin, Produzione)</td><td>Stati eccezionali per fermi non riconducibili a una rilavorazione formale.</td></tr>
         </tbody>
       </table>
     </div>
     <div class="callout">
-      <p><strong>Nessuno stato si sceglie da un menu a tendina, per questi due ruoli.</strong> Produzione e Responsabile Produzione non hanno il pulsante Modifica: lo stato avanza solo come effetto collaterale di un'azione — un carico registrato, una rilavorazione aperta o chiusa. È l'admin l'unico che può assegnare uno stato qualsiasi a piacere.</p>
+      <p><strong>Per Responsabile Produzione nessuno stato si sceglie da un menu a tendina.</strong> Senza il pulsante Modifica, per questo ruolo lo stato avanza solo come effetto collaterale di un'azione — un carico registrato, una rilavorazione aperta o chiusa. Produzione invece ce l'ha: può assegnare uno stato qualsiasi a piacere esattamente come l'admin.</p>
     </div>
   </section>
 
@@ -349,7 +364,7 @@ tr:last-child td{border-bottom:0}
     <div class="sec-head">
       <span class="sec-num">C</span>
       <h2>Le rilavorazioni: tre porte, un solo flusso</h2>
-      <p class="sec-note">Una rilavorazione nasce quando un pezzo va corretto da un fornitore esterno. Il sistema offre tre modi diversi per aprirla; solo due sono davvero alla portata di questi ruoli.</p>
+      <p class="sec-note">Una rilavorazione nasce quando un pezzo va corretto da un fornitore esterno. Il sistema offre tre modi diversi per aprirla: Produzione li può usare tutti e tre, Responsabile Produzione resta limitato al primo.</p>
     </div>
 
     <div class="grid-3">
@@ -362,13 +377,13 @@ tr:last-child td{border-bottom:0}
       <div class="card">
         <span class="chip chip-excl">Solo Produzione</span>
         <h3>Carico Magazzino con Non Conformità</h3>
-        <p>Registrando un'uscita verso «Fornitore esterno» con la spunta <strong>Non Conformità</strong> attiva, il Carico non produce una semplice uscita ma una Rilavorazione — descritta nel dettaglio in sezione E.</p>
+        <p>Registrando un'uscita verso «Fornitore esterno» con la spunta <strong>Non Conformità</strong> attiva, il Carico non produce una semplice uscita ma una Rilavorazione — descritta nel dettaglio in sezione D.</p>
         <span class="route">POST /api/carico</span>
       </div>
       <div class="card">
-        <span class="chip chip-alert">Non disponibile</span>
+        <span class="chip chip-excl">Solo Produzione</span>
         <h3>Nuovo Ritiro con NC</h3>
-        <p>Dal form «+ Nuovo ritiro», la combinazione NC + Consegna + Scheda collegata crea anch'essa una Rilavorazione (vedi Scheda 02 — Operatore e Logistica). Ma la scrittura passa da <span class="kv">POST /api/ritiri</span>, riservato a <span class="kv">WRITE_ROLES</span>: per Produzione e Responsabile Produzione questa porta è chiusa.</p>
+        <p>Dal form «+ Nuovo ritiro», la combinazione NC + Consegna + Scheda collegata crea anch'essa una Rilavorazione (vedi Scheda 02 — Operatore e Logistica). La scrittura passa da <span class="kv">POST /api/ritiri</span>: ora che <span class="kv">RITIRI_CREATE_ROLES</span> include Produzione, il pulsante «+ Nuovo ritiro» compare anche per questo ruolo in <span class="route">/ritiri</span>. Per Responsabile Produzione, escluso da <span class="kv">RITIRI_CREATE_ROLES</span>, questa porta resta chiusa.</p>
       </div>
     </div>
 
@@ -435,7 +450,7 @@ tr:last-child td{border-bottom:0}
 
     <div class="callout">
       <h4>Chi può fare cosa, lungo l'intero anello</h4>
-      <p>Produzione e Responsabile Produzione possono <strong>aprire</strong> una rilavorazione (wizard o Carico Magazzino) e possono <strong>chiuderla</strong> (Rientro Qualità). Quello che non possono fare da soli è aggiungere a posteriori un ritiro mancante su una rilavorazione già aperta: per quello serve logistica, oppure occorre riaprire il wizard dal principio, che genera il proprio ritiro senza passare da <span class="kv">WRITE_ROLES</span>.</p>
+      <p>Produzione ora copre l'intero anello da sola: <strong>apre</strong> una rilavorazione (wizard, Carico Magazzino con NC o Nuovo Ritiro con NC), può aggiungere a posteriori un ritiro mancante su una già aperta — è in <span class="kv">RITIRI_CREATE_ROLES</span> — e la <strong>chiude</strong> da Rientro Qualità. Responsabile Produzione resta più limitato: apre la rilavorazione solo dal wizard e la chiude da Rientro Qualità, ma resta fuori da <span class="kv">RITIRI_CREATE_ROLES</span>; per aggiungere da sola un ritiro mancante su una rilavorazione già aperta può contare sul caso stretto già previsto per quella situazione, oppure appoggiarsi a logistica o a Produzione, oppure riaprire il wizard dal principio.</p>
     </div>
   </section>
 
@@ -523,6 +538,73 @@ tr:last-child td{border-bottom:0}
   <section class="sec">
     <div class="sec-head">
       <span class="sec-num">E</span>
+      <h2>Ferramenta <span class="chip chip-excl" style="vertical-align:middle;margin-left:8px">Solo Produzione</span></h2>
+      <p class="sec-note">Sette sotto-sezioni, tutte a parità con admin e magazziniere. <span class="kv">FERRAMENTA_ROLES = ["admin", "magazziniere", "produzione"]</span> — Responsabile Produzione non vi accede.</p>
+    </div>
+
+    <div class="callout">
+      <h4>Da poco, parità piena</h4>
+      <p>Fino a poco fa <span class="kv">FERRAMENTA_ROLES</span> comprendeva solo <span class="kv">["admin", "magazziniere"]</span>: Produzione non aveva accesso diretto alla minuteria. Ora la costante include anche <span class="kv">"produzione"</span> e la voce <strong>Ferramenta</strong> compare in Navbar: stessa autorizzazione di admin e magazziniere, su ogni pagina e ogni API del modulo — nessuna sotto-sezione è più esclusa.</p>
+    </div>
+
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th style="width:16%">Scheda</th><th style="width:22%">Percorso</th><th>Che cosa si fa</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Giacenze</strong></td>
+            <td><span class="route">/ferramenta</span></td>
+            <td>L'elenco degli articoli attivi: codice OS1, descrizione, fornitore, metodo, giacenza, soglia minima. Ricerca libera su descrizione, codice, fornitore e codice fornitore; filtro per fornitore; interruttore <strong>Da riordinare</strong> con il contatore degli articoli sotto soglia. Gli articoli ancora senza metodo portano il badge <span class="chip chip-warn">Non classificato</span>.</td>
+          </tr>
+          <tr>
+            <td><strong>Anagrafica</strong></td>
+            <td><span class="route">/admin/ferramenta</span></td>
+            <td>Il pannello di configurazione: classificazione Kanban / A Pezzo, quantità standard vaschetta, soglia minima, ubicazione, codice fornitore, note, attivazione. Il pulsante <strong>«+ Nuovo articolo»</strong> crea una voce da zero; da qui partono anche i tre export CSV e l'importazione del catalogo da CSV.</td>
+          </tr>
+          <tr>
+            <td><strong>Kit Ferramenta ODP</strong></td>
+            <td><span class="route">/admin/ferramenta/kit</span></td>
+            <td>La distinta di minuteria per commessa: riga per riga, articolo e quantità prevista. Con <em>«Conferma Kit e notifica magazziniere»</em> l'ODP passa a <span class="kv">Kit Ferramenta = Si</span> e parte la notifica con il PDF di preparazione. Vive sotto <span class="kv">/admin/</span> nell'URL ma, come l'Anagrafica, non è riservato all'admin.</td>
+          </tr>
+          <tr>
+            <td><strong>Carico</strong></td>
+            <td><span class="route">/ferramenta/carico</span></td>
+            <td>Registrazione dei rifornimenti: si cerca l'articolo e si indica la quantità arrivata. Su un Kanban il campo è già compilato con la quantità standard vaschetta, correggibile per le consegne parziali.</td>
+          </tr>
+          <tr>
+            <td><strong>Inventario</strong></td>
+            <td><span class="route">/ferramenta/inventario</span></td>
+            <td>Sessioni di conteggio fisico per ambito — tutto il catalogo, solo Kanban, per ubicazione o solo sotto scorta. Un solo inventario aperto per volta; i differenziali rettificano la giacenza in automatico con un movimento di tipo <span class="kv">rettifica</span>.</td>
+          </tr>
+          <tr>
+            <td><strong>Fogli di Scarico</strong></td>
+            <td><span class="route">/ferramenta/fogli-scarico</span></td>
+            <td>Il consuntivo per commessa: gli ODP con Kit Ferramenta confermato, con il confronto fra quanto pianificato in distinta e quanto realmente scaricato. Gli ODP senza alcun movimento sono marcati <span class="chip chip-alert">Senza scarico</span>.</td>
+          </tr>
+          <tr>
+            <td><strong>Gestione Ordini Wurth</strong></td>
+            <td><span class="route">/ferramenta/ordini-wurth</span></td>
+            <td>I tracciati ordine ricevuti automaticamente da n8n: le righe con prezzo da verificare o con articolo non ancora censito sono evidenziate. Da qui si segna la ricezione e la merce entra a giacenza.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3>Postgres, non Notion</h3>
+      <p>Anagrafica articoli, distinte Kit, movimenti e sessioni di inventario vivono su un database Postgres dedicato, interrogato in tempo reale: nessun percorso di lettura della Ferramenta passa più da Notion. Restano due sole scritture verso Notion, entrambe non critiche: il riepilogo testuale della distinta di Kit sulla scheda ODP e il flag <span class="kv">Kit Ferramenta</span>.</p>
+    </div>
+
+    <div class="callout warn">
+      <p><strong>Responsabile Produzione resta fuori.</strong> La costante non lo comprende: la voce Ferramenta non compare nel suo menu e ogni pagina o API del modulo, raggiunta per link diretto, rimanda alla home.</p>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">F</span>
       <h2>Rilevamento Ore <span class="chip chip-excl" style="vertical-align:middle;margin-left:8px">Solo Resp. Produzione</span></h2>
       <p class="sec-note">Cinque schede sotto un'unica sotto-navigazione. <span class="kv">RILEVAMENTO_ORE_ROLES = ["admin", "responsabile_produzione"]</span> — Produzione non vi accede.</p>
     </div>
@@ -579,7 +661,7 @@ tr:last-child td{border-bottom:0}
 
   <section class="sec">
     <div class="sec-head">
-      <span class="sec-num">F</span>
+      <span class="sec-num">G</span>
       <h2>Promemoria operativi</h2>
     </div>
     <div class="grid-3">
@@ -589,7 +671,7 @@ tr:last-child td{border-bottom:0}
       </div>
       <div class="card">
         <h3>Il wizard supera i limiti del form Ritiri</h3>
-        <p>Se serve creare una Rilavorazione con un ritiro collegato e non si è admin o logistica, il wizard «Invia in Rilavorazione» con la spunta «Crea riga in Ritiri e Consegne» è la via che funziona sempre: passa da un percorso server diverso da <span class="kv">POST /api/ritiri</span> e non richiede WRITE_ROLES.</p>
+        <p>Se serve creare una Rilavorazione con un ritiro collegato e non si è admin, logistica o Produzione — quindi per Responsabile Produzione — il wizard «Invia in Rilavorazione» con la spunta «Crea riga in Ritiri e Consegne» è la via che funziona sempre: passa da un percorso server diverso da <span class="kv">POST /api/ritiri</span> e non richiede <span class="kv">RITIRI_CREATE_ROLES</span>. Produzione, ora inclusa in <span class="kv">RITIRI_CREATE_ROLES</span>, ottiene lo stesso risultato anche dal form «+ Nuovo ritiro».</p>
       </div>
       <div class="card">
         <h3>Il residuo di «Oggi» non è un vincolo</h3>
