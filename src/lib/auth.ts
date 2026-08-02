@@ -8,7 +8,8 @@ export const WRITE_ROLES: Role[] = ["admin", "logistica"];
 export const CARICO_ROLES: Role[] = ["admin", "produzione"];
 export const SPEDIZIONI_ROLES: Role[] = ["admin", "spedizioni"];
 export const RILEVAMENTO_ORE_ROLES: Role[] = ["admin", "responsabile_produzione"];
-export const FERRAMENTA_ROLES: Role[] = ["admin", "magazziniere"];
+export const FERRAMENTA_ROLES: Role[] = ["admin", "magazziniere", "produzione"];
+export const MODIFICA_SCHEDA_ROLES: Role[] = ["admin", "produzione"];
 export const RIENTRO_QUALITA_ROLES: Role[] = ["admin", "operatore", "logistica", "spedizioni", "produzione", "responsabile_produzione"];
 
 export interface Session {

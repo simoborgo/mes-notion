@@ -66,7 +66,7 @@ const ALL_ROLES = ["admin", "operatore", "logistica", "spedizioni", "produzione"
 const CARICO_ROLES = ["admin", "produzione"];
 const SPEDIZIONI_ROLES = ["admin", "spedizioni"];
 const RILEVAMENTO_ORE_ROLES = ["admin", "responsabile_produzione"];
-const FERRAMENTA_ROLES = ["admin", "magazziniere"];
+const FERRAMENTA_ROLES = ["admin", "magazziniere", "produzione"];
 
 const links = [
   {

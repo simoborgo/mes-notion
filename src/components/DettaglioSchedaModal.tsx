@@ -374,7 +374,7 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
             </div>
             <div className="flex flex-col items-end gap-2 shrink-0">
               <div className="flex items-center gap-2">
-                {userRole === "admin" && (
+                {(userRole === "admin" || userRole === "produzione") && (
                   <button onClick={() => setShowEditForm(true)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-gray-100"
                     style={{ color: "var(--color-grey-mid)", border: "1px solid #d1d5db", background: "white" }}>

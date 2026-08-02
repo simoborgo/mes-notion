@@ -196,7 +196,7 @@ tr:last-child td{border-bottom:0}
           </tr>
           <tr>
             <td><strong>Ferramenta (tutta l'area)</strong><span class="route">FERRAMENTA_ROLES</span></td>
-            <td class="col-admin yes">●</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">●</td>
+            <td class="col-admin yes">●</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">●</td><td class="no">—</td><td class="yes">●</td>
           </tr>
           <tr class="rule-break">
             <td><strong>Import Schede da PDF</strong><span class="route">/admin/import</span></td>
@@ -208,7 +208,7 @@ tr:last-child td{border-bottom:0}
           </tr>
           <tr>
             <td><strong>Modifica completa Scheda</strong><span class="route">PATCH /api/schede/[id]</span></td>
-            <td class="col-admin yes">●</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td>
+            <td class="col-admin yes">●</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">●</td><td class="no">—</td><td class="no">—</td>
           </tr>
           <tr>
             <td><strong>Elimina verifica di spedizione</strong><span class="route">DELETE /api/verifiche/[scheda]</span></td>
@@ -265,20 +265,22 @@ tr:last-child td{border-bottom:0}
       </div>
 
       <div class="card">
-        <span class="chip chip-warn">Condivisa con magazziniere</span>
+        <span class="chip chip-warn">Condivisa con magazziniere e Produzione</span>
         <h3>Magazzino Ferramenta</h3>
-        <p>Dall'ultimo aggiornamento il magazziniere ha <strong>piena parità</strong> con l'admin su quest'area: tutte le pagine e tutte le API rispondono alla stessa costante <span class="kv">FERRAMENTA_ROLES</span>. Nulla qui è esclusivo dell'admin.</p>
+        <p>Magazziniere e Produzione hanno <strong>piena parità</strong> con l'admin su quest'area: tutte le pagine e tutte le API rispondono alla stessa costante <span class="kv">FERRAMENTA_ROLES</span>. Nulla qui è esclusivo dell'admin.</p>
         <ul class="tight">
           <li><strong>Giacenze</strong> e scarico via QR</li>
-          <li><strong>Anagrafica</strong> — classificazione Kanban / A Pezzo, soglie, quantità vaschetta</li>
+          <li><strong>Anagrafica</strong> — classificazione Kanban / A Pezzo, soglie, quantità vaschetta, aggiunta nuovo articolo</li>
           <li><strong>Kit Ferramenta per ODP</strong> — distinta articoli di commessa</li>
           <li><strong>Inventario</strong>, <strong>Carico</strong>, <strong>Fogli di Scarico</strong></li>
+          <li><strong>Gestione Ordini Wurth</strong> — verifica prezzi, ricezione a giacenza</li>
           <li>Export CSV giacenze ed etichette, import CSV anagrafica</li>
         </ul>
         <div class="chips">
           <span class="route">/ferramenta</span>
           <span class="route">/admin/ferramenta</span>
           <span class="route">/admin/ferramenta/kit</span>
+          <span class="route">/ferramenta/ordini-wurth</span>
         </div>
       </div>
 
@@ -304,7 +306,7 @@ tr:last-child td{border-bottom:0}
     <div class="sec-head">
       <span class="sec-num">C</span>
       <h2>Che cosa può fare solo l'admin</h2>
-      <p class="sec-note">Quattro capacità che il codice riserva con un controllo esplicito <span class="kv">role !== "admin"</span>.</p>
+      <p class="sec-note">Tre capacità riservate esclusivamente all'admin, più una quarta ormai condivisa con Produzione (vedi sotto).</p>
     </div>
 
     <div class="grid-2">
@@ -319,9 +321,9 @@ tr:last-child td{border-bottom:0}
       </div>
 
       <div class="card">
-        <span class="chip chip-excl">Esclusiva</span>
+        <span class="chip chip-warn">Condivisa con Produzione</span>
         <h3>Modifica completa dei campi Scheda</h3>
-        <p>Nel dettaglio di un ODP il pulsante <strong>Modifica</strong> compare solo all'admin. Gli altri ruoli possono al massimo far avanzare uno stato dalle rispettive schermate; l'admin corregge qualunque campo.</p>
+        <p>Nel dettaglio di un ODP il pulsante <strong>Modifica</strong> compare per admin e Produzione. Gli altri ruoli possono al massimo far avanzare uno stato dalle rispettive schermate; questi due correggono qualunque campo.</p>
         <ul class="tight">
           <li>Codice articolo, posizione, quantità, data scheda ricevuta</li>
           <li>Stato di produzione e data di produzione prevista</li>
@@ -358,7 +360,7 @@ tr:last-child td{border-bottom:0}
     </div>
 
     <div class="callout">
-      <p><strong>Attenzione a una voce che non è più esclusiva.</strong> Il <em>Kit Ferramenta per ODP</em> vive sotto <span class="kv">/admin/</span> ma non è riservato all'admin: pagina e API usano <span class="kv">FERRAMENTA_ROLES</span>, quindi anche il magazziniere lo gestisce per intero. Vale lo stesso per l'Anagrafica Ferramenta e per l'import CSV degli articoli.</p>
+      <p><strong>Attenzione a due voci che non sono più esclusive.</strong> Il <em>Kit Ferramenta per ODP</em> vive sotto <span class="kv">/admin/</span> ma non è riservato all'admin: pagina e API usano <span class="kv">FERRAMENTA_ROLES</span>, quindi anche magazziniere e Produzione lo gestiscono per intero. Vale lo stesso per l'Anagrafica Ferramenta, l'import CSV degli articoli e la Gestione Ordini Wurth. Inoltre, <span class="kv">FERRAMENTA_ROLES</span> ora include anche Produzione (prima solo admin e magazziniere), e la <em>Modifica completa dei campi Scheda</em> (<span class="kv">PATCH /api/schede/[id]</span>) non è più admin-only: anche Produzione può correggere qualunque campo di un ODP.</p>
     </div>
   </section>
 
@@ -508,7 +510,7 @@ tr:last-child td{border-bottom:0}
       </div>
       <div class="card">
         <h3>Ferramenta non è più terreno esclusivo</h3>
-        <p>Anagrafica, Kit ODP ed export sono condivisi col magazziniere: prima di modificare soglie o distinte conviene accordarsi, perché entrambi scrivono sugli stessi dati.</p>
+        <p>Anagrafica, Kit ODP ed export sono condivisi con magazziniere e Produzione: prima di modificare soglie o distinte conviene accordarsi, perché tutti e tre scrivono sugli stessi dati.</p>
       </div>
     </div>
   </section>
