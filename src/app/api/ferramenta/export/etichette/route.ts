@@ -19,13 +19,43 @@ export async function GET(req: NextRequest) {
     const baseUrl = getPublicBaseUrl(req);
 
     const header = toCsvRow(
-      ["Codice OS1", "Descrizione", "Fornitore", "Unità di Misura", "URL QR Scarico"],
+      [
+        "Codice OS1",
+        "Descrizione",
+        "Fornitore",
+        "Codice Fornitore",
+        "Descrizione Fornitore",
+        "Unità di Misura",
+        "Metodo Gestione",
+        "Giacenza Attuale",
+        "Quantità Standard Vaschetta",
+        "Soglia Minima",
+        "Ubicazione",
+        "Prezzo Riferimento",
+        "Prezzo Riferimento Aggiornato Il",
+        "URL QR Scarico",
+      ],
       DELIMITER
     );
 
     const rows = articoli.map((a) =>
       toCsvRow(
-        [a.codiceOs1, a.descrizione, a.fornitoreNome, a.unitaMisura, `${baseUrl}/ferramenta/scarico/${a.id}`],
+        [
+          a.codiceOs1,
+          a.descrizione,
+          a.fornitoreNome,
+          a.codiceFornitore,
+          a.descrizioneFornitore,
+          a.unitaMisura,
+          a.metodoGestione ?? "",
+          a.giacenzaAttuale,
+          a.quantitaStandardVaschetta ?? "",
+          a.sogliaMinima ?? "",
+          a.ubicazione,
+          a.prezzoRiferimento ?? "",
+          a.prezzoRiferimentoAggiornatoIl ?? "",
+          `${baseUrl}/ferramenta/scarico/${a.id}`,
+        ],
         DELIMITER
       )
     );

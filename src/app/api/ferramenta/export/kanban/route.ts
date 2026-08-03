@@ -22,7 +22,22 @@ export async function GET(req: NextRequest) {
     const baseUrl = getPublicBaseUrl(req);
 
     const header = toCsvRow(
-      ["Codice OS1", "Descrizione", "Fornitore", "Codice Fornitore", "Unità di Misura", "Quantità da Riordinare", "URL QR Riordino"],
+      [
+        "Codice OS1",
+        "Descrizione",
+        "Fornitore",
+        "Codice Fornitore",
+        "Descrizione Fornitore",
+        "Unità di Misura",
+        "Metodo Gestione",
+        "Giacenza Attuale",
+        "Quantità Standard Vaschetta",
+        "Soglia Minima",
+        "Ubicazione",
+        "Prezzo Riferimento",
+        "Prezzo Riferimento Aggiornato Il",
+        "URL QR Riordino",
+      ],
       DELIMITER
     );
 
@@ -33,8 +48,15 @@ export async function GET(req: NextRequest) {
           a.descrizione,
           a.fornitoreNome,
           a.codiceFornitore,
+          a.descrizioneFornitore,
           a.unitaMisura,
+          a.metodoGestione ?? "",
+          a.giacenzaAttuale,
           a.quantitaStandardVaschetta ?? "",
+          a.sogliaMinima ?? "",
+          a.ubicazione,
+          a.prezzoRiferimento ?? "",
+          a.prezzoRiferimentoAggiornatoIl ?? "",
           `${baseUrl}/riordino/${a.id}`,
         ],
         DELIMITER
