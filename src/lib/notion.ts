@@ -517,6 +517,7 @@ export async function getOdpAttivi(): Promise<OdpAttivo[]> {
       label: s.clienteInfo ? `${s.odp} — ${s.clienteInfo}` : s.odp,
       numeroScheda: s.numeroScheda || undefined,
       clienteInfo: s.clienteInfo || undefined,
+      codiceArticolo: s.codiceArticolo || undefined,
       isSpeciale: false,
     }));
   const speciali: OdpAttivo[] = ODP_SPECIALI.map(s => ({

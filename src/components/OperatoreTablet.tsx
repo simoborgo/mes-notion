@@ -307,15 +307,25 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
         <p className="text-sm text-center" style={{ color: "var(--color-grey-mid)" }}>Caricamento…</p>
       ) : (
         <>
-          {aperto && (
-            <div className="rounded-2xl border-2 p-5" style={{ borderColor: "#86EFAC", background: "#F0FDF4" }}>
-              <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "#166534" }}>Stai lavorando su</p>
-              <p className="text-xl font-bold mt-1" style={{ color: "#14532D" }}>{aperto.odp}</p>
-              <p className="text-sm mt-1" style={{ color: "#166534" }}>
-                Dalle {fmtOra(aperto.iniziatoAlle)}{aperto.rif ? " · Rifacimento" : ""}
-              </p>
-            </div>
-          )}
+          {aperto && (() => {
+            const info = odpList.find(o => o.odp === aperto.odp);
+            return (
+              <div className="rounded-2xl border-2 p-5" style={{ borderColor: "#86EFAC", background: "#F0FDF4" }}>
+                <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "#166534" }}>Stai lavorando su</p>
+                {info?.clienteInfo && (
+                  <p className="text-sm font-semibold mt-1 truncate" style={{ color: "#166534" }}>{info.clienteInfo}</p>
+                )}
+                <p className="text-xl font-bold mt-0.5 truncate" style={{ color: "#14532D" }}>
+                  {aperto.odp}
+                  {info?.numeroScheda ? ` - ${info.numeroScheda}` : ""}
+                  {info?.codiceArticolo ? ` (${info.codiceArticolo})` : ""}
+                </p>
+                <p className="text-sm mt-1" style={{ color: "#166534" }}>
+                  Dalle {fmtOra(aperto.iniziatoAlle)}{aperto.rif ? " · Rifacimento" : ""}
+                </p>
+              </div>
+            );
+          })()}
 
           <div className="rounded-2xl border bg-white p-5 space-y-3" style={{ borderColor: "#E4E0DA" }}>
             <p className="text-sm font-semibold" style={{ color: "var(--color-black)" }}>

@@ -172,6 +172,7 @@ export interface OdpAttivo {
   label: string;
   numeroScheda?: string;
   clienteInfo?: string;
+  codiceArticolo?: string;
   isSpeciale: boolean;
 }
 
