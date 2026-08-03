@@ -10,7 +10,7 @@ interface Props {
   placeholder?: string;
 }
 
-function OdpLabel({ o }: { o: OdpAttivo }) {
+export function OdpLabel({ o }: { o: OdpAttivo }) {
   if (o.isSpeciale || !o.numeroScheda) {
     return <span className={o.isSpeciale ? "font-medium" : "font-semibold"}>{o.label}</span>;
   }

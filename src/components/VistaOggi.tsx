@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import type { OdpAttivo } from "@/lib/types";
 import OdpAutocomplete from "./OdpAutocomplete";
+import OdpMultiAutocomplete from "./OdpMultiAutocomplete";
 
 type Causale = "P" | "T" | "M" | "C";
 
@@ -195,14 +196,27 @@ export default function VistaOggi() {
     });
   }
 
+  // Lavoro su più ODP contemporaneamente (lotto): le ore inserite sono il totale,
+  // diviso in parti uguali tra gli ODP selezionati. L'ultimo assorbe il resto
+  // dell'arrotondamento (2 decimali) così la somma delle righe torna sempre esatta.
   async function salvaVoce(voce: {
     matricola: string; cognome: string; nome: string; azienda: string | null; reparto: string | null;
-    odp: string; ore: number; rif: boolean; causale: Causale | null; note: string | null;
+    odpList: string[]; ore: number; rif: boolean; causale: Causale | null; note: string | null;
   }) {
+    const n = voce.odpList.length;
+    const oreBase = Math.round((voce.ore / n) * 100) / 100;
+    const voci = voce.odpList.map((odp, i) => ({
+      data,
+      matricola: voce.matricola, cognome: voce.cognome, nome: voce.nome,
+      azienda: voce.azienda, reparto: voce.reparto,
+      odp,
+      ore: i === n - 1 ? Math.round((voce.ore - oreBase * (n - 1)) * 100) / 100 : oreBase,
+      rif: voce.rif, causale: voce.causale, note: voce.note,
+    }));
     const res = await fetch("/api/ore/registrazioni", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ voci: [{ data, ...voce }] }),
+      body: JSON.stringify({ voci }),
     });
     const json = await res.json();
     if (!res.ok) throw new Error(json.error ?? "Errore salvataggio");
@@ -399,7 +413,7 @@ function SezioneReparto({
   preselezionaUltimoOdp: boolean;
   selezionati: Set<string>;
   onToggleSelezionato: (matricola: string) => void;
-  onSalva: (voce: { matricola: string; cognome: string; nome: string; azienda: string | null; reparto: string | null; odp: string; ore: number; rif: boolean; causale: Causale | null; note: string | null }) => Promise<void>;
+  onSalva: (voce: { matricola: string; cognome: string; nome: string; azienda: string | null; reparto: string | null; odpList: string[]; ore: number; rif: boolean; causale: Causale | null; note: string | null }) => Promise<void>;
   onElimina: (id: string) => Promise<void>;
   onSalvaAssenza: (matricola: string, ore: number | null) => Promise<void>;
   onEliminaAssenza: (matricola: string) => Promise<void>;
@@ -463,7 +477,7 @@ function RigaOperatore({
   giornataCompleta: boolean;
   selezionato: boolean;
   onToggleSelezionato: () => void;
-  onSalva: (voce: { matricola: string; cognome: string; nome: string; azienda: string | null; reparto: string | null; odp: string; ore: number; rif: boolean; causale: Causale | null; note: string | null }) => Promise<void>;
+  onSalva: (voce: { matricola: string; cognome: string; nome: string; azienda: string | null; reparto: string | null; odpList: string[]; ore: number; rif: boolean; causale: Causale | null; note: string | null }) => Promise<void>;
   onElimina: (id: string) => Promise<void>;
   onSalvaAssenza: (ore: number | null) => Promise<void>;
   onEliminaAssenza: () => Promise<void>;
@@ -471,9 +485,12 @@ function RigaOperatore({
   const oltreLimite = totaleRegistrato > 11;
 
   // undefined = non ancora toccato dall'utente, segue la spunta "preseleziona";
-  // null/stringa = scelta esplicita dell'utente (selezione, cancellazione o dopo un salvataggio)
-  const [odpOverride, setOdpOverride] = useState<string | null | undefined>(undefined);
-  const odp = odpOverride !== undefined ? odpOverride : (preselezionaUltimoOdp ? p.odpGiornoPrecedente : null);
+  // un array (anche vuoto) = scelta esplicita dell'utente. Più ODP selezionati = lavoro
+  // su un lotto: le ore inserite vengono divise in parti uguali tra loro (vedi salvaVoce).
+  const [odpOverride, setOdpOverride] = useState<string[] | undefined>(undefined);
+  const odpSelezionati = odpOverride !== undefined
+    ? odpOverride
+    : (preselezionaUltimoOdp && p.odpGiornoPrecedente ? [p.odpGiornoPrecedente] : []);
   // null = segui il residuo calcolato; un numero = l'utente ha digitato un valore proprio
   const [oreOverride, setOreOverride] = useState<number | null>(null);
   const ore = oreOverride ?? rimanenti;
@@ -493,7 +510,7 @@ function RigaOperatore({
     : (assenzaManuale ? (assenzaManuale.ore ?? totaleGiornata) : totaleGiornata);
 
   async function handleAggiungi() {
-    if (!odp) { setErr("Seleziona un ODP"); return; }
+    if (odpSelezionati.length === 0) { setErr("Seleziona almeno un ODP"); return; }
     if (!(ore > 0)) { setErr("Ore non valide"); return; }
     setSaving(true);
     setErr("");
@@ -501,9 +518,9 @@ function RigaOperatore({
       await onSalva({
         matricola: p.matricola, cognome: p.cognome, nome: p.nome,
         azienda: p.azienda, reparto: p.reparto,
-        odp, ore, rif, causale: null, note: null,
+        odpList: odpSelezionati, ore, rif, causale: null, note: null,
       });
-      setOdpOverride(null);
+      setOdpOverride([]);
       setRif(false);
       setOreOverride(null);
     } catch (e) {
@@ -617,7 +634,7 @@ function RigaOperatore({
               <span>{r.ore}h</span>
               {r.rif && (
                 <span className="font-bold" style={{ color: "#991B1B" }}>
-                  RIF{r.causale ? ` (${r.causale})` : " — da classificare"}
+                  RIFACIMENTO{r.causale ? ` (${r.causale})` : " — da classificare"}
                 </span>
               )}
               <button onClick={() => onElimina(r.id)} className="text-gray-400 hover:text-gray-600 leading-none">×</button>
@@ -628,17 +645,20 @@ function RigaOperatore({
 
       <div className="px-4 pb-3 pt-1 border-t flex items-center gap-2 flex-wrap" style={{ borderColor: "#e5e4e0" }}>
         <div style={{ minWidth: 200, flex: 1 }}>
-          <OdpAutocomplete odpList={odpList} value={odp} onChange={setOdpOverride} placeholder="Cerca ODP…" />
+          <OdpMultiAutocomplete odpList={odpList} value={odpSelezionati} onChange={setOdpOverride} placeholder="Cerca ODP… (anche più di uno, per un lotto)" />
         </div>
         <input
           type="number" step={0.5} min={0} className={inputCls}
           style={{ width: 76, height: 44 }}
           value={ore} onChange={e => setOreOverride(Number(e.target.value))}
-          title="Ore (residuo suggerito, modificabile)"
+          title={odpSelezionati.length > 1 ? "Ore totali — verranno divise in parti uguali tra gli ODP selezionati" : "Ore (residuo suggerito, modificabile)"}
         />
-        <label className="flex items-center gap-1.5 text-xs cursor-pointer flex-shrink-0">
-          <input type="checkbox" checked={rif} onChange={e => setRif(e.target.checked)} className="w-3.5 h-3.5 accent-red-600" />
-          <span className="font-semibold" style={{ color: rif ? "#991B1B" : "var(--color-grey-mid)" }}>RIF</span>
+        <label
+          className="flex items-center gap-2 px-3 rounded-lg border cursor-pointer flex-shrink-0 whitespace-nowrap"
+          style={{ height: 44, borderColor: rif ? "#FCA5A5" : "#d1d5db", background: rif ? "#FEF2F2" : "white" }}
+        >
+          <input type="checkbox" checked={rif} onChange={e => setRif(e.target.checked)} className="w-4 h-4 accent-red-600" />
+          <span className="text-xs font-semibold" style={{ color: rif ? "#991B1B" : "var(--color-grey-mid)" }}>RIFACIMENTO</span>
         </label>
         <button
           onClick={handleAggiungi}
@@ -650,6 +670,11 @@ function RigaOperatore({
           {saving ? "…" : "+"}
         </button>
       </div>
+      {odpSelezionati.length > 1 && ore > 0 && !err && (
+        <p className="px-4 pb-3 text-xs font-medium" style={{ color: "var(--color-primary)" }}>
+          Lotto di {odpSelezionati.length} ODP → {Math.round((ore / odpSelezionati.length) * 100) / 100}h ciascuno
+        </p>
+      )}
       {giornataCompleta && !err && (
         <p className="px-4 pb-3 text-xs font-medium" style={{ color: "#92400E" }}>
           Giornata completa ({totaleGiornata}h{oreAssenza > 0 ? `, di cui ${oreAssenza}h di assenza` : ""}) — elimina una voce per aggiungerne altre
