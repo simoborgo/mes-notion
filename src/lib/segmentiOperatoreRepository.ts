@@ -66,6 +66,18 @@ export async function getSegmentiAnomali(): Promise<Segmento[]> {
   return rows.map(mapRow);
 }
 
+// Il segmento esiste solo per segnalare "verifica questo" — una volta rivisto (la correzione
+// vera e propria si fa su ore_registrate, da "Oggi") non serve tenerne traccia permanente,
+// a differenza di ore_registrate che è il dato di business. Scoped a anomalo=true per sicurezza:
+// non deve poter cancellare un segmento normale.
+export async function eliminaSegmentoAnomalo(id: string): Promise<boolean> {
+  const { rowCount } = await pool.query(
+    `DELETE FROM ore_segmenti_odp WHERE id = $1 AND anomalo = true`,
+    [id]
+  );
+  return (rowCount ?? 0) > 0;
+}
+
 interface DatiOperatore {
   matricola: string;
   cognome: string;

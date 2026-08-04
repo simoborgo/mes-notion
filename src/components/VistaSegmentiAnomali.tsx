@@ -22,6 +22,7 @@ export default function VistaSegmentiAnomali() {
   const [segmenti, setSegmenti] = useState<Segmento[]>([]);
   const [loading, setLoading] = useState(true);
   const [errore, setErrore] = useState<string | null>(null);
+  const [rimuovendo, setRimuovendo] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/ore/segmenti-anomali")
@@ -34,6 +35,20 @@ export default function VistaSegmentiAnomali() {
       .catch(e => setErrore(e instanceof Error ? e.message : "Errore caricamento"))
       .finally(() => setLoading(false));
   }, []);
+
+  async function rimuovi(id: string) {
+    setRimuovendo(id);
+    setErrore(null);
+    try {
+      const res = await fetch(`/api/ore/segmenti-anomali/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json()).error ?? "Errore rimozione");
+      setSegmenti(prev => prev.filter(s => s.id !== id));
+    } catch (e) {
+      setErrore(e instanceof Error ? e.message : "Errore rimozione");
+    } finally {
+      setRimuovendo(null);
+    }
+  }
 
   if (loading) return <p className="text-sm" style={{ color: "var(--color-grey-mid)" }}>Caricamento…</p>;
 
@@ -58,9 +73,19 @@ export default function VistaSegmentiAnomali() {
                   <span className="font-semibold" style={{ color: "var(--color-black)" }}>{s.matricola}</span>
                   <span className="text-sm ml-2" style={{ color: "var(--color-grey-mid)" }}>{s.odp}{s.rif ? " · rifacimento" : ""}</span>
                 </div>
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "#FEF3C7", color: "#92400E" }}>
-                  {s.ore}h sommate (limitate)
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "#FEF3C7", color: "#92400E" }}>
+                    {s.ore}h sommate (limitate)
+                  </span>
+                  <button
+                    onClick={() => rimuovi(s.id)}
+                    disabled={rimuovendo === s.id}
+                    className="text-xs font-semibold px-2.5 py-1 rounded-lg border hover:bg-white disabled:opacity-50"
+                    style={{ borderColor: "#d1d5db", color: "var(--color-grey-mid)" }}
+                  >
+                    {rimuovendo === s.id ? "…" : "Rimuovi dalla lista"}
+                  </button>
+                </div>
               </div>
               <p className="text-xs mt-1" style={{ color: "var(--color-grey-mid)" }}>
                 {fmtDataOra(s.iniziatoAlle)} → {s.chiusoAlle ? fmtDataOra(s.chiusoAlle) : "…"}
