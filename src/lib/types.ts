@@ -228,3 +228,18 @@ export const UBICAZIONI_FERRAMENTA: string[] = [
   "Scaffale Esterno",
   ...Array.from({ length: 10 }, (_, i) => `Scaffale Piano Superiore ${i + 1}`),
 ];
+
+// Reparti "di produzione" per Standard_Reparto/Capacity Planner (modulo Offerte/Storico/
+// Previsionale) — sottoinsieme degli 8 valori Notion Personale→Reparto: esclude i reparti
+// di supporto (Logistica, Spedizioni, Ferramenta, Produzione) non rilevanti per il calcolo
+// ore-articolo. Assemblaggio/Imballaggio/Sezionatura aggiunti come opzioni Notion apposta
+// per questo modulo — nessun operatore ancora classificato lì, riclassificazione manuale.
+export const REPARTI_PRODUZIONE: string[] = [
+  "CNC",
+  "Falegnameria",
+  "Verniciatura",
+  "Assemblaggio",
+  "Imballaggio",
+  "Cablaggi",
+  "Sezionatura",
+];
