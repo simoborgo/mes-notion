@@ -1,10 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ArticoloFerramenta, OdpAttivo } from "@/lib/types";
 import type { InventarioAmbito } from "@/lib/inventarioFerramentaRepository";
 import ScaricoKanbanCard from "./ScaricoKanbanCard";
 import ScaricoAPezzoCard from "./ScaricoAPezzoCard";
+
+// Chiave localStorage per la distinta di scarico "a giro" in corso — i QR fisici sono
+// etichette statiche, non sanno nulla di una sessione di prelievo attiva: la continuità
+// tra una scansione e l'altra la teniamo qui, sullo stesso dispositivo usato per scansionare.
+export const DISTINTA_ATTIVA_KEY = "mes_distinta_scarico_attiva";
+
+interface DistintaAttiva {
+  id: string;
+  odpLabel: string | null;
+}
 
 const AMBITO_LABEL: Record<InventarioAmbito, string> = {
   tutto: "Tutto il catalogo",
@@ -27,11 +37,42 @@ export default function ScaricoGate({
   ritorno?: string | null;
 }) {
   const [mostraForm, setMostraForm] = useState(false);
+  const [distintaAttiva, setDistintaAttiva] = useState<DistintaAttiva | null | undefined>(undefined);
 
-  if (mostraForm) {
-    return articolo.metodoGestione === "Kanban"
-      ? <ScaricoKanbanCard articolo={articolo} odpList={odpList} initialOdp={initialOdp} ritorno={ritorno} />
-      : <ScaricoAPezzoCard articolo={articolo} odpList={odpList} initialOdp={initialOdp} ritorno={ritorno} />;
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DISTINTA_ATTIVA_KEY);
+      setDistintaAttiva(raw ? JSON.parse(raw) : null);
+    } catch {
+      setDistintaAttiva(null);
+    }
+  }, []);
+
+  // undefined = non ancora letto localStorage (evita un flash della schermata normale)
+  if (distintaAttiva === undefined) return null;
+
+  if (mostraForm || distintaAttiva) {
+    return (
+      <div className="space-y-3">
+        {distintaAttiva && (
+          <div className="rounded-lg px-3 py-2 flex items-center justify-between gap-2" style={{ background: "#FFF7ED", border: "1px solid #FDE8D0" }}>
+            <p className="text-xs font-semibold" style={{ color: "var(--color-primary-dark)" }}>
+              📋 Aggiungendo a distinta di scarico{distintaAttiva.odpLabel ? ` — ${distintaAttiva.odpLabel}` : ""}
+            </p>
+            <button
+              onClick={() => { localStorage.removeItem(DISTINTA_ATTIVA_KEY); setDistintaAttiva(null); }}
+              className="text-xs font-semibold underline flex-shrink-0"
+              style={{ color: "var(--color-primary-dark)" }}
+            >
+              Esci
+            </button>
+          </div>
+        )}
+        {articolo.metodoGestione === "Kanban"
+          ? <ScaricoKanbanCard articolo={articolo} odpList={odpList} initialOdp={initialOdp} ritorno={ritorno} distintaId={distintaAttiva?.id} />
+          : <ScaricoAPezzoCard articolo={articolo} odpList={odpList} initialOdp={initialOdp} ritorno={ritorno} distintaId={distintaAttiva?.id} />}
+      </div>
+    );
   }
 
   const sotto = isSottoSoglia(articolo);

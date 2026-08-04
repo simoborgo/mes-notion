@@ -32,7 +32,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!articolo.quantitaStandardVaschetta || articolo.quantitaStandardVaschetta <= 0) {
       return NextResponse.json({ error: "Quantità Standard Vaschetta non configurata" }, { status: 400 });
     }
-    quantita = articolo.quantitaStandardVaschetta;
+    // Sempre un multiplo intero della vaschetta standard — mai una quantità libera:
+    // il moltiplicatore rappresenta "quante vaschette/confezioni" ha ritirato l'operatore.
+    const moltiplicatore = body.moltiplicatore === undefined ? 1 : Number(body.moltiplicatore);
+    if (!Number.isInteger(moltiplicatore) || moltiplicatore < 1) {
+      return NextResponse.json({ error: "Moltiplicatore non valido (deve essere un intero ≥ 1)" }, { status: 400 });
+    }
+    quantita = articolo.quantitaStandardVaschetta * moltiplicatore;
     tipo = "scarico_kanban";
   } else {
     const q = Number(body.quantita);

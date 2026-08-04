@@ -7,7 +7,7 @@ import { Client } from "@notionhq/client";
 const notion = new Client({ auth: process.env.NOTION_TOKEN, fetch: globalThis.fetch });
 const DB_AUDIT = process.env.NOTION_DB_AUDIT;
 
-export type ResourceType = "ritiro" | "scheda" | "carico" | "commessa" | "ore_registrate" | "ore_assenza" | "operatore_pin" | "segmento_operatore" | "scarico_materiale" | "articolo_ferramenta" | "kit_ferramenta" | "inventario_ferramenta" | "wurth_ordine" | "wurth_ordine_riga";
+export type ResourceType = "ritiro" | "scheda" | "carico" | "commessa" | "ore_registrate" | "ore_assenza" | "operatore_pin" | "segmento_operatore" | "scarico_materiale" | "distinta_scarico" | "articolo_ferramenta" | "kit_ferramenta" | "inventario_ferramenta" | "wurth_ordine" | "wurth_ordine_riga";
 export type ActionType = "CREATE" | "UPDATE" | "DELETE" | "UPLOAD_FOTO";
 
 export interface AuditEntry {

@@ -13,7 +13,7 @@ interface DistintaCheck {
   giaScaricato: number;
 }
 
-export default function ScaricoKanbanCard({ articolo, odpList = [], initialOdp = null, ritorno = null }: { articolo: ArticoloFerramenta; odpList?: OdpAttivo[]; initialOdp?: string | null; ritorno?: string | null }) {
+export default function ScaricoKanbanCard({ articolo, odpList = [], initialOdp = null, ritorno = null, distintaId }: { articolo: ArticoloFerramenta; odpList?: OdpAttivo[]; initialOdp?: string | null; ritorno?: string | null; distintaId?: string }) {
   const router = useRouter();
   const destinazione = ritorno || "/ferramenta";
   const [stato, setStato] = useState<Stato>("idle");
@@ -21,6 +21,11 @@ export default function ScaricoKanbanCard({ articolo, odpList = [], initialOdp =
   const [odp, setOdp] = useState<string | null>(initialOdp);
   const [distintaCheck, setDistintaCheck] = useState<DistintaCheck | null>(null);
   const [avviso, setAvviso] = useState<string[] | null>(null);
+  // Quante vaschette/confezioni sono state ritirate — mai una quantità libera, sempre
+  // un multiplo intero di quantitaStandardVaschetta, calcolato qui e mai digitabile a mano.
+  const [moltiplicatore, setMoltiplicatore] = useState(1);
+  const quantitaUnitaria = articolo.quantitaStandardVaschetta ?? 0;
+  const quantitaTotale = quantitaUnitaria * moltiplicatore;
 
   const odpMatch = odp ? odpList.find(o => o.odp === odp) : null;
 
@@ -37,9 +42,10 @@ export default function ScaricoKanbanCard({ articolo, odpList = [], initialOdp =
   }, [odpMatch?.id, articolo.id]);
 
   // Redirect automatico dopo la conferma — altrimenti si resta bloccati sulla schermata
-  // di successo. Non parte se c'è il modal sotto-soglia: prima si decide se stampare.
+  // di successo. Non parte se c'è il modal sotto-soglia (prima si decide se stampare) né
+  // in modalità distinta (il prossimo passo è scansionare il QR successivo, non navigare).
   useEffect(() => {
-    if (stato !== "done") return;
+    if (stato !== "done" || distintaId) return;
     const t = setTimeout(() => router.push(destinazione), 1400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -51,11 +57,17 @@ export default function ScaricoKanbanCard({ articolo, odpList = [], initialOdp =
     setStato("loading");
     setError("");
     try {
-      const res = await fetch(`/api/ferramenta/articoli/${articolo.id}/scarico`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ odpId: odpMatch?.id ?? odp, odpLabel: odp }),
-      });
+      const res = distintaId
+        ? await fetch(`/api/ferramenta/distinte-scarico/${distintaId}/righe`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ articoloId: articolo.id, quantita: quantitaTotale }),
+          })
+        : await fetch(`/api/ferramenta/articoli/${articolo.id}/scarico`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ odpId: odpMatch?.id ?? odp, odpLabel: odp, moltiplicatore }),
+          });
       const data = await res.json().catch(() => ({}));
       if (!res.ok && res.status !== 207) throw new Error(data?.error ?? `Errore ${res.status}`);
       setStato(data.sottoSoglia ? "sotto-soglia" : "done");
@@ -66,18 +78,17 @@ export default function ScaricoKanbanCard({ articolo, odpList = [], initialOdp =
   }
 
   function handleScarico() {
-    const quantita = articolo.quantitaStandardVaschetta ?? 0;
     const messaggi: string[] = [];
 
-    const giacenzaRisultante = articolo.giacenzaAttuale - quantita;
+    const giacenzaRisultante = articolo.giacenzaAttuale - quantitaTotale;
     if (giacenzaRisultante < 0) {
-      messaggi.push(`La giacenza diventerà negativa: ${articolo.giacenzaAttuale} − ${quantita} = ${giacenzaRisultante} ${articolo.unitaMisura}.`);
+      messaggi.push(`La giacenza diventerà negativa: ${articolo.giacenzaAttuale} − ${quantitaTotale} = ${giacenzaRisultante} ${articolo.unitaMisura}.`);
     }
 
     if (distintaCheck?.pianificato != null) {
-      const totale = distintaCheck.giaScaricato + quantita;
+      const totale = distintaCheck.giaScaricato + quantitaTotale;
       if (totale > distintaCheck.pianificato) {
-        messaggi.push(`Superi il pianificato in distinta per questo ODP: pianificato ${distintaCheck.pianificato}, già scaricato ${distintaCheck.giaScaricato}, ora ${quantita} (totale ${totale}).`);
+        messaggi.push(`Superi il pianificato in distinta per questo ODP: pianificato ${distintaCheck.pianificato}, già scaricato ${distintaCheck.giaScaricato}, ora ${quantitaTotale} (totale ${totale}).`);
       }
     }
 
@@ -125,17 +136,30 @@ export default function ScaricoKanbanCard({ articolo, odpList = [], initialOdp =
             </svg>
           </span>
           <div>
-            <p className="font-semibold text-sm" style={{ color: "#14532D" }}>Scarico registrato</p>
+            <p className="font-semibold text-sm" style={{ color: "#14532D" }}>{distintaId ? "Aggiunto alla distinta" : "Scarico registrato"}</p>
             <p className="text-xs mt-0.5" style={{ color: "#166534" }}>{articolo.descrizione}</p>
           </div>
         </div>
-        <button
-          onClick={() => router.push(destinazione)}
-          className="w-full py-2.5 rounded-lg text-sm font-semibold text-white"
-          style={{ background: "#166534" }}
-        >
-          {ritorno ? "Torna al foglio di scarico →" : "Torna alle giacenze →"}
-        </button>
+        {distintaId ? (
+          <>
+            <p className="text-xs text-center" style={{ color: "#166534" }}>Scansiona il prossimo articolo, oppure:</p>
+            <a
+              href={`/ferramenta/distinte-scarico/${distintaId}`}
+              className="block text-center w-full py-2.5 rounded-lg text-sm font-semibold text-white"
+              style={{ background: "#166534" }}
+            >
+              Vai alla distinta →
+            </a>
+          </>
+        ) : (
+          <button
+            onClick={() => router.push(destinazione)}
+            className="w-full py-2.5 rounded-lg text-sm font-semibold text-white"
+            style={{ background: "#166534" }}
+          >
+            {ritorno ? "Torna al foglio di scarico →" : "Torna alle giacenze →"}
+          </button>
+        )}
       </div>
     );
   }
@@ -146,10 +170,39 @@ export default function ScaricoKanbanCard({ articolo, odpList = [], initialOdp =
         <p className="font-bold text-lg" style={{ color: "var(--color-black)" }}>{articolo.descrizione}</p>
         <p className="text-sm" style={{ color: "var(--color-grey-mid)" }}>{articolo.codiceOs1}</p>
       </div>
-      <p className="text-sm" style={{ color: "var(--color-black)" }}>
-        Vaschetta vuota — verrà scaricata la quantità standard:{" "}
-        <strong>{articolo.quantitaStandardVaschetta} {articolo.unitaMisura}</strong>
-      </p>
+      <div className="rounded-lg p-3 space-y-2" style={{ background: "#F5F2EE" }}>
+        <label className="text-xs font-medium block" style={{ color: "var(--color-grey-mid)" }}>
+          Quante vaschette/confezioni hai prelevato?
+        </label>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setMoltiplicatore(m => Math.max(1, m - 1))}
+            disabled={moltiplicatore <= 1}
+            className="flex items-center justify-center rounded-lg font-bold disabled:opacity-40"
+            style={{ width: 44, height: 44, background: "white", border: "1px solid #d1d5db", fontSize: 20 }}
+          >
+            −
+          </button>
+          <span className="flex-1 text-center font-bold text-2xl tabular-nums" style={{ color: "var(--color-black)" }}>
+            {moltiplicatore}
+          </span>
+          <button
+            type="button"
+            onClick={() => setMoltiplicatore(m => m + 1)}
+            className="flex items-center justify-center rounded-lg font-bold"
+            style={{ width: 44, height: 44, background: "white", border: "1px solid #d1d5db", fontSize: 20 }}
+          >
+            +
+          </button>
+        </div>
+        <p className="text-sm text-center" style={{ color: "var(--color-black)" }}>
+          Verranno scaricate <strong>{quantitaTotale} {articolo.unitaMisura}</strong>
+          {moltiplicatore > 1 && (
+            <span style={{ color: "var(--color-grey-mid)" }}> ({moltiplicatore} × {quantitaUnitaria})</span>
+          )}
+        </p>
+      </div>
 
       {odpList.length > 0 && (
         <div>
@@ -175,7 +228,11 @@ export default function ScaricoKanbanCard({ articolo, odpList = [], initialOdp =
         {stato === "loading" && (
           <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
         )}
-        {stato === "loading" ? "Registrazione in corso…" : `Vaschetta vuota — scarica ${articolo.quantitaStandardVaschetta} ${articolo.unitaMisura}`}
+        {stato === "loading"
+          ? "Registrazione in corso…"
+          : distintaId
+            ? `Aggiungi alla distinta — ${quantitaTotale} ${articolo.unitaMisura}`
+            : `Scarica ${quantitaTotale} ${articolo.unitaMisura}`}
       </button>
 
       {avviso && (

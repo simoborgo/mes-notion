@@ -1,3 +1,4 @@
+import type { Pool, PoolClient } from "pg";
 import { pool } from "./db";
 import { getFornitoriMap } from "./notion";
 import type { ArticoloFerramenta, ArticoloFerramentaUpdate } from "./types";
@@ -134,8 +135,8 @@ export async function updateArticoloFerramentaClassificazione(id: string, data: 
   return mapRow(rows[0]);
 }
 
-export async function updateArticoloFerramentaGiacenza(id: string, giacenzaAttuale: number): Promise<void> {
-  await pool.query(
+export async function updateArticoloFerramentaGiacenza(id: string, giacenzaAttuale: number, executor: Pool | PoolClient = pool): Promise<void> {
+  await executor.query(
     `UPDATE articoli_ferramenta SET giacenza_attuale = $1, aggiornato_il = now() WHERE id = $2`,
     [giacenzaAttuale, id],
   );

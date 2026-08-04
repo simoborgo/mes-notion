@@ -1,3 +1,4 @@
+import type { Pool, PoolClient } from "pg";
 import { pool } from "./db";
 
 export type MovimentoTipo = "scarico_kanban" | "scarico_a_pezzo" | "carico" | "rettifica";
@@ -50,8 +51,8 @@ export async function registraMovimento(entry: {
   note?: string | null;
   odpId?: string | null;
   odpLabel?: string | null;
-}): Promise<MovimentoFerramenta> {
-  const { rows } = await pool.query(
+}, executor: Pool | PoolClient = pool): Promise<MovimentoFerramenta> {
+  const { rows } = await executor.query(
     `INSERT INTO movimenti_ferramenta (articolo_id, codice_os1, tipo, quantita, giacenza_precedente, giacenza_risultante, operatore, fonte, note, odp_id, odp_label)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
      RETURNING *`,

@@ -16,6 +16,7 @@ const TABS: Tab[] = [
   { href: "/ferramenta/inventario", label: "Inventario", match: (p) => p.startsWith("/ferramenta/inventario") },
   { href: "/ferramenta/carico", label: "Carico", match: (p) => p === "/ferramenta/carico" },
   { href: "/ferramenta/fogli-scarico", label: "Fogli di Scarico", match: (p) => p.startsWith("/ferramenta/fogli-scarico") },
+  { href: "/ferramenta/distinte-scarico", label: "Distinte di Scarico", match: (p) => p.startsWith("/ferramenta/distinte-scarico") },
   { href: "/ferramenta/ordini-wurth", label: "Ordini Wurth", adminOnly: true, match: (p) => p.startsWith("/ferramenta/ordini-wurth") },
 ];
 

@@ -4,6 +4,8 @@ import { getSession, FERRAMENTA_ROLES } from "@/lib/auth";
 import { getSchedaById } from "@/lib/notion";
 import { getMovimentiByOdp } from "@/lib/ferramentaRepository";
 import { getDistintaKitByOdp } from "@/lib/kitFerramentaRepository";
+import { getArticoliFerramenta } from "@/lib/articoliFerramentaRepository";
+import AggiungiArticoloKit from "@/components/AggiungiArticoloKit";
 
 export const dynamic = "force-dynamic";
 
@@ -38,10 +40,12 @@ export default async function FoglioScaricoDettaglioPage({ params }: { params: P
   }
   if (!scheda) notFound();
 
-  const [distinta, movimenti] = await Promise.all([
+  const [distinta, movimenti, articoli] = await Promise.all([
     getDistintaKitByOdp(odpId),
     getMovimentiByOdp(odpId),
+    getArticoliFerramenta(),
   ]);
+  const articoliAPezzo = articoli.filter(a => a.attivo && a.metodoGestione === "A Pezzo");
 
   const scaricatoPerArticolo = new Map<string, number>();
   for (const m of movimenti) {
@@ -118,6 +122,9 @@ export default async function FoglioScaricoDettaglioPage({ params }: { params: P
               )}
             </tbody>
           </table>
+        </div>
+        <div className="mt-3">
+          <AggiungiArticoloKit odpId={odpId} articoliAPezzo={articoliAPezzo} />
         </div>
       </div>
 
