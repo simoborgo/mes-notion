@@ -72,7 +72,7 @@ export default function TabellaParametriReparto({ parametriIniziali }: { paramet
         <thead>
           <tr className="border-b text-xs font-semibold uppercase tracking-wide" style={{ borderColor: "#e5e4e0", color: "var(--color-grey-mid)" }}>
             <th className="text-left px-4 py-3">Reparto</th>
-            <th className="text-left px-2 py-3">N. persone</th>
+            <th className="text-left px-2 py-3" title="Include anche gli esterni fissi già presenti nel reparto, non solo i dipendenti — il campo 'esterni' più a destra rappresenta manodopera aggiuntiva da chiamare oltre a questa squadra">N. persone</th>
             <th className="text-left px-2 py-3">Ore/giorno</th>
             <th className="text-left px-2 py-3">% Straord. max</th>
             <th className="text-left px-2 py-3">Margine esterni %</th>
