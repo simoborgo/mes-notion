@@ -117,11 +117,16 @@ export async function apriSegmento(op: DatiOperatore, odp: string, rif: boolean)
   }
 }
 
-export async function chiudiSegmentoCorrente(op: DatiOperatore): Promise<void> {
+// chiusoAlle: timestamp di chiusura da assegnare, di norma "adesso" (chiusura manuale/passaggio
+// ODP). La chiusura automatica di fine turno (vedi /api/webhooks/ore-chiusura-automatica) passa
+// invece l'orario nominale di fine turno del giorno — non "adesso" — perché per un segmento
+// dimenticato l'unica stima ragionevole è "se n'è andato all'orario previsto", non l'istante
+// (spesso molto più tardo) in cui il job schedulato è passato a controllare.
+export async function chiudiSegmentoCorrente(op: DatiOperatore, chiusoAlle?: Date): Promise<void> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    await chiudiSegmentoInterno(client, op);
+    await chiudiSegmentoInterno(client, op, chiusoAlle);
     await client.query("COMMIT");
   } catch (e) {
     await client.query("ROLLBACK");
@@ -131,7 +136,7 @@ export async function chiudiSegmentoCorrente(op: DatiOperatore): Promise<void> {
   }
 }
 
-async function chiudiSegmentoInterno(client: PoolClient, op: DatiOperatore): Promise<void> {
+async function chiudiSegmentoInterno(client: PoolClient, op: DatiOperatore, chiusoAlle?: Date): Promise<void> {
   const { rows } = await client.query(
     `SELECT * FROM ore_segmenti_odp WHERE matricola = $1 AND chiuso_alle IS NULL FOR UPDATE`,
     [op.matricola]
@@ -140,13 +145,14 @@ async function chiudiSegmentoInterno(client: PoolClient, op: DatiOperatore): Pro
   const aperto = rows[0];
   const iniziatoAlle: Date = aperto.iniziato_alle;
   const dataSegmento = aperto.data instanceof Date ? formatData(aperto.data) : aperto.data;
-  const oreEsatte = (Date.now() - iniziatoAlle.getTime()) / 3_600_000;
+  const chiusura = chiusoAlle ?? new Date();
+  const oreEsatte = (chiusura.getTime() - iniziatoAlle.getTime()) / 3_600_000;
   const anomalo = oreEsatte > SOGLIA_ANOMALIA_ORE;
   const oreSegmento = Math.min(oreEsatte, SOGLIA_ANOMALIA_ORE); // valore "contabile" (capped), non ancora arrotondato
 
   await client.query(
-    `UPDATE ore_segmenti_odp SET chiuso_alle = now(), ore = $2, anomalo = $3 WHERE id = $1`,
-    [aperto.id, Math.round(oreSegmento * 100) / 100, anomalo]
+    `UPDATE ore_segmenti_odp SET chiuso_alle = $4, ore = $2, anomalo = $3 WHERE id = $1`,
+    [aperto.id, Math.round(oreSegmento * 100) / 100, anomalo, chiusura]
   );
 
   // Arrotondare ogni segmento isolatamente perderebbe silenziosamente i cambi rapidi (es. tre
