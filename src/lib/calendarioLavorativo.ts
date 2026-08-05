@@ -92,6 +92,19 @@ export function ultimoGiornoMese(meseStr: string): string {
   return fmtData(new Date(anno, mese, 0));
 }
 
+// Orizzonte di default per il Previsionale: il mese corrente + gli n-1 successivi.
+export function mesiOrizzonteDaOggi(n: number): string[] {
+  const oggi = new Date();
+  const mesi: string[] = [];
+  let anno = oggi.getFullYear(), mese = oggi.getMonth() + 1;
+  for (let i = 0; i < n; i++) {
+    mesi.push(`${anno}-${String(mese).padStart(2, "0")}`);
+    mese++;
+    if (mese > 12) { mese = 1; anno++; }
+  }
+  return mesi;
+}
+
 // Elenco dei mesi "YYYY-MM" toccati dall'intervallo [dataInizio, dataFine], estremi inclusi.
 export function mesiCoperti(dataInizioStr: string, dataFineStr: string): string[] {
   const [y1, m1] = dataInizioStr.split("-").map(Number);

@@ -215,6 +215,17 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
                 Offerte
               </NavTab>
               <NavTab
+                href="/previsionale"
+                active={pathname === "/previsionale"}
+                icon={
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.1-2.8-2.8L7 14"/>
+                  </svg>
+                }
+              >
+                Previsionale
+              </NavTab>
+              <NavTab
                 href="/admin/parametri-reparto"
                 active={pathname === "/admin/parametri-reparto"}
                 icon={
@@ -332,6 +343,18 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
                 }
               >
                 Offerte
+              </NavTab>
+              <NavTab
+                href="/previsionale"
+                active={pathname === "/previsionale"}
+                onClick={() => setMenuOpen(false)}
+                icon={
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.1-2.8-2.8L7 14"/>
+                  </svg>
+                }
+              >
+                Previsionale
               </NavTab>
               <NavTab
                 href="/admin/parametri-reparto"

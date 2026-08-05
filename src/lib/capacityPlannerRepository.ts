@@ -107,27 +107,72 @@ export interface RigaAggregataPrevisionale {
   delta: number; // capacitaConStraordinari - oreRichieste: negativo = scoperto anche con straordinari
   oreEsterneNecessarie: number; // già comprensivo del margine di sicurezza
   costoStimato: number | null; // null se tariffa_esterna_eur_h non impostata
+  basatoSuStima: boolean; // almeno una delle offerte che contribuiscono a questa cella usa standard_reparto 'stimato'
+}
+
+// Riga di offerta il cui articolo non ha alcuna riga standard_reparto: nessuna proposta di
+// ripartizione reparto possibile (non ha senso metterla in nessuna cella del planner) —
+// segnalata a parte perché chi guarda il Previsionale sappia che quelle ore non sono conteggiate.
+export interface RigaManualePrevisionale {
+  offertaId: string;
+  cliente: string;
+  stato: string;
+  codiceArticolo: string;
+  orePreventivate: number;
+}
+
+// Offerta esclusa dal planner perché manca un dato necessario a calcolare l'intervallo
+// temporale (mai un crash, solo un'esclusione segnalata).
+export interface OffertaEsclusaPrevisionale {
+  offertaId: string;
+  cliente: string;
+  stato: string;
+  motivo: string;
+}
+
+export interface RisultatoPrevisionale {
+  righe: RigaAggregataPrevisionale[];
+  richiedonoInputManuale: RigaManualePrevisionale[];
+  offerteEscluse: OffertaEsclusaPrevisionale[];
 }
 
 // Aggregazione capacità/richieste per reparto e mese (Fase 5.3 Previsionale/Capacity Planner).
 // mesiOrizzonte: elenco esplicito di mesi "YYYY-MM" da includere nel risultato — la scelta
 // dell'orizzonte (es. prossimi 12 mesi) resta al chiamante (route/UI), non a questa funzione.
-export async function calcolaPrevisionale(filtro: FiltroPrevisionale, mesiOrizzonte: string[]): Promise<RigaAggregataPrevisionale[]> {
+export async function calcolaPrevisionale(filtro: FiltroPrevisionale, mesiOrizzonte: string[]): Promise<RisultatoPrevisionale> {
   const [parametri, offerteConRighe] = await Promise.all([getParametriReparto(), getOfferteAttiveConRighe()]);
   const parametriPerReparto = new Map(parametri.map(p => [p.reparto, p]));
   const mesiValidi = new Set(mesiOrizzonte);
 
   const richiestePerRepartoMese = new Map<string, Map<string, number>>();
+  const stimaPerRepartoMese = new Map<string, Set<string>>();
+  const richiedonoInputManuale: RigaManualePrevisionale[] = [];
+  const offerteEscluse: OffertaEsclusaPrevisionale[] = [];
 
   for (const { offerta, righe } of offerteConRighe) {
     if (filtro === "confermate" && offerta.stato !== "Confermata") continue;
     const peso = offerta.stato === "Confermata" ? 1 : (filtro === "pesato" ? offerta.probabilitaChiusura / 100 : 1);
 
     const intervallo = intervalloOfferta(offerta);
-    if (!intervallo) continue;
+    if (!intervallo) {
+      if (righe.length > 0) {
+        offerteEscluse.push({
+          offertaId: offerta.id, cliente: offerta.cliente, stato: offerta.stato,
+          motivo: offerta.stato === "Confermata" ? "manca la data di conferma" : "manca la data di consegna prevista",
+        });
+      }
+      continue;
+    }
 
     for (const riga of righe) {
-      const { righe: righeReparto } = await oreReparto(riga.codiceArticolo, riga.orePreventivate);
+      const { righe: righeReparto, basatoSuStima, manuale } = await oreReparto(riga.codiceArticolo, riga.orePreventivate);
+      if (manuale) {
+        richiedonoInputManuale.push({
+          offertaId: offerta.id, cliente: offerta.cliente, stato: offerta.stato,
+          codiceArticolo: riga.codiceArticolo, orePreventivate: riga.orePreventivate,
+        });
+        continue;
+      }
       for (const rr of righeReparto) {
         const distribuzione = distribuisciSuMesi(rr.ore * peso, intervallo.inizio, intervallo.fine);
         for (const { mese, ore } of distribuzione) {
@@ -135,12 +180,18 @@ export async function calcolaPrevisionale(filtro: FiltroPrevisionale, mesiOrizzo
           let perMese = richiestePerRepartoMese.get(rr.reparto);
           if (!perMese) { perMese = new Map(); richiestePerRepartoMese.set(rr.reparto, perMese); }
           perMese.set(mese, (perMese.get(mese) ?? 0) + ore);
+
+          if (basatoSuStima) {
+            let mesiStima = stimaPerRepartoMese.get(rr.reparto);
+            if (!mesiStima) { mesiStima = new Set(); stimaPerRepartoMese.set(rr.reparto, mesiStima); }
+            mesiStima.add(mese);
+          }
         }
       }
     }
   }
 
-  const risultato: RigaAggregataPrevisionale[] = [];
+  const righeAggregate: RigaAggregataPrevisionale[] = [];
   for (const reparto of REPARTI_PRODUZIONE) {
     const par = parametriPerReparto.get(reparto);
     for (const mese of mesiOrizzonte) {
@@ -153,8 +204,9 @@ export async function calcolaPrevisionale(filtro: FiltroPrevisionale, mesiOrizzo
       const oreEsterneBase = Math.max(0, oreRichieste - capacitaConStraordinari);
       const oreEsterneNecessarie = oreEsterneBase * (1 + (par?.margineSicurezzaEsterni ?? 0) / 100);
       const costoStimato = par?.tariffaEsternaEurH != null ? oreEsterneNecessarie * par.tariffaEsternaEurH : null;
-      risultato.push({ reparto, mese, capacitaOrdinaria, capacitaConStraordinari, oreRichieste, delta, oreEsterneNecessarie, costoStimato });
+      const basatoSuStima = stimaPerRepartoMese.get(reparto)?.has(mese) ?? false;
+      righeAggregate.push({ reparto, mese, capacitaOrdinaria, capacitaConStraordinari, oreRichieste, delta, oreEsterneNecessarie, costoStimato, basatoSuStima });
     }
   }
-  return risultato;
+  return { righe: righeAggregate, richiedonoInputManuale, offerteEscluse };
 }
