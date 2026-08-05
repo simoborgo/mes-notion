@@ -5,6 +5,7 @@ import { getAssenzeApprovatePerData, isAssente } from "@/lib/permessiRepository"
 import {
   type AssenzaManuale, getAssenzeManualiPerData, oreDaPermesso, reconciliaAssenzeConPermessi, oreEqual,
 } from "@/lib/assenzeRepository";
+import { getRepartiSecondari } from "@/lib/articoliRepository";
 import { getSessionFromRequest, RILEVAMENTO_ORE_ROLES } from "@/lib/auth";
 
 // Calcolo esplicito su anno/mese/giorno (non new Date(dataStr) + setDate) per evitare
@@ -32,13 +33,14 @@ export async function GET(req: NextRequest) {
     const operatori = await getOperatori();
     const matricole = operatori.map(o => o.matricola);
 
-    const [registrazioni, odpGiornoPrecedenteMap, assenzeResult] = await Promise.all([
+    const [registrazioni, odpGiornoPrecedenteMap, assenzeResult, repartiSecondari] = await Promise.all([
       getRegistrazioniPerData(data),
       getOdpGiornoPrecedenteMap(matricole, giornoPrecedente(data)),
       getAssenzeApprovatePerData(data).then(
         assenze => ({ ok: true as const, assenze }),
         e => ({ ok: false as const, error: (e as Error).message })
       ),
+      getRepartiSecondari(),
     ]);
 
     const registrazioniPerMatricola = new Map<string, typeof registrazioni>();
@@ -96,6 +98,7 @@ export async function GET(req: NextRequest) {
         assenzaManuale,
         odpGiornoPrecedente: odpGiornoPrecedenteMap[o.matricola] ?? null,
         registrazioni: registrazioniPerMatricola.get(o.matricola) ?? [],
+        repartoSecondarioSuggerito: repartiSecondari.get(o.matricola)?.repartoSecondario ?? null,
       };
     });
 

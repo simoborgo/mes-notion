@@ -142,6 +142,17 @@ export async function classificaCausale(id: string, causale: OreCausale): Promis
   return mapRow(rows[0]);
 }
 
+// Correzione manuale del reparto su una singola riga (operatori polivalenti, Fase 3a
+// Gestione Ore avanzato) — sposta il conteggio ore verso il reparto corretto nella vista
+// di oggi, dato che sez.oreRegistrate raggruppa per questo stesso campo.
+export async function correggiReparto(id: string, reparto: string): Promise<OreRegistrata> {
+  const { rows } = await pool.query(
+    `UPDATE ore_registrate SET reparto = $2 WHERE id = $1 RETURNING *`,
+    [id, reparto]
+  );
+  return mapRow(rows[0]);
+}
+
 // ODP dominante di ciascun operatore nella data indicata (di norma il giorno prima di quello
 // visualizzato) — usato per precompilare la selezione ODP. Query diretta su ore_registrate,
 // non una cache denormalizzata: la vecchia tabella ultimo_odp veniva aggiornata ad ogni salvataggio

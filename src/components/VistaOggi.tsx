@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import type { OdpAttivo } from "@/lib/types";
+import { REPARTI_PRODUZIONE } from "@/lib/types";
 import OdpAutocomplete from "./OdpAutocomplete";
 import OdpMultiAutocomplete from "./OdpMultiAutocomplete";
 
@@ -17,6 +18,7 @@ interface RegistrazioneRow {
   rif: boolean;
   causale: Causale | null;
   note: string | null;
+  reparto: string;
 }
 
 interface Assenza {
@@ -45,6 +47,7 @@ interface PresenteRow {
   assenzaManuale: AssenzaManuale | null;
   odpGiornoPrecedente: string | null;
   registrazioni: RegistrazioneRow[];
+  repartoSecondarioSuggerito: string | null;
 }
 
 interface OperatoreDerivato {
@@ -95,6 +98,16 @@ function arrotondaMezzo(n: number): number {
 function oreAssenzaEffettiva(a: AssenzaManuale | null, totaleGiornata: number): number {
   if (!a) return 0;
   return a.ore ?? totaleGiornata;
+}
+
+// 3 livelli di scostamento capacità/ore registrate, condivisi tra header di sezione e
+// banner globale: residuo positivo = mancano ore, zero = chiuso, negativo = straordinario
+// (ore ricevute oltre la capacità netta — es. da un operatore polivalente corretto verso
+// questo reparto, Fase 3a/3d Gestione Ore avanzato).
+function badgeResiduo(residuo: number): { label: string; bg: string; color: string } {
+  if (residuo > 0) return { label: `Mancano ${residuo}h`, bg: "#FEF3C7", color: "#92400E" };
+  if (residuo === 0) return { label: "Chiuso ✓", bg: "#DCFCE7", color: "#166534" };
+  return { label: `⚠ Straordinario +${Math.abs(residuo)}h`, bg: "#DBEAFE", color: "#1E40AF" };
 }
 
 const inputCls = "rounded-lg border px-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300";
@@ -160,9 +173,24 @@ export default function VistaOggi() {
       list.push(p);
       perReparto.set(p.reparto, list);
     }
-    const reparti = [...perReparto.keys()].sort((a, b) => a.localeCompare(b));
-    return reparti.map(reparto => {
-      const operatori: OperatoreDerivato[] = perReparto.get(reparto)!
+
+    // Ore registrate per reparto: raggruppate per il reparto della singola riga di
+    // rilevamento (eventualmente corretto per operatori polivalenti, Fase 3a), non per il
+    // reparto anagrafico dell'operatore — così una correzione sposta davvero il conteggio
+    // verso il reparto giusto invece di restare intrappolata nella sezione di provenienza.
+    const oreRegistratePerReparto = new Map<string, number>();
+    for (const p of presenti) {
+      for (const r of p.registrazioni) {
+        oreRegistratePerReparto.set(r.reparto, (oreRegistratePerReparto.get(r.reparto) ?? 0) + r.ore);
+      }
+    }
+
+    // Un reparto può comparire solo qui (ore ricevute da un polivalente corretto) senza
+    // avere operatori anagrafici assegnati: capacitaNetta resta 0, il residuo negativo che
+    // ne risulta è il caso "Straordinario" — comportamento corretto, non un bug.
+    const reparti = new Set([...perReparto.keys(), ...oreRegistratePerReparto.keys()]);
+    return [...reparti].sort((a, b) => a.localeCompare(b)).map(reparto => {
+      const operatori: OperatoreDerivato[] = (perReparto.get(reparto) ?? [])
         .slice()
         .sort((a, b) => a.cognome.localeCompare(b.cognome))
         .map(p => {
@@ -174,7 +202,7 @@ export default function VistaOggi() {
       const capacitaLorda = operatori.length * totaleGiornata;
       const oreAssenzaTot = operatori.reduce((s, o) => s + o.oreAssenza, 0);
       const capacitaNetta = arrotondaMezzo(capacitaLorda - oreAssenzaTot);
-      const oreRegistrate = arrotondaMezzo(operatori.reduce((s, o) => s + o.totaleRegistrato, 0));
+      const oreRegistrate = arrotondaMezzo(oreRegistratePerReparto.get(reparto) ?? 0);
       const residuo = arrotondaMezzo(capacitaNetta - oreRegistrate);
       return { reparto, operatori, capacitaNetta, oreRegistrate, residuo };
     });
@@ -226,6 +254,16 @@ export default function VistaOggi() {
   async function eliminaVoce(id: string) {
     const res = await fetch(`/api/ore/registrazioni/${id}`, { method: "DELETE" });
     if (!res.ok) { setErrore("Errore eliminazione"); return; }
+    await caricaPresenti(data, false);
+  }
+
+  async function correggiReparto(id: string, reparto: string) {
+    const res = await fetch(`/api/ore/registrazioni/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reparto }),
+    });
+    if (!res.ok) { setErrore("Errore correzione reparto"); return; }
     await caricaPresenti(data, false);
   }
 
@@ -338,13 +376,17 @@ export default function VistaOggi() {
       {!loading && presenti.length > 0 && (
         <div
           className="rounded-lg px-4 py-2.5 text-sm font-semibold flex items-center gap-2"
-          style={globale.residuo <= 0
+          style={globale.residuo > 0
+            ? { background: "#FEF3C7", color: "#92400E", border: "1px solid #FCD34D" }
+            : globale.residuo === 0
             ? { background: "#DCFCE7", color: "#166534", border: "1px solid #86EFAC" }
-            : { background: "#FEF3C7", color: "#92400E", border: "1px solid #FCD34D" }}
+            : { background: "#DBEAFE", color: "#1E40AF", border: "1px solid #93C5FD" }}
         >
-          {globale.residuo <= 0
+          {globale.residuo > 0
+            ? `⚠ Mancano ancora ${globale.residuo}h su ${globale.nOperatori} operatori per chiudere la giornata`
+            : globale.residuo === 0
             ? "Giornata chiusa ✓ — tutte le ore attese sono state registrate"
-            : `⚠ Mancano ancora ${globale.residuo}h su ${globale.nOperatori} operatori per chiudere la giornata`}
+            : `⚠ Straordinario: +${Math.abs(globale.residuo)}h registrate oltre la capacità netta della giornata`}
         </div>
       )}
 
@@ -378,6 +420,7 @@ export default function VistaOggi() {
               onElimina={eliminaVoce}
               onSalvaAssenza={salvaAssenza}
               onEliminaAssenza={eliminaAssenza}
+              onCorreggiReparto={correggiReparto}
             />
           ))}
         </div>
@@ -405,7 +448,7 @@ export default function VistaOggi() {
 }
 
 function SezioneReparto({
-  sez, odpList, totaleGiornata, preselezionaUltimoOdp, selezionati, onToggleSelezionato, onSalva, onElimina, onSalvaAssenza, onEliminaAssenza,
+  sez, odpList, totaleGiornata, preselezionaUltimoOdp, selezionati, onToggleSelezionato, onSalva, onElimina, onSalvaAssenza, onEliminaAssenza, onCorreggiReparto,
 }: {
   sez: SezioneDerivata;
   odpList: OdpAttivo[];
@@ -417,8 +460,9 @@ function SezioneReparto({
   onElimina: (id: string) => Promise<void>;
   onSalvaAssenza: (matricola: string, ore: number | null) => Promise<void>;
   onEliminaAssenza: (matricola: string) => Promise<void>;
+  onCorreggiReparto: (id: string, reparto: string) => Promise<void>;
 }) {
-  const chiusa = sez.residuo <= 0;
+  const badge = badgeResiduo(sez.residuo);
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between flex-wrap gap-2 px-1">
@@ -432,9 +476,9 @@ function SezioneReparto({
           <span>capacità {sez.capacitaNetta}h · registrate {sez.oreRegistrate}h</span>
           <span
             className="font-bold px-2 py-0.5 rounded-full"
-            style={chiusa ? { background: "#DCFCE7", color: "#166534" } : { background: "#FEF3C7", color: "#92400E" }}
+            style={{ background: badge.bg, color: badge.color }}
           >
-            {chiusa ? "Chiuso ✓" : `Mancano ${sez.residuo}h`}
+            {badge.label}
           </span>
         </div>
       </div>
@@ -456,6 +500,7 @@ function SezioneReparto({
             onElimina={onElimina}
             onSalvaAssenza={ore => onSalvaAssenza(o.p.matricola, ore)}
             onEliminaAssenza={() => onEliminaAssenza(o.p.matricola)}
+            onCorreggiReparto={onCorreggiReparto}
           />
         ))}
       </div>
@@ -465,7 +510,7 @@ function SezioneReparto({
 
 function RigaOperatore({
   p, odpList, totaleGiornata, preselezionaUltimoOdp, totaleRegistrato, oreAssenza, rimanenti, giornataCompleta,
-  selezionato, onToggleSelezionato, onSalva, onElimina, onSalvaAssenza, onEliminaAssenza,
+  selezionato, onToggleSelezionato, onSalva, onElimina, onSalvaAssenza, onEliminaAssenza, onCorreggiReparto,
 }: {
   p: PresenteRow;
   odpList: OdpAttivo[];
@@ -481,6 +526,7 @@ function RigaOperatore({
   onElimina: (id: string) => Promise<void>;
   onSalvaAssenza: (ore: number | null) => Promise<void>;
   onEliminaAssenza: () => Promise<void>;
+  onCorreggiReparto: (id: string, reparto: string) => Promise<void>;
 }) {
   const oltreLimite = totaleRegistrato > 11;
 
@@ -625,20 +671,14 @@ function RigaOperatore({
       {p.registrazioni.length > 0 && (
         <div className="px-4 pb-3 flex flex-wrap gap-2">
           {p.registrazioni.map(r => (
-            <div
+            <RegistrazioneChip
               key={r.id}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium"
-              style={{ background: "#F5F2EE", color: "var(--color-black)" }}
-            >
-              <span className="font-semibold">{r.odp}</span>
-              <span>{r.ore}h</span>
-              {r.rif && (
-                <span className="font-bold" style={{ color: "#991B1B" }}>
-                  RIFACIMENTO{r.causale ? ` (${r.causale})` : " — da classificare"}
-                </span>
-              )}
-              <button onClick={() => onElimina(r.id)} className="text-gray-400 hover:text-gray-600 leading-none">×</button>
-            </div>
+              r={r}
+              repartoOperatore={p.reparto}
+              repartoSecondarioSuggerito={p.repartoSecondarioSuggerito}
+              onElimina={onElimina}
+              onCorreggiReparto={onCorreggiReparto}
+            />
           ))}
         </div>
       )}
@@ -681,6 +721,80 @@ function RigaOperatore({
         </p>
       )}
       {err && <p className="px-4 pb-3 text-xs font-medium" style={{ color: "#991B1B" }}>{err}</p>}
+    </div>
+  );
+}
+
+// Fase 3a Gestione Ore avanzato: correzione manuale del reparto sulla singola riga, per i
+// pochi operatori polivalenti. repartoSecondarioSuggerito (da operatori_reparto_secondario)
+// viene proposto in cima alla lista, ma resta liberamente sovrascrivibile.
+function RegistrazioneChip({
+  r, repartoOperatore, repartoSecondarioSuggerito, onElimina, onCorreggiReparto,
+}: {
+  r: RegistrazioneRow;
+  repartoOperatore: string;
+  repartoSecondarioSuggerito: string | null;
+  onElimina: (id: string) => void;
+  onCorreggiReparto: (id: string, reparto: string) => Promise<void>;
+}) {
+  const [editando, setEditando] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const corretta = r.reparto !== repartoOperatore;
+
+  const opzioni = repartoSecondarioSuggerito && REPARTI_PRODUZIONE.includes(repartoSecondarioSuggerito)
+    ? [repartoSecondarioSuggerito, ...REPARTI_PRODUZIONE.filter(rp => rp !== repartoSecondarioSuggerito)]
+    : REPARTI_PRODUZIONE;
+
+  async function handleChange(nuovoReparto: string) {
+    setSalvando(true);
+    try {
+      await onCorreggiReparto(r.id, nuovoReparto);
+    } finally {
+      setSalvando(false);
+      setEditando(false);
+    }
+  }
+
+  return (
+    <div
+      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium"
+      style={{ background: "#F5F2EE", color: "var(--color-black)" }}
+    >
+      <span className="font-semibold">{r.odp}</span>
+      <span>{r.ore}h</span>
+      {r.rif && (
+        <span className="font-bold" style={{ color: "#991B1B" }}>
+          RIFACIMENTO{r.causale ? ` (${r.causale})` : " — da classificare"}
+        </span>
+      )}
+      {editando ? (
+        <select
+          autoFocus
+          value={r.reparto}
+          disabled={salvando}
+          onChange={e => handleChange(e.target.value)}
+          onBlur={() => setEditando(false)}
+          className="text-xs rounded border px-1 bg-white"
+          style={{ borderColor: "#d1d5db" }}
+        >
+          {opzioni.map(rp => (
+            <option key={rp} value={rp}>
+              {rp}{rp === repartoSecondarioSuggerito ? " ★ suggerito" : ""}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setEditando(true)}
+          className="underline decoration-dotted"
+          style={corretta ? { color: "#1E40AF", fontWeight: 700 } : { color: "var(--color-grey-mid)" }}
+          title="Correggi reparto (operatori polivalenti)"
+        >
+          {corretta ? `→ ${r.reparto}` : "reparto ▾"}
+        </button>
+      )}
+      <button onClick={() => onElimina(r.id)} className="text-gray-400 hover:text-gray-600 leading-none">×</button>
     </div>
   );
 }
