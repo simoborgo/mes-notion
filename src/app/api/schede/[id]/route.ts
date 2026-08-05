@@ -4,6 +4,7 @@ import { getSchedaById, updateScheda, invalidateSchedeCache } from "@/lib/notion
 import type { SchedaUpdate } from "@/lib/types";
 import { getSessionFromRequest, MODIFICA_SCHEDA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
+import { registraChiusuraOdp } from "@/lib/standardRepartoRepository";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -24,7 +25,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
     }
     const body: SchedaUpdate = await req.json();
+
+    // Fase 4 Gestione Ore avanzato: letta solo quando la richiesta porta davvero a
+    // "Completato" (non ad ogni PATCH — foto/note non pagano questa lettura Notion extra).
+    const prima = body.statoProduzione === "Completato" ? await getSchedaById(id).catch(() => null) : null;
+
     const updated = await updateScheda(id, body);
+
+    if (prima && prima.statoProduzione !== "Completato") {
+      void registraChiusuraOdp(prima.odp, prima.codiceArticolo || null);
+    }
 
     revalidatePath("/schede");
     invalidateSchedeCache();
