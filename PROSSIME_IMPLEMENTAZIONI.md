@@ -9,6 +9,17 @@ conversazione. Segnare come fatto (barrato o rimosso) quando implementata, con r
 
 ---
 
+## Modulo Gestione Ore avanzato — Offerte
+
+### Modifica ed eliminazione di un'offerta
+
+**Stato:** richiesta esplicitamente dall'utente (sessione 2026-08-05), non implementata
+
+- **Modifica**: il backend esiste già — `PATCH /api/offerte/[id]` + `aggiornaCampiOfferta` (`src/lib/offerteRepository.ts`) accettano `cliente`/`valoreCommessa`/`dataOfferta`/`dataConsegnaPrevista`/`probabilitaChiusura` — ma **non c'è nessuna UI** che lo richiami: `DettaglioOfferta.tsx` oggi permette solo aggiungere righe, confermare, segnare persa. Manca un form di modifica testata (pattern simile a `FormNuovaOfferta.tsx`, precompilato). Nota: `aggiornaCampiOfferta` oggi non controlla lo stato — modifica anche un'offerta già Confermata, il che tocca anche il Previsionale (Fase 5.3) se cambia `dataOfferta`/`dataConsegnaPrevista`; da decidere se vietarlo per le Confermate o lasciarlo permesso.
+- **Eliminazione**: non esiste né endpoint né UI. Serve `DELETE /api/offerte/[id]` (CASCADE su `offerte_righe` già garantito dallo schema) + conferma in UI. Da decidere: eliminazione libera per qualunque stato, o solo per `Offerta` (evitare di cancellare per sbaglio una Confermata/Persa che è ormai storico)?
+
+---
+
 ## Modulo Gestione Ore avanzato — Previsionale (Capacity Planner)
 
 ### Risincronizzazione data_consegna_prevista dopo la conferma di un'offerta
