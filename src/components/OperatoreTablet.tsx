@@ -231,12 +231,15 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState("");
 
-  const caricaStato = useCallback(async () => {
+  const caricaStato = useCallback(async (precompila = false) => {
     const res = await fetch(`/api/ore/operatore/stato?matricola=${operatore.matricola}`);
     const json = await res.json();
     if (res.ok) {
       setAperto(json.aperto);
       setSegmentiOggi(json.segmentiOggi);
+      if (precompila && !json.aperto && json.odpGiornoPrecedente) {
+        setOdp(json.odpGiornoPrecedente);
+      }
     }
   }, [operatore.matricola]);
 
@@ -244,7 +247,7 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
     setLoading(true);
     Promise.all([
       fetch("/api/ore/operatore/odp-list").then(r => r.json()).then(json => setOdpList(Array.isArray(json) ? json : [])),
-      caricaStato(),
+      caricaStato(true),
     ]).finally(() => setLoading(false));
   }, [caricaStato]);
 

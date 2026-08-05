@@ -43,6 +43,14 @@ function arrotondaMezzo(n: number): number {
   return Math.round(n * 2) / 2;
 }
 
+export async function getMatricoleConSegmentoAperto(): Promise<string[]> {
+  const { rows } = await pool.query(
+    `SELECT DISTINCT matricola FROM ore_segmenti_odp WHERE chiuso_alle IS NULL`
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return rows.map((r: any) => r.matricola as string);
+}
+
 export async function getSegmentoAperto(matricola: string): Promise<Segmento | null> {
   const { rows } = await pool.query(
     `SELECT * FROM ore_segmenti_odp WHERE matricola = $1 AND chiuso_alle IS NULL`,
