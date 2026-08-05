@@ -17,6 +17,7 @@ export const MODIFICA_SCHEDA_ROLES: Role[] = ["admin", "produzione"];
 export const RIENTRO_QUALITA_ROLES: Role[] = ["admin", "operatore", "logistica", "spedizioni", "produzione", "responsabile_produzione"];
 // Nessun ruolo "commerciale" esiste oggi — solo admin per ora, facile da ampliare su richiesta.
 export const OFFERTE_ROLES: Role[] = ["admin"];
+export const PARAMETRI_REPARTO_ROLES: Role[] = ["admin"];
 
 export interface Session {
   username: string;
