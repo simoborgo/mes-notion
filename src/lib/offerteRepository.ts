@@ -14,6 +14,7 @@ export interface Offerta {
   creatoDa: string;
   creatoIl: string;
   aggiornatoIl: string;
+  confermatoIl: string | null;
 }
 
 export interface OffertaRiga {
@@ -52,6 +53,7 @@ function mapOfferta(r: any): Offerta {
     creatoDa: r.creato_da,
     creatoIl: r.creato_il,
     aggiornatoIl: r.aggiornato_il,
+    confermatoIl: r.confermato_il,
   };
 }
 
@@ -104,6 +106,22 @@ export async function getOffertaConRighe(id: string): Promise<{ offerta: Offerta
   return { offerta: mapOfferta(rows[0]), righe: righe.map(mapRiga) };
 }
 
+// Offerte + righe per il Previsionale (Fase 5.3): esclude sempre 'Persa' (nessun lavoro
+// generato), il chiamante filtra ulteriormente per stato/peso a seconda della vista scelta.
+export async function getOfferteAttiveConRighe(): Promise<{ offerta: Offerta; righe: OffertaRiga[] }[]> {
+  const { rows: offerteRows } = await pool.query(`SELECT * FROM offerte WHERE stato != 'Persa' ORDER BY data_offerta`);
+  if (offerteRows.length === 0) return [];
+  const ids = offerteRows.map(r => r.id);
+  const { rows: righeRows } = await pool.query(`${RIGHE_JOIN} WHERE r.offerta_id = ANY($1) ORDER BY r.creato_il`, [ids]);
+  const righePerOfferta = new Map<string, OffertaRiga[]>();
+  for (const r of righeRows.map(mapRiga)) {
+    const list = righePerOfferta.get(r.offertaId) ?? [];
+    list.push(r);
+    righePerOfferta.set(r.offertaId, list);
+  }
+  return offerteRows.map(mapOfferta).map(offerta => ({ offerta, righe: righePerOfferta.get(offerta.id) ?? [] }));
+}
+
 // Append-only per design: ripreventivare un articolo aggiunge una nuova riga, non
 // modifica mai quella precedente — lo storico dei preventivi resta consultabile.
 // Righe aggiungibili solo mentre l'offerta è ancora in stato "Offerta": una volta
@@ -154,7 +172,7 @@ async function getOffertaSoloTestata(id: string): Promise<Offerta | null> {
 export async function confermaOfferta(id: string, commessaId: string, dataCaricoCommessa: string | null): Promise<Offerta | null> {
   const { rows } = await pool.query(
     `UPDATE offerte SET stato = 'Confermata', commessa_id = $2, probabilita_chiusura = 100,
-       data_consegna_prevista = COALESCE($3, data_consegna_prevista), aggiornato_il = now()
+       data_consegna_prevista = COALESCE($3, data_consegna_prevista), aggiornato_il = now(), confermato_il = now()
      WHERE id = $1 AND stato = 'Offerta' RETURNING *`,
     [id, commessaId, dataCaricoCommessa]
   );
