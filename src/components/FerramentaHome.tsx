@@ -9,6 +9,62 @@ function isSottoSoglia(a: ArticoloFerramenta): boolean {
   return a.sogliaMinima != null && a.giacenzaAttuale < a.sogliaMinima;
 }
 
+type SortKey =
+  | "codiceOs1" | "descrizione" | "fornitore" | "codiceFornitore" | "descrizioneCategoria"
+  | "categoriaMerceologica" | "metodoGestione" | "giacenzaAttuale" | "sogliaMinima" | "inventariato";
+type SortDir = "asc" | "desc";
+
+function valoreOrdinamento(a: ArticoloFerramenta, key: SortKey): string | number | boolean {
+  switch (key) {
+    case "fornitore": return nomeFornitore(a);
+    case "giacenzaAttuale": return a.giacenzaAttuale;
+    case "sogliaMinima": return a.sogliaMinima ?? -1;
+    case "inventariato": return a.inventariato;
+    case "metodoGestione": return a.metodoGestione ?? "";
+    default: return (a[key] as string) ?? "";
+  }
+}
+
+function cmp(a: ArticoloFerramenta, b: ArticoloFerramenta, key: SortKey, dir: SortDir): number {
+  const va = valoreOrdinamento(a, key);
+  const vb = valoreOrdinamento(b, key);
+  let res: number;
+  if (typeof va === "number" && typeof vb === "number") res = va - vb;
+  else if (typeof va === "boolean" && typeof vb === "boolean") res = va === vb ? 0 : va ? 1 : -1;
+  else res = String(va).localeCompare(String(vb), "it");
+  return dir === "asc" ? res : -res;
+}
+
+function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
+  return (
+    <span className="ml-1 inline-block text-[10px] opacity-60">
+      {active ? (dir === "asc" ? "▲" : "▼") : "⇅"}
+    </span>
+  );
+}
+
+function Th({
+  label, sortKey: key, currentSortKey, sortDir, onSort, className = "",
+}: {
+  label: string;
+  sortKey: SortKey;
+  currentSortKey: SortKey;
+  sortDir: SortDir;
+  onSort: (k: SortKey) => void;
+  className?: string;
+}) {
+  const active = key === currentSortKey;
+  return (
+    <th
+      className={`px-4 py-3 whitespace-nowrap select-none cursor-pointer hover:bg-orange-50/50 ${className}`}
+      onClick={() => onSort(key)}
+    >
+      {label}
+      <SortIcon active={active} dir={active ? sortDir : "asc"} />
+    </th>
+  );
+}
+
 export default function FerramentaHome({ articoli }: { articoli: ArticoloFerramenta[] }) {
   // Solo la ricerca testuale è "bozza vs applicata" — con 8358 articoli filtrare/ri-renderizzare
   // ad ogni tasto digitato appesantiva la ricerca, quindi si applica solo con "Cerca"/Invio.
@@ -20,9 +76,16 @@ export default function FerramentaHome({ articoli }: { articoli: ArticoloFerrame
   const [soloDaRiordinare, setSoloDaRiordinare] = useState(false);
   const [fornitoreFiltro, setFornitoreFiltro] = useState("");
   const [soloInventariati, setSoloInventariati] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>("descrizione");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   function applicaFiltri() {
     setSearch(searchInput);
+  }
+
+  function handleSort(key: SortKey) {
+    if (key === sortKey) setSortDir(d => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir("asc"); }
   }
 
   const attivi = useMemo(() => articoli.filter(a => a.attivo), [articoli]);
@@ -54,8 +117,8 @@ export default function FerramentaHome({ articoli }: { articoli: ArticoloFerrame
         }
         return true;
       })
-      .sort((a, b) => a.descrizione.localeCompare(b.descrizione));
-  }, [attivi, search, soloDaRiordinare, fornitoreFiltro, soloInventariati]);
+      .sort((a, b) => cmp(a, b, sortKey, sortDir));
+  }, [attivi, search, soloDaRiordinare, fornitoreFiltro, soloInventariati, sortKey, sortDir]);
 
   return (
     <div className="space-y-3">
@@ -114,21 +177,23 @@ export default function FerramentaHome({ articoli }: { articoli: ArticoloFerrame
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b text-left text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-grey-mid)", background: "#faf9f7" }}>
-              <th className="px-4 py-3">Codice OS1</th>
-              <th className="px-4 py-3 min-w-[200px]">Descrizione</th>
-              <th className="px-4 py-3">Fornitore</th>
-              <th className="px-4 py-3">Cod. Fornitore</th>
-              <th className="px-4 py-3">Metodo</th>
-              <th className="px-4 py-3">Giacenza</th>
-              <th className="px-4 py-3">Soglia Minima</th>
-              <th className="px-4 py-3">Inventariati</th>
+              <Th label="Codice OS1" sortKey="codiceOs1" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              <Th label="Descrizione" sortKey="descrizione" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="min-w-[200px]" />
+              <Th label="Fornitore" sortKey="fornitore" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              <Th label="Cod. Fornitore" sortKey="codiceFornitore" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              <Th label="Categoria" sortKey="descrizioneCategoria" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              <Th label="Cat. Merceologica" sortKey="categoriaMerceologica" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              <Th label="Metodo" sortKey="metodoGestione" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              <Th label="Giacenza" sortKey="giacenzaAttuale" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              <Th label="Soglia Minima" sortKey="sogliaMinima" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              <Th label="Inventariati" sortKey="inventariato" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
+                <td colSpan={11} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
                   Nessun articolo trovato
                 </td>
               </tr>
@@ -150,6 +215,8 @@ const RigaGiacenza = memo(function RigaGiacenza({ articolo: a }: { articolo: Art
       <td className="px-4 py-3 font-medium">{a.descrizione}</td>
       <td className="px-4 py-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>{nomeFornitore(a) || "—"}</td>
       <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">{a.codiceFornitore || "—"}</td>
+      <td className="px-4 py-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>{a.descrizioneCategoria || "—"}</td>
+      <td className="px-4 py-3 text-xs font-mono" style={{ color: "var(--color-grey-mid)" }}>{a.categoriaMerceologica || "—"}</td>
       <td className="px-4 py-3">
         {a.metodoGestione ? (
           <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#F3F4F6", color: "#374151" }}>
