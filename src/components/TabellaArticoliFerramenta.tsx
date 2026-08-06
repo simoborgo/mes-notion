@@ -20,13 +20,21 @@ export default function TabellaArticoliFerramenta({
   // Bozza (controlla l'input) vs applicato (guida filtro/render) — con 8358 articoli filtrare
   // ad ogni tasto digitato appesantiva la tabella. Si applica con "Cerca" o Invio nel campo.
   const [searchInput, setSearchInput] = useState("");
+  const [soloInventariatiInput, setSoloInventariatiInput] = useState(false);
   const [search, setSearch] = useState("");
+  const [soloInventariati, setSoloInventariati] = useState(false);
+
+  function applicaFiltri() {
+    setSearch(searchInput);
+    setSoloInventariati(soloInventariatiInput);
+  }
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
-    if (!q) return articoli;
     const qNormalizzata = normalizzaCodiceFornitore(search);
     return articoli.filter(a => {
+      if (soloInventariati && !a.inventariato) return false;
+      if (!q) return true;
       if (`${a.descrizione} ${a.codiceOs1} ${nomeFornitore(a)} ${a.codiceFornitore} ${a.descrizioneFornitore}`.toLowerCase().includes(q)) return true;
       // Cerca anche per codice fornitore normalizzato: incolla il codice così com'è nel
       // tracciato fornitore (con zeri iniziali/spazi) e lo trova comunque — stessa logica
@@ -34,7 +42,7 @@ export default function TabellaArticoliFerramenta({
       if (qNormalizzata && a.codiceFornitore && normalizzaCodiceFornitore(a.codiceFornitore).includes(qNormalizzata)) return true;
       return false;
     });
-  }, [articoli, search]);
+  }, [articoli, search, soloInventariati]);
 
   function handleArticoloCreato(articolo: ArticoloFerramenta) {
     setArticoli(prev => [articolo, ...prev]);
@@ -59,10 +67,19 @@ export default function TabellaArticoliFerramenta({
           placeholder="Cerca descrizione, codice OS1, cod. fornitore, fornitore…"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") setSearch(searchInput); }}
+          onKeyDown={(e) => { if (e.key === "Enter") applicaFiltri(); }}
         />
         <button
-          onClick={() => setSearch(searchInput)}
+          onClick={() => setSoloInventariatiInput(v => !v)}
+          className="flex items-center gap-1.5 px-3 py-2 rounded border text-sm font-medium transition-colors"
+          style={soloInventariatiInput
+            ? { background: "#DCFCE7", color: "#166534", borderColor: "#86EFAC" }
+            : { background: "white", color: "var(--color-grey-mid)", borderColor: "#d1d5db" }}
+        >
+          Inventariati
+        </button>
+        <button
+          onClick={applicaFiltri}
           className="px-4 py-2 rounded-lg text-sm font-semibold text-white"
           style={{ background: "var(--color-primary)" }}
         >

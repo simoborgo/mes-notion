@@ -16,15 +16,18 @@ export default function FerramentaHome({ articoli }: { articoli: ArticoloFerrame
   const [searchInput, setSearchInput] = useState("");
   const [fornitoreInput, setFornitoreInput] = useState("");
   const [soloDaRiordinareInput, setSoloDaRiordinareInput] = useState(false);
+  const [soloInventariatiInput, setSoloInventariatiInput] = useState(false);
 
   const [search, setSearch] = useState("");
   const [soloDaRiordinare, setSoloDaRiordinare] = useState(false);
   const [fornitoreFiltro, setFornitoreFiltro] = useState("");
+  const [soloInventariati, setSoloInventariati] = useState(false);
 
   function applicaFiltri() {
     setSearch(searchInput);
     setFornitoreFiltro(fornitoreInput);
     setSoloDaRiordinare(soloDaRiordinareInput);
+    setSoloInventariati(soloInventariatiInput);
   }
 
   const attivi = useMemo(() => articoli.filter(a => a.attivo), [articoli]);
@@ -45,6 +48,7 @@ export default function FerramentaHome({ articoli }: { articoli: ArticoloFerrame
     return attivi
       .filter(a => {
         if (soloDaRiordinare && !isSottoSoglia(a)) return false;
+        if (soloInventariati && !a.inventariato) return false;
         if (fornitoreFiltro && nomeFornitore(a) !== fornitoreFiltro) return false;
         if (q) {
           const matchTesto = `${a.descrizione} ${a.codiceOs1} ${nomeFornitore(a)} ${a.codiceFornitore}`.toLowerCase().includes(q);
@@ -56,7 +60,7 @@ export default function FerramentaHome({ articoli }: { articoli: ArticoloFerrame
         return true;
       })
       .sort((a, b) => a.descrizione.localeCompare(b.descrizione));
-  }, [attivi, search, soloDaRiordinare, fornitoreFiltro]);
+  }, [attivi, search, soloDaRiordinare, fornitoreFiltro, soloInventariati]);
 
   return (
     <div className="space-y-3">
@@ -92,6 +96,15 @@ export default function FerramentaHome({ articoli }: { articoli: ArticoloFerrame
               {daRiordinareCount}
             </span>
           )}
+        </button>
+        <button
+          onClick={() => setSoloInventariatiInput(v => !v)}
+          className="flex items-center gap-1.5 px-3 py-2 rounded border text-sm font-medium transition-colors"
+          style={soloInventariatiInput
+            ? { background: "#DCFCE7", color: "#166534", borderColor: "#86EFAC" }
+            : { background: "white", color: "var(--color-grey-mid)", borderColor: "#d1d5db" }}
+        >
+          Inventariati
         </button>
         <button
           onClick={applicaFiltri}
