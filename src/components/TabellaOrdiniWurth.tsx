@@ -43,6 +43,10 @@ export default function TabellaOrdiniWurth({
   const [ricevendo, setRicevendo] = useState(false);
   const [segnandoEvaso, setSegnandoEvaso] = useState<string | null>(null);
   const [errore, setErrore] = useState("");
+  const [bulkAperto, setBulkAperto] = useState<string | null>(null);
+  const [bulkQuantita, setBulkQuantita] = useState<Record<string, string>>({});
+  const [bulkCaricando, setBulkCaricando] = useState(false);
+  const [bulkRisultato, setBulkRisultato] = useState<{ ordineId: string; caricati: number; saltati: number; falliti: number } | null>(null);
 
   function aggiornaRiga(ordineId: string, rigaAggiornata: WurthOrdineRiga, statoRicezione: StatoRicezioneOrdine) {
     setOrdini((prev) => prev.map((o) => o.id !== ordineId ? o : {
@@ -108,6 +112,49 @@ export default function TabellaOrdiniWurth({
     }
   }
 
+  function apriBulk(o: WurthOrdine) {
+    setBulkRisultato(null);
+    setErrore("");
+    if (bulkAperto === o.id) { setBulkAperto(null); return; }
+    const quantitaIniziali: Record<string, string> = {};
+    for (const r of o.righe) {
+      const residuo = Math.max(r.quantita - r.quantitaRicevuta, 0);
+      if (r.articoloId && residuo > 0) quantitaIniziali[r.id] = String(residuo);
+    }
+    setBulkQuantita(quantitaIniziali);
+    setBulkAperto(o.id);
+  }
+
+  async function confermaBulk(ordineId: string) {
+    const righe = Object.entries(bulkQuantita)
+      .map(([rigaId, q]) => ({ rigaId, quantita: Number(q) }))
+      .filter((r) => r.quantita > 0);
+    if (righe.length === 0) { setErrore("Nessuna quantità da caricare."); return; }
+
+    setBulkCaricando(true);
+    setErrore("");
+    try {
+      const res = await fetch(`/api/ferramenta/wurth-ordini/${ordineId}/ricevi-tutto`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ righe }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error ?? `Errore ${res.status}`);
+      setOrdini((prev) => prev.map((o) => o.id !== ordineId ? o : {
+        ...o,
+        statoRicezione: data.statoRicezione,
+        righe: data.righe.length > 0 ? data.righe : o.righe,
+      }));
+      setBulkRisultato({ ordineId, caricati: data.caricati.length, saltati: data.saltatiNonCensiti.length, falliti: data.falliti.length });
+      setBulkAperto(null);
+    } catch (e) {
+      setErrore(e instanceof Error ? e.message : "Errore durante il carico bulk.");
+    } finally {
+      setBulkCaricando(false);
+    }
+  }
+
   if (ordini.length === 0) {
     return (
       <p className="text-sm" style={{ color: "var(--color-grey-mid)" }}>
@@ -128,9 +175,11 @@ export default function TabellaOrdiniWurth({
         const nRighe = o.righe.length;
         const nDiscrepanza = o.righe.filter((r) => r.articoloId && r.discrepanzaPrezzo).length;
         const nNonCensiti = o.righe.filter((r) => !r.articoloId).length;
+        const nRicevibili = o.righe.filter((r) => r.articoloId && r.quantitaRicevuta < r.quantita).length;
         const badge = STATO_BADGE[o.statoElaborazione] ?? STATO_BADGE.ricevuto;
         const badgeRicezione = STATO_RICEZIONE_BADGE[o.statoRicezione] ?? STATO_RICEZIONE_BADGE.in_attesa;
         const isAperto = aperto === o.id;
+        const isBulkAperto = bulkAperto === o.id;
         const evaso = o.statoRicezione === "evaso" || o.statoRicezione === "evaso_manuale";
 
         return (
@@ -161,6 +210,18 @@ export default function TabellaOrdiniWurth({
                 )}
                 <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>{nRighe} righe</span>
               </button>
+              {!evaso && nRicevibili > 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); apriBulk(o); }}
+                  className="text-xs px-2.5 py-1.5 rounded-lg font-semibold whitespace-nowrap border"
+                  style={isBulkAperto
+                    ? { color: "#166534", background: "#F0FDF4", borderColor: "#86EFAC" }
+                    : { color: "#166534", background: "white", borderColor: "#86EFAC" }}
+                >
+                  {isBulkAperto ? "Annulla" : "Ricevi tutto"}
+                </button>
+              )}
               {!evaso && (
                 <button
                   type="button"
@@ -176,6 +237,47 @@ export default function TabellaOrdiniWurth({
                 {isAperto ? "▲" : "▼"}
               </button>
             </div>
+
+            {bulkRisultato?.ordineId === o.id && (
+              <div className="px-4 py-2 text-xs border-t" style={{ borderColor: "#e5e4e0", background: "#F0FDF4", color: "#166534" }}>
+                Caricate {bulkRisultato.caricati} righe.
+                {bulkRisultato.saltati > 0 && ` ${bulkRisultato.saltati} saltate (articolo non censito).`}
+                {bulkRisultato.falliti > 0 && ` ${bulkRisultato.falliti} fallite.`}
+              </div>
+            )}
+
+            {isBulkAperto && (
+              <div className="border-t px-4 py-3 space-y-3" style={{ borderColor: "#e5e4e0", background: "#FAFAF9" }}>
+                <p className="text-xs font-medium" style={{ color: "var(--color-grey-mid)" }}>
+                  Quantità effettivamente messe a scaffale — precompilate col residuo dell&apos;ordine, modificabili prima di confermare.
+                  {nNonCensiti > 0 && " Le righe con articolo non censito sono escluse (censirle prima in Anagrafica)."}
+                </p>
+                <div className="space-y-2">
+                  {o.righe.filter((r) => r.articoloId && r.quantitaRicevuta < r.quantita).map((r) => (
+                    <div key={r.id} className="flex items-center gap-3 flex-wrap text-xs">
+                      <span className="font-mono w-20 shrink-0">{r.codiceArticolo}</span>
+                      <span className="flex-1 min-w-[140px]">{r.descrizione}</span>
+                      <span style={{ color: "var(--color-grey-mid)" }}>ordinate {r.quantita}</span>
+                      <input
+                        type="number" step="0.01" min="0"
+                        value={bulkQuantita[r.id] ?? ""}
+                        onChange={(e) => setBulkQuantita((prev) => ({ ...prev, [r.id]: e.target.value }))}
+                        className="border rounded px-2 py-1 text-xs w-24 focus:outline-none focus:ring-2 focus:ring-orange-300"
+                      />
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => confermaBulk(o.id)}
+                  disabled={bulkCaricando}
+                  className="px-3 py-1.5 rounded-lg text-sm font-semibold text-white disabled:opacity-60"
+                  style={{ background: "#166534" }}
+                >
+                  {bulkCaricando ? "Carico…" : "Conferma carico"}
+                </button>
+              </div>
+            )}
 
             {isAperto && (
               <div className="overflow-x-auto border-t" style={{ borderColor: "#e5e4e0" }}>
