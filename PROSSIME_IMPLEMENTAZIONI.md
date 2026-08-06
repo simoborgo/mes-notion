@@ -36,6 +36,33 @@ da `articoli_ferramenta.fornitore_id` invece del riferimento testuale odierno. D
 l'utente: migrare anche gli usi di Fornitori fuori da Ferramenta (Ritiri/Consegne, Rientro Qualità
 citano "Nome Fornitore" come rollup Notion) nella stessa fase o in un secondo momento.
 
+### Latenza fino a ~20s dopo una scrittura su una Scheda (cache `getSchede()`)
+
+**Stato:** caratteristica nota del sistema, mitigata parzialmente (sessione 2026-08-06), non
+eliminabile del tutto senza un ripensamento più ampio
+
+`getSchede()`/`getSottoschede()` (`src/lib/notion.ts`) sono una cache in memoria scritta a mano,
+senza TTL, popolata da una query completa del database Notion Schede (~1900 righe, 15-20s) —
+scelta deliberata per aggirare il limite dei 2MB della Data Cache di Next.js (vedi
+[[project_mes_cache_2mb_bug]]). `invalidateSchedeCache()` azzera la cache e la ripopola in
+background dopo ogni scrittura (`pages.update`), ma **chi guarda una pagina che dipende da
+questa cache può vedere il valore vecchio per diversi secondi** dopo aver salvato una modifica
+— scoperto testando l'eliminazione di un foglio di scarico Kit Ferramenta, ma riproducibile
+anche sul PATCH stato Sì/No già esistente, quindi non specifico a quella feature.
+
+Aggiunto un ritardo di 1.5s prima del refetch in background (`invalidateSchedeCache`), per
+ridurre il rischio che il refetch parta prima che Notion abbia propagato la scrittura appena
+fatta e catturi/congeli in cache lo snapshot vecchio (senza TTL, sarebbe rimasto sbagliato
+indefinitamente). Il ritardo riduce il rischio ma **non elimina** il tempo di propagazione reale
+del refetch stesso (15-20s) — un utente che ricarica una pagina Schede-dipendente subito dopo
+aver salvato può ancora vedere temporaneamente il dato vecchio.
+
+**Come affrontarla, se diventa un problema pratico**: (a) invalidare in modo mirato solo la
+Scheda toccata invece di rifare la query intera (richiede una cache indicizzata per id, non un
+array piatto); (b) aggiornare otticamente la cache in memoria con la modifica appena scritta,
+invece di ributtare via tutto e ripartire da Notion; (c) accettare il limite e comunicarlo in UI
+("salvataggio in corso, la vista si aggiorna entro X secondi").
+
 ---
 
 ## Ferramenta
