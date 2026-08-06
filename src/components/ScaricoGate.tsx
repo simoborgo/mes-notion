@@ -21,6 +21,7 @@ const AMBITO_LABEL: Record<InventarioAmbito, string> = {
   kanban: "Solo Kanban",
   ubicazione: "Ubicazione",
   sotto_scorta: "Sotto scorta",
+  inventariato: "Solo voci Inventariati",
 };
 
 function isSottoSoglia(a: ArticoloFerramenta): boolean {

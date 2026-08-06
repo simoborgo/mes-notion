@@ -1,6 +1,6 @@
 import { pool } from "./db";
 
-export type InventarioAmbito = "tutto" | "kanban" | "ubicazione" | "sotto_scorta";
+export type InventarioAmbito = "tutto" | "kanban" | "ubicazione" | "sotto_scorta" | "inventariato";
 export type InventarioStato = "aperto" | "chiuso";
 
 export interface InventarioSessione {

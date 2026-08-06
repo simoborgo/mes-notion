@@ -5,7 +5,7 @@ import { apriInventario, type InventarioAmbito } from "@/lib/inventarioFerrament
 import { getSessionFromRequest, FERRAMENTA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
-const AMBITI: InventarioAmbito[] = ["tutto", "kanban", "ubicazione", "sotto_scorta"];
+const AMBITI: InventarioAmbito[] = ["tutto", "kanban", "ubicazione", "sotto_scorta", "inventariato"];
 
 export async function POST(req: NextRequest) {
   const session = await getSessionFromRequest(req);
@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
   if (ambito === "kanban") inScope = tutti.filter(a => a.metodoGestione === "Kanban");
   else if (ambito === "ubicazione") inScope = tutti.filter(a => a.ubicazione === body.ambitoValore);
   else if (ambito === "sotto_scorta") inScope = tutti.filter(a => a.sogliaMinima != null && a.giacenzaAttuale < a.sogliaMinima);
+  else if (ambito === "inventariato") inScope = tutti.filter(a => a.inventariato);
 
   if (inScope.length === 0) {
     return NextResponse.json({ error: "Nessun articolo nell'ambito selezionato" }, { status: 400 });

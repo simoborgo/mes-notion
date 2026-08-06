@@ -113,13 +113,14 @@ export default function FerramentaHome({ articoli }: { articoli: ArticoloFerrame
               <th className="px-4 py-3">Metodo</th>
               <th className="px-4 py-3">Giacenza</th>
               <th className="px-4 py-3">Soglia Minima</th>
+              <th className="px-4 py-3">Inventariati</th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
+                <td colSpan={9} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
                   Nessun articolo trovato
                 </td>
               </tr>
@@ -162,6 +163,13 @@ const RigaGiacenza = memo(function RigaGiacenza({ articolo: a }: { articolo: Art
         )}
       </td>
       <td className="px-4 py-3 tabular-nums">{a.sogliaMinima ?? "—"}</td>
+      <td className="px-4 py-3">
+        {a.inventariato ? (
+          <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#DCFCE7", color: "#166534" }}>Sì</span>
+        ) : (
+          <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>—</span>
+        )}
+      </td>
       <td className="px-4 py-3">
         {a.metodoGestione && (
           <Link

@@ -9,6 +9,7 @@ const AMBITI: { value: string; label: string }[] = [
   { value: "kanban", label: "Solo Kanban" },
   { value: "ubicazione", label: "Per ubicazione" },
   { value: "sotto_scorta", label: "Solo sotto scorta" },
+  { value: "inventariato", label: "Solo voci Inventariati" },
 ];
 
 export default function NuovoInventarioForm() {
