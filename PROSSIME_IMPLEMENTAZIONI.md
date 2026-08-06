@@ -112,25 +112,12 @@ blocco, serve anche per ripulire prove). `offerte_righe` in CASCADE, verificato 
 
 ## Modulo Gestione Ore avanzato — Previsionale (Capacity Planner)
 
-### Risincronizzazione data_consegna_prevista dopo la conferma di un'offerta
+### ~~Risincronizzazione data_consegna_prevista dopo la conferma di un'offerta~~ — fatto, commit `9f3780a` (2026-08-06)
 
-**Stato:** proposta (sessione 2026-08-05), non implementata
-
-Oggi, quando un'offerta passa a "Confermata", `data_consegna_prevista` viene copiata una tantum
-da `Commessa.dataCarico` (in `confermaOfferta`, `src/lib/offerteRepository.ts`) e resta congelata
-per sempre — se la Commessa collegata viene poi riprogrammata su Notion (ritardo, anticipo), il
-Previsionale continua a distribuire le ore sul periodo vecchio, senza saperlo.
-
-**Perché non blocca l'uso oggi**: il Previsionale è comunque una stima aggregata mese-per-mese,
-non un vincolo rigido — ma più passa tempo tra conferma e chiusura di una Commessa, più il rischio
-di uno scostamento reale cresce.
-
-**Come affrontarla**: possibili approcci — (a) un job/endpoint che ricontrolla periodicamente
-`Commessa.dataCarico` per le offerte Confermate e aggiorna `data_consegna_prevista` se diversa;
-(b) ricalcolare `data_consegna_prevista` al volo leggendo Notion ad ogni richiesta del Previsionale
-invece di congelarla in Postgres (più aggiornato ma più lento/dipendente da Notion ad ogni caricamento
-pagina); (c) un pulsante manuale "risincronizza data" nella pagina dettaglio offerta. Da discutere con
-l'utente quale approccio preferisce prima di implementare.
+Scelta l'opzione (c): bottone manuale "Risincronizza data con la Commessa" nel dettaglio
+offerta (solo se Confermata + collegata) — rilegge `Commessa.dataCarico` da Notion (sempre
+fresco, `pages.retrieve` diretto) e aggiorna `data_consegna_prevista` se diversa. Testato con
+scostamento simulato + verifica "già allineata" al secondo giro.
 
 ### `parametri_reparto` non ha uno storico versionato
 
