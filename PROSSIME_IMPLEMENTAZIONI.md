@@ -102,12 +102,11 @@ originali.
 
 ## Modulo Gestione Ore avanzato — Offerte
 
-### Modifica ed eliminazione di un'offerta
+### ~~Modifica ed eliminazione di un'offerta~~ — fatto, commit `3baac08` (2026-08-06)
 
-**Stato:** richiesta esplicitamente dall'utente (sessione 2026-08-05), non implementata
-
-- **Modifica**: il backend esiste già — `PATCH /api/offerte/[id]` + `aggiornaCampiOfferta` (`src/lib/offerteRepository.ts`) accettano `cliente`/`valoreCommessa`/`dataOfferta`/`dataConsegnaPrevista`/`probabilitaChiusura` — ma **non c'è nessuna UI** che lo richiami: `DettaglioOfferta.tsx` oggi permette solo aggiungere righe, confermare, segnare persa. Manca un form di modifica testata (pattern simile a `FormNuovaOfferta.tsx`, precompilato). Nota: `aggiornaCampiOfferta` oggi non controlla lo stato — modifica anche un'offerta già Confermata, il che tocca anche il Previsionale (Fase 5.3) se cambia `dataOfferta`/`dataConsegnaPrevista`; da decidere se vietarlo per le Confermate o lasciarlo permesso.
-- **Eliminazione**: non esiste né endpoint né UI. Serve `DELETE /api/offerte/[id]` (CASCADE su `offerte_righe` già garantito dallo schema) + conferma in UI. Da decidere: eliminazione libera per qualunque stato, o solo per `Offerta` (evitare di cancellare per sbaglio una Confermata/Persa che è ormai storico)?
+Bottone "Modifica" in `DettaglioOfferta.tsx` (form precompilato, riusa il `PATCH` già esistente)
++ "Elimina offerta" (nuova `DELETE /api/offerte/[id]`, libera per qualunque stato — nessun
+blocco, serve anche per ripulire prove). `offerte_righe` in CASCADE, verificato end-to-end.
 
 ---
 
