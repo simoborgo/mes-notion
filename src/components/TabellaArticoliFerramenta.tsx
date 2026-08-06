@@ -17,16 +17,16 @@ export default function TabellaArticoliFerramenta({
 }) {
   const [articoli, setArticoli] = useState(initial);
   const [modalAperto, setModalAperto] = useState(false);
-  // Bozza (controlla l'input) vs applicato (guida filtro/render) — con 8358 articoli filtrare
-  // ad ogni tasto digitato appesantiva la tabella. Si applica con "Cerca" o Invio nel campo.
+  // Solo la ricerca testuale è "bozza vs applicata" (con 8358 articoli filtrare ad ogni tasto
+  // digitato appesantiva la tabella, si applica con "Cerca"/Invio) — il toggle Inventariati è
+  // un click singolo, non uno stream: farlo aspettare "Cerca" sembrava un bug (si accende ma
+  // non filtra nulla finché non premi anche Cerca), quindi si applica subito.
   const [searchInput, setSearchInput] = useState("");
-  const [soloInventariatiInput, setSoloInventariatiInput] = useState(false);
   const [search, setSearch] = useState("");
   const [soloInventariati, setSoloInventariati] = useState(false);
 
   function applicaFiltri() {
     setSearch(searchInput);
-    setSoloInventariati(soloInventariatiInput);
   }
 
   const filtered = useMemo(() => {
@@ -70,9 +70,9 @@ export default function TabellaArticoliFerramenta({
           onKeyDown={(e) => { if (e.key === "Enter") applicaFiltri(); }}
         />
         <button
-          onClick={() => setSoloInventariatiInput(v => !v)}
+          onClick={() => setSoloInventariati(v => !v)}
           className="flex items-center gap-1.5 px-3 py-2 rounded border text-sm font-medium transition-colors"
-          style={soloInventariatiInput
+          style={soloInventariati
             ? { background: "#DCFCE7", color: "#166534", borderColor: "#86EFAC" }
             : { background: "white", color: "var(--color-grey-mid)", borderColor: "#d1d5db" }}
         >

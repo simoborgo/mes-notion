@@ -10,14 +10,12 @@ function isSottoSoglia(a: ArticoloFerramenta): boolean {
 }
 
 export default function FerramentaHome({ articoli }: { articoli: ArticoloFerramenta[] }) {
-  // Bozza (controlla gli input) vs applicato (guida il filtro/render della tabella) — con
-  // 8358 articoli filtrare/ri-renderizzare ad ogni tasto digitato appesantiva la ricerca.
-  // Si applica solo con il pulsante "Cerca" o Invio nella casella di testo.
+  // Solo la ricerca testuale è "bozza vs applicata" — con 8358 articoli filtrare/ri-renderizzare
+  // ad ogni tasto digitato appesantiva la ricerca, quindi si applica solo con "Cerca"/Invio.
+  // I filtri a scelta secca (toggle, dropdown) non hanno questo problema — un click è un solo
+  // evento, non uno stream — quindi si applicano subito: farli aspettare "Cerca" sembrava un bug
+  // ("clicco Inventariati e non succede niente" finché non premo anche Cerca).
   const [searchInput, setSearchInput] = useState("");
-  const [fornitoreInput, setFornitoreInput] = useState("");
-  const [soloDaRiordinareInput, setSoloDaRiordinareInput] = useState(false);
-  const [soloInventariatiInput, setSoloInventariatiInput] = useState(false);
-
   const [search, setSearch] = useState("");
   const [soloDaRiordinare, setSoloDaRiordinare] = useState(false);
   const [fornitoreFiltro, setFornitoreFiltro] = useState("");
@@ -25,9 +23,6 @@ export default function FerramentaHome({ articoli }: { articoli: ArticoloFerrame
 
   function applicaFiltri() {
     setSearch(searchInput);
-    setFornitoreFiltro(fornitoreInput);
-    setSoloDaRiordinare(soloDaRiordinareInput);
-    setSoloInventariati(soloInventariatiInput);
   }
 
   const attivi = useMemo(() => articoli.filter(a => a.attivo), [articoli]);
@@ -74,16 +69,16 @@ export default function FerramentaHome({ articoli }: { articoli: ArticoloFerrame
         />
         <select
           className="border rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300"
-          value={fornitoreInput}
-          onChange={(e) => setFornitoreInput(e.target.value)}
+          value={fornitoreFiltro}
+          onChange={(e) => setFornitoreFiltro(e.target.value)}
         >
           <option value="">Tutti i fornitori</option>
           {fornitoriOptions.map(f => <option key={f} value={f}>{f}</option>)}
         </select>
         <button
-          onClick={() => setSoloDaRiordinareInput(v => !v)}
+          onClick={() => setSoloDaRiordinare(v => !v)}
           className="flex items-center gap-1.5 px-3 py-2 rounded border text-sm font-medium transition-colors"
-          style={soloDaRiordinareInput
+          style={soloDaRiordinare
             ? { background: "#FEE2E2", color: "#991B1B", borderColor: "#FCA5A5" }
             : { background: "white", color: "var(--color-grey-mid)", borderColor: "#d1d5db" }}
         >
@@ -91,16 +86,16 @@ export default function FerramentaHome({ articoli }: { articoli: ArticoloFerrame
           {daRiordinareCount > 0 && (
             <span
               className="inline-flex items-center justify-center rounded-full text-xs font-bold w-5 h-5"
-              style={soloDaRiordinareInput ? { background: "#991B1B", color: "white" } : { background: "#FEE2E2", color: "#991B1B" }}
+              style={soloDaRiordinare ? { background: "#991B1B", color: "white" } : { background: "#FEE2E2", color: "#991B1B" }}
             >
               {daRiordinareCount}
             </span>
           )}
         </button>
         <button
-          onClick={() => setSoloInventariatiInput(v => !v)}
+          onClick={() => setSoloInventariati(v => !v)}
           className="flex items-center gap-1.5 px-3 py-2 rounded border text-sm font-medium transition-colors"
-          style={soloInventariatiInput
+          style={soloInventariati
             ? { background: "#DCFCE7", color: "#166534", borderColor: "#86EFAC" }
             : { background: "white", color: "var(--color-grey-mid)", borderColor: "#d1d5db" }}
         >
