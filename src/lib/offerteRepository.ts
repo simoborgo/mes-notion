@@ -186,3 +186,12 @@ export async function segnaOffertaPersa(id: string): Promise<Offerta | null> {
   );
   return rows[0] ? mapOfferta(rows[0]) : null;
 }
+
+// Nessuno stato bloccato di proposito: eliminare un'offerta (di prova, o inserita per errore)
+// deve funzionare qualunque sia il suo stato — Offerta/Confermata/Persa. offerte_righe è
+// ON DELETE CASCADE (verificato in schema_offerte.sql), nessun'altra tabella referenzia offerte:
+// nessuna pulizia aggiuntiva necessaria oltre a questa singola DELETE.
+export async function eliminaOfferta(id: string): Promise<boolean> {
+  const { rowCount } = await pool.query(`DELETE FROM offerte WHERE id = $1`, [id]);
+  return (rowCount ?? 0) > 0;
+}

@@ -52,6 +52,71 @@ export default function DettaglioOfferta({
   const [erroreConferma, setErroreConferma] = useState("");
   const [salvandoStato, setSalvandoStato] = useState(false);
 
+  const [modificaAperta, setModificaAperta] = useState(false);
+  const [editCliente, setEditCliente] = useState("");
+  const [editValoreCommessa, setEditValoreCommessa] = useState("");
+  const [editDataOfferta, setEditDataOfferta] = useState("");
+  const [editDataConsegnaPrevista, setEditDataConsegnaPrevista] = useState("");
+  const [editProbabilita, setEditProbabilita] = useState("");
+  const [salvandoModifica, setSalvandoModifica] = useState(false);
+  const [erroreModifica, setErroreModifica] = useState("");
+
+  const [eliminando, setEliminando] = useState(false);
+  const [erroreElimina, setErroreElimina] = useState("");
+
+  function apriModifica() {
+    setEditCliente(offerta.cliente);
+    setEditValoreCommessa(offerta.valoreCommessa != null ? String(offerta.valoreCommessa) : "");
+    setEditDataOfferta(offerta.dataOfferta);
+    setEditDataConsegnaPrevista(offerta.dataConsegnaPrevista ?? "");
+    setEditProbabilita(String(offerta.probabilitaChiusura));
+    setErroreModifica("");
+    setModificaAperta(true);
+  }
+
+  async function salvaModifica() {
+    if (!editCliente.trim()) { setErroreModifica("Il cliente è obbligatorio"); return; }
+    setSalvandoModifica(true);
+    setErroreModifica("");
+    try {
+      const res = await fetch(`/api/offerte/${offerta.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cliente: editCliente.trim(),
+          valoreCommessa: editValoreCommessa || null,
+          dataOfferta: editDataOfferta,
+          dataConsegnaPrevista: editDataConsegnaPrevista || null,
+          probabilitaChiusura: Number(editProbabilita),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? `Errore ${res.status}`);
+      setOfferta(data);
+      setModificaAperta(false);
+    } catch (e) {
+      setErroreModifica(e instanceof Error ? e.message : "Errore salvataggio");
+    } finally {
+      setSalvandoModifica(false);
+    }
+  }
+
+  async function eliminaOfferta() {
+    if (!confirm(`Eliminare definitivamente l'offerta di "${offerta.cliente}"? Cancella anche tutte le righe — non è recuperabile.`)) return;
+    setEliminando(true);
+    setErroreElimina("");
+    try {
+      const res = await fetch(`/api/offerte/${offerta.id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error ?? `Errore ${res.status}`);
+      router.push("/offerte");
+      router.refresh();
+    } catch (e) {
+      setErroreElimina(e instanceof Error ? e.message : "Errore eliminazione");
+      setEliminando(false);
+    }
+  }
+
   const totaleOre = useMemo(() => righe.reduce((s, r) => s + r.orePreventivate, 0), [righe]);
 
   const commesseFiltrate = useMemo(() => {
@@ -136,19 +201,71 @@ export default function DettaglioOfferta({
             <p className="font-bold text-lg" style={{ color: "var(--color-black)" }}>{offerta.cliente}</p>
             <p className="text-xs" style={{ color: "var(--color-grey-mid)" }}>Creata da {offerta.creatoDa}</p>
           </div>
-          <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: badge.bg, color: badge.color }}>
-            {offerta.stato}
-          </span>
-        </div>
-        <div className="grid gap-1 text-sm sm:grid-cols-2" style={{ color: "var(--color-black)" }}>
-          <p><span style={{ color: "var(--color-grey-mid)" }}>Valore commessa:</span> {offerta.valoreCommessa != null ? `€${offerta.valoreCommessa.toLocaleString("it-IT")}` : "—"}</p>
-          <p><span style={{ color: "var(--color-grey-mid)" }}>Probabilità chiusura:</span> {offerta.probabilitaChiusura}%</p>
-          <p><span style={{ color: "var(--color-grey-mid)" }}>Data offerta:</span> {fmtData(offerta.dataOfferta)}</p>
-          <p><span style={{ color: "var(--color-grey-mid)" }}>Data consegna prevista:</span> {fmtData(offerta.dataConsegnaPrevista)}</p>
-          {offerta.commessaId && <p className="sm:col-span-2"><span style={{ color: "var(--color-grey-mid)" }}>Commessa collegata:</span> {offerta.commessaId}</p>}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: badge.bg, color: badge.color }}>
+              {offerta.stato}
+            </span>
+            {!modificaAperta && (
+              <button onClick={apriModifica} className="text-xs font-semibold underline" style={{ color: "var(--color-primary)" }}>
+                Modifica
+              </button>
+            )}
+          </div>
         </div>
 
-        {offerta.stato === "Offerta" && (
+        {modificaAperta ? (
+          <div className="space-y-3 pt-1">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="text-xs font-medium block mb-1" style={{ color: "var(--color-grey-mid)" }}>Cliente</label>
+                <input className={inputCls} style={{ height: 44, width: "100%" }} value={editCliente} onChange={e => setEditCliente(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs font-medium block mb-1" style={{ color: "var(--color-grey-mid)" }}>Valore commessa (€)</label>
+                <input type="number" min="0" step="any" className={inputCls} style={{ height: 44, width: "100%" }} value={editValoreCommessa} onChange={e => setEditValoreCommessa(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs font-medium block mb-1" style={{ color: "var(--color-grey-mid)" }}>Data offerta</label>
+                <input type="date" className={inputCls} style={{ height: 44, width: "100%" }} value={editDataOfferta} onChange={e => setEditDataOfferta(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs font-medium block mb-1" style={{ color: "var(--color-grey-mid)" }}>Data consegna prevista</label>
+                <input type="date" className={inputCls} style={{ height: 44, width: "100%" }} value={editDataConsegnaPrevista} onChange={e => setEditDataConsegnaPrevista(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs font-medium block mb-1" style={{ color: "var(--color-grey-mid)" }}>Probabilità chiusura (%)</label>
+                <input type="number" min="0" max="100" className={inputCls} style={{ height: 44, width: "100%" }} value={editProbabilita} onChange={e => setEditProbabilita(e.target.value)} />
+              </div>
+            </div>
+            {offerta.stato === "Confermata" && (
+              <p className="text-xs" style={{ color: "#92400E" }}>
+                ⚠ Offerta già Confermata: cambiare la data consegna qui non risincronizza automaticamente con la Commessa collegata — usala solo per correggere un errore di battitura.
+              </p>
+            )}
+            {erroreModifica && <p className="text-xs font-medium" style={{ color: "#991B1B" }}>{erroreModifica}</p>}
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setModificaAperta(false)} className="px-4 py-2.5 text-sm font-medium rounded-lg border hover:bg-gray-50">Annulla</button>
+              <button
+                onClick={salvaModifica}
+                disabled={salvandoModifica}
+                className="px-4 py-2.5 text-sm font-semibold text-white rounded-lg disabled:opacity-60"
+                style={{ background: "var(--color-primary)" }}
+              >
+                {salvandoModifica ? "Salvo…" : "Salva modifiche"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-1 text-sm sm:grid-cols-2" style={{ color: "var(--color-black)" }}>
+            <p><span style={{ color: "var(--color-grey-mid)" }}>Valore commessa:</span> {offerta.valoreCommessa != null ? `€${offerta.valoreCommessa.toLocaleString("it-IT")}` : "—"}</p>
+            <p><span style={{ color: "var(--color-grey-mid)" }}>Probabilità chiusura:</span> {offerta.probabilitaChiusura}%</p>
+            <p><span style={{ color: "var(--color-grey-mid)" }}>Data offerta:</span> {fmtData(offerta.dataOfferta)}</p>
+            <p><span style={{ color: "var(--color-grey-mid)" }}>Data consegna prevista:</span> {fmtData(offerta.dataConsegnaPrevista)}</p>
+            {offerta.commessaId && <p className="sm:col-span-2"><span style={{ color: "var(--color-grey-mid)" }}>Commessa collegata:</span> {offerta.commessaId}</p>}
+          </div>
+        )}
+
+        {!modificaAperta && offerta.stato === "Offerta" && (
           <div className="flex gap-2 pt-2">
             <button
               onClick={() => setModalConferma(true)}
@@ -168,6 +285,20 @@ export default function DettaglioOfferta({
           </div>
         )}
         {errorePersa && <p className="text-xs font-medium" style={{ color: "#991B1B" }}>{errorePersa}</p>}
+
+        {!modificaAperta && (
+          <div className="pt-2 border-t flex items-center justify-between" style={{ borderColor: "#f0ece5" }}>
+            <button
+              onClick={eliminaOfferta}
+              disabled={eliminando}
+              className="text-xs font-medium underline disabled:opacity-60"
+              style={{ color: "#991B1B" }}
+            >
+              {eliminando ? "Elimino…" : "Elimina offerta"}
+            </button>
+            {erroreElimina && <p className="text-xs font-medium" style={{ color: "#991B1B" }}>{erroreElimina}</p>}
+          </div>
+        )}
       </div>
 
       <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: "#e5e4e0", background: "white" }}>

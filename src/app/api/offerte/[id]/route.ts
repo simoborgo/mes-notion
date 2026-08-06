@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getOffertaConRighe, aggiornaCampiOfferta } from "@/lib/offerteRepository";
+import { getOffertaConRighe, aggiornaCampiOfferta, eliminaOfferta } from "@/lib/offerteRepository";
 import { getSessionFromRequest, OFFERTE_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
@@ -39,6 +39,23 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json(offerta);
   } catch (e) {
     console.error("[offerte/[id] PATCH]", e);
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getSessionFromRequest(req);
+  if (!session || !OFFERTE_ROLES.includes(session.role)) {
+    return NextResponse.json({ error: "Non autorizzato" }, { status: 403 });
+  }
+  const { id } = await params;
+  try {
+    const eliminata = await eliminaOfferta(id);
+    if (!eliminata) return NextResponse.json({ error: "Offerta non trovata" }, { status: 404 });
+    void logOperation(session.name, "DELETE", "offerta", id, {});
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    console.error("[offerte/[id] DELETE]", e);
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }
