@@ -61,3 +61,11 @@ export async function deleteDistintaRiga(id: string): Promise<void> {
   const { rows } = await pool.query(`DELETE FROM kit_ferramenta_righe WHERE id = $1 RETURNING odp_id`, [id]);
   if (rows[0]) await aggiornaDescrizioneKitSuNotion(rows[0].odp_id);
 }
+
+// Elimina l'intero "foglio di scarico" di un ODP: tutte le righe della distinta, non una alla
+// volta. Usata quando si annulla il kit dalla pagina Kit Ferramenta ODP (stato Si → azzerato) —
+// senza questo, le righe restavano orfane in Postgres pur non comparendo più da nessuna parte.
+export async function deleteDistintaKitByOdp(odpId: string): Promise<void> {
+  await pool.query(`DELETE FROM kit_ferramenta_righe WHERE odp_id = $1`, [odpId]);
+  await updateSchedaKitFerramentaDescrizione(odpId, "");
+}

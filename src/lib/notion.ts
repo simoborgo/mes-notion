@@ -691,14 +691,25 @@ export async function getSottoschede(): Promise<Scheda[]> {
   return sottoschedeCachePromise;
 }
 
-// Invalida la cache "schede" e la ripopola subito in background (fire-and-forget): il fetch
-// completo da Notion (~15-20s su ~1900 righe tra Schede e Sottoschede) lo paga questa chiamata,
-// non il prossimo utente che apre la pagina Schede/Rilevamento Ore dopo l'invalidazione.
+// Invalida la cache "schede" e la ripopola in background (fire-and-forget): il fetch completo
+// da Notion (~15-20s su ~1900 righe tra Schede e Sottoschede) lo paga questa chiamata, non il
+// prossimo utente che apre la pagina Schede/Rilevamento Ore dopo l'invalidazione.
+//
+// Il ritardo di 1.5s prima del refetch è deliberato, non un rallentamento a caso: chi chiama
+// questa funzione l'ha appena fatto dopo una pages.update() su Notion (es. cambio stato Kit
+// Ferramenta) — ripartire la query dell'intero database nello stesso istante rischia di
+// catturare uno snapshot non ancora propagato lato Notion (eventual consistency) e mettere in
+// cache il valore VECCHIO. Senza TTL su questa cache, quel valore sbagliato resterebbe lì
+// indefinitamente, fino alla prossima invalidazione — non basta aspettare, va evitato a monte.
+// Verificato empiricamente in sessione 2026-08-06: senza ritardo, il refetch cattura sistematicamente
+// lo stato precedente alla scrittura appena fatta.
 export function invalidateSchedeCache(): void {
   schedeCache = null;
   sottoschedeCache = null;
-  void getSchede();
-  void getSottoschede();
+  setTimeout(() => {
+    void getSchede();
+    void getSottoschede();
+  }, 1500);
 }
 
 export async function getNextRilavorazioneOdp(parentId: string, parentOdp: string): Promise<string> {

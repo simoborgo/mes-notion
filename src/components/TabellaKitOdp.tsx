@@ -46,6 +46,20 @@ export default function TabellaKitOdp({ schede: initial }: { schede: Scheda[] })
     }
   }
 
+  async function eliminaFoglio(s: Scheda) {
+    if (!confirm(`Eliminare il foglio di scarico di ${s.odp || s.numeroScheda}? Azzera il kit e cancella tutte le righe della distinta già inserite — non è recuperabile.`)) return;
+    setRow(s.id, { saving: true, error: null });
+    try {
+      const res = await fetch(`/api/ferramenta/kit/${s.id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error ?? `Errore ${res.status}`);
+      setSchede(prev => prev.map(x => x.id === s.id ? { ...x, kitFerramenta: "" } : x));
+      setRow(s.id, { stato: "", saving: false });
+    } catch (e) {
+      setRow(s.id, { saving: false, error: e instanceof Error ? e.message : "Errore eliminazione" });
+    }
+  }
+
   const inputCls = "border rounded px-2 py-1 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300";
 
   return (
@@ -87,9 +101,20 @@ export default function TabellaKitOdp({ schede: initial }: { schede: Scheda[] })
                     </td>
                     <td className="px-4 py-3">
                       {row.stato === "Si" ? (
-                        <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#D1FAE5", color: "#065F46" }}>
-                          Sì — kit confermato
-                        </span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#D1FAE5", color: "#065F46" }}>
+                            Sì — kit confermato
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => eliminaFoglio(s)}
+                            disabled={row.saving}
+                            className="text-xs px-2 py-0.5 rounded-full font-medium border disabled:opacity-60"
+                            style={{ color: "#991B1B", background: "white", borderColor: "#FCA5A5" }}
+                          >
+                            {row.saving ? "…" : "Elimina foglio"}
+                          </button>
+                        </div>
                       ) : (
                         <select
                           className={inputCls}
