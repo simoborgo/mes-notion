@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import type { ArticoloFerramenta, MetodoGestioneFerramenta } from "@/lib/types";
 import { UBICAZIONI_FERRAMENTA } from "@/lib/types";
 import { normalizzaCodiceFornitore, nomeFornitore } from "@/lib/ferramentaCodici";
@@ -44,9 +44,12 @@ export default function TabellaArticoliFerramenta({
   // Solo il campo che conta per la ricerca/visualizzazione nella riga stessa (codiceFornitore)
   // va riportato nell'array del padre — gli altri campi (metodoGestione, soglie, ecc.) restano
   // stato locale alla riga, quindi digitare in una riga non ri-renderizza le altre 8000+.
-  function handleRigaSalvata(id: string, codiceFornitore: string) {
+  // useCallback con deps vuote (setArticoli è stabile) — senza, una nuova funzione ad ogni
+  // render del padre (es. ogni tasto in "searchInput") invaliderebbe il React.memo di TUTTE
+  // le righe, perché onSalvato cambierebbe identità e il confronto shallow lo vedrebbe "diverso".
+  const handleRigaSalvata = useCallback((id: string, codiceFornitore: string) => {
     setArticoli(prev => prev.map(x => x.id === id ? { ...x, codiceFornitore } : x));
-  }
+  }, []);
 
   return (
     <div className="space-y-3">
