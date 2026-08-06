@@ -9,6 +9,41 @@ conversazione. Segnare come fatto (barrato o rimosso) quando implementata, con r
 
 ---
 
+## Ferramenta
+
+### Altre categorie di INVENTARIO MP non ancora gestite da mes-notion
+
+**Stato:** annotata (sessione 2026-08-06), decisione esplicitamente rimandata dall'utente
+
+Il file OS1 "INVENTARIO 30.06.2026" ha un foglio `INVENTARIO MP 30.06.2026` con 1861 prodotti
+fisicamente contati — ma solo 601 di questi corrispondono a un codice nei 3 fogli categoria
+gestiti dal magazzino Ferramenta (Collanti/Ferramenta/Materiale vario di consumo, oggi importati
+in `articoli_ferramenta`). I restanti **1260 prodotti appartengono ad altre categorie di materia
+prima** (es. legno) non gestite da questo modulo.
+
+L'utente ha detto esplicitamente di dover ancora "capire se usare lo stesso DB (come già in OS1)"
+per queste altre categorie quando arriverà il momento di gestirle da mes-notion.
+
+**Come affrontarla, quando richiesto**: lo schema attuale di `articoli_ferramenta` (dopo l'aggiunta
+di `descrizione_categoria`/`categoria_merceologica`/`cod_inv` in questa sessione) già generalizza
+bene a più categorie — non servirebbe una tabella separata per ogni categoria, basterebbe
+importare le righe mancanti con `descrizione_categoria` diversa. Da confermare con l'utente se
+vuole davvero lo stesso DB o una separazione (es. per permessi/visibilità diversi tra magazzino
+Ferramenta e altri reparti).
+
+### Riferimento Fornitori (`fornitore_id`) non popolato dal nuovo import
+
+**Stato:** gap noto (sessione 2026-08-06), coerente con il gap già esistente sui fornitori Notion
+
+Il reimport completo dell'anagrafica (2026-08-06, 8358 articoli da
+`scripts/importa-anagrafica-ferramenta.mjs`) popola `fornitore_nome_os1` (Ragione sociale OS1) ma
+**non** `fornitore_id`/`fornitore_nome` (collegamento a Notion Fornitori) — il file OS1 non contiene
+alcun riferimento a pagine Notion. Stesso gap già descritto più sopra ("Fornitori Ferramenta
+scollegati da Notion dopo l'import"), ora esteso a tutti gli 8358 articoli, non solo ai 6897
+originali.
+
+---
+
 ## Modulo Gestione Ore avanzato — Offerte
 
 ### Modifica ed eliminazione di un'offerta

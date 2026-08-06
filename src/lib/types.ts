@@ -198,6 +198,12 @@ export interface ArticoloFerramenta {
   prezzoRiferimento: number | null;
   prezzoRiferimentoAggiornatoIl: string | null;
   descrizioneFornitore: string;
+  // Fase 4 anagrafica (import OS1 2026-08-06): compliance col file "Codici Valorizzati"/OS1.
+  inventariato: boolean;
+  descrizioneCategoria: string;
+  categoriaMerceologica: string;
+  codInv: string;
+  prezzoUltimoAcquisto: number | null;
 }
 
 export interface ArticoloFerramentaUpdate {

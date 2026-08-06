@@ -30,6 +30,11 @@ function mapRow(r: any): ArticoloFerramenta {
       ? new Date(r.prezzo_riferimento_aggiornato_il).toISOString()
       : null,
     descrizioneFornitore: r.descrizione_fornitore ?? "",
+    inventariato: r.inventariato ?? false,
+    descrizioneCategoria: r.descrizione_categoria ?? "",
+    categoriaMerceologica: r.categoria_merceologica ?? "",
+    codInv: r.cod_inv ?? "",
+    prezzoUltimoAcquisto: r.prezzo_ultimo_acquisto != null ? Number(r.prezzo_ultimo_acquisto) : null,
   };
 }
 
