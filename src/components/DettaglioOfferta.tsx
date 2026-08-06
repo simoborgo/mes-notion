@@ -64,6 +64,29 @@ export default function DettaglioOfferta({
   const [eliminando, setEliminando] = useState(false);
   const [erroreElimina, setErroreElimina] = useState("");
 
+  const [risincronizzando, setRisincronizzando] = useState(false);
+  const [erroreRisincronizza, setErroreRisincronizza] = useState("");
+  const [esitoRisincronizza, setEsitoRisincronizza] = useState<string | null>(null);
+
+  async function risincronizzaData() {
+    setRisincronizzando(true);
+    setErroreRisincronizza("");
+    setEsitoRisincronizza(null);
+    try {
+      const res = await fetch(`/api/offerte/${offerta.id}/risincronizza-data`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? `Errore ${res.status}`);
+      setOfferta(data.offerta);
+      setEsitoRisincronizza(data.cambiata
+        ? `Aggiornata: ${fmtData(data.dataPrecedente)} → ${fmtData(data.offerta.dataConsegnaPrevista)}`
+        : "Già allineata alla Commessa — nessuna modifica");
+    } catch (e) {
+      setErroreRisincronizza(e instanceof Error ? e.message : "Errore risincronizzazione");
+    } finally {
+      setRisincronizzando(false);
+    }
+  }
+
   function apriModifica() {
     setEditCliente(offerta.cliente);
     setEditValoreCommessa(offerta.valoreCommessa != null ? String(offerta.valoreCommessa) : "");
@@ -262,6 +285,21 @@ export default function DettaglioOfferta({
             <p><span style={{ color: "var(--color-grey-mid)" }}>Data offerta:</span> {fmtData(offerta.dataOfferta)}</p>
             <p><span style={{ color: "var(--color-grey-mid)" }}>Data consegna prevista:</span> {fmtData(offerta.dataConsegnaPrevista)}</p>
             {offerta.commessaId && <p className="sm:col-span-2"><span style={{ color: "var(--color-grey-mid)" }}>Commessa collegata:</span> {offerta.commessaId}</p>}
+          </div>
+        )}
+
+        {!modificaAperta && offerta.stato === "Confermata" && offerta.commessaId && (
+          <div className="pt-1">
+            <button
+              onClick={risincronizzaData}
+              disabled={risincronizzando}
+              className="text-xs font-semibold underline disabled:opacity-60"
+              style={{ color: "var(--color-primary)" }}
+            >
+              {risincronizzando ? "Controllo…" : "Risincronizza data con la Commessa"}
+            </button>
+            {esitoRisincronizza && <p className="text-xs mt-1" style={{ color: "var(--color-grey-mid)" }}>{esitoRisincronizza}</p>}
+            {erroreRisincronizza && <p className="text-xs font-medium mt-1" style={{ color: "#991B1B" }}>{erroreRisincronizza}</p>}
           </div>
         )}
 
