@@ -9,6 +9,35 @@ conversazione. Segnare come fatto (barrato o rimosso) quando implementata, con r
 
 ---
 
+## Direzione strategica: abbandono graduale di Notion
+
+**Stato:** dichiarata esplicitamente dall'utente (sessione 2026-08-06) — non un singolo task, una
+direzione per le prossime implementazioni. Quando si progetta una nuova feature o si tocca codice
+esistente che legge/scrive Notion, preferire Postgres per i nuovi dati e considerare se vale la
+pena migrare anche quello esistente, invece di aggiungere altra roba su Notion per inerzia.
+
+### Migrazione tabella Fornitori (Notion → Postgres)
+
+**Stato:** richiesta esplicitamente, non ancora specificata nei dettagli
+
+Oggi "Fornitori" vive solo su Notion (`NOTION_DB_FORNITORI`, letto via `getFornitoriMap()`/
+`getFornitoriList()` in `src/lib/notion.ts`). Root cause diretta di due gap già noti:
+- **"Fornitori Ferramenta scollegati da Notion dopo l'import"** (vedi voce più sotto) — `fornitore_id`
+  è un riferimento testuale a una pagina Notion senza alcuna garanzia di integrità.
+- **Il bug "non vedo più il fornitore" di questa sessione** (commit `2e15852`) — esiste solo perché
+  `fornitore_nome` va risolto da Notion in scrittura e si può disallineare da `fornitore_nome_os1`.
+  Con una vera tabella `fornitori` su Postgres (FK reale da `articoli_ferramenta.fornitore_id`),
+  quel disallineamento non potrebbe più accadere strutturalmente.
+
+**Come affrontarla, quando si parte**: probabile pattern — tabella `fornitori` (id, nome, codice_os1,
+email se mai serve per le notifiche già rimandate altrove in questo file) + script di migrazione
+una tantum da Notion (stesso approccio di `scripts/migrate-ferramenta-to-postgres.mjs`) + FK reale
+da `articoli_ferramenta.fornitore_id` invece del riferimento testuale odierno. Da chiarire con
+l'utente: migrare anche gli usi di Fornitori fuori da Ferramenta (Ritiri/Consegne, Rientro Qualità
+citano "Nome Fornitore" come rollup Notion) nella stessa fase o in un secondo momento.
+
+---
+
 ## Ferramenta
 
 ### Altre categorie di INVENTARIO MP non ancora gestite da mes-notion
