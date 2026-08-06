@@ -162,6 +162,23 @@ alcun valore di riordino configurato — il modal "sotto soglia → stampa etich
 **Come affrontarla**: chiarire con l'utente la semantica esatta (quantità fissa come Kanban?
 calcolata? inserita manualmente all'occorrenza?) prima di toccare `types.ts`/`notion.ts`.
 
+### Conferma manuale di `prezzo_riferimento` estesa a tutti gli articoli
+
+**Stato:** richiesta esplicitamente dall'utente (sessione 2026-08-06), non ancora specificata
+
+Oggi `prezzo_riferimento` si aggiorna solo dal pulsante "Aggiorna prezzo di riferimento" in
+`ferramenta/ordini-wurth` (`TabellaOrdiniWurth.tsx`), quando c'è uno scostamento rispetto al
+tracciato Wurth — quindi in pratica resta `NULL` per tutti gli articoli non Wurth (compresi i
+~8358 reimportati da OS1, che hanno solo `prezzo_ultimo_acquisto` valorizzato). L'utente vuole
+poter confermare/impostare `prezzo_riferimento` anche per gli altri articoli, non solo quelli con
+un ordine Wurth in corso.
+
+**Come affrontarla**: chiarire con l'utente dove deve comparire l'azione (pagina anagrafica
+articoli? scheda articolo singola?) e se il valore di partenza proposto dev'essere
+`prezzo_ultimo_acquisto` (già presente per gli articoli OS1) o inserito a mano. Riusare lo stesso
+pattern di scrittura di `TabellaOrdiniWurth.tsx` (aggiorna `prezzo_riferimento` +
+`prezzo_riferimento_aggiornato_il`) invece di crearne uno nuovo.
+
 ### Fornitori Ferramenta scollegati da Notion dopo l'import
 
 **Stato:** limite noto, confermato, nessuna implementazione richiesta per ora
