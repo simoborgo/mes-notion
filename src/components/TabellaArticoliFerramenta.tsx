@@ -3,7 +3,7 @@
 import { memo, useMemo, useState } from "react";
 import type { ArticoloFerramenta, MetodoGestioneFerramenta } from "@/lib/types";
 import { UBICAZIONI_FERRAMENTA } from "@/lib/types";
-import { normalizzaCodiceFornitore } from "@/lib/ferramentaCodici";
+import { normalizzaCodiceFornitore, nomeFornitore } from "@/lib/ferramentaCodici";
 import FormNuovoArticoloFerramenta from "./FormNuovoArticoloFerramenta";
 
 const inputCls = "border rounded px-2 py-1 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300";
@@ -27,7 +27,7 @@ export default function TabellaArticoliFerramenta({
     if (!q) return articoli;
     const qNormalizzata = normalizzaCodiceFornitore(search);
     return articoli.filter(a => {
-      if (`${a.descrizione} ${a.codiceOs1} ${a.fornitoreNome} ${a.codiceFornitore} ${a.descrizioneFornitore}`.toLowerCase().includes(q)) return true;
+      if (`${a.descrizione} ${a.codiceOs1} ${nomeFornitore(a)} ${a.codiceFornitore} ${a.descrizioneFornitore}`.toLowerCase().includes(q)) return true;
       // Cerca anche per codice fornitore normalizzato: incolla il codice così com'è nel
       // tracciato fornitore (con zeri iniziali/spazi) e lo trova comunque — stessa logica
       // di confronto usata dal matching della Gestione Ordini Wurth.
@@ -188,7 +188,7 @@ const RigaArticoloFerramenta = memo(function RigaArticoloFerramenta({
           )}
         </div>
       </td>
-      <td className="px-4 py-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>{a.fornitoreNome || "—"}</td>
+      <td className="px-4 py-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>{nomeFornitore(a) || "—"}</td>
       <td className="px-4 py-3">
         <input
           type="text"

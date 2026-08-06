@@ -3,6 +3,7 @@ import { getArticoliFerramenta } from "@/lib/articoliFerramentaRepository";
 import { getSessionFromRequest, FERRAMENTA_ROLES } from "@/lib/auth";
 import { toCsvRow } from "@/lib/csv";
 import { getPublicBaseUrl } from "@/lib/url";
+import { nomeFornitore } from "@/lib/ferramentaCodici";
 
 // Delimitatore ";" e BOM UTF-8: Excel in locale italiano si aspetta ";" come separatore CSV
 // e non assume UTF-8 di default, altrimenti gli accenti (à/è/ò/ù) escono storpiati.
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest) {
         [
           a.codiceOs1,
           a.descrizione,
-          a.fornitoreNome,
+          nomeFornitore(a),
           a.codiceFornitore,
           a.descrizioneFornitore,
           a.unitaMisura,

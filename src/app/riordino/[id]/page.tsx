@@ -1,5 +1,6 @@
 import type { ArticoloFerramenta } from "@/lib/types";
 import { getArticoloFerramentaById } from "@/lib/articoliFerramentaRepository";
+import { nomeFornitore } from "@/lib/ferramentaCodici";
 
 export const dynamic = "force-dynamic";
 
@@ -64,7 +65,7 @@ export default async function RiordinoPage({ params }: { params: Promise<{ id: s
 
       <div>
         <Row label="Codice articolo" value={articolo.codiceOs1 || "—"} />
-        <Row label="Fornitore" value={articolo.fornitoreNome || "—"} />
+        <Row label="Fornitore" value={nomeFornitore(articolo) || "—"} />
         <Row label="Codice fornitore" value={articolo.codiceFornitore || "—"} />
         <Row
           label="Quantità da riordinare"

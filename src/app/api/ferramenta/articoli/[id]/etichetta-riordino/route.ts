@@ -4,6 +4,7 @@ import QRCode from "qrcode";
 import { getArticoloFerramentaById } from "@/lib/articoliFerramentaRepository";
 import { getSessionFromRequest, FERRAMENTA_ROLES } from "@/lib/auth";
 import { getPublicBaseUrl } from "@/lib/url";
+import { nomeFornitore } from "@/lib/ferramentaCodici";
 
 function esc(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -69,7 +70,7 @@ body{font-family:'Jost',sans-serif;background:#fff}
   <div class="body">
     <div class="qrbox">${qrSvg}</div>
     <div class="info">
-      <div>Fornitore: ${esc(articolo.fornitoreNome || "—")}</div>
+      <div>Fornitore: ${esc(nomeFornitore(articolo) || "—")}</div>
       <div>Cod. Fornitore: ${esc(articolo.codiceFornitore || "—")}</div>
       <div class="qty">Qtà da riordinare: ${articolo.quantitaStandardVaschetta ?? "—"}</div>
       <div>Scansiona per la scheda di riordino</div>

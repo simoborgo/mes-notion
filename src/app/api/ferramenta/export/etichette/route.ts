@@ -3,6 +3,7 @@ import { getArticoliFerramenta } from "@/lib/articoliFerramentaRepository";
 import { getSessionFromRequest, FERRAMENTA_ROLES } from "@/lib/auth";
 import { toCsvRow } from "@/lib/csv";
 import { getPublicBaseUrl } from "@/lib/url";
+import { nomeFornitore } from "@/lib/ferramentaCodici";
 
 const DELIMITER = ";";
 
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
         [
           a.codiceOs1,
           a.descrizione,
-          a.fornitoreNome,
+          nomeFornitore(a),
           a.codiceFornitore,
           a.descrizioneFornitore,
           a.unitaMisura,

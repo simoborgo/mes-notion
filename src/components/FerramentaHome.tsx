@@ -3,7 +3,7 @@
 import { memo, useMemo, useState } from "react";
 import Link from "next/link";
 import type { ArticoloFerramenta } from "@/lib/types";
-import { normalizzaCodiceFornitore } from "@/lib/ferramentaCodici";
+import { normalizzaCodiceFornitore, nomeFornitore } from "@/lib/ferramentaCodici";
 
 function isSottoSoglia(a: ArticoloFerramenta): boolean {
   return a.sogliaMinima != null && a.giacenzaAttuale < a.sogliaMinima;
@@ -30,7 +30,7 @@ export default function FerramentaHome({ articoli }: { articoli: ArticoloFerrame
   const attivi = useMemo(() => articoli.filter(a => a.attivo), [articoli]);
 
   const fornitoriOptions = useMemo(
-    () => Array.from(new Set(attivi.map(a => a.fornitoreNome).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+    () => Array.from(new Set(attivi.map(nomeFornitore).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
     [attivi]
   );
 
@@ -45,9 +45,9 @@ export default function FerramentaHome({ articoli }: { articoli: ArticoloFerrame
     return attivi
       .filter(a => {
         if (soloDaRiordinare && !isSottoSoglia(a)) return false;
-        if (fornitoreFiltro && a.fornitoreNome !== fornitoreFiltro) return false;
+        if (fornitoreFiltro && nomeFornitore(a) !== fornitoreFiltro) return false;
         if (q) {
-          const matchTesto = `${a.descrizione} ${a.codiceOs1} ${a.fornitoreNome} ${a.codiceFornitore}`.toLowerCase().includes(q);
+          const matchTesto = `${a.descrizione} ${a.codiceOs1} ${nomeFornitore(a)} ${a.codiceFornitore}`.toLowerCase().includes(q);
           // Cerca anche per codice fornitore normalizzato (zeri iniziali/spazi ignorati) —
           // stessa logica di confronto già usata in Anagrafica e nel matching Ordini Wurth.
           const matchCodiceFornitore = qNormalizzata && a.codiceFornitore && normalizzaCodiceFornitore(a.codiceFornitore).includes(qNormalizzata);
@@ -139,7 +139,7 @@ const RigaGiacenza = memo(function RigaGiacenza({ articolo: a }: { articolo: Art
     <tr className="border-b last:border-0" style={sotto ? { background: "#FFF8F8" } : undefined}>
       <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">{a.codiceOs1 || "—"}</td>
       <td className="px-4 py-3 font-medium">{a.descrizione}</td>
-      <td className="px-4 py-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>{a.fornitoreNome || "—"}</td>
+      <td className="px-4 py-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>{nomeFornitore(a) || "—"}</td>
       <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">{a.codiceFornitore || "—"}</td>
       <td className="px-4 py-3">
         {a.metodoGestione ? (
