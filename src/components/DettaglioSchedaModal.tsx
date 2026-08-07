@@ -5,6 +5,7 @@ import type { Scheda } from "@/lib/types";
 import BadgeStato from "./BadgeStato";
 import PdfAnnotatoreModal, { type AnnotazioneData } from "./PdfAnnotatoreModal";
 import FormModificaScheda from "./FormModificaScheda";
+import FormNuovaSottoscheda from "./FormNuovaSottoscheda";
 
 interface Props {
   scheda: Scheda;
@@ -293,6 +294,9 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
   const [rientrando, setRientrando] = useState(false);
   const [rientroError, setRientroError] = useState<string | null>(null);
   const [rientroFatto, setRientroFatto] = useState(false);
+  const [showNuovaSottoscheda, setShowNuovaSottoscheda] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
+  const [eliminaError, setEliminaError] = useState<string | null>(null);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
@@ -315,6 +319,31 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
     setShowWizard(false);
     setRilavorazioneCreata(result);
     onRilavorazioneCreata?.();
+  }
+
+  function handleSottoschedaCreata() {
+    setShowNuovaSottoscheda(false);
+    onRilavorazioneCreata?.();
+  }
+
+  async function handleElimina() {
+    if (eliminando) return;
+    const avviso = figlie.length > 0
+      ? `Questa scheda ha ${figlie.length} sottoschede/rilavorazioni collegate: resteranno raggiungibili solo tramite i loro link diretti, non più elencate qui.\n\nEliminare comunque "${s.numeroScheda || s.odp}"?`
+      : `Eliminare "${s.numeroScheda || s.odp}"?`;
+    if (!confirm(avviso)) return;
+    setEliminando(true);
+    setEliminaError(null);
+    try {
+      const res = await fetch(`/api/schede/${s.id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error ?? "Errore eliminazione");
+      onClose();
+      onRilavorazioneCreata?.();
+    } catch (err) {
+      setEliminaError(err instanceof Error ? err.message : "Errore eliminazione");
+      setEliminando(false);
+    }
   }
 
   async function handleRientro() {
@@ -385,6 +414,16 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
                     Modifica
                   </button>
                 )}
+                {(userRole === "admin" || userRole === "produzione") && (
+                  <button onClick={handleElimina} disabled={eliminando}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-red-50 disabled:opacity-50"
+                    style={{ color: "#DC2626", border: "1px solid #fecaca", background: "white" }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6" />
+                    </svg>
+                    {eliminando ? "Elimino…" : "Elimina"}
+                  </button>
+                )}
                 <a href={s.notionUrl} target="_blank" rel="noopener noreferrer"
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-gray-100"
                   style={{ color: "var(--color-grey-mid)", border: "1px solid #d1d5db", background: "white" }}>
@@ -399,6 +438,14 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
                   ✕
                 </button>
               </div>
+              {eliminaError && <p className="text-xs" style={{ color: "#DC2626" }}>{eliminaError}</p>}
+              {s.tipologia === "Scheda" && (userRole === "admin" || userRole === "produzione") && (
+                <button onClick={() => setShowNuovaSottoscheda(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-gray-100"
+                  style={{ color: "var(--color-grey-mid)", border: "1px solid #d1d5db", background: "white" }}>
+                  + Sottoscheda
+                </button>
+              )}
               {canHaveRilavorazione && !rilavorazioneCreata && !showWizard && (
                 <button onClick={() => setShowWizard(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-90"
@@ -623,6 +670,14 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
             setShowEditForm(false);
             onSchedaAggiornata?.(updated);
           }}
+        />
+      )}
+
+      {showNuovaSottoscheda && (
+        <FormNuovaSottoscheda
+          schedaPadre={s}
+          onClose={() => setShowNuovaSottoscheda(false)}
+          onCreated={handleSottoschedaCreata}
         />
       )}
     </div>

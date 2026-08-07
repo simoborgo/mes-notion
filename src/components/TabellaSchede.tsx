@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Scheda, Commessa } from "@/lib/types";
 import BadgeStato from "./BadgeStato";
 import DettaglioSchedaModal from "./DettaglioSchedaModal";
+import FormNuovaScheda from "./FormNuovaScheda";
 
 const PAGE_SIZE = 100;
 const STATI_COMPLETATI = new Set(["Completato", "Annullata"]);
@@ -256,6 +257,12 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
     handleReload();
   }
 
+  const [showNuovaScheda, setShowNuovaScheda] = useState(false);
+  function handleSchedaCreata() {
+    setShowNuovaScheda(false);
+    handleReload();
+  }
+
   const [schede, setSchede] = useState(initial);
   const [search, setSearch] = useState("");
   const [filtroFornitore, setFiltroFornitore] = useState("");
@@ -431,7 +438,16 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
   return (
     <div className="space-y-3">
       {/* Riga stampa */}
-      <div className="no-print flex justify-end">
+      <div className="no-print flex justify-end gap-2">
+        {(userRole === "admin" || userRole === "produzione") && (
+          <button
+            onClick={() => setShowNuovaScheda(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-base font-semibold border transition-colors hover:bg-gray-50"
+            style={{ color: "var(--color-primary)", borderColor: "rgba(240,143,37,0.3)", background: "white" }}
+          >
+            + Nuova Scheda
+          </button>
+        )}
         <button
           onClick={() => window.print()}
           className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-base font-semibold transition-opacity hover:opacity-90"
@@ -836,6 +852,14 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
           ))}
         </tbody>
       </table>
+
+      {showNuovaScheda && (
+        <FormNuovaScheda
+          commesse={commesse}
+          onClose={() => setShowNuovaScheda(false)}
+          onCreated={handleSchedaCreata}
+        />
+      )}
 
       {viewing && (
         <DettaglioSchedaModal

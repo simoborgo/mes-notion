@@ -765,9 +765,21 @@ export async function updateScheda(id: string, data: SchedaUpdate): Promise<Sche
     properties["Data Scheda Ricevuta"] = { date: data.dataSchedaRicevuta ? { start: data.dataSchedaRicevuta } : null };
   if (data.noteStato !== undefined)
     properties["Note Stato"] = { rich_text: [{ text: { content: data.noteStato } }] };
+  // "Nome Fornitore" è una rollup (deriva dalla relation "Fornitore", non scrivibile
+  // direttamente) e "Ordine Fornitore" è un campo files (allegato), non testo — verificato
+  // sullo schema Notion reale il 2026-08-07. SchedaUpdate espone questi due campi ma qui
+  // deliberatamente non vengono scritti: servirebbe un vero selettore Fornitori (relation)
+  // per il primo, un upload dedicato per il secondo. Vedi PROSSIME_IMPLEMENTAZIONI.md.
 
   const page = await notion.pages.update({ page_id: id, properties });
   return pageToScheda(page);
+}
+
+// Soft-delete, stesso pattern di deleteRitiro/deleteCarico: la pagina resta recuperabile
+// via getSchedaById (usata da Kit Ferramenta/Ritiri/Verifiche che referenziano l'id), sparisce
+// solo dalle liste perché databases.query esclude gli archiviati di default.
+export async function archiveScheda(id: string): Promise<void> {
+  await notion.pages.update({ page_id: id, archived: true });
 }
 
 export async function getRitiri(): Promise<Ritiro[]> {
