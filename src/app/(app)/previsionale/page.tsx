@@ -17,7 +17,7 @@ export default async function PrevisionalePage() {
   const risultato = await calcolaPrevisionale("tutte", mesiOrizzonte);
 
   return (
-    <div className="max-w-6xl mx-auto py-6 px-4 space-y-6">
+    <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>Previsionale</h1>
         <p className="text-sm mt-1" style={{ color: "var(--color-grey-mid)" }}>

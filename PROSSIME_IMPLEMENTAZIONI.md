@@ -36,6 +36,51 @@ da `articoli_ferramenta.fornitore_id` invece del riferimento testuale odierno. D
 l'utente: migrare anche gli usi di Fornitori fuori da Ferramenta (Ritiri/Consegne, Rientro Qualità
 citano "Nome Fornitore" come rollup Notion) nella stessa fase o in un secondo momento.
 
+### CRUD completo Schede di Produzione (backend ancora Notion)
+
+**Stato:** implementato (sessione 2026-08-07), backend resta Notion per scelta esplicita — la
+migrazione dati verso Postgres per Schede/Sottoschede/Rilavorazioni/Commesse resta un passo
+separato, non ancora pianificato nei dettagli.
+
+Prima di questa sessione, il MES sapeva leggere e aggiornare quasi tutto sulle Schede, ma non
+creare una Scheda "vuota" (solo import PDF) né una Sottoscheda generica (solo la variante
+Rilavorazione), e non esisteva alcuna eliminazione. Aggiunto: `POST /api/schede` (Scheda
+standalone), `POST /api/schede/[id]/sottoscheda` (Sottoscheda generica, eredita ODP/Commessa dal
+padre), `DELETE /api/schede/[id]` (soft-delete via `archiveScheda()`, stesso pattern di
+`deleteRitiro`/`deleteCarico` — pagina Notion archiviata, ancora leggibile per id, sparisce solo
+dalle liste).
+
+**Scoperto testando contro Notion reale (non assumibile dal solo codice/mapper)**: i campi
+"Fornitore" e "Ordine Fornitore" di `Scheda`/`SchedaUpdate` **non sono mai stati scrivibili**,
+né prima né nel primo tentativo di questa sessione — non è un gap dimenticato, è uno schema Notion
+diverso da quello che il mapper `pageToScheda` lascia intuire:
+- **"Nome Fornitore"** è una **rollup** (deriva dalla relation "Fornitore" verso `DB_FORNITORI`),
+  non testo libero — scriverci come rich_text non genera errore ma **viene silenziosamente
+  ignorato da Notion** (verificato: `pages.create` risponde 200 ma il valore resta vuoto). Il
+  parametro `fornitore` già esistente in `createSchedaPage` (usato da `import-scheda` e
+  `createRilavorazione`, non toccato in questa sessione) ha sempre avuto lo stesso problema.
+  L'unico modo reale per impostare il fornitore è scrivere sulla relation "Fornitore" (`fornitoreId`,
+  già supportato in creazione) — editarlo dopo la creazione richiederebbe un selettore Fornitori
+  nel form (non costruito qui).
+- **"Ordine Fornitore"** è un campo **files** (allegato), non rich_text — scriverci come testo
+  **fa fallire la PATCH con errore 500** (validazione Notion, verificato direttamente). Rimosso
+  il tentativo di scrittura da `updateScheda()` e i campi corrispondenti dai form. Se in futuro
+  serve renderlo editabile, va trattato come upload (stesso pattern di `pdf-allegato`/`foto`), non
+  come testo.
+
+Corretto in `src/lib/notion.ts` (`updateScheda`): entrambi i branch di scrittura sono stati tolti
+subito dopo averli scoperti rotti, prima di considerare la feature conclusa.
+
+**Deliberatamente fuori scope, non dimenticato:**
+- Editor per la relation "Fornitore" (selettore da `getFornitoriList()`/`getFornitoriMap()`) — è
+  l'unico modo reale per cambiare fornitore dopo la creazione, non ancora costruito.
+- Upload per "Ordine Fornitore" come allegato — non ancora costruito.
+- Assegnazione dell'Area-Cartella Commessa — mai stata scrivibile nemmeno da `createSchedaPage`,
+  resta solo gestibile da Notion.
+- Nessuna cascata automatica sull'eliminazione (Ritiri collegati, righe Kit Ferramenta su Postgres,
+  Verifiche spedizione) — l'archiviazione Notion non rompe questi riferimenti (restano risolvibili
+  per id), ma l'utente va avvisato in UI se la Scheda ha figlie prima di confermare.
+
 ### Latenza fino a ~20s dopo una scrittura su una Scheda (cache `getSchede()`)
 
 **Stato:** caratteristica nota del sistema, mitigata parzialmente (sessione 2026-08-06), non
@@ -118,6 +163,31 @@ Scelta l'opzione (c): bottone manuale "Risincronizza data con la Commessa" nel d
 offerta (solo se Confermata + collegata) — rilegge `Commessa.dataCarico` da Notion (sempre
 fresco, `pages.retrieve` diretto) e aggiorna `data_consegna_prevista` se diversa. Testato con
 scostamento simulato + verifica "già allineata" al secondo giro.
+
+### `standard_reparto` oggi copre solo Verniciatura — il Previsionale sovrastima quel reparto per qualunque articolo
+
+**Stato:** scoperto e verificato (sessione 2026-08-07) analizzando perché il Previsionale caricava
+tutte le ore delle offerte ROLEX su Verniciatura. Decisione dell'utente: lasciare così, nessuna azione
+ora — annotato perché non venga ri-scoperto come "bug misterioso" in una sessione futura.
+
+Verificato su Postgres: **tutte e 136 le righe** di `standard_reparto` sono `reparto='Verniciatura'`,
+`origine='stimato'`, `n_osservazioni=0` — **zero righe per gli altri 6 reparti**, per nessuno dei 136
+codici articolo mappati. Non è un bug di import: `scripts/importa-standard-verniciatura.mjs` lo
+documenta esplicitamente nel proprio commento — la fonte (`Codici_Valorizzati.csv`, colonna
+"H INT-VERN") aveva un numero specifico solo per Verniciatura, "H TOTALI" non era scomposto sugli
+altri reparti, e si è scelto deliberatamente di non inventare percentuali per quelli.
+
+**Conseguenza pratica**: `oreReparto()` (`capacityPlannerRepository.ts:24-42`) distribuisce le ore
+preventivate di una riga offerta proporzionalmente ai `media_ore` trovati in `standard_reparto` per
+quell'articolo — con una sola riga (Verniciatura), il 100% ci finisce sempre, per qualunque articolo,
+non solo per il caso RX013-A che ha fatto emergere il problema.
+
+**Come si autocorregge**: `registraChiusuraOdp` (`standardRepartoRepository.ts`) sostituisce di netto
+lo stimato con un consuntivo reale (`origine='consuntivo'`) alla prima chiusura di una Scheda per
+quell'articolo/reparto — quindi via via che la produzione chiude schede reali su reparti diversi da
+Verniciatura, quei reparti inizieranno a comparire da soli in `standard_reparto`, senza bisogno di un
+intervento manuale. Fino ad allora, il Previsionale sovrastima sistematicamente Verniciatura e ignora
+gli altri reparti per qualunque offerta con righe articolo.
 
 ### `parametri_reparto` non ha uno storico versionato
 

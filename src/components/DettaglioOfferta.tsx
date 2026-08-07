@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Offerta, OffertaRiga } from "@/lib/offerteRepository";
+import type { Offerta, OffertaRiga, StimaRepartoRiga } from "@/lib/offerteRepository";
 import type { Articolo } from "@/lib/articoliRepository";
+import { REPARTI_PRODUZIONE } from "@/lib/types";
 import CodiceArticoloAutocomplete from "./CodiceArticoloAutocomplete";
 
 const inputCls = "rounded-lg border px-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300";
@@ -27,16 +28,27 @@ interface CommessaOpzione {
 }
 
 export default function DettaglioOfferta({
-  offerta: offertaIniziale, righeIniziali, articoli, commesse,
+  offerta: offertaIniziale, righeIniziali, articoli, commesse, costoOrarioManodopera, stimaRepartoIniziale,
 }: {
   offerta: Offerta;
   righeIniziali: OffertaRiga[];
   articoli: Articolo[];
   commesse: CommessaOpzione[];
+  costoOrarioManodopera: number;
+  stimaRepartoIniziale: StimaRepartoRiga[];
 }) {
   const router = useRouter();
   const [offerta, setOfferta] = useState(offertaIniziale);
   const [righe, setRighe] = useState(righeIniziali);
+
+  const [stimaReparto, setStimaReparto] = useState<Record<string, string>>(() => {
+    const base = Object.fromEntries(REPARTI_PRODUZIONE.map(r => [r, ""]));
+    for (const r of stimaRepartoIniziale) base[r.reparto] = String(r.percentuale);
+    return base;
+  });
+  const [salvandoStima, setSalvandoStima] = useState(false);
+  const [erroreStima, setErroreStima] = useState("");
+  const [salvatoStima, setSalvatoStima] = useState(false);
 
   const [codiceArticolo, setCodiceArticolo] = useState<string | null>(null);
   const [quantita, setQuantita] = useState("1");
@@ -172,6 +184,34 @@ export default function DettaglioOfferta({
       setErroreRiga(e instanceof Error ? e.message : "Errore aggiunta riga");
     } finally {
       setAggiungendo(false);
+    }
+  }
+
+  const sommaStima = REPARTI_PRODUZIONE.reduce((s, r) => s + (Number(stimaReparto[r]) || 0), 0);
+  const oreTotaliStimate = offerta.valoreCommessa != null && costoOrarioManodopera > 0
+    ? offerta.valoreCommessa / costoOrarioManodopera
+    : null;
+
+  async function salvaStima() {
+    setSalvandoStima(true);
+    setErroreStima("");
+    setSalvatoStima(false);
+    try {
+      const righeStima = REPARTI_PRODUZIONE
+        .map(reparto => ({ reparto, percentuale: Number(stimaReparto[reparto]) || 0 }))
+        .filter(r => r.percentuale > 0);
+      const res = await fetch(`/api/offerte/${offerta.id}/stima-reparto`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ righe: righeStima }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? `Errore ${res.status}`);
+      setSalvatoStima(true);
+    } catch (e) {
+      setErroreStima(e instanceof Error ? e.message : "Errore salvataggio stima");
+    } finally {
+      setSalvandoStima(false);
     }
   }
 
@@ -386,6 +426,58 @@ export default function DettaglioOfferta({
           </div>
         )}
       </div>
+
+      {righe.length === 0 && (
+        <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: "#e5e4e0", background: "white" }}>
+          <div>
+            <h3 className="text-sm font-semibold" style={{ color: "var(--color-black)" }}>Stima ore per reparto</h3>
+            <p className="text-xs mt-0.5" style={{ color: "var(--color-grey-mid)" }}>
+              Fallback per quando non si inseriscono le righe articolo: ore totali = valore commessa / costo orario manodopera,
+              ripartite manualmente tra reparti. Resta modificabile anche a offerta Confermata.
+            </p>
+          </div>
+
+          {oreTotaliStimate == null ? (
+            <p className="text-xs font-medium" style={{ color: "#92400E" }}>
+              {offerta.valoreCommessa == null ? "Manca il valore commessa sull'offerta." : "Costo orario manodopera non configurato (Amministrazione → Parametri Reparto)."}
+            </p>
+          ) : (
+            <p className="text-sm font-semibold">Ore totali stimate: {oreTotaliStimate.toFixed(1)}h</p>
+          )}
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {REPARTI_PRODUZIONE.map(reparto => (
+              <div key={reparto}>
+                <label className="text-xs font-medium block mb-1" style={{ color: "var(--color-grey-mid)" }}>{reparto}</label>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number" min="0" max="100" step="any" className={inputCls} style={{ width: 70, height: 38 }}
+                    value={stimaReparto[reparto]}
+                    onChange={e => { setStimaReparto(prev => ({ ...prev, [reparto]: e.target.value })); setSalvatoStima(false); }}
+                  />
+                  <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-semibold" style={{ color: sommaStima >= 95 && sommaStima <= 105 ? "#166534" : "#991B1B" }}>
+              Totale: {sommaStima.toFixed(1)}%
+            </span>
+            <button
+              onClick={salvaStima}
+              disabled={salvandoStima}
+              className="px-4 py-1.5 rounded-lg text-sm font-semibold text-white disabled:opacity-60"
+              style={{ background: "var(--color-primary)" }}
+            >
+              {salvandoStima ? "Salvo…" : "Salva stima"}
+            </button>
+            {salvatoStima && <span className="text-xs font-medium" style={{ color: "#166534" }}>Salvata</span>}
+          </div>
+          {erroreStima && <p className="text-xs font-medium" style={{ color: "#991B1B" }}>{erroreStima}</p>}
+        </div>
+      )}
 
       {modalConferma && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.4)" }} onClick={() => setModalConferma(false)}>

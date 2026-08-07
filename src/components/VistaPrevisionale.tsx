@@ -11,6 +11,8 @@ interface RigaAggregata {
   capacitaConStraordinari: number;
   oreRichieste: number;
   delta: number;
+  oreSforate: number;
+  oreStraordinarioNecessarie: number;
   oreEsterneNecessarie: number;
   costoStimato: number | null;
   basatoSuStima: boolean;
@@ -84,15 +86,41 @@ export default function VistaPrevisionale({
   const perCella = new Map<string, RigaAggregata>();
   for (const r of risultato.righe) perCella.set(`${r.reparto}|${r.mese}`, r);
 
-  const totaliMese = new Map<string, { capacitaConStraordinari: number; oreRichieste: number }>();
+  interface TotaliMese {
+    capacitaOrdinaria: number;
+    capacitaConStraordinari: number;
+    oreRichieste: number;
+    oreSforate: number;
+    oreStraordinarioNecessarie: number;
+    oreEsterneNecessarie: number;
+    costoStimato: number;
+  }
+  const totaliMese = new Map<string, TotaliMese>();
   for (const m of mesiOrizzonte) {
-    let cap = 0, rich = 0;
+    const t: TotaliMese = { capacitaOrdinaria: 0, capacitaConStraordinari: 0, oreRichieste: 0, oreSforate: 0, oreStraordinarioNecessarie: 0, oreEsterneNecessarie: 0, costoStimato: 0 };
     for (const rep of reparti) {
       const c = perCella.get(`${rep}|${m}`);
-      if (c) { cap += c.capacitaConStraordinari; rich += c.oreRichieste; }
+      if (!c) continue;
+      t.capacitaOrdinaria += c.capacitaOrdinaria;
+      t.capacitaConStraordinari += c.capacitaConStraordinari;
+      t.oreRichieste += c.oreRichieste;
+      t.oreSforate += c.oreSforate;
+      t.oreStraordinarioNecessarie += c.oreStraordinarioNecessarie;
+      t.oreEsterneNecessarie += c.oreEsterneNecessarie;
+      if (c.costoStimato != null) t.costoStimato += c.costoStimato;
     }
-    totaliMese.set(m, { capacitaConStraordinari: cap, oreRichieste: rich });
+    totaliMese.set(m, t);
   }
+
+  const righeMetriche: { label: string; get: (t: TotaliMese) => number; unita: "h" | "€"; enfasi?: boolean }[] = [
+    { label: "Ore richieste", get: t => t.oreRichieste, unita: "h" },
+    { label: "Capacità ordinaria", get: t => t.capacitaOrdinaria, unita: "h" },
+    { label: "Capacità con straordinari", get: t => t.capacitaConStraordinari, unita: "h" },
+    { label: "Ore sforate", get: t => t.oreSforate, unita: "h", enfasi: true },
+    { label: "→ di cui straordinario necessario", get: t => t.oreStraordinarioNecessarie, unita: "h" },
+    { label: "→ di cui ore esterne necessarie", get: t => t.oreEsterneNecessarie, unita: "h", enfasi: true },
+    { label: "Costo esterni stimato", get: t => t.costoStimato, unita: "€", enfasi: true },
+  ];
 
   return (
     <div className="space-y-6">
@@ -120,27 +148,37 @@ export default function VistaPrevisionale({
       <div>
         <h2 className="text-sm font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-black)" }}>Vista generale</h2>
         <div className="rounded-xl border overflow-x-auto" style={{ borderColor: "#e5e4e0" }}>
-          <table className="text-sm" style={{ minWidth: mesiOrizzonte.length * 90 + 140 }}>
+          <table className="text-sm w-full" style={{ minWidth: mesiOrizzonte.length * 90 + 220 }}>
             <thead>
               <tr className="border-b text-xs font-semibold uppercase" style={{ borderColor: "#e5e4e0", color: "var(--color-grey-mid)" }}>
-                <th className="text-left px-4 py-2 sticky left-0" style={{ background: "white" }}>Totale</th>
+                <th className="text-left px-4 py-2 sticky left-0" style={{ background: "white" }}>Totale azienda</th>
                 {mesiOrizzonte.map(m => <th key={m} className="text-center px-2 py-2 whitespace-nowrap">{fmtMese(m)}</th>)}
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td className="px-4 py-2 font-semibold sticky left-0" style={{ background: "white" }}>Richieste / Capacità</td>
-                {mesiOrizzonte.map(m => {
-                  const t = totaliMese.get(m)!;
-                  const ok = t.oreRichieste <= t.capacitaConStraordinari;
-                  return (
-                    <td key={m} className="text-center px-2 py-2 whitespace-nowrap" style={{ background: t.oreRichieste === 0 ? "white" : ok ? "#F0FDF4" : "#FEF2F2" }}>
-                      <span className="font-semibold" style={{ color: ok ? "#166534" : "#991B1B" }}>{round(t.oreRichieste)}h</span>
-                      <span style={{ color: "var(--color-grey-mid)" }}> / {round(t.capacitaConStraordinari)}h</span>
+              {righeMetriche.map((rm, i) => {
+                const richiesteRow = rm.label === "Ore richieste";
+                return (
+                  <tr key={rm.label} className={i < righeMetriche.length - 1 ? "border-b" : ""} style={{ borderColor: "#f0ece5" }}>
+                    <td className="px-4 py-2 font-medium sticky left-0 whitespace-nowrap" style={{ background: "white", color: rm.enfasi ? "var(--color-black)" : "var(--color-grey-mid)" }}>
+                      {rm.label}
                     </td>
-                  );
-                })}
-              </tr>
+                    {mesiOrizzonte.map(m => {
+                      const t = totaliMese.get(m)!;
+                      const v = rm.get(t);
+                      if (v <= 0) return <td key={m} className="text-center px-2 py-2 text-xs" style={{ color: "#d1d5db" }}>—</td>;
+                      let colore = "var(--color-black)";
+                      if (richiesteRow) colore = t.oreRichieste <= t.capacitaConStraordinari ? "#166534" : "#991B1B";
+                      else if (rm.enfasi) colore = "#991B1B";
+                      return (
+                        <td key={m} className="text-center px-2 py-2 whitespace-nowrap tabular-nums" style={{ fontWeight: rm.enfasi || richiesteRow ? 600 : 400, color: colore }}>
+                          {rm.unita === "€" ? `€${round(v)}` : `${round(v)}h`}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -177,9 +215,12 @@ export default function VistaPrevisionale({
                         <div className="text-xs" style={{ color: "var(--color-grey-mid)" }}>
                           cap. {round(c.capacitaOrdinaria)}h{c.capacitaConStraordinari > c.capacitaOrdinaria ? ` (+${round(c.capacitaConStraordinari - c.capacitaOrdinaria)}h)` : ""}
                         </div>
-                        {c.oreEsterneNecessarie > 0 && (
+                        {c.oreSforate > 0 && (
                           <div className="text-xs font-semibold" style={{ color: "#991B1B" }}>
-                            est. {round(c.oreEsterneNecessarie)}h{c.costoStimato != null ? ` · €${round(c.costoStimato)}` : ""}
+                            sfora {round(c.oreSforate)}h
+                            {c.oreStraordinarioNecessarie > 0 ? ` → +${round(c.oreStraordinarioNecessarie)} straord.` : ""}
+                            {c.oreEsterneNecessarie > 0 ? ` + ${round(c.oreEsterneNecessarie)} est.` : ""}
+                            {c.costoStimato != null && c.oreEsterneNecessarie > 0 ? ` (€${round(c.costoStimato)})` : ""}
                           </div>
                         )}
                       </td>

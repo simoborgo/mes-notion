@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { getSession, PARAMETRI_REPARTO_ROLES } from "@/lib/auth";
 import { getParametriReparto } from "@/lib/parametriRepartoRepository";
+import { getCostoOrarioManodopera } from "@/lib/parametriGeneraliRepository";
 import TabellaParametriReparto from "@/components/TabellaParametriReparto";
+import CostoManodoperaForm from "@/components/CostoManodoperaForm";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +12,10 @@ export default async function ParametriRepartoPage() {
   if (!session) redirect("/login");
   if (!PARAMETRI_REPARTO_ROLES.includes(session.role)) redirect("/");
 
-  const parametri = await getParametriReparto();
+  const [parametri, costoOrarioManodopera] = await Promise.all([
+    getParametriReparto(),
+    getCostoOrarioManodopera(),
+  ]);
 
   return (
     <div className="max-w-4xl mx-auto py-6 px-4 space-y-6">
@@ -20,6 +25,7 @@ export default async function ParametriRepartoPage() {
           Capacità per reparto — base per il Previsionale (Capacity Planner)
         </p>
       </div>
+      <CostoManodoperaForm costoIniziale={costoOrarioManodopera} />
       <TabellaParametriReparto parametriIniziali={parametri} />
     </div>
   );

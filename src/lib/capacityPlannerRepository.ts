@@ -1,6 +1,7 @@
 import { pool } from "./db";
 import { REPARTI_PRODUZIONE } from "./types";
 import { getParametriReparto } from "./parametriRepartoRepository";
+import { getCostoOrarioManodopera } from "./parametriGeneraliRepository";
 import { getOfferteAttiveConRighe, type Offerta } from "./offerteRepository";
 import { giorniLavorativi, giorniLavorativiMese, mesiCoperti, primoGiornoMese, ultimoGiornoMese } from "./calendarioLavorativo";
 
@@ -105,6 +106,8 @@ export interface RigaAggregataPrevisionale {
   capacitaConStraordinari: number;
   oreRichieste: number;
   delta: number; // capacitaConStraordinari - oreRichieste: negativo = scoperto anche con straordinari
+  oreSforate: number; // eccesso di oreRichieste sulla sola capacitaOrdinaria, 0 se non si sfora
+  oreStraordinarioNecessarie: number; // quota di oreSforate coperta dallo straordinario, fino al tetto pctStraordinariMax
   oreEsterneNecessarie: number; // già comprensivo del margine di sicurezza
   costoStimato: number | null; // null se tariffa_esterna_eur_h non impostata
   basatoSuStima: boolean; // almeno una delle offerte che contribuiscono a questa cella usa standard_reparto 'stimato'
@@ -140,7 +143,9 @@ export interface RisultatoPrevisionale {
 // mesiOrizzonte: elenco esplicito di mesi "YYYY-MM" da includere nel risultato — la scelta
 // dell'orizzonte (es. prossimi 12 mesi) resta al chiamante (route/UI), non a questa funzione.
 export async function calcolaPrevisionale(filtro: FiltroPrevisionale, mesiOrizzonte: string[]): Promise<RisultatoPrevisionale> {
-  const [parametri, offerteConRighe] = await Promise.all([getParametriReparto(), getOfferteAttiveConRighe()]);
+  const [parametri, offerteConRighe, costoOrarioManodopera] = await Promise.all([
+    getParametriReparto(), getOfferteAttiveConRighe(), getCostoOrarioManodopera(),
+  ]);
   const parametriPerReparto = new Map(parametri.map(p => [p.reparto, p]));
   const mesiValidi = new Set(mesiOrizzonte);
 
@@ -149,17 +154,56 @@ export async function calcolaPrevisionale(filtro: FiltroPrevisionale, mesiOrizzo
   const richiedonoInputManuale: RigaManualePrevisionale[] = [];
   const offerteEscluse: OffertaEsclusaPrevisionale[] = [];
 
-  for (const { offerta, righe } of offerteConRighe) {
+  function aggiungiOreReparto(reparto: string, mese: string, ore: number, basatoSuStima: boolean) {
+    if (!mesiValidi.has(mese)) return;
+    let perMese = richiestePerRepartoMese.get(reparto);
+    if (!perMese) { perMese = new Map(); richiestePerRepartoMese.set(reparto, perMese); }
+    perMese.set(mese, (perMese.get(mese) ?? 0) + ore);
+    if (basatoSuStima) {
+      let mesiStima = stimaPerRepartoMese.get(reparto);
+      if (!mesiStima) { mesiStima = new Set(); stimaPerRepartoMese.set(reparto, mesiStima); }
+      mesiStima.add(mese);
+    }
+  }
+
+  for (const { offerta, righe, stimaReparto } of offerteConRighe) {
     if (filtro === "confermate" && offerta.stato !== "Confermata") continue;
     const peso = offerta.stato === "Confermata" ? 1 : (filtro === "pesato" ? offerta.probabilitaChiusura / 100 : 1);
 
     const intervallo = intervalloOfferta(offerta);
     if (!intervallo) {
-      if (righe.length > 0) {
+      if (righe.length > 0 || stimaReparto.length > 0) {
         offerteEscluse.push({
           offertaId: offerta.id, cliente: offerta.cliente, stato: offerta.stato,
           motivo: offerta.stato === "Confermata" ? "manca la data di conferma" : "manca la data di consegna prevista",
         });
+      }
+      continue;
+    }
+
+    // Fallback (deciso con l'utente 2026-08-07): offerta senza righe articolo — non c'è nulla da
+    // ripartire per standard_reparto, si stimano le ore totali da valore_commessa/costo orario e
+    // si ripartiscono con le percentuali manuali salvate su offerte_stima_reparto.
+    if (righe.length === 0) {
+      if (stimaReparto.length === 0) {
+        offerteEscluse.push({
+          offertaId: offerta.id, cliente: offerta.cliente, stato: offerta.stato,
+          motivo: "nessuna riga articolo né stima per reparto inserita",
+        });
+        continue;
+      }
+      if (offerta.valoreCommessa == null) {
+        offerteEscluse.push({ offertaId: offerta.id, cliente: offerta.cliente, stato: offerta.stato, motivo: "manca il valore commessa" });
+        continue;
+      }
+      if (costoOrarioManodopera <= 0) {
+        offerteEscluse.push({ offertaId: offerta.id, cliente: offerta.cliente, stato: offerta.stato, motivo: "costo orario manodopera non configurato" });
+        continue;
+      }
+      const oreTotaliStimate = offerta.valoreCommessa / costoOrarioManodopera;
+      for (const { reparto, percentuale } of stimaReparto) {
+        const distribuzione = distribuisciSuMesi(oreTotaliStimate * (percentuale / 100) * peso, intervallo.inizio, intervallo.fine);
+        for (const { mese, ore } of distribuzione) aggiungiOreReparto(reparto, mese, ore, true);
       }
       continue;
     }
@@ -175,18 +219,7 @@ export async function calcolaPrevisionale(filtro: FiltroPrevisionale, mesiOrizzo
       }
       for (const rr of righeReparto) {
         const distribuzione = distribuisciSuMesi(rr.ore * peso, intervallo.inizio, intervallo.fine);
-        for (const { mese, ore } of distribuzione) {
-          if (!mesiValidi.has(mese)) continue;
-          let perMese = richiestePerRepartoMese.get(rr.reparto);
-          if (!perMese) { perMese = new Map(); richiestePerRepartoMese.set(rr.reparto, perMese); }
-          perMese.set(mese, (perMese.get(mese) ?? 0) + ore);
-
-          if (basatoSuStima) {
-            let mesiStima = stimaPerRepartoMese.get(rr.reparto);
-            if (!mesiStima) { mesiStima = new Set(); stimaPerRepartoMese.set(rr.reparto, mesiStima); }
-            mesiStima.add(mese);
-          }
-        }
+        for (const { mese, ore } of distribuzione) aggiungiOreReparto(rr.reparto, mese, ore, basatoSuStima);
       }
     }
   }
@@ -201,11 +234,13 @@ export async function calcolaPrevisionale(filtro: FiltroPrevisionale, mesiOrizzo
       const capacitaConStraordinari = capacitaOrdinaria * (1 + (par?.pctStraordinariMax ?? 0) / 100);
       const oreRichieste = richiestePerRepartoMese.get(reparto)?.get(mese) ?? 0;
       const delta = capacitaConStraordinari - oreRichieste;
+      const oreSforate = Math.max(0, oreRichieste - capacitaOrdinaria);
+      const oreStraordinarioNecessarie = Math.min(oreSforate, capacitaConStraordinari - capacitaOrdinaria);
       const oreEsterneBase = Math.max(0, oreRichieste - capacitaConStraordinari);
       const oreEsterneNecessarie = oreEsterneBase * (1 + (par?.margineSicurezzaEsterni ?? 0) / 100);
       const costoStimato = par?.tariffaEsternaEurH != null ? oreEsterneNecessarie * par.tariffaEsternaEurH : null;
       const basatoSuStima = stimaPerRepartoMese.get(reparto)?.has(mese) ?? false;
-      righeAggregate.push({ reparto, mese, capacitaOrdinaria, capacitaConStraordinari, oreRichieste, delta, oreEsterneNecessarie, costoStimato, basatoSuStima });
+      righeAggregate.push({ reparto, mese, capacitaOrdinaria, capacitaConStraordinari, oreRichieste, delta, oreSforate, oreStraordinarioNecessarie, oreEsterneNecessarie, costoStimato, basatoSuStima });
     }
   }
   return { righe: righeAggregate, richiedonoInputManuale, offerteEscluse };

@@ -1,4 +1,5 @@
 import { pool } from "./db";
+import { REPARTI_PRODUZIONE } from "./types";
 
 export type StatoOfferta = "Offerta" | "Confermata" | "Persa";
 
@@ -106,20 +107,83 @@ export async function getOffertaConRighe(id: string): Promise<{ offerta: Offerta
   return { offerta: mapOfferta(rows[0]), righe: righe.map(mapRiga) };
 }
 
-// Offerte + righe per il Previsionale (Fase 5.3): esclude sempre 'Persa' (nessun lavoro
-// generato), il chiamante filtra ulteriormente per stato/peso a seconda della vista scelta.
-export async function getOfferteAttiveConRighe(): Promise<{ offerta: Offerta; righe: OffertaRiga[] }[]> {
+export interface StimaRepartoRiga {
+  reparto: string;
+  percentuale: number;
+}
+
+// Offerte + righe + stima reparto per il Previsionale (Fase 5.3): esclude sempre 'Persa'
+// (nessun lavoro generato), il chiamante filtra ulteriormente per stato/peso a seconda della
+// vista scelta. stimaReparto alimenta il fallback usato quando righe è vuoto (nessun articolo
+// inserito) — vedi capacityPlannerRepository.ts.
+export async function getOfferteAttiveConRighe(): Promise<{ offerta: Offerta; righe: OffertaRiga[]; stimaReparto: StimaRepartoRiga[] }[]> {
   const { rows: offerteRows } = await pool.query(`SELECT * FROM offerte WHERE stato != 'Persa' ORDER BY data_offerta`);
   if (offerteRows.length === 0) return [];
   const ids = offerteRows.map(r => r.id);
-  const { rows: righeRows } = await pool.query(`${RIGHE_JOIN} WHERE r.offerta_id = ANY($1) ORDER BY r.creato_il`, [ids]);
+  const [{ rows: righeRows }, { rows: stimaRows }] = await Promise.all([
+    pool.query(`${RIGHE_JOIN} WHERE r.offerta_id = ANY($1) ORDER BY r.creato_il`, [ids]),
+    pool.query(`SELECT offerta_id, reparto, percentuale FROM offerte_stima_reparto WHERE offerta_id = ANY($1)`, [ids]),
+  ]);
   const righePerOfferta = new Map<string, OffertaRiga[]>();
   for (const r of righeRows.map(mapRiga)) {
     const list = righePerOfferta.get(r.offertaId) ?? [];
     list.push(r);
     righePerOfferta.set(r.offertaId, list);
   }
-  return offerteRows.map(mapOfferta).map(offerta => ({ offerta, righe: righePerOfferta.get(offerta.id) ?? [] }));
+  const stimaPerOfferta = new Map<string, StimaRepartoRiga[]>();
+  for (const r of stimaRows) {
+    const list = stimaPerOfferta.get(r.offerta_id) ?? [];
+    list.push({ reparto: r.reparto, percentuale: Number(r.percentuale) });
+    stimaPerOfferta.set(r.offerta_id, list);
+  }
+  return offerteRows.map(mapOfferta).map(offerta => ({
+    offerta,
+    righe: righePerOfferta.get(offerta.id) ?? [],
+    stimaReparto: stimaPerOfferta.get(offerta.id) ?? [],
+  }));
+}
+
+// Fallback al modulo Previsionale per quando non si inseriscono le righe articolo (deciso con
+// l'utente 2026-08-07): percentuali di ripartizione manuale tra reparti delle ore stimate da
+// valore_commessa/costo_orario_manodopera. A differenza delle righe, resta modificabile anche
+// a offerta Confermata — è solo un input di pianificazione interna, non l'impegno commerciale.
+export async function getStimaRepartoOfferta(offertaId: string): Promise<StimaRepartoRiga[]> {
+  const { rows } = await pool.query(
+    `SELECT reparto, percentuale FROM offerte_stima_reparto WHERE offerta_id = $1 ORDER BY reparto`,
+    [offertaId]
+  );
+  return rows.map(r => ({ reparto: r.reparto, percentuale: Number(r.percentuale) }));
+}
+
+// Salvataggio "a insieme completo": sostituisce tutte le righe dell'offerta in una transazione
+// (DELETE + INSERT), mai un update riga per riga — coerente con un form che invia l'intera
+// griglia percentuali insieme.
+export async function salvaStimaRepartoOfferta(offertaId: string, righe: StimaRepartoRiga[]): Promise<void> {
+  for (const r of righe) {
+    if (!REPARTI_PRODUZIONE.includes(r.reparto)) throw new Error(`Reparto non valido: ${r.reparto}`);
+  }
+  const somma = righe.reduce((s, r) => s + r.percentuale, 0);
+  if (righe.length > 0 && (somma < 95 || somma > 105)) {
+    throw new Error(`La somma delle percentuali deve essere ~100% (attuale: ${somma.toFixed(1)}%)`);
+  }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(`DELETE FROM offerte_stima_reparto WHERE offerta_id = $1`, [offertaId]);
+    for (const r of righe) {
+      if (r.percentuale <= 0) continue;
+      await client.query(
+        `INSERT INTO offerte_stima_reparto (offerta_id, reparto, percentuale) VALUES ($1, $2, $3)`,
+        [offertaId, r.reparto, r.percentuale]
+      );
+    }
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 // Append-only per design: ripreventivare un articolo aggiunge una nuova riga, non
