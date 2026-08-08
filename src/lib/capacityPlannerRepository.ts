@@ -146,6 +146,7 @@ export interface RigaTotaleAzienda {
   capacitaOrdinaria: number;
   capacitaConStraordinari: number;
   oreRichieste: number;
+  capacitaResidua: number; // capacitaOrdinaria - oreRichieste: positivo = margine libero, negativo = sforo (non clampato, a differenza di oreSforate)
   oreSforate: number;
   oreStraordinarioNecessarie: number;
   oreEsterneNecessarie: number;
@@ -295,6 +296,7 @@ export async function calcolaPrevisionale(filtro: FiltroPrevisionale, mesiOrizzo
     const [anno, meseNum] = mese.split("-").map(Number);
     const giorniMese = giorniLavorativiMese(anno, meseNum);
     const tot = totaliPerMese.get(mese) ?? { capacitaOrdinaria: 0, capacitaConStraordinari: 0, oreRichieste: 0 };
+    const capacitaResidua = tot.capacitaOrdinaria - tot.oreRichieste;
     const oreSforate = Math.max(0, tot.oreRichieste - tot.capacitaOrdinaria);
     const oreStraordinarioNecessarie = Math.min(oreSforate, tot.capacitaConStraordinari - tot.capacitaOrdinaria);
     const oreEsterneBase = Math.max(0, tot.oreRichieste - tot.capacitaConStraordinari);
@@ -307,6 +309,7 @@ export async function calcolaPrevisionale(filtro: FiltroPrevisionale, mesiOrizzo
       capacitaOrdinaria: tot.capacitaOrdinaria,
       capacitaConStraordinari: tot.capacitaConStraordinari,
       oreRichieste: tot.oreRichieste,
+      capacitaResidua,
       oreSforate,
       oreStraordinarioNecessarie,
       oreEsterneNecessarie,

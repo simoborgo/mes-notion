@@ -24,6 +24,7 @@ interface RigaTotaleAzienda {
   capacitaOrdinaria: number;
   capacitaConStraordinari: number;
   oreRichieste: number;
+  capacitaResidua: number;
   oreSforate: number;
   oreStraordinarioNecessarie: number;
   oreEsterneNecessarie: number;
@@ -103,11 +104,11 @@ export default function VistaPrevisionale({
   const totaliMese = new Map<string, RigaTotaleAzienda>();
   for (const t of risultato.totaliAzienda) totaliMese.set(t.mese, t);
 
-  const righeMetriche: { label: string; get: (t: RigaTotaleAzienda) => number | null; unita: "h" | "€" | "persone"; enfasi?: boolean }[] = [
+  const righeMetriche: { label: string; get: (t: RigaTotaleAzienda) => number | null; unita: "h" | "€" | "persone"; enfasi?: boolean; firmata?: boolean }[] = [
     { label: "Ore richieste", get: t => t.oreRichieste, unita: "h" },
     { label: "Capacità ordinaria", get: t => t.capacitaOrdinaria, unita: "h" },
     { label: "Capacità con straordinari", get: t => t.capacitaConStraordinari, unita: "h" },
-    { label: "Ore sforate", get: t => t.oreSforate, unita: "h", enfasi: true },
+    { label: "Capacità residua (ordinaria − richieste)", get: t => t.capacitaResidua, unita: "h", enfasi: true, firmata: true },
     { label: "→ di cui straordinario necessario", get: t => t.oreStraordinarioNecessarie, unita: "h" },
     { label: "→ di cui ore esterne necessarie", get: t => t.oreEsterneNecessarie, unita: "h", enfasi: true },
     { label: "Numero esterni necessari", get: t => t.numeroEsterniNecessari, unita: "persone", enfasi: true },
@@ -158,6 +159,17 @@ export default function VistaPrevisionale({
                     {mesiOrizzonte.map(m => {
                       const t = totaliMese.get(m)!;
                       const v = rm.get(t);
+
+                      if (rm.firmata) {
+                        const positiva = v != null && v >= 0;
+                        const testo = v == null ? "—" : `${v > 0 ? "+" : ""}${round(v)}h`;
+                        return (
+                          <td key={m} className="text-center px-2 py-2 whitespace-nowrap tabular-nums" style={{ fontWeight: 600, color: v == null ? "#d1d5db" : positiva ? "#166534" : "#991B1B" }}>
+                            {testo}
+                          </td>
+                        );
+                      }
+
                       if (v == null || v <= 0) return <td key={m} className="text-center px-2 py-2 text-xs" style={{ color: "#d1d5db" }}>—</td>;
                       let colore = "var(--color-black)";
                       if (richiesteRow) colore = t.oreRichieste <= t.capacitaConStraordinari ? "#166534" : "#991B1B";
