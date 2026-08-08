@@ -322,6 +322,28 @@ apriranno sempre un nuovo ODP invece di riaprire il vecchio — si potrà valuta
 il filtro sulla Scheda (oggi include "Completato" apposta). Non prima, altrimenti si ricade nel
 blocco già risolto in questa sessione.
 
+### ~~CRUD Personale nella tab Parametri Reparto~~ — fatto (2026-08-08)
+
+**Stato:** fatto. Prima era solo visualizzazione (deciso così esplicitamente qualche ora prima nella
+stessa sessione); l'utente ha poi chiesto il CRUD vero e proprio.
+
+`createOperatorePage`/`updateOperatorePage` in `notion.ts` + route `api/admin/operatori` (POST) e
+`api/admin/operatori/[id]` (PATCH). Nessuna cancellazione reale — coerente con quanto già deciso
+per gli operatori (vedi sezione ore/ODP più sopra): "rimuovere" un operatore significa sempre
+disattivarlo (In Forza → No), mai eliminare la pagina Notion, per non perdere il collegamento con
+lo storico ore. Editabili tutti i campi (Cognome, Nome, Reparto, Tipo, Azienda, In Forza) — matricola
+resta auto-assegnata da Notion (`unique_id`), mai scritta da qui.
+
+`TabellaOperatoriReadOnly.tsx` rinominata `TabellaOperatori.tsx`: bottone "+ Nuovo operatore",
+"Modifica" per riga (form completo), toggle rapido "In Forza" direttamente in tabella (senza aprire
+il form). Nota tecnica: prima chiamata a `revalidateTag` in tutto il progetto — su Next.js 16 richiede
+un secondo argomento obbligatorio (`profile`), usato `"max"`; verificato che invalida correttamente
+sia `getOperatori()` che `getTuttiOperatori()` (stesso tag `"operatori"`).
+
+Testato in produzione con un operatore di prova: creazione, modifica campi, toggle In Forza, tutto
+verificato e visibile immediatamente (cache invalidata correttamente). Pulizia via archiviazione
+diretta della pagina Notion di test (non tramite l'app, che di proposito non offre cancellazione).
+
 ### ~~Tabella `articoli` non copre tutti i codici delle Schede attive~~ — fatto, crea al volo (2026-08-08)
 
 **Stato:** fatto. Scoperto testando la correzione precedente: su 58 codici articolo distinti negli

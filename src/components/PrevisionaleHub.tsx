@@ -7,7 +7,7 @@ import type { ParametriReparto } from "@/lib/parametriRepartoRepository";
 import VistaPrevisionale from "./VistaPrevisionale";
 import CostoManodoperaForm from "./CostoManodoperaForm";
 import TabellaParametriReparto from "./TabellaParametriReparto";
-import TabellaOperatoriReadOnly from "./TabellaOperatoriReadOnly";
+import TabellaOperatori from "./TabellaOperatori";
 import ListaOfferte from "./ListaOfferte";
 
 type Tab = "previsionale" | "parametri" | "offerte";
@@ -59,7 +59,7 @@ export default function PrevisionaleHub({
         <div className="space-y-5">
           <CostoManodoperaForm costoIniziale={costoOrarioManodopera} />
           <TabellaParametriReparto parametriIniziali={parametriReparto} />
-          <TabellaOperatoriReadOnly operatori={operatori} />
+          <TabellaOperatori operatoriIniziali={operatori} />
         </div>
       )}
 

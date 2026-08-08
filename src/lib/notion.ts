@@ -474,6 +474,43 @@ function pageToOperatore(page: any): Operatore {
   };
 }
 
+// CRUD Personale (2026-08-08) — deciso con l'utente: nessuna cancellazione reale, "rimuovere" un
+// operatore significa sempre disattivarlo (In Forza -> false), mai eliminare la pagina Notion
+// (altrimenti si perderebbe il collegamento con lo storico ore già registrato per quella
+// matricola). "ID" (matricola) è un unique_id Notion, assegnato in automatico alla creazione —
+// mai scritto da qui.
+export async function createOperatorePage(entry: {
+  cognome: string; nome: string; reparto: string; tipo: string; azienda: string; inForza: boolean;
+}): Promise<Operatore> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const properties: Record<string, any> = {
+    "Cognome": { title: [{ text: { content: entry.cognome } }] },
+    "Nome": { rich_text: [{ text: { content: entry.nome } }] },
+    "In Forza": { checkbox: entry.inForza },
+  };
+  if (entry.reparto) properties["Reparto"] = { select: { name: entry.reparto } };
+  if (entry.tipo) properties["Tipo"] = { select: { name: entry.tipo } };
+  if (entry.azienda) properties["Azienda"] = { select: { name: entry.azienda } };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const page = await notion.pages.create({ parent: { database_id: DB_OPERATORI }, properties }) as any;
+  return pageToOperatore(page);
+}
+
+export async function updateOperatorePage(id: string, entry: Partial<{
+  cognome: string; nome: string; reparto: string; tipo: string; azienda: string; inForza: boolean;
+}>): Promise<Operatore> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const properties: Record<string, any> = {};
+  if (entry.cognome !== undefined) properties["Cognome"] = { title: [{ text: { content: entry.cognome } }] };
+  if (entry.nome !== undefined) properties["Nome"] = { rich_text: [{ text: { content: entry.nome } }] };
+  if (entry.reparto !== undefined) properties["Reparto"] = entry.reparto ? { select: { name: entry.reparto } } : { select: null };
+  if (entry.tipo !== undefined) properties["Tipo"] = entry.tipo ? { select: { name: entry.tipo } } : { select: null };
+  if (entry.azienda !== undefined) properties["Azienda"] = entry.azienda ? { select: { name: entry.azienda } } : { select: null };
+  if (entry.inForza !== undefined) properties["In Forza"] = { checkbox: entry.inForza };
+  const page = await notion.pages.update({ page_id: id, properties });
+  return pageToOperatore(page);
+}
+
 // Operatori "in forza" dal database Notion "Personale" — usati da Rilevamento Ore
 export const getOperatori = unstable_cache(
   async (): Promise<Operatore[]> => {
