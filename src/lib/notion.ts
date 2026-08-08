@@ -487,6 +487,18 @@ export const getOperatori = unstable_cache(
   { revalidate: 300, tags: ["operatori"] }
 );
 
+// Tutti gli operatori del database "Personale", inclusi quelli non più in forza — per la vista
+// sola lettura in Parametri Reparto (2026-08-08): serve vedere anche chi è stato disattivato,
+// non solo l'elenco attivo già usato da Rilevamento Ore.
+export const getTuttiOperatori = unstable_cache(
+  async (): Promise<Operatore[]> => {
+    const pages = await queryAll(DB_OPERATORI, undefined, [{ property: "Cognome", direction: "ascending" }]);
+    return pages.map(pageToOperatore).filter(o => o.matricola);
+  },
+  ["notion-operatori-tutti"],
+  { revalidate: 300, tags: ["operatori"] }
+);
+
 const ODP_SPECIALI: { prefix: string; label: string }[] = [
   { prefix: "SET", label: "Setup" },
   { prefix: "MNT", label: "Manutenzione" },

@@ -144,7 +144,7 @@ export default function DettaglioOfferta({
       const res = await fetch(`/api/offerte/${offerta.id}`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error ?? `Errore ${res.status}`);
-      router.push("/offerte");
+      router.push("/previsionale");
       router.refresh();
     } catch (e) {
       setErroreElimina(e instanceof Error ? e.message : "Errore eliminazione");
