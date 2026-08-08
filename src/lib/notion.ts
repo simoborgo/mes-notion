@@ -495,15 +495,21 @@ const ODP_SPECIALI: { prefix: string; label: string }[] = [
   { prefix: "PUL", label: "Pulizie" },
 ];
 
-// ODP attivi per l'autocomplete di Rilevamento Ore + codici speciali indiretti. Esclude solo
-// "Annullata" (nessun lavoro reale da registrare) — inclusi deliberatamente anche "Completato" e
-// gli altri stati non "In lavorazione" (Materiale Pronto, Verificato, ecc.): un operatore può
-// dover segnare ore su un ODP la sera, il giorno dopo o più tardi, quando la Scheda è già
-// avanzata di stato — filtrare solo su "In lavorazione" bloccava proprio questo caso reale
-// (segnalato dall'utente 2026-08-08). registraChiusuraOdp/standard_reparto restano da rivedere
-// separatamente per riflettere ore registrate dopo la chiusura (vedi PROSSIME_IMPLEMENTAZIONI.md).
+// ODP attivi per l'autocomplete di Rilevamento Ore + codici speciali indiretti.
+// Due filtri distinti e deliberatamente diversi (chiariti con l'utente 2026-08-08):
+// - Sulla SCHEDA: esclude solo "Annullata" — incluso deliberatamente anche "Completato": un
+//   arredo completato può restare in fabbrica in attesa di carico/spedizione, un operatore può
+//   ancora doverci segnare ore. Filtrare solo su "In lavorazione" bloccava questo caso reale
+//   (prima versione di questa funzione, corretta lo stesso giorno).
+// - Sulla COMMESSA collegata: esclude le Schede la cui Commessa è "Chiusa" (negozio consegnato)
+//   — quello sì un vero endpoint: da lì in poi, qualunque rilavorazione aprirebbe un nuovo ODP,
+//   mai una riapertura del vecchio, quindi il vecchio ODP non serve più nella lista di selezione.
+// registraChiusuraOdp/standard_reparto restano comunque scollegati dallo stato Scheda/Commessa
+// (vedi PROSSIME_IMPLEMENTAZIONI.md) — qui si tratta solo di cosa proporre nella tendina.
 export async function getOdpAttivi(): Promise<OdpAttivo[]> {
-  const schede = await getSchede();
+  const [schede, commesse] = await Promise.all([getSchede(), getCommesse()]);
+  const statoCommessaById = new Map(commesse.map(c => [c.id, c.stato]));
+
   // dedup per ODP: lo stesso testo ODP può comparire su più Schede quando ci sono
   // sub-item padre/figlio collegati (oggi non lavorabili singolarmente in Rilevamento
   // Ore — se in futuro si vorrà distinguerli, andrà rivista questa dedup) — teniamo
@@ -511,6 +517,7 @@ export async function getOdpAttivi(): Promise<OdpAttivo[]> {
   const vistiOdp = new Set<string>();
   const attivi: OdpAttivo[] = schede
     .filter(s => s.statoProduzione !== "Annullata" && s.odp)
+    .filter(s => !s.commessaId || statoCommessaById.get(s.commessaId) !== "Chiusa")
     .filter(s => {
       if (vistiOdp.has(s.odp)) return false;
       vistiOdp.add(s.odp);

@@ -298,27 +298,29 @@ bloccando la selezione di un ODP per la registrazione ore appena la Scheda avanz
 Pronto"/"Verificato"/"Completato" — motivo diretto per cui l'utente non riusciva più ad aggiungere
 ore. Corretto nello stesso intervento: ora esclude solo "Annullata".
 
-### Futuro: escludere gli ODP di commesse chiuse dalla lista di Rilevamento Ore
+### ~~Escludere gli ODP di commesse chiuse dalla lista di Rilevamento Ore~~ — fatto (2026-08-08)
 
-**Stato:** annotata su richiesta esplicita dell'utente (2026-08-08), **non implementare ora** — dipende
-da una condizione che oggi non è ancora vera (vedi sotto)
+**Stato:** fatto, anticipato rispetto a quanto annotato in un primo momento — l'utente ha chiesto di
+farlo subito, chiarendo che il filtro va fatto a livello di **Commessa**, non di Scheda: uno stato
+Scheda "Completato" non significa da solo che l'arredo sia stato consegnato, può restare in fabbrica
+in attesa di carico/spedizione. Restano quindi selezionabili gli ODP "Completato" finché la loro
+Commessa non è "Chiusa" — coerente con la scelta precedente di allargare `getOdpAttivi()`.
 
-Oggi `getOdpAttivi()` include deliberatamente anche gli ODP "Completato" (vedi voce sopra), perché nella
-pratica attuale un ODP può ancora ricevere ore tardive anche dopo quel passaggio di stato — lo stato
-Completato non è ancora un vero endpoint definitivo. Con questa impostazione, però, la lista di ODP
-selezionabili crescerà indefinitamente nel tempo, riempendosi di ODP di commesse ormai concluse — solo
-rumore per chi deve trovare l'ODP giusto su cui segnare ore oggi.
+Implementato in `getOdpAttivi()` (`src/lib/notion.ts`): oltre al filtro esistente sulla Scheda
+(esclude solo "Annullata"), nuovo filtro che esclude le Schede la cui Commessa collegata
+(`s.commessaId`, relation "Commessa Nr") ha `stato === "Chiusa"` — usa `getCommesse()` (già cachata,
+`unstable_cache` 5 min) per una mappa `id -> stato`, nessuna query aggiuntiva pesante. Schede senza
+Commessa collegata non vengono escluse (nessun dato su cui decidere).
 
-L'utente ha chiarito la direzione futura: quando il flusso sarà maturo al 100%, lo stato "Completato"
-di una Scheda significherà "arredo in cassa/spedizione" — un vero endpoint. Se dopo quel punto serve
-rifare qualcosa, si aprirà un **nuovo ODP**, mai una riapertura del vecchio. A quel punto (non prima):
-- Quando una Commessa viene chiusa (negozio consegnato), tutti gli ODP di quella commessa vanno esclusi
-  da `getOdpAttivi()` — non solo il singolo stato "Completato" della Scheda, ma la chiusura a livello
-  di Commessa (bisognerà capire dove si marca "Commessa chiusa/consegnata" su Notion, se esiste già un
-  campo o va aggiunto).
-- A quel punto avrebbe senso restringere di nuovo `getOdpAttivi()` (oggi allargato apposta) — ma solo
-  quando la premessa (Completato = endpoint reale, mai riaperto) sarà davvero vera in pratica, altrimenti
-  si ricade nello stesso blocco già risolto in questa sessione.
+Testato in produzione: 74 Commesse totali, 57 "Chiuse" → lista ODP passata da 688 a 524 voci.
+Verificato puntualmente: uno ODP "Completato" con Commessa ancora aperta resta selezionabile
+(MP26-472); uno ODP la cui Commessa è "Chiusa" viene correttamente escluso (MP26-521).
+
+**Nota per il futuro** (resta valida): quando lo stato "Completato" di Scheda diventerà un vero
+endpoint anche a livello di singolo ODP (non solo di Commessa) — cioè quando eventuali rilavorazioni
+apriranno sempre un nuovo ODP invece di riaprire il vecchio — si potrà valutare di restringere anche
+il filtro sulla Scheda (oggi include "Completato" apposta). Non prima, altrimenti si ricade nel
+blocco già risolto in questa sessione.
 
 ### ~~Tabella `articoli` non copre tutti i codici delle Schede attive~~ — fatto, crea al volo (2026-08-08)
 
