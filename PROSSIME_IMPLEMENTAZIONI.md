@@ -359,6 +359,25 @@ Scheda (WINDOW SCREEN 78,5h, Vitrine showcase 39,5h, ecc.), non accorpate. Non c
 end-to-end via UI (nessuna credenziale di sessione disponibile in questo ambiente per autenticarsi
 all'app) — verifica fatta a livello di dati/logica, non di click-through browser.
 
+### ~~Vista "Standard Articoli" in Rilevamento Ore~~ — fatto (2026-08-08)
+
+**Stato:** fatto. L'utente vuole vedere direttamente in UI come gli standard ore per articolo/reparto
+(`standard_reparto`, usati dal Previsionale per la capacità) passano da stima seminata una tantum
+a media reale via chiusure ODP — oggi visibile solo con query dirette su Postgres.
+
+Nuova tab "Standard Articoli": una riga per articolo, una colonna per reparto (`REPARTI_PRODUZIONE`),
+cella con ore medie — marcata `~` in ambra se `origine = 'stimato'` (nessuna chiusura reale ancora,
+stesso linguaggio visivo già usato nel Previsionale per "basato su stima"), altrimenti ore + numero
+di osservazioni reali tra parentesi. Cella vuota ("—") se quell'articolo non ha mai avuto ore su
+quel reparto. Ricerca per codice/descrizione, badge riepilogo "Celle a consuntivo: N / totale".
+
+Backend: `getStandardRepartoMatrix()` (`standardRepartoRepository.ts`) — join `standard_reparto` +
+`articoli`, raggruppato per codice articolo. Nuova route `GET /api/ore/standard-articoli`.
+
+Verificato contro dati reali: 156 articoli con almeno una riga standard, 6 con almeno una cella già
+a consuntivo (su 8 celle totali su 624) — coerente con quanto osservato nelle sessioni precedenti
+sul nuovo meccanismo di aggiornamento automatico. `tsc`/`eslint` puliti.
+
 ### ~~CRUD Personale nella tab Parametri Reparto~~ — fatto (2026-08-08)
 
 **Stato:** fatto. Prima era solo visualizzazione (deciso così esplicitamente qualche ora prima nella

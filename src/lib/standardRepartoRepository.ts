@@ -184,3 +184,42 @@ export async function aggiornaStandardRepartoPerOdp(odp: string): Promise<void> 
     console.error(`[standardReparto] errore risolvendo Codice Art. per ODP ${odp}`, e);
   }
 }
+
+export interface CellaStandard {
+  mediaOre: number;
+  nOsservazioni: number;
+  origine: "stimato" | "consuntivo";
+}
+
+export interface RigaStandardArticolo {
+  codiceArticolo: string;
+  descrizione: string;
+  perReparto: Record<string, CellaStandard>;
+}
+
+// Vista "Standard Articoli" (Rilevamento Ore) — un articolo per riga, una colonna per reparto,
+// per vedere a colpo d'occhio quali standard sono ancora la stima seminata dall'import una tantum
+// (origine 'stimato', n_osservazioni=0) e quali sono già stati sostituiti da una media reale su
+// chiusure ODP (origine 'consuntivo', vedi registraChiusuraOdp sopra). Solo articoli con almeno
+// una riga standard_reparto — un codice puramente a catalogo senza mai una chiusura non ha nulla
+// da mostrare qui.
+export async function getStandardRepartoMatrix(): Promise<RigaStandardArticolo[]> {
+  const { rows } = await pool.query(
+    `SELECT sr.codice_articolo, a.descrizione, sr.reparto, sr.media_ore, sr.n_osservazioni, sr.origine
+     FROM standard_reparto sr
+     JOIN articoli a ON a.codice_articolo = sr.codice_articolo
+     ORDER BY a.descrizione, sr.reparto`
+  );
+  const map = new Map<string, RigaStandardArticolo>();
+  for (const r of rows) {
+    if (!map.has(r.codice_articolo)) {
+      map.set(r.codice_articolo, { codiceArticolo: r.codice_articolo, descrizione: r.descrizione, perReparto: {} });
+    }
+    map.get(r.codice_articolo)!.perReparto[r.reparto] = {
+      mediaOre: Number(r.media_ore),
+      nOsservazioni: Number(r.n_osservazioni),
+      origine: r.origine,
+    };
+  }
+  return [...map.values()];
+}
