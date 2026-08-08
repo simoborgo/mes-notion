@@ -11,6 +11,7 @@ interface RigaAggregata {
   capacitaConStraordinari: number;
   oreRichieste: number;
   delta: number;
+  capacitaResidua: number;
   oreSforate: number;
   oreStraordinarioNecessarie: number;
   oreEsterneNecessarie: number;
@@ -213,26 +214,18 @@ export default function VistaPrevisionale({
                     if (!c || c.oreRichieste === 0) {
                       return <td key={m} className="text-center px-2 py-2 text-xs" style={{ color: "#d1d5db" }}>—</td>;
                     }
-                    const ok = c.delta >= 0;
+                    const positiva = c.capacitaResidua >= 0;
                     return (
-                      <td key={m} className="text-center px-2 py-2 whitespace-nowrap" style={{ background: ok ? "#F0FDF4" : "#FEF2F2" }}>
+                      <td key={m} className="text-center px-2 py-2 whitespace-nowrap" style={{ background: positiva ? "#F0FDF4" : "#FEF2F2" }}>
                         <div>
-                          <span className="font-semibold" style={{ color: ok ? "#166534" : "#991B1B" }}>{round(c.oreRichieste)}h</span>
+                          <span className="font-semibold">{round(c.oreRichieste)}h</span>
                           {c.basatoSuStima && (
                             <span className="ml-1 text-xs font-bold" style={{ color: "#92400E" }} title="Basato su dati stimati, non ancora su consuntivi reali">~</span>
                           )}
                         </div>
-                        <div className="text-xs" style={{ color: "var(--color-grey-mid)" }}>
-                          cap. {round(c.capacitaOrdinaria)}h{c.capacitaConStraordinari > c.capacitaOrdinaria ? ` (+${round(c.capacitaConStraordinari - c.capacitaOrdinaria)}h)` : ""}
+                        <div className="text-xs font-semibold" style={{ color: positiva ? "#166534" : "#991B1B" }}>
+                          {c.capacitaResidua > 0 ? "+" : ""}{round(c.capacitaResidua)}h
                         </div>
-                        {c.oreSforate > 0 && (
-                          <div className="text-xs font-semibold" style={{ color: "#991B1B" }}>
-                            sfora {round(c.oreSforate)}h
-                            {c.oreStraordinarioNecessarie > 0 ? ` → +${round(c.oreStraordinarioNecessarie)} straord.` : ""}
-                            {c.oreEsterneNecessarie > 0 ? ` + ${round(c.oreEsterneNecessarie)} est.` : ""}
-                            {c.costoStimato != null && c.oreEsterneNecessarie > 0 ? ` (€${round(c.costoStimato)})` : ""}
-                          </div>
-                        )}
                       </td>
                     );
                   })}

@@ -106,6 +106,7 @@ export interface RigaAggregataPrevisionale {
   capacitaConStraordinari: number;
   oreRichieste: number;
   delta: number; // capacitaConStraordinari - oreRichieste: negativo = scoperto anche con straordinari
+  capacitaResidua: number; // capacitaOrdinaria - oreRichieste: positivo = margine libero, negativo = sforo (non clampato)
   oreSforate: number; // eccesso di oreRichieste sulla sola capacitaOrdinaria, 0 se non si sfora
   oreStraordinarioNecessarie: number; // quota di oreSforate coperta dallo straordinario, fino al tetto pctStraordinariMax
   oreEsterneNecessarie: number; // già comprensivo del margine di sicurezza
@@ -257,6 +258,7 @@ export async function calcolaPrevisionale(filtro: FiltroPrevisionale, mesiOrizzo
       const capacitaConStraordinari = capacitaOrdinaria * (1 + (par?.pctStraordinariMax ?? 0) / 100);
       const oreRichieste = richiestePerRepartoMese.get(reparto)?.get(mese) ?? 0;
       const delta = capacitaConStraordinari - oreRichieste;
+      const capacitaResidua = capacitaOrdinaria - oreRichieste;
       const oreSforate = Math.max(0, oreRichieste - capacitaOrdinaria);
       const oreStraordinarioNecessarie = Math.min(oreSforate, capacitaConStraordinari - capacitaOrdinaria);
       const oreEsterneBase = Math.max(0, oreRichieste - capacitaConStraordinari);
@@ -265,7 +267,7 @@ export async function calcolaPrevisionale(filtro: FiltroPrevisionale, mesiOrizzo
       const numeroEsterniNecessari = oreMensiliPerEsterno != null && oreMensiliPerEsterno > 0 ? oreEsterneNecessarie / oreMensiliPerEsterno : null;
       const costoStimato = par?.tariffaEsternaEurH != null ? oreEsterneNecessarie * par.tariffaEsternaEurH : null;
       const basatoSuStima = stimaPerRepartoMese.get(reparto)?.has(mese) ?? false;
-      righeAggregate.push({ reparto, mese, capacitaOrdinaria, capacitaConStraordinari, oreRichieste, delta, oreSforate, oreStraordinarioNecessarie, oreEsterneNecessarie, numeroEsterniNecessari, costoStimato, basatoSuStima });
+      righeAggregate.push({ reparto, mese, capacitaOrdinaria, capacitaConStraordinari, oreRichieste, delta, capacitaResidua, oreSforate, oreStraordinarioNecessarie, oreEsterneNecessarie, numeroEsterniNecessari, costoStimato, basatoSuStima });
 
       let tot = totaliPerMese.get(mese);
       if (!tot) { tot = { capacitaOrdinaria: 0, capacitaConStraordinari: 0, oreRichieste: 0 }; totaliPerMese.set(mese, tot); }
