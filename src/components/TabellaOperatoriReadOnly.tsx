@@ -13,6 +13,21 @@ export default function TabellaOperatoriReadOnly({ operatori }: { operatori: Ope
   const esterni = operatori.filter(o => o.tipo === "Esterno").length;
   const inForza = operatori.filter(o => o.inForza).length;
 
+  // Riepilogo per reparto (sempre sul totale, non sui filtri di ricerca/in forza sopra —
+  // stessa logica dei badge Totale/In forza/Interni/Esterni) — ordinato dal reparto più numeroso.
+  const perReparto = useMemo(() => {
+    const map = new Map<string, { totale: number; interni: number; esterni: number }>();
+    for (const o of operatori) {
+      const rep = o.reparto || "Non specificato";
+      const cur = map.get(rep) ?? { totale: 0, interni: 0, esterni: 0 };
+      cur.totale++;
+      if (o.tipo === "Modar") cur.interni++;
+      else if (o.tipo === "Esterno") cur.esterni++;
+      map.set(rep, cur);
+    }
+    return [...map.entries()].sort((a, b) => b[1].totale - a[1].totale);
+  }, [operatori]);
+
   const filtrati = useMemo(() => {
     const q = search.toLowerCase().trim();
     return operatori.filter(o => {
@@ -44,6 +59,26 @@ export default function TabellaOperatoriReadOnly({ operatori }: { operatori: Ope
         <div className="rounded-lg px-3 py-2 text-xs font-semibold" style={{ background: "#FEF9C3", color: "#92400E" }}>
           Esterni: {esterni}
         </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {perReparto.map(([reparto, c]) => (
+          <div key={reparto} className="rounded-lg px-2.5 py-1.5 text-xs font-medium" style={{ background: "#F5F2EE", color: "var(--color-black)" }}>
+            {reparto}: {c.totale}
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {perReparto.map(([reparto, c]) => (
+          <div key={reparto} className="rounded-lg px-2.5 py-1.5 text-xs font-medium" style={{ background: "#F5F2EE", color: "var(--color-grey-mid)" }}>
+            <span style={{ color: "var(--color-black)" }}>{reparto}</span>
+            {" — "}
+            <span style={{ color: "#1D4ED8" }}>{c.interni} int.</span>
+            {" · "}
+            <span style={{ color: "#92400E" }}>{c.esterni} est.</span>
+          </div>
+        ))}
       </div>
 
       <div className="flex flex-wrap gap-2 items-center">
