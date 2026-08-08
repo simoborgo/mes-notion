@@ -111,11 +111,11 @@ export default function VistaStoricoCommessa({ commesse }: { commesse: CommessaO
           <div className="grid grid-cols-3 gap-3">
             <div className="rounded-lg border p-3" style={{ borderColor: "#e5e4e0" }}>
               <div className="text-xs font-semibold uppercase" style={{ color: "var(--color-grey-mid)" }}>Ore totali</div>
-              <div className="text-2xl font-bold tabular-nums" style={{ color: "var(--color-black)" }}>{risultato.totali.oreTotali}h</div>
+              <div className="text-2xl font-bold tabular-nums" style={{ color: "var(--color-black)" }}>{risultato.totali.oreTotali.toFixed(1)}h</div>
             </div>
             <div className="rounded-lg border p-3" style={{ borderColor: "#e5e4e0" }}>
               <div className="text-xs font-semibold uppercase" style={{ color: "var(--color-grey-mid)" }}>Ore rifacimento</div>
-              <div className="text-2xl font-bold tabular-nums" style={{ color: "#991B1B" }}>{risultato.totali.oreRifacimento}h</div>
+              <div className="text-2xl font-bold tabular-nums" style={{ color: "#991B1B" }}>{risultato.totali.oreRifacimento.toFixed(1)}h</div>
             </div>
             <div className="rounded-lg border p-3" style={{ borderColor: "#e5e4e0" }}>
               <div className="text-xs font-semibold uppercase" style={{ color: "var(--color-grey-mid)" }}>Costo totale</div>
@@ -145,9 +145,9 @@ export default function VistaStoricoCommessa({ commesse }: { commesse: CommessaO
                         <span className="ml-2 text-xs" style={{ color: "var(--color-grey-mid)" }}>{pct.toFixed(0)}%</span>
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <span className="font-semibold tabular-nums">{r.ore}h</span>
+                        <span className="font-semibold tabular-nums">{r.ore.toFixed(1)}h</span>
                         {r.oreRifacimento > 0 && (
-                          <span className="ml-2 text-xs font-medium tabular-nums" style={{ color: "#991B1B" }}>({r.oreRifacimento}h rif.)</span>
+                          <span className="ml-2 text-xs font-medium tabular-nums" style={{ color: "#991B1B" }}>({r.oreRifacimento.toFixed(1)}h rif.)</span>
                         )}
                       </div>
                     </div>
@@ -163,7 +163,7 @@ export default function VistaStoricoCommessa({ commesse }: { commesse: CommessaO
               {risultato.perOperatore.map(o => (
                 <div key={o.matricola} className="flex justify-between px-4 py-2 text-sm border-b last:border-0" style={{ borderColor: "#f0efec" }}>
                   <span>{o.cognome} {o.nome}</span>
-                  <span className="font-semibold tabular-nums">{o.ore}h</span>
+                  <span className="font-semibold tabular-nums">{o.ore.toFixed(1)}h</span>
                 </div>
               ))}
             </div>
