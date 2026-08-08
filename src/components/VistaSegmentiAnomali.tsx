@@ -12,6 +12,10 @@ interface Segmento {
   chiusoAlle: string | null;
   ore: number | null;
   anomalo: boolean;
+  cognome: string | null;
+  nome: string | null;
+  reparto: string | null;
+  numeroScheda: string | null;
 }
 
 function fmtDataOra(iso: string) {
@@ -70,8 +74,17 @@ export default function VistaSegmentiAnomali() {
             <div key={s.id} className="rounded-xl border p-4" style={{ borderColor: "#FCD34D", background: "#FFFBEB" }}>
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
-                  <span className="font-semibold" style={{ color: "var(--color-black)" }}>{s.matricola}</span>
-                  <span className="text-sm ml-2" style={{ color: "var(--color-grey-mid)" }}>{s.odp}{s.rif ? " · rifacimento" : ""}</span>
+                  <span className="font-semibold" style={{ color: "var(--color-black)" }}>
+                    {s.cognome || s.nome ? `${s.cognome ?? ""} ${s.nome ?? ""}`.trim() : s.matricola}
+                  </span>
+                  {s.reparto && (
+                    <span className="text-xs font-semibold ml-2 px-2 py-0.5 rounded-full" style={{ background: "#EFF6FF", color: "#1D4ED8" }}>
+                      {s.reparto}
+                    </span>
+                  )}
+                  <span className="text-sm ml-2" style={{ color: "var(--color-grey-mid)" }}>
+                    {s.odp}{s.numeroScheda ? ` — ${s.numeroScheda}` : ""}{s.rif ? " · rifacimento" : ""}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "#FEF3C7", color: "#92400E" }}>
