@@ -164,30 +164,35 @@ offerta (solo se Confermata + collegata) — rilegge `Commessa.dataCarico` da No
 fresco, `pages.retrieve` diretto) e aggiorna `data_consegna_prevista` se diversa. Testato con
 scostamento simulato + verifica "già allineata" al secondo giro.
 
-### `standard_reparto` oggi copre solo Verniciatura — il Previsionale sovrastima quel reparto per qualunque articolo
+### ~~`standard_reparto` copriva solo Verniciatura~~ — corretto, script `importa-standard-altri-reparti.mjs` (2026-08-08)
 
-**Stato:** scoperto e verificato (sessione 2026-08-07) analizzando perché il Previsionale caricava
-tutte le ore delle offerte ROLEX su Verniciatura. Decisione dell'utente: lasciare così, nessuna azione
-ora — annotato perché non venga ri-scoperto come "bug misterioso" in una sessione futura.
+**Stato:** fatto. Scoperto in sessione 2026-08-07 (vedi sotto per la diagnosi originale), corretto il
+giorno dopo quando l'utente ha fatto notare che l'import non era corretto — aveva ragione, il CSV
+sorgente conteneva un segnale scartato dal primo import.
 
-Verificato su Postgres: **tutte e 136 le righe** di `standard_reparto` sono `reparto='Verniciatura'`,
-`origine='stimato'`, `n_osservazioni=0` — **zero righe per gli altri 6 reparti**, per nessuno dei 136
-codici articolo mappati. Non è un bug di import: `scripts/importa-standard-verniciatura.mjs` lo
-documenta esplicitamente nel proprio commento — la fonte (`Codici_Valorizzati.csv`, colonna
-"H INT-VERN") aveva un numero specifico solo per Verniciatura, "H TOTALI" non era scomposto sugli
-altri reparti, e si è scelto deliberatamente di non inventare percentuali per quelli.
+Diagnosi iniziale (poi rivista): tutte le 136 righe di `standard_reparto` seminate da
+`scripts/importa-standard-verniciatura.mjs` erano `reparto='Verniciatura'`, `origine='stimato'` — zero
+righe per gli altri 6 reparti. Quello script usa solo la colonna "H INT-VERN" del CSV
+(`Codici_Valorizzati.csv`) come unica riga per articolo. Avevo concluso che non ci fosse altro dato
+disponibile da cui derivare gli altri reparti ("H TOTALI non è scomposto"). **Errato**: la colonna
+"H TOTALI" (scartata dal primo import) contiene il vero totale storico per articolo — per molti codici
+Verniciatura era solo una minoranza (es. RX013-A: H TOTALI 156,5 / H INT-VERN 49,5 = 32%), non il 100%
+implicito che risultava avendo `standard_reparto` una sola riga per articolo (`oreReparto()` in
+`capacityPlannerRepository.ts:24-42` normalizza sul totale delle righe *trovate*, non su un vero totale).
 
-**Conseguenza pratica**: `oreReparto()` (`capacityPlannerRepository.ts:24-42`) distribuisce le ore
-preventivate di una riga offerta proporzionalmente ai `media_ore` trovati in `standard_reparto` per
-quell'articolo — con una sola riga (Verniciatura), il 100% ci finisce sempre, per qualunque articolo,
-non solo per il caso RX013-A che ha fatto emergere il problema.
+**Correzione applicata**: nuovo script `scripts/importa-standard-altri-reparti.mjs`, eseguito una tantum
+sullo stesso CSV. Per ogni articolo: `resto = media(H TOTALI) - media(H INT-VERN)`; il resto (quando >0)
+viene ripartito con uno split fisso deciso dall'utente — **Falegnameria 40%, CNC 40%, Assemblaggio 10%,
+Sezionatura 10%** (Imballaggio e Cablaggi esclusi di proposito, non indicati). Verniciatura non è stata
+toccata (stesso valore di prima). `ON CONFLICT ... WHERE origine='stimato'`: non sovrascrive mai un
+consuntivo reale se nel frattempo `registraChiusuraOdp` ne avesse già scritto uno.
 
-**Come si autocorregge**: `registraChiusuraOdp` (`standardRepartoRepository.ts`) sostituisce di netto
-lo stimato con un consuntivo reale (`origine='consuntivo'`) alla prima chiusura di una Scheda per
-quell'articolo/reparto — quindi via via che la produzione chiude schede reali su reparti diversi da
-Verniciatura, quei reparti inizieranno a comparire da soli in `standard_reparto`, senza bisogno di un
-intervento manuale. Fino ad allora, il Previsionale sovrastima sistematicamente Verniciatura e ignora
-gli altri reparti per qualunque offerta con righe articolo.
+Risultato: 151 codici coperti (da 136), 120 con un resto effettivamente ripartito, 480 righe
+inserite. Verificato che per RX013-A la somma delle 5 righe torna esattamente a 156,5h (= H TOTALI
+originale) e che il Previsionale ora distribuisce le ore su tutti e 5 i reparti coinvolti invece che
+al 100% su Verniciatura. Resta comunque uno split fisso uguale per tutti gli articoli, non una stima
+per singolo articolo — `registraChiusuraOdp` lo raffinerà articolo per articolo via via che arrivano
+consuntivi reali, sostituendo di netto lo stimato (mai una media stimato/consuntivo).
 
 ### `parametri_reparto` non ha uno storico versionato
 
