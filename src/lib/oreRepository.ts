@@ -1,5 +1,6 @@
 import type { Pool, PoolClient } from "pg";
 import { pool } from "./db";
+import { aggiornaStandardRepartoPerOdp } from "./standardRepartoRepository";
 
 export type OreCategoria = "COMMESSA" | "SETUP" | "MANUTENZIONE" | "RIUNIONE" | "FORMAZIONE" | "PULIZIE";
 export type OreCausale = "P" | "T" | "M" | "C";
@@ -91,6 +92,7 @@ export async function upsertRegistrazione(entry: {
     [entry.data, entry.matricola, entry.cognome, entry.nome, entry.azienda, entry.reparto,
      entry.odp, categoria, entry.ore, entry.rif, entry.causale, entry.note, costoRif]
   );
+  void aggiornaStandardRepartoPerOdp(entry.odp);
   return mapRow(rows[0]);
 }
 
@@ -130,8 +132,9 @@ export async function aggiungiOreRegistrate(
 }
 
 export async function deleteRegistrazione(id: string): Promise<boolean> {
-  const { rowCount } = await pool.query(`DELETE FROM ore_registrate WHERE id = $1`, [id]);
-  return (rowCount ?? 0) > 0;
+  const { rows } = await pool.query(`DELETE FROM ore_registrate WHERE id = $1 RETURNING odp`, [id]);
+  if (rows[0]) void aggiornaStandardRepartoPerOdp(rows[0].odp);
+  return rows.length > 0;
 }
 
 export async function classificaCausale(id: string, causale: OreCausale): Promise<OreRegistrata> {
@@ -150,6 +153,7 @@ export async function correggiReparto(id: string, reparto: string): Promise<OreR
     `UPDATE ore_registrate SET reparto = $2 WHERE id = $1 RETURNING *`,
     [id, reparto]
   );
+  void aggiornaStandardRepartoPerOdp(rows[0].odp);
   return mapRow(rows[0]);
 }
 

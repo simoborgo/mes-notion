@@ -271,6 +271,50 @@ Postgres. Costruire una UI di riassegnazione solo se richiesta esplicitamente.
 
 ## Rilevamento Ore / Logistica
 
+### ~~Ore registrate dopo la chiusura di un ODP non aggiornavano standard_reparto~~ — fatto (2026-08-08)
+
+**Stato:** fatto. Segnalato dall'utente: un operatore può segnare ore la sera, il giorno dopo, o
+più tardi rispetto a quando la Scheda passa di stato — con il vecchio design (`registraChiusuraOdp`
+scattava una tantum al passaggio a "Completato") quelle ore restavano scritte in `ore_registrate`
+ma non venivano mai propagate a `standard_reparto`.
+
+Corretto scollegando del tutto `registraChiusuraOdp` dal cambio di stato Scheda: ora scatta (via
+`aggiornaStandardRepartoPerOdp`, `standardRepartoRepository.ts`) ad ogni scrittura di ore per un
+ODP — apertura/chiusura segmento tablet, registrazione diretta, correzione reparto, cancellazione
+— indipendentemente da quale sia lo stato della Scheda in quel momento. Risolve alla radice il
+problema, senza dover intercettare ogni punto che potrebbe cambiare lo stato (incluso il nuovo CRUD
+Schede). Idempotente per lo stesso odp (mai doppia contabilità, vedi commento in
+`standardRepartoRepository.ts`). Corretto anche un caso limite pre-esistente: se una correzione
+sposta ore da un reparto all'altro per lo stesso ODP, il reparto di partenza ora viene azzerato
+correttamente in `standard_reparto` (prima restava con il vecchio valore, mai ripulito).
+
+Testato in produzione con dati reali (ODP MP26-512/BV271): registrazione ore su Verniciatura →
+standard_reparto passa da stimato a consuntivo correttamente; correzione reparto verso Imballaggio
+→ Verniciatura azzerato (riga rimossa) e Imballaggio valorizzato; il trigger ha anche recuperato
+4,8h reali già presenti su Cablaggi per lo stesso ODP, mai propagate prima con il vecchio design.
+
+Collegata: `getOdpAttivi()` (`src/lib/notion.ts`) filtrava solo `statoProduzione === "In lavorazione"`,
+bloccando la selezione di un ODP per la registrazione ore appena la Scheda avanzava a "Materiale
+Pronto"/"Verificato"/"Completato" — motivo diretto per cui l'utente non riusciva più ad aggiungere
+ore. Corretto nello stesso intervento: ora esclude solo "Annullata".
+
+### Tabella `articoli` non copre tutti i codici delle Schede attive — blocca standard_reparto e Offerte
+
+**Stato:** scoperto testando la correzione sopra (2026-08-08), non ancora affrontato
+
+Verificato: su 58 codici articolo distinti presenti negli ODP attivi (Schede non "Annullata"), solo
+**6** esistono nella tabella Postgres `articoli`. Conseguenze concrete:
+- `registraChiusuraOdp` scarta silenziosamente (solo un `console.warn`) la registrazione storico per
+  qualunque ODP il cui Codice Art. non sia in `articoli` — quindi per la stragrande maggioranza degli
+  ODP attivi oggi, le ore registrate non contribuiscono affatto a `standard_reparto`, indipendentemente
+  dal fix sopra.
+- `offerte_righe.codice_articolo REFERENCES articoli(codice_articolo)` — impossibile aggiungere una
+  riga d'offerta per uno di questi codici finché non è presente in `articoli`.
+
+Da capire con l'utente: `articoli` da dove viene popolata oggi, se è un import storico mai aggiornato
+con i codici delle commesse più recenti, e come tenerla sincronizzata (import periodico da Notion? da
+un'altra fonte OS1 come per Ferramenta?).
+
 ### Notifiche email aggregate per fornitore (rilavorazioni da programmare)
 
 **Stato:** rimandata esplicitamente dall'utente, non implementare finché non richiesta

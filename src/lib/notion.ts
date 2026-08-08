@@ -534,6 +534,18 @@ export async function getOdpAttivi(): Promise<OdpAttivo[]> {
   return [...attivi, ...speciali];
 }
 
+// Risolve il Codice Art. di un ODP per aggiornare standard_reparto ad ogni scrittura di ore
+// (vedi standardRepartoRepository.ts) — usa la cache in-memory di getSchede(), quasi sempre
+// una lettura da cache, non una vera chiamata Notion ad ogni registrazione. Se l'odp è
+// condiviso da più Schede (padre + sottoschede, ognuna col proprio Codice Art.), prende la
+// prima trovata — stessa approssimazione già accettata in getOdpAttivi() per lo stesso motivo:
+// ore_registrate non distingue su quale sotto-elemento di un ODP ricadano le ore.
+export async function getCodiceArticoloPerOdp(odp: string): Promise<string | null> {
+  const schede = await getSchede();
+  const trovata = schede.find(s => s.odp === odp);
+  return trovata?.codiceArticolo || null;
+}
+
 export const getFornitoriList = unstable_cache(
   async (): Promise<{ id: string; nome: string; codiceOs1: string }[]> => {
     const pages = await queryAll(DB_FORNITORI, undefined, [{ property: "Nome", direction: "ascending" }]);

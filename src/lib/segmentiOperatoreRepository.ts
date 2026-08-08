@@ -1,6 +1,7 @@
 import type { PoolClient } from "pg";
 import { pool } from "./db";
 import { aggiungiOreRegistrate } from "./oreRepository";
+import { aggiornaStandardRepartoPerOdp } from "./standardRepartoRepository";
 
 // Oltre questa soglia un segmento aperto è quasi certamente stato dimenticato (tablet spento,
 // operatore andato via senza premere "Ho finito per oggi") — si chiude comunque ma si marca
@@ -99,15 +100,17 @@ interface DatiOperatore {
 // garantito dall'indice univoco parziale su ore_segmenti_odp(matricola) WHERE chiuso_alle IS NULL.
 export async function apriSegmento(op: DatiOperatore, odp: string, rif: boolean): Promise<Segmento> {
   const client = await pool.connect();
+  let odpChiuso: string | null;
   try {
     await client.query("BEGIN");
-    await chiudiSegmentoInterno(client, op);
+    odpChiuso = await chiudiSegmentoInterno(client, op);
     const oggi = formatData(new Date());
     const { rows } = await client.query(
       `INSERT INTO ore_segmenti_odp (matricola, data, odp, rif) VALUES ($1, $2, $3, $4) RETURNING *`,
       [op.matricola, oggi, odp, rif]
     );
     await client.query("COMMIT");
+    if (odpChiuso) void aggiornaStandardRepartoPerOdp(odpChiuso);
     return mapRow(rows[0]);
   } catch (e) {
     await client.query("ROLLBACK");
@@ -126,8 +129,9 @@ export async function chiudiSegmentoCorrente(op: DatiOperatore, chiusoAlle?: Dat
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    await chiudiSegmentoInterno(client, op, chiusoAlle);
+    const odpChiuso = await chiudiSegmentoInterno(client, op, chiusoAlle);
     await client.query("COMMIT");
+    if (odpChiuso) void aggiornaStandardRepartoPerOdp(odpChiuso);
   } catch (e) {
     await client.query("ROLLBACK");
     throw e;
@@ -136,12 +140,15 @@ export async function chiudiSegmentoCorrente(op: DatiOperatore, chiusoAlle?: Dat
   }
 }
 
-async function chiudiSegmentoInterno(client: PoolClient, op: DatiOperatore, chiusoAlle?: Date): Promise<void> {
+// Ritorna l'odp del segmento chiuso (per far scattare aggiornaStandardRepartoPerOdp DOPO il
+// commit della transazione — mai dentro, altrimenti il ricalcolo partirebbe su una connessione
+// separata prima che le ore appena scritte siano visibili), o null se non c'era nulla da chiudere.
+async function chiudiSegmentoInterno(client: PoolClient, op: DatiOperatore, chiusoAlle?: Date): Promise<string | null> {
   const { rows } = await client.query(
     `SELECT * FROM ore_segmenti_odp WHERE matricola = $1 AND chiuso_alle IS NULL FOR UPDATE`,
     [op.matricola]
   );
-  if (rows.length === 0) return;
+  if (rows.length === 0) return null;
   const aperto = rows[0];
   const iniziatoAlle: Date = aperto.iniziato_alle;
   const dataSegmento = aperto.data instanceof Date ? formatData(aperto.data) : aperto.data;
@@ -183,4 +190,6 @@ async function chiudiSegmentoInterno(client: PoolClient, op: DatiOperatore, chiu
       rif: aperto.rif,
     }, client);
   }
+
+  return aperto.odp as string;
 }
