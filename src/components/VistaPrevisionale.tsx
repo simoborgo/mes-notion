@@ -19,6 +19,18 @@ interface RigaAggregata {
   basatoSuStima: boolean;
 }
 
+interface RigaTotaleAzienda {
+  mese: string;
+  capacitaOrdinaria: number;
+  capacitaConStraordinari: number;
+  oreRichieste: number;
+  oreSforate: number;
+  oreStraordinarioNecessarie: number;
+  oreEsterneNecessarie: number;
+  numeroEsterniNecessari: number | null;
+  costoStimato: number | null;
+}
+
 interface RigaManuale {
   offertaId: string;
   cliente: string;
@@ -36,6 +48,7 @@ interface OffertaEsclusa {
 
 interface Risultato {
   righe: RigaAggregata[];
+  totaliAzienda: RigaTotaleAzienda[];
   richiedonoInputManuale: RigaManuale[];
   offerteEscluse: OffertaEsclusa[];
 }
@@ -87,35 +100,10 @@ export default function VistaPrevisionale({
   const perCella = new Map<string, RigaAggregata>();
   for (const r of risultato.righe) perCella.set(`${r.reparto}|${r.mese}`, r);
 
-  interface TotaliMese {
-    capacitaOrdinaria: number;
-    capacitaConStraordinari: number;
-    oreRichieste: number;
-    oreSforate: number;
-    oreStraordinarioNecessarie: number;
-    oreEsterneNecessarie: number;
-    numeroEsterniNecessari: number;
-    costoStimato: number;
-  }
-  const totaliMese = new Map<string, TotaliMese>();
-  for (const m of mesiOrizzonte) {
-    const t: TotaliMese = { capacitaOrdinaria: 0, capacitaConStraordinari: 0, oreRichieste: 0, oreSforate: 0, oreStraordinarioNecessarie: 0, oreEsterneNecessarie: 0, numeroEsterniNecessari: 0, costoStimato: 0 };
-    for (const rep of reparti) {
-      const c = perCella.get(`${rep}|${m}`);
-      if (!c) continue;
-      t.capacitaOrdinaria += c.capacitaOrdinaria;
-      t.capacitaConStraordinari += c.capacitaConStraordinari;
-      t.oreRichieste += c.oreRichieste;
-      t.oreSforate += c.oreSforate;
-      t.oreStraordinarioNecessarie += c.oreStraordinarioNecessarie;
-      t.oreEsterneNecessarie += c.oreEsterneNecessarie;
-      if (c.numeroEsterniNecessari != null) t.numeroEsterniNecessari += c.numeroEsterniNecessari;
-      if (c.costoStimato != null) t.costoStimato += c.costoStimato;
-    }
-    totaliMese.set(m, t);
-  }
+  const totaliMese = new Map<string, RigaTotaleAzienda>();
+  for (const t of risultato.totaliAzienda) totaliMese.set(t.mese, t);
 
-  const righeMetriche: { label: string; get: (t: TotaliMese) => number; unita: "h" | "€" | "persone"; enfasi?: boolean }[] = [
+  const righeMetriche: { label: string; get: (t: RigaTotaleAzienda) => number | null; unita: "h" | "€" | "persone"; enfasi?: boolean }[] = [
     { label: "Ore richieste", get: t => t.oreRichieste, unita: "h" },
     { label: "Capacità ordinaria", get: t => t.capacitaOrdinaria, unita: "h" },
     { label: "Capacità con straordinari", get: t => t.capacitaConStraordinari, unita: "h" },
@@ -170,7 +158,7 @@ export default function VistaPrevisionale({
                     {mesiOrizzonte.map(m => {
                       const t = totaliMese.get(m)!;
                       const v = rm.get(t);
-                      if (v <= 0) return <td key={m} className="text-center px-2 py-2 text-xs" style={{ color: "#d1d5db" }}>—</td>;
+                      if (v == null || v <= 0) return <td key={m} className="text-center px-2 py-2 text-xs" style={{ color: "#d1d5db" }}>—</td>;
                       let colore = "var(--color-black)";
                       if (richiesteRow) colore = t.oreRichieste <= t.capacitaConStraordinari ? "#166534" : "#991B1B";
                       else if (rm.enfasi) colore = "#991B1B";
@@ -187,9 +175,10 @@ export default function VistaPrevisionale({
           </table>
         </div>
         <p className="text-xs mt-1" style={{ color: "var(--color-grey-mid)" }}>
-          Le ore sforate sono la somma dello sforo di ciascun reparto preso singolarmente, non richieste totali meno capacità totale:
-          un reparto con ore libere non copre un altro in sofferenza (persone diverse, competenze diverse) — il totale può quindi
-          risultare alto anche se le ore richieste nel complesso sono sotto la capacità ordinaria complessiva.
+          Azienda trattata come un unico reparto: capacità e ore richieste sono sommate su tutti i
+          reparti prima di calcolare sforo/straordinario/esterne, non dopo — utile come indicatore
+          d&apos;insieme finché i dati per-reparto restano approssimativi. Per il dettaglio per reparto vedi
+          la tabella sotto.
         </p>
       </div>
 

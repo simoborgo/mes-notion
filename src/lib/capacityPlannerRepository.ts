@@ -134,8 +134,28 @@ export interface OffertaEsclusaPrevisionale {
   motivo: string;
 }
 
+// Vista Generale come pool unico (deciso con l'utente 2026-08-08): finché i dati per-reparto
+// restano approssimativi (split stimato uguale per tutti gli articoli su standard_reparto,
+// alcuni reparti a 0 persone in parametri_reparto), la somma degli sfori calcolati reparto per
+// reparto può risultare fuorviante — un reparto con ore libere non copre uno in sofferenza, quindi
+// il totale "sforo" può essere alto anche se le ore richieste nel complesso sono sotto la
+// capacità ordinaria complessiva. Questa riga tratta l'azienda come un unico reparto: capacità
+// e richieste sommate PRIMA di calcolare sfora/straordinario/esterne, non dopo.
+export interface RigaTotaleAzienda {
+  mese: string;
+  capacitaOrdinaria: number;
+  capacitaConStraordinari: number;
+  oreRichieste: number;
+  oreSforate: number;
+  oreStraordinarioNecessarie: number;
+  oreEsterneNecessarie: number;
+  numeroEsterniNecessari: number | null;
+  costoStimato: number | null;
+}
+
 export interface RisultatoPrevisionale {
   righe: RigaAggregataPrevisionale[];
+  totaliAzienda: RigaTotaleAzienda[];
   richiedonoInputManuale: RigaManualePrevisionale[];
   offerteEscluse: OffertaEsclusaPrevisionale[];
 }
@@ -226,6 +246,7 @@ export async function calcolaPrevisionale(filtro: FiltroPrevisionale, mesiOrizzo
   }
 
   const righeAggregate: RigaAggregataPrevisionale[] = [];
+  const totaliPerMese = new Map<string, { capacitaOrdinaria: number; capacitaConStraordinari: number; oreRichieste: number }>();
   for (const reparto of REPARTI_PRODUZIONE) {
     const par = parametriPerReparto.get(reparto);
     for (const mese of mesiOrizzonte) {
@@ -244,7 +265,55 @@ export async function calcolaPrevisionale(filtro: FiltroPrevisionale, mesiOrizzo
       const costoStimato = par?.tariffaEsternaEurH != null ? oreEsterneNecessarie * par.tariffaEsternaEurH : null;
       const basatoSuStima = stimaPerRepartoMese.get(reparto)?.has(mese) ?? false;
       righeAggregate.push({ reparto, mese, capacitaOrdinaria, capacitaConStraordinari, oreRichieste, delta, oreSforate, oreStraordinarioNecessarie, oreEsterneNecessarie, numeroEsterniNecessari, costoStimato, basatoSuStima });
+
+      let tot = totaliPerMese.get(mese);
+      if (!tot) { tot = { capacitaOrdinaria: 0, capacitaConStraordinari: 0, oreRichieste: 0 }; totaliPerMese.set(mese, tot); }
+      tot.capacitaOrdinaria += capacitaOrdinaria;
+      tot.capacitaConStraordinari += capacitaConStraordinari;
+      tot.oreRichieste += oreRichieste;
     }
   }
-  return { righe: righeAggregate, richiedonoInputManuale, offerteEscluse };
+
+  // Margine/tariffa/ore-giorno esterno non hanno un equivalente "azienda" in parametri_reparto
+  // (sono per-reparto) — media pesata per n_persone, coerente con l'idea di trattare l'azienda
+  // come un unico reparto di dimensione pari alla somma degli organici.
+  let pesoTot = 0, margineP = 0, tariffaPesoTot = 0, tariffaP = 0, oreEsternoPesoTot = 0, oreEsternoP = 0;
+  for (const reparto of REPARTI_PRODUZIONE) {
+    const par = parametriPerReparto.get(reparto);
+    const peso = par?.nPersone ?? 0;
+    if (peso <= 0) continue;
+    pesoTot += peso;
+    margineP += peso * (par?.margineSicurezzaEsterni ?? 0);
+    if (par?.tariffaEsternaEurH != null) { tariffaPesoTot += peso; tariffaP += peso * par.tariffaEsternaEurH; }
+    if (par?.oreGiornoEsterno != null) { oreEsternoPesoTot += peso; oreEsternoP += peso * par.oreGiornoEsterno; }
+  }
+  const margineMedio = pesoTot > 0 ? margineP / pesoTot : 0;
+  const tariffaMedia = tariffaPesoTot > 0 ? tariffaP / tariffaPesoTot : null;
+  const oreGiornoEsternoMedio = oreEsternoPesoTot > 0 ? oreEsternoP / oreEsternoPesoTot : null;
+
+  const totaliAzienda: RigaTotaleAzienda[] = mesiOrizzonte.map(mese => {
+    const [anno, meseNum] = mese.split("-").map(Number);
+    const giorniMese = giorniLavorativiMese(anno, meseNum);
+    const tot = totaliPerMese.get(mese) ?? { capacitaOrdinaria: 0, capacitaConStraordinari: 0, oreRichieste: 0 };
+    const oreSforate = Math.max(0, tot.oreRichieste - tot.capacitaOrdinaria);
+    const oreStraordinarioNecessarie = Math.min(oreSforate, tot.capacitaConStraordinari - tot.capacitaOrdinaria);
+    const oreEsterneBase = Math.max(0, tot.oreRichieste - tot.capacitaConStraordinari);
+    const oreEsterneNecessarie = oreEsterneBase * (1 + margineMedio / 100);
+    const oreMensiliPerEsterno = oreGiornoEsternoMedio != null ? oreGiornoEsternoMedio * giorniMese : null;
+    const numeroEsterniNecessari = oreMensiliPerEsterno != null && oreMensiliPerEsterno > 0 ? oreEsterneNecessarie / oreMensiliPerEsterno : null;
+    const costoStimato = tariffaMedia != null ? oreEsterneNecessarie * tariffaMedia : null;
+    return {
+      mese,
+      capacitaOrdinaria: tot.capacitaOrdinaria,
+      capacitaConStraordinari: tot.capacitaConStraordinari,
+      oreRichieste: tot.oreRichieste,
+      oreSforate,
+      oreStraordinarioNecessarie,
+      oreEsterneNecessarie,
+      numeroEsterniNecessari,
+      costoStimato,
+    };
+  });
+
+  return { righe: righeAggregate, totaliAzienda, richiedonoInputManuale, offerteEscluse };
 }
