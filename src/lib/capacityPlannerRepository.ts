@@ -109,6 +109,7 @@ export interface RigaAggregataPrevisionale {
   oreSforate: number; // eccesso di oreRichieste sulla sola capacitaOrdinaria, 0 se non si sfora
   oreStraordinarioNecessarie: number; // quota di oreSforate coperta dallo straordinario, fino al tetto pctStraordinariMax
   oreEsterneNecessarie: number; // già comprensivo del margine di sicurezza
+  numeroEsterniNecessari: number | null; // oreEsterneNecessarie / (ore_giorno_esterno * giorni lavorativi del mese) — null se ore_giorno_esterno non impostato
   costoStimato: number | null; // null se tariffa_esterna_eur_h non impostata
   basatoSuStima: boolean; // almeno una delle offerte che contribuiscono a questa cella usa standard_reparto 'stimato'
 }
@@ -238,9 +239,11 @@ export async function calcolaPrevisionale(filtro: FiltroPrevisionale, mesiOrizzo
       const oreStraordinarioNecessarie = Math.min(oreSforate, capacitaConStraordinari - capacitaOrdinaria);
       const oreEsterneBase = Math.max(0, oreRichieste - capacitaConStraordinari);
       const oreEsterneNecessarie = oreEsterneBase * (1 + (par?.margineSicurezzaEsterni ?? 0) / 100);
+      const oreMensiliPerEsterno = par?.oreGiornoEsterno != null ? par.oreGiornoEsterno * giorniMese : null;
+      const numeroEsterniNecessari = oreMensiliPerEsterno != null && oreMensiliPerEsterno > 0 ? oreEsterneNecessarie / oreMensiliPerEsterno : null;
       const costoStimato = par?.tariffaEsternaEurH != null ? oreEsterneNecessarie * par.tariffaEsternaEurH : null;
       const basatoSuStima = stimaPerRepartoMese.get(reparto)?.has(mese) ?? false;
-      righeAggregate.push({ reparto, mese, capacitaOrdinaria, capacitaConStraordinari, oreRichieste, delta, oreSforate, oreStraordinarioNecessarie, oreEsterneNecessarie, costoStimato, basatoSuStima });
+      righeAggregate.push({ reparto, mese, capacitaOrdinaria, capacitaConStraordinari, oreRichieste, delta, oreSforate, oreStraordinarioNecessarie, oreEsterneNecessarie, numeroEsterniNecessari, costoStimato, basatoSuStima });
     }
   }
   return { righe: righeAggregate, richiedonoInputManuale, offerteEscluse };

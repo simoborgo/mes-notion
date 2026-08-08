@@ -14,6 +14,7 @@ interface RigaAggregata {
   oreSforate: number;
   oreStraordinarioNecessarie: number;
   oreEsterneNecessarie: number;
+  numeroEsterniNecessari: number | null;
   costoStimato: number | null;
   basatoSuStima: boolean;
 }
@@ -93,11 +94,12 @@ export default function VistaPrevisionale({
     oreSforate: number;
     oreStraordinarioNecessarie: number;
     oreEsterneNecessarie: number;
+    numeroEsterniNecessari: number;
     costoStimato: number;
   }
   const totaliMese = new Map<string, TotaliMese>();
   for (const m of mesiOrizzonte) {
-    const t: TotaliMese = { capacitaOrdinaria: 0, capacitaConStraordinari: 0, oreRichieste: 0, oreSforate: 0, oreStraordinarioNecessarie: 0, oreEsterneNecessarie: 0, costoStimato: 0 };
+    const t: TotaliMese = { capacitaOrdinaria: 0, capacitaConStraordinari: 0, oreRichieste: 0, oreSforate: 0, oreStraordinarioNecessarie: 0, oreEsterneNecessarie: 0, numeroEsterniNecessari: 0, costoStimato: 0 };
     for (const rep of reparti) {
       const c = perCella.get(`${rep}|${m}`);
       if (!c) continue;
@@ -107,18 +109,20 @@ export default function VistaPrevisionale({
       t.oreSforate += c.oreSforate;
       t.oreStraordinarioNecessarie += c.oreStraordinarioNecessarie;
       t.oreEsterneNecessarie += c.oreEsterneNecessarie;
+      if (c.numeroEsterniNecessari != null) t.numeroEsterniNecessari += c.numeroEsterniNecessari;
       if (c.costoStimato != null) t.costoStimato += c.costoStimato;
     }
     totaliMese.set(m, t);
   }
 
-  const righeMetriche: { label: string; get: (t: TotaliMese) => number; unita: "h" | "€"; enfasi?: boolean }[] = [
+  const righeMetriche: { label: string; get: (t: TotaliMese) => number; unita: "h" | "€" | "persone"; enfasi?: boolean }[] = [
     { label: "Ore richieste", get: t => t.oreRichieste, unita: "h" },
     { label: "Capacità ordinaria", get: t => t.capacitaOrdinaria, unita: "h" },
     { label: "Capacità con straordinari", get: t => t.capacitaConStraordinari, unita: "h" },
     { label: "Ore sforate", get: t => t.oreSforate, unita: "h", enfasi: true },
     { label: "→ di cui straordinario necessario", get: t => t.oreStraordinarioNecessarie, unita: "h" },
     { label: "→ di cui ore esterne necessarie", get: t => t.oreEsterneNecessarie, unita: "h", enfasi: true },
+    { label: "Numero esterni necessari", get: t => t.numeroEsterniNecessari, unita: "persone", enfasi: true },
     { label: "Costo esterni stimato", get: t => t.costoStimato, unita: "€", enfasi: true },
   ];
 
@@ -172,7 +176,7 @@ export default function VistaPrevisionale({
                       else if (rm.enfasi) colore = "#991B1B";
                       return (
                         <td key={m} className="text-center px-2 py-2 whitespace-nowrap tabular-nums" style={{ fontWeight: rm.enfasi || richiesteRow ? 600 : 400, color: colore }}>
-                          {rm.unita === "€" ? `€${round(v)}` : `${round(v)}h`}
+                          {rm.unita === "€" ? `€${round(v)}` : rm.unita === "persone" ? round(v) : `${round(v)}h`}
                         </td>
                       );
                     })}
@@ -182,6 +186,11 @@ export default function VistaPrevisionale({
             </tbody>
           </table>
         </div>
+        <p className="text-xs mt-1" style={{ color: "var(--color-grey-mid)" }}>
+          Le ore sforate sono la somma dello sforo di ciascun reparto preso singolarmente, non richieste totali meno capacità totale:
+          un reparto con ore libere non copre un altro in sofferenza (persone diverse, competenze diverse) — il totale può quindi
+          risultare alto anche se le ore richieste nel complesso sono sotto la capacità ordinaria complessiva.
+        </p>
       </div>
 
       <div>
