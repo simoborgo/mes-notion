@@ -48,3 +48,8 @@ next-env.d.ts
 
 # CSV di import una tantum in root (dati fornitori/prezzi, non da versionare)
 /*.csv
+INVENTARIO 30.06.2026 - Anagrafica collanti - ferramenta - mat/Collanti-Tabella 1.csv
+INVENTARIO 30.06.2026 - Anagrafica collanti - ferramenta - mat/Ferramenta-Tabella 1.csv
+INVENTARIO 30.06.2026 - Anagrafica collanti - ferramenta - mat/INVENTARIO MP 30.06.2026-Tabella 1.csv
+INVENTARIO 30.06.2026 - Anagrafica collanti - ferramenta - mat/Materiale vario di consumo-Tabella 1.csv
+INVENTARIO 30.06.2026 - Anagrafica collanti - ferramenta - mat/ULTIMI ACQUISTI-Tabella 1.csv
