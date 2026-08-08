@@ -64,19 +64,7 @@ export default function TabellaOperatoriReadOnly({ operatori }: { operatori: Ope
       <div className="flex flex-wrap gap-2">
         {perReparto.map(([reparto, c]) => (
           <div key={reparto} className="rounded-lg px-2.5 py-1.5 text-xs font-medium" style={{ background: "#F5F2EE", color: "var(--color-black)" }}>
-            {reparto}: {c.totale}
-          </div>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        {perReparto.map(([reparto, c]) => (
-          <div key={reparto} className="rounded-lg px-2.5 py-1.5 text-xs font-medium" style={{ background: "#F5F2EE", color: "var(--color-grey-mid)" }}>
-            <span style={{ color: "var(--color-black)" }}>{reparto}</span>
-            {" — "}
-            <span style={{ color: "#1D4ED8" }}>{c.interni} int.</span>
-            {" · "}
-            <span style={{ color: "#92400E" }}>{c.esterni} est.</span>
+            {reparto}: {c.totale} <span style={{ color: "var(--color-grey-mid)" }}>({c.interni} int - {c.esterni} est)</span>
           </div>
         ))}
       </div>
