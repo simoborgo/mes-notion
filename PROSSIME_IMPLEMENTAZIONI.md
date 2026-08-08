@@ -322,6 +322,43 @@ apriranno sempre un nuovo ODP invece di riaprire il vecchio — si potrà valuta
 il filtro sulla Scheda (oggi include "Completato" apposta). Non prima, altrimenti si ricade nel
 blocco già risolto in questa sessione.
 
+### ~~Storico Ore per Commessa + restyle tab Rilevamento Ore~~ — fatto (2026-08-08)
+
+**Stato:** fatto. L'utente ha notato che la Dashboard KPI raggruppa ore solo per ODP/operatore/
+causale/reparto — mai per Commessa: se una Commessa ha più Aree/Schede con ODP diversi, oggi si
+vedono come righe separate, mai un totale unico.
+
+Nuova vista dedicata (non integrata nella Dashboard KPI esistente, stesso pattern già usato per
+"Storico ODP"): `/ore/storico-commessa` — selezioni una Commessa, vedi ore totali/rifacimento/costo,
+ripartizione **per Codice Articolo** e per operatore. Le Schede della Commessa senza Codice Articolo
+non confluiscono in un unico bucket "NON CLASSIFICATO" opaco: restano voci separate, una per Scheda,
+etichettate con il proprio Numero Scheda (es. "NON CLASSIFICATO — WINDOW SCREEN"), evidenziate in
+ambra — così restano distinguibili l'una dall'altra invece di sparire in un totale indistinto.
+
+Emerso durante la progettazione: il bisogno dell'utente di ODP legati a una Commessa ma trasversali
+a più prodotti (es. "cablaggio generale alimentatori") è già coperto dal CRUD Schede esistente —
+basta creare una Scheda vera sotto la Commessa, Codice Articolo vuoto, Numero Scheda descrittivo —
+nessun nuovo meccanismo introdotto. Verificato inoltre che la ricerca ODP in Rilevamento Ore
+(`OdpAutocomplete.tsx`) filtra già anche sul Numero Scheda, quindi un operatore può cercare per testo
+descrittivo ("cablaggio") invece di dover ricordare un codice ODP numerico — nessuno schema di
+numerazione parallelo legato alla commessa è stato aggiunto (avrebbe snaturato il significato
+dell'ODP).
+
+Backend: `getStoricoOdps(odps[])` (`oreRepository.ts`), nuova route
+`GET /api/ore/storico-commessa?commessaId=` che incrocia `getSchedeByCommessa` (Notion) con le ore
+Postgres. Frontend: `VistaStoricoCommessa.tsx` (ricerca/selezione Commessa, stesso pattern di
+`DettaglioOfferta.tsx`), pagina `ore/storico-commessa`. `OreSubNav.tsx` ridisegnata con lo stesso
+stile "segmented control" del Previsionale (sfondo `#F5F2EE`, tab attiva piena arancione) al posto
+del vecchio sottile bordo inferiore.
+
+Verificato: `tsc --noEmit` ed eslint puliti su tutti i file toccati; logica di aggregazione
+verificata direttamente contro dati reali (Postgres + Notion via query dirette, bypassando l'app)
+su una Commessa con 37 Schede/ODP — somma per-articolo (181,4h) coincide esattamente con la somma
+diretta delle voci ore_registrate, e le voci NON CLASSIFICATO restano correttamente separate per
+Scheda (WINDOW SCREEN 78,5h, Vitrine showcase 39,5h, ecc.), non accorpate. Non creata Scheda di test
+end-to-end via UI (nessuna credenziale di sessione disponibile in questo ambiente per autenticarsi
+all'app) — verifica fatta a livello di dati/logica, non di click-through browser.
+
 ### ~~CRUD Personale nella tab Parametri Reparto~~ — fatto (2026-08-08)
 
 **Stato:** fatto. Prima era solo visualizzazione (deciso così esplicitamente qualche ora prima nella

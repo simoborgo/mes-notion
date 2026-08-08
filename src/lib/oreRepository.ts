@@ -193,6 +193,15 @@ export async function getStoricoOdp(odp: string): Promise<OreRegistrata[]> {
   return rows.map(mapRow);
 }
 
+export async function getStoricoOdps(odps: string[]): Promise<OreRegistrata[]> {
+  if (odps.length === 0) return [];
+  const { rows } = await pool.query(
+    `SELECT * FROM ore_registrate WHERE odp = ANY($1) ORDER BY data, cognome`,
+    [odps]
+  );
+  return rows.map(mapRow);
+}
+
 export async function getStoricoOperatore(matricola: string, da?: string, a?: string): Promise<OreRegistrata[]> {
   const conditions = ["matricola = $1"];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
