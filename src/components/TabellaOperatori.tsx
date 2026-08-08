@@ -16,18 +16,21 @@ export default function TabellaOperatori({ operatoriIniziali }: { operatoriInizi
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [erroreToggle, setErroreToggle] = useState("");
 
-  const interni = operatori.filter(o => o.tipo === "Modar").length;
-  const esterni = operatori.filter(o => o.tipo === "Esterno").length;
   const inForza = operatori.filter(o => o.inForza).length;
+  const interni = operatori.filter(o => o.inForza && o.tipo === "Modar").length;
+  const esterni = operatori.filter(o => o.inForza && o.tipo === "Esterno").length;
 
   const repartiSuggeriti = useMemo(() => [...new Set(operatori.map(o => o.reparto).filter(Boolean))].sort(), [operatori]);
   const aziendeSuggerite = useMemo(() => [...new Set(operatori.map(o => o.azienda).filter(Boolean))].sort(), [operatori]);
 
-  // Riepilogo per reparto (sempre sul totale, non sui filtri di ricerca/in forza sotto —
-  // stessa logica dei badge Totale/In forza/Interni/Esterni) — ordinato dal reparto più numeroso.
+  // Riepilogo per reparto: solo operatori in forza (coerente con Interni/Esterni sopra) — un
+  // disattivato storico non deve gonfiare il conteggio di reparto usato per la pianificazione
+  // capacità. "Totale" resta l'unico badge sull'intera anagrafica, disattivati compresi.
+  // Ordinato dal reparto più numeroso.
   const perReparto = useMemo(() => {
     const map = new Map<string, { totale: number; interni: number; esterni: number }>();
     for (const o of operatori) {
+      if (!o.inForza) continue;
       const rep = o.reparto || "Non specificato";
       const cur = map.get(rep) ?? { totale: 0, interni: 0, esterni: 0 };
       cur.totale++;
@@ -109,6 +112,7 @@ export default function TabellaOperatori({ operatoriIniziali }: { operatoriInizi
         </div>
       </div>
 
+      <p className="text-xs font-medium" style={{ color: "var(--color-grey-mid)" }}>Per reparto (solo in forza):</p>
       <div className="flex flex-wrap gap-2">
         {perReparto.map(([reparto, c]) => (
           <div key={reparto} className="rounded-lg px-2.5 py-1.5 text-sm font-medium" style={{ background: "#F5F2EE", color: "var(--color-black)" }}>
