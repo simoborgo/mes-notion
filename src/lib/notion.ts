@@ -495,8 +495,13 @@ const ODP_SPECIALI: { prefix: string; label: string }[] = [
   { prefix: "PUL", label: "Pulizie" },
 ];
 
-// ODP attivi (Schede in stato "In lavorazione" — casing esatto come su Notion) + codici speciali indiretti,
-// per l'autocomplete di Rilevamento Ore
+// ODP attivi per l'autocomplete di Rilevamento Ore + codici speciali indiretti. Esclude solo
+// "Annullata" (nessun lavoro reale da registrare) — inclusi deliberatamente anche "Completato" e
+// gli altri stati non "In lavorazione" (Materiale Pronto, Verificato, ecc.): un operatore può
+// dover segnare ore su un ODP la sera, il giorno dopo o più tardi, quando la Scheda è già
+// avanzata di stato — filtrare solo su "In lavorazione" bloccava proprio questo caso reale
+// (segnalato dall'utente 2026-08-08). registraChiusuraOdp/standard_reparto restano da rivedere
+// separatamente per riflettere ore registrate dopo la chiusura (vedi PROSSIME_IMPLEMENTAZIONI.md).
 export async function getOdpAttivi(): Promise<OdpAttivo[]> {
   const schede = await getSchede();
   // dedup per ODP: lo stesso testo ODP può comparire su più Schede quando ci sono
@@ -505,7 +510,7 @@ export async function getOdpAttivi(): Promise<OdpAttivo[]> {
   // la prima occorrenza per evitare key React duplicate
   const vistiOdp = new Set<string>();
   const attivi: OdpAttivo[] = schede
-    .filter(s => s.statoProduzione === "In lavorazione" && s.odp)
+    .filter(s => s.statoProduzione !== "Annullata" && s.odp)
     .filter(s => {
       if (vistiOdp.has(s.odp)) return false;
       vistiOdp.add(s.odp);
