@@ -22,7 +22,7 @@ export default function ListaOfferte({ offerte }: { offerte: Offerta[] }) {
 
       <div className="rounded-xl border overflow-hidden" style={{ borderColor: "#e5e4e0" }}>
         {offerte.length === 0 ? (
-          <p className="text-sm text-center py-8" style={{ color: "var(--color-grey-mid)" }}>Nessuna offerta</p>
+          <p className="text-base text-center py-8" style={{ color: "var(--color-grey-mid)" }}>Nessuna offerta</p>
         ) : (
           offerte.map(o => {
             const badge = STATO_BADGE[o.stato];
@@ -34,12 +34,12 @@ export default function ListaOfferte({ offerte }: { offerte: Offerta[] }) {
                 style={{ borderColor: "#f0ece5" }}
               >
                 <div className="min-w-0">
-                  <p className="font-semibold text-sm truncate" style={{ color: "var(--color-black)" }}>{o.cliente}</p>
-                  <p className="text-xs" style={{ color: "var(--color-grey-mid)" }}>
+                  <p className="font-semibold text-base truncate" style={{ color: "var(--color-black)" }}>{o.cliente}</p>
+                  <p className="text-sm" style={{ color: "var(--color-grey-mid)" }}>
                     {fmtData(o.dataOfferta)}{o.valoreCommessa != null ? ` · €${o.valoreCommessa.toLocaleString("it-IT")}` : ""} · {o.probabilitaChiusura}% probabilità
                   </p>
                 </div>
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: badge.bg, color: badge.color }}>
+                <span className="text-sm font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: badge.bg, color: badge.color }}>
                   {o.stato}
                 </span>
               </Link>

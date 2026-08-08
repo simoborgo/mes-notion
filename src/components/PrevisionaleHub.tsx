@@ -36,15 +36,15 @@ export default function PrevisionaleHub({
 
   return (
     <div className="space-y-5">
-      <div className="flex gap-1 border-b" style={{ borderColor: "#e5e4e0" }}>
+      <div className="inline-flex gap-1 p-1 rounded-xl flex-wrap" style={{ background: "#F5F2EE" }}>
         {TABS.map(t => (
           <button
             key={t.value}
             onClick={() => setTab(t.value)}
-            className="px-4 py-2.5 text-sm font-semibold -mb-px border-b-2 transition-colors"
+            className="px-5 py-2.5 text-base font-semibold rounded-lg transition-all"
             style={tab === t.value
-              ? { borderColor: "var(--color-primary)", color: "var(--color-primary)" }
-              : { borderColor: "transparent", color: "var(--color-grey-mid)" }}
+              ? { background: "var(--color-primary)", color: "white", boxShadow: "0 1px 4px rgba(0,0,0,0.18)" }
+              : { background: "transparent", color: "var(--color-grey-mid)" }}
           >
             {t.label}
           </button>

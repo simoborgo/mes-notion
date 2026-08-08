@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { ParametriReparto } from "@/lib/parametriRepartoRepository";
 
-const inputCls = "rounded-lg border px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300 w-full";
+const inputCls = "rounded-lg border px-2 py-1.5 text-base bg-white focus:outline-none focus:ring-2 focus:ring-orange-300 w-full";
 
 interface RigaState {
   nPersone: string;
@@ -68,9 +68,9 @@ export default function TabellaParametriReparto({ parametriIniziali }: { paramet
 
   return (
     <div className="rounded-xl border overflow-x-auto" style={{ borderColor: "#e5e4e0" }}>
-      <table className="w-full text-sm" style={{ minWidth: 820 }}>
+      <table className="w-full text-base" style={{ minWidth: 820 }}>
         <thead>
-          <tr className="border-b text-xs font-semibold uppercase tracking-wide" style={{ borderColor: "#e5e4e0", color: "var(--color-grey-mid)" }}>
+          <tr className="border-b text-sm font-semibold uppercase tracking-wide" style={{ borderColor: "#e5e4e0", color: "var(--color-grey-mid)" }}>
             <th className="text-left px-4 py-3">Reparto</th>
             <th className="text-left px-2 py-3" title="Include anche gli esterni fissi già presenti nel reparto, non solo i dipendenti — il campo 'esterni' più a destra rappresenta manodopera aggiuntiva da chiamare oltre a questa squadra">N. persone</th>
             <th className="text-left px-2 py-3">Ore/giorno</th>
@@ -97,12 +97,12 @@ export default function TabellaParametriReparto({ parametriIniziali }: { paramet
                   <button
                     onClick={() => salva(p.reparto)}
                     disabled={salvando === p.reparto}
-                    className="px-3 py-1.5 text-xs font-semibold text-white rounded-lg disabled:opacity-60"
+                    className="px-3 py-1.5 text-sm font-semibold text-white rounded-lg disabled:opacity-60"
                     style={{ background: "var(--color-primary)" }}
                   >
                     {salvando === p.reparto ? "…" : salvati[p.reparto] ? "Salvato ✓" : "Salva"}
                   </button>
-                  {errori[p.reparto] && <p className="text-xs font-medium mt-1" style={{ color: "#991B1B" }}>{errori[p.reparto]}</p>}
+                  {errori[p.reparto] && <p className="text-sm font-medium mt-1" style={{ color: "#991B1B" }}>{errori[p.reparto]}</p>}
                 </td>
               </tr>
             );

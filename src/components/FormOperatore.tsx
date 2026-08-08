@@ -3,8 +3,8 @@
 import { useState } from "react";
 import type { Operatore } from "@/lib/types";
 
-const inputCls = "w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300";
-const labelCls = "block text-xs font-medium mb-1";
+const inputCls = "w-full border rounded px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-orange-300";
+const labelCls = "block text-sm font-medium mb-1";
 
 export default function FormOperatore({
   operatore, repartiSuggeriti, aziendeSuggerite, onClose, onSaved,
@@ -60,7 +60,7 @@ export default function FormOperatore({
 
         <form onSubmit={salva} className="px-6 py-5 space-y-4">
           {operatore && (
-            <p className="text-xs" style={{ color: "var(--color-grey-mid)" }}>Matricola: <span className="font-mono">{operatore.matricola}</span></p>
+            <p className="text-sm" style={{ color: "var(--color-grey-mid)" }}>Matricola: <span className="font-mono">{operatore.matricola}</span></p>
           )}
 
           <div className="grid grid-cols-2 gap-4">
@@ -104,18 +104,18 @@ export default function FormOperatore({
               id="operatore-in-forza" type="checkbox" checked={inForza}
               onChange={e => setInForza(e.target.checked)} className="w-4 h-4 accent-orange-500"
             />
-            <label htmlFor="operatore-in-forza" className="text-sm font-medium">In forza</label>
+            <label htmlFor="operatore-in-forza" className="text-base font-medium">In forza</label>
           </div>
 
-          {errore && <p className="text-sm text-red-600">{errore}</p>}
+          {errore && <p className="text-base text-red-600">{errore}</p>}
 
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm rounded border font-medium hover:bg-gray-50 transition-colors">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-base rounded border font-medium hover:bg-gray-50 transition-colors">
               Annulla
             </button>
             <button
               type="submit" disabled={salvando}
-              className="px-4 py-2 text-sm rounded font-medium text-white transition-colors disabled:opacity-60"
+              className="px-4 py-2 text-base rounded font-medium text-white transition-colors disabled:opacity-60"
               style={{ background: salvando ? "var(--color-grey-mid)" : "var(--color-primary)", borderRadius: "var(--radius-button)" }}
             >
               {salvando ? "Salvataggio…" : operatore ? "Salva" : "Crea operatore"}

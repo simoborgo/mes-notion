@@ -124,7 +124,7 @@ export default function VistaPrevisionale({
             key={f.value}
             onClick={() => cambiaFiltro(f.value)}
             disabled={loading}
-            className="px-3 py-1.5 text-xs font-semibold rounded-full border disabled:opacity-60"
+            className="px-3 py-1.5 text-sm font-semibold rounded-full border disabled:opacity-60"
             style={filtro === f.value
               ? { background: "var(--color-primary)", borderColor: "var(--color-primary)", color: "white" }
               : { borderColor: "#d1d5db", color: "var(--color-grey-mid)" }}
@@ -132,7 +132,7 @@ export default function VistaPrevisionale({
             {f.label}
           </button>
         ))}
-        {loading && <span className="text-xs self-center" style={{ color: "var(--color-grey-mid)" }}>Caricamento…</span>}
+        {loading && <span className="text-sm self-center" style={{ color: "var(--color-grey-mid)" }}>Caricamento…</span>}
       </div>
 
       {errore && (
@@ -140,11 +140,11 @@ export default function VistaPrevisionale({
       )}
 
       <div>
-        <h2 className="text-sm font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-black)" }}>Vista generale</h2>
+        <h2 className="text-base font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-black)" }}>Vista generale</h2>
         <div className="rounded-xl border overflow-x-auto" style={{ borderColor: "#e5e4e0" }}>
-          <table className="text-sm w-full" style={{ minWidth: mesiOrizzonte.length * 90 + 220 }}>
+          <table className="text-base w-full" style={{ minWidth: mesiOrizzonte.length * 90 + 220 }}>
             <thead>
-              <tr className="border-b text-xs font-semibold uppercase" style={{ borderColor: "#e5e4e0", color: "var(--color-grey-mid)" }}>
+              <tr className="border-b text-sm font-semibold uppercase" style={{ borderColor: "#e5e4e0", color: "var(--color-grey-mid)" }}>
                 <th className="text-left px-4 py-2 sticky left-0" style={{ background: "white" }}>Totale azienda</th>
                 {mesiOrizzonte.map(m => <th key={m} className="text-center px-2 py-2 whitespace-nowrap">{fmtMese(m)}</th>)}
               </tr>
@@ -171,7 +171,7 @@ export default function VistaPrevisionale({
                         );
                       }
 
-                      if (v == null || v <= 0) return <td key={m} className="text-center px-2 py-2 text-xs" style={{ color: "#d1d5db" }}>—</td>;
+                      if (v == null || v <= 0) return <td key={m} className="text-center px-2 py-2 text-sm" style={{ color: "#d1d5db" }}>—</td>;
                       let colore = "var(--color-black)";
                       if (richiesteRow) colore = t.oreRichieste <= t.capacitaConStraordinari ? "#166534" : "#991B1B";
                       else if (rm.enfasi) colore = "#991B1B";
@@ -187,7 +187,7 @@ export default function VistaPrevisionale({
             </tbody>
           </table>
         </div>
-        <p className="text-xs mt-1" style={{ color: "var(--color-grey-mid)" }}>
+        <p className="text-sm mt-1" style={{ color: "var(--color-grey-mid)" }}>
           Azienda trattata come un unico reparto: capacità e ore richieste sono sommate su tutti i
           reparti prima di calcolare sforo/straordinario/esterne, non dopo — utile come indicatore
           d&apos;insieme finché i dati per-reparto restano approssimativi. Per il dettaglio per reparto vedi
@@ -196,11 +196,11 @@ export default function VistaPrevisionale({
       </div>
 
       <div>
-        <h2 className="text-sm font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-black)" }}>Vista per reparto</h2>
+        <h2 className="text-base font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-black)" }}>Vista per reparto</h2>
         <div className="rounded-xl border overflow-x-auto" style={{ borderColor: "#e5e4e0" }}>
-          <table className="text-sm" style={{ minWidth: mesiOrizzonte.length * 100 + 140 }}>
+          <table className="text-base" style={{ minWidth: mesiOrizzonte.length * 100 + 140 }}>
             <thead>
-              <tr className="border-b text-xs font-semibold uppercase" style={{ borderColor: "#e5e4e0", color: "var(--color-grey-mid)" }}>
+              <tr className="border-b text-sm font-semibold uppercase" style={{ borderColor: "#e5e4e0", color: "var(--color-grey-mid)" }}>
                 <th className="text-left px-4 py-2 sticky left-0" style={{ background: "white" }}>Reparto</th>
                 {mesiOrizzonte.map(m => <th key={m} className="text-center px-2 py-2 whitespace-nowrap">{fmtMese(m)}</th>)}
               </tr>
@@ -212,7 +212,7 @@ export default function VistaPrevisionale({
                   {mesiOrizzonte.map(m => {
                     const c = perCella.get(`${rep}|${m}`);
                     if (!c || c.oreRichieste === 0) {
-                      return <td key={m} className="text-center px-2 py-2 text-xs" style={{ color: "#d1d5db" }}>—</td>;
+                      return <td key={m} className="text-center px-2 py-2 text-sm" style={{ color: "#d1d5db" }}>—</td>;
                     }
                     const positiva = c.capacitaResidua >= 0;
                     return (
@@ -220,10 +220,10 @@ export default function VistaPrevisionale({
                         <div>
                           <span className="font-semibold">{round(c.oreRichieste)}h</span>
                           {c.basatoSuStima && (
-                            <span className="ml-1 text-xs font-bold" style={{ color: "#92400E" }} title="Basato su dati stimati, non ancora su consuntivi reali">~</span>
+                            <span className="ml-1 text-sm font-bold" style={{ color: "#92400E" }} title="Basato su dati stimati, non ancora su consuntivi reali">~</span>
                           )}
                         </div>
-                        <div className="text-xs font-semibold" style={{ color: positiva ? "#166534" : "#991B1B" }}>
+                        <div className="text-sm font-semibold" style={{ color: positiva ? "#166534" : "#991B1B" }}>
                           {c.capacitaResidua > 0 ? "+" : ""}{round(c.capacitaResidua)}h
                         </div>
                       </td>
@@ -234,16 +234,16 @@ export default function VistaPrevisionale({
             </tbody>
           </table>
         </div>
-        <p className="text-xs mt-1" style={{ color: "var(--color-grey-mid)" }}>~ = basato su dati stimati (non ancora su chiusure reali)</p>
+        <p className="text-sm mt-1" style={{ color: "var(--color-grey-mid)" }}>~ = basato su dati stimati (non ancora su chiusure reali)</p>
       </div>
 
       {risultato.richiedonoInputManuale.length > 0 && (
         <div className="rounded-xl border p-4" style={{ borderColor: "#FCD34D", background: "#FFFBEB" }}>
-          <h3 className="text-sm font-bold mb-2" style={{ color: "#92400E" }}>
+          <h3 className="text-base font-bold mb-2" style={{ color: "#92400E" }}>
             {risultato.richiedonoInputManuale.length} riga{risultato.richiedonoInputManuale.length === 1 ? "" : "he"} senza proposta di reparto
           </h3>
-          <p className="text-xs mb-2" style={{ color: "#92400E" }}>Nessun dato storico per questi articoli — non conteggiate nella tabella sopra.</p>
-          <ul className="text-xs space-y-1" style={{ color: "#92400E" }}>
+          <p className="text-sm mb-2" style={{ color: "#92400E" }}>Nessun dato storico per questi articoli — non conteggiate nella tabella sopra.</p>
+          <ul className="text-sm space-y-1" style={{ color: "#92400E" }}>
             {risultato.richiedonoInputManuale.map((r, i) => (
               <li key={i}>{r.cliente} · {r.codiceArticolo} · {r.orePreventivate}h</li>
             ))}
@@ -253,10 +253,10 @@ export default function VistaPrevisionale({
 
       {risultato.offerteEscluse.length > 0 && (
         <div className="rounded-xl border p-4" style={{ borderColor: "#d1d5db", background: "#F5F2EE" }}>
-          <h3 className="text-sm font-bold mb-2" style={{ color: "var(--color-black)" }}>
+          <h3 className="text-base font-bold mb-2" style={{ color: "var(--color-black)" }}>
             {risultato.offerteEscluse.length} offert{risultato.offerteEscluse.length === 1 ? "a esclusa" : "e escluse"} dal planner
           </h3>
-          <ul className="text-xs space-y-1" style={{ color: "var(--color-grey-mid)" }}>
+          <ul className="text-sm space-y-1" style={{ color: "var(--color-grey-mid)" }}>
             {risultato.offerteEscluse.map((o, i) => (
               <li key={i}>{o.cliente} ({o.stato}) — {o.motivo}</li>
             ))}
