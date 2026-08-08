@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { ParametriReparto } from "@/lib/parametriRepartoRepository";
 
 const inputCls = "rounded-lg border px-2 py-1.5 text-base bg-white focus:outline-none focus:ring-2 focus:ring-orange-300 w-full";
@@ -26,6 +27,7 @@ function toRigaState(p: ParametriReparto): RigaState {
 }
 
 export default function TabellaParametriReparto({ parametriIniziali }: { parametriIniziali: ParametriReparto[] }) {
+  const router = useRouter();
   const [righe, setRighe] = useState<Record<string, RigaState>>(
     Object.fromEntries(parametriIniziali.map(p => [p.reparto, toRigaState(p)]))
   );
@@ -59,6 +61,10 @@ export default function TabellaParametriReparto({ parametriIniziali }: { paramet
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? `Errore ${res.status}`);
       setSalvati(prev => ({ ...prev, [reparto]: true }));
+      // Il Previsionale (altra tab dello stesso hub) dipende da questi parametri — router.refresh()
+      // rilancia il fetch server-side; VistaPrevisionale ha un useEffect apposta per adottare i
+      // dati aggiornati (il suo stato locale, altrimenti, resterebbe congelato al primo render).
+      router.refresh();
     } catch (e) {
       setErrori(prev => ({ ...prev, [reparto]: e instanceof Error ? e.message : "Errore salvataggio" }));
     } finally {

@@ -82,6 +82,17 @@ export default function VistaPrevisionale({
   const [loading, setLoading] = useState(false);
   const [errore, setErrore] = useState("");
 
+  // risultatoIniziale cambia quando il Server Component padre rifà il fetch (es. router.refresh()
+  // dopo un salvataggio in Parametri Reparto, altra tab dello stesso hub) — senza questo confronto
+  // lo stato locale resterebbe congelato al valore del primo render, ignorando i nuovi dati.
+  // Adeguamento durante il render (pattern consigliato da React per "adjusting state when a prop
+  // changes"), non in un useEffect: evita un giro di render in più e il lint react-hooks relativo.
+  const [risultatoInizialePrecedente, setRisultatoInizialePrecedente] = useState(risultatoIniziale);
+  if (risultatoIniziale !== risultatoInizialePrecedente) {
+    setRisultatoInizialePrecedente(risultatoIniziale);
+    setRisultato(risultatoIniziale);
+  }
+
   async function cambiaFiltro(nuovo: Filtro) {
     setFiltro(nuovo);
     setLoading(true);
