@@ -298,6 +298,28 @@ bloccando la selezione di un ODP per la registrazione ore appena la Scheda avanz
 Pronto"/"Verificato"/"Completato" — motivo diretto per cui l'utente non riusciva più ad aggiungere
 ore. Corretto nello stesso intervento: ora esclude solo "Annullata".
 
+### Futuro: escludere gli ODP di commesse chiuse dalla lista di Rilevamento Ore
+
+**Stato:** annotata su richiesta esplicita dell'utente (2026-08-08), **non implementare ora** — dipende
+da una condizione che oggi non è ancora vera (vedi sotto)
+
+Oggi `getOdpAttivi()` include deliberatamente anche gli ODP "Completato" (vedi voce sopra), perché nella
+pratica attuale un ODP può ancora ricevere ore tardive anche dopo quel passaggio di stato — lo stato
+Completato non è ancora un vero endpoint definitivo. Con questa impostazione, però, la lista di ODP
+selezionabili crescerà indefinitamente nel tempo, riempendosi di ODP di commesse ormai concluse — solo
+rumore per chi deve trovare l'ODP giusto su cui segnare ore oggi.
+
+L'utente ha chiarito la direzione futura: quando il flusso sarà maturo al 100%, lo stato "Completato"
+di una Scheda significherà "arredo in cassa/spedizione" — un vero endpoint. Se dopo quel punto serve
+rifare qualcosa, si aprirà un **nuovo ODP**, mai una riapertura del vecchio. A quel punto (non prima):
+- Quando una Commessa viene chiusa (negozio consegnato), tutti gli ODP di quella commessa vanno esclusi
+  da `getOdpAttivi()` — non solo il singolo stato "Completato" della Scheda, ma la chiusura a livello
+  di Commessa (bisognerà capire dove si marca "Commessa chiusa/consegnata" su Notion, se esiste già un
+  campo o va aggiunto).
+- A quel punto avrebbe senso restringere di nuovo `getOdpAttivi()` (oggi allargato apposta) — ma solo
+  quando la premessa (Completato = endpoint reale, mai riaperto) sarà davvero vera in pratica, altrimenti
+  si ricade nello stesso blocco già risolto in questa sessione.
+
 ### ~~Tabella `articoli` non copre tutti i codici delle Schede attive~~ — fatto, crea al volo (2026-08-08)
 
 **Stato:** fatto. Scoperto testando la correzione precedente: su 58 codici articolo distinti negli
@@ -318,6 +340,15 @@ se già presente) invece di bloccare/scartare:
 Testato in produzione: registrazione ore su ODP con codice mai censito (BV373) → articolo creato al
 volo, `standard_reparto` valorizzato correttamente; riga Offerta con codice nuovo (ZZTEST-999) →
 stesso comportamento. Dati di test rimossi dopo la verifica.
+
+**Prossimo passo dichiarato dall'utente**: la creazione al volo è un tampone (descrizione = solo il
+codice, nessuna categoria) — l'utente vuole poi fare un **export da OS1** e ricaricare l'anagrafica
+`articoli` completa (descrizioni vere, categorie), stesso pattern già seguito per l'Anagrafica
+Ferramenta ([[project_mes_ferramenta_anagrafica]]). Da fare quando l'utente porta l'export: probabile
+script `importa-articoli-os1.mjs` sul modello di `scripts/prepara-anagrafica-ferramenta.py` +
+`scripts/importa-anagrafica-ferramenta.mjs` — upsert per non perdere i codici già creati al volo nel
+frattempo (mai un `TRUNCATE` cieco, a differenza del reimport Ferramenta che partiva da una tabella
+già consapevolmente svuotata).
 
 ### Notifiche email aggregate per fornitore (rilavorazioni da programmare)
 
