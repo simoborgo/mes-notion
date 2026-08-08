@@ -22,14 +22,26 @@ export default function CodiceArticoloAutocomplete({ articoli, value, onChange, 
     return articoli.filter(a => `${a.codiceArticolo} ${a.descrizione}`.toLowerCase().includes(q)).slice(0, 30);
   }, [articoli, search]);
 
-  if (selected) {
+  // articoli non è un elenco chiuso — un codice nuovo/non ancora censito va creato al volo
+  // (deciso con l'utente 2026-08-08), quindi la ricerca deve poter proporre "aggiungi questo
+  // codice" invece di bloccare la selezione a quanto già presente.
+  const codiceNuovo = search.trim();
+  const giaEsistente = codiceNuovo !== "" && articoli.some(a => a.codiceArticolo.toLowerCase() === codiceNuovo.toLowerCase());
+
+  if (value) {
+    // selected è null quando value è un codice appena creato al volo (non ancora presente
+    // nell'array articoli passato via prop, che non viene rifetchato ad ogni scelta) — mostra
+    // comunque il chip di conferma, con un avviso invece della descrizione.
     return (
       <div
         className="flex items-center gap-2 px-3 rounded-lg border text-sm font-medium"
         style={{ height: 48, borderColor: "var(--color-primary)", background: "rgba(240,143,37,0.06)" }}
       >
         <span className="flex-1 min-w-0 truncate">
-          <span className="font-semibold">{selected.codiceArticolo}</span> — {selected.descrizione}
+          <span className="font-semibold">{value}</span>
+          {selected ? ` — ${selected.descrizione}` : (
+            <span style={{ color: "#92400E" }}> — nuovo articolo, verrà creato</span>
+          )}
         </span>
         <button type="button" onClick={() => onChange(null)} className="text-gray-400 hover:text-gray-600 text-base leading-none">×</button>
       </div>
@@ -48,7 +60,7 @@ export default function CodiceArticoloAutocomplete({ articoli, value, onChange, 
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
       />
-      {open && filtrati.length > 0 && (
+      {open && (filtrati.length > 0 || (codiceNuovo && !giaEsistente)) && (
         <ul
           className="absolute z-50 w-full mt-1 rounded-lg border bg-white shadow-lg overflow-y-auto"
           style={{ borderColor: "#d1d5db", maxHeight: 260 }}
@@ -63,6 +75,15 @@ export default function CodiceArticoloAutocomplete({ articoli, value, onChange, 
               <span className="ml-1.5" style={{ color: "#9ca3af" }}>{a.descrizione}</span>
             </li>
           ))}
+          {codiceNuovo && !giaEsistente && (
+            <li
+              className="px-3 py-2.5 text-sm cursor-pointer hover:bg-orange-50 border-t"
+              style={{ borderColor: "#f0ece5", color: "var(--color-primary)" }}
+              onMouseDown={e => { e.preventDefault(); onChange(codiceNuovo); setSearch(""); setOpen(false); }}
+            >
+              <span className="font-semibold">+ Nuovo articolo:</span> {codiceNuovo}
+            </li>
+          )}
         </ul>
       )}
     </div>

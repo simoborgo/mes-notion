@@ -27,6 +27,19 @@ export async function getArticoloByCodice(codiceArticolo: string): Promise<Artic
   return rows[0] ? mapRow(rows[0]) : null;
 }
 
+// `articoli` nasce da un import una tantum (CSV storico "Codici Valorizzati", 2026-08-04) e non
+// cresce da sola — un codice articolo di una commessa nuova, o mai censita prima, semplicemente
+// non c'è. Chiamata da chi ha bisogno che il codice esista per rispettare la FK (registrazione
+// ore -> standard_reparto, aggiunta riga Offerta) invece di bloccare/scartare in silenzio: crea
+// una riga minima (descrizione = codice stesso, nessuna categoria) SOLO se non esiste già — non
+// tocca mai una riga già presente, per non sovrascrivere una descrizione sistemata a mano dopo.
+export async function ensureArticoloEsiste(codiceArticolo: string): Promise<void> {
+  await pool.query(
+    `INSERT INTO articoli (codice_articolo, descrizione) VALUES ($1, $1) ON CONFLICT (codice_articolo) DO NOTHING`,
+    [codiceArticolo]
+  );
+}
+
 export async function upsertArticolo(entry: { codiceArticolo: string; descrizione: string; categoria: string | null }): Promise<Articolo> {
   const { rows } = await pool.query(
     `INSERT INTO articoli (codice_articolo, descrizione, categoria) VALUES ($1, $2, $3)

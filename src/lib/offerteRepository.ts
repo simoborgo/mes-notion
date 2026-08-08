@@ -1,4 +1,5 @@
 import { pool } from "./db";
+import { ensureArticoloEsiste } from "./articoliRepository";
 import { REPARTI_PRODUZIONE } from "./types";
 
 export type StatoOfferta = "Offerta" | "Confermata" | "Persa";
@@ -194,6 +195,10 @@ export async function aggiungiRigaOfferta(entry: { offertaId: string; codiceArti
   const { rows: offertaRows } = await pool.query(`SELECT stato FROM offerte WHERE id = $1`, [entry.offertaId]);
   if (offertaRows.length === 0) throw new Error("Offerta non trovata");
   if (offertaRows[0].stato !== "Offerta") throw new Error("Non è più possibile aggiungere righe: l'offerta non è più in stato 'Offerta'");
+
+  // Crea il codice al volo se non censito (deciso con l'utente 2026-08-08): articoli è un
+  // catalogo che deve poter crescere, non un elenco fisso — vedi ensureArticoloEsiste.
+  await ensureArticoloEsiste(entry.codiceArticolo);
 
   const { rows } = await pool.query(
     `INSERT INTO offerte_righe (offerta_id, codice_articolo, quantita, ore_preventivate) VALUES ($1,$2,$3,$4) RETURNING id`,

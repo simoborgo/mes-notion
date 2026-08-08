@@ -298,22 +298,26 @@ bloccando la selezione di un ODP per la registrazione ore appena la Scheda avanz
 Pronto"/"Verificato"/"Completato" — motivo diretto per cui l'utente non riusciva più ad aggiungere
 ore. Corretto nello stesso intervento: ora esclude solo "Annullata".
 
-### Tabella `articoli` non copre tutti i codici delle Schede attive — blocca standard_reparto e Offerte
+### ~~Tabella `articoli` non copre tutti i codici delle Schede attive~~ — fatto, crea al volo (2026-08-08)
 
-**Stato:** scoperto testando la correzione sopra (2026-08-08), non ancora affrontato
+**Stato:** fatto. Scoperto testando la correzione precedente: su 58 codici articolo distinti negli
+ODP attivi, solo 6 esistevano in `articoli` (import una tantum del 2026-08-04, mai aggiornato) —
+bloccava sia `registraChiusuraOdp` (scartava in silenzio) sia l'aggiunta di righe Offerta (FK).
 
-Verificato: su 58 codici articolo distinti presenti negli ODP attivi (Schede non "Annullata"), solo
-**6** esistono nella tabella Postgres `articoli`. Conseguenze concrete:
-- `registraChiusuraOdp` scarta silenziosamente (solo un `console.warn`) la registrazione storico per
-  qualunque ODP il cui Codice Art. non sia in `articoli` — quindi per la stragrande maggioranza degli
-  ODP attivi oggi, le ore registrate non contribuiscono affatto a `standard_reparto`, indipendentemente
-  dal fix sopra.
-- `offerte_righe.codice_articolo REFERENCES articoli(codice_articolo)` — impossibile aggiungere una
-  riga d'offerta per uno di questi codici finché non è presente in `articoli`.
+L'utente ha chiarito il punto chiave: `articoli` **deve poter crescere da sola** — nuove commesse
+portano codici mai censiti prima, non è un elenco chiuso. Soluzione: `ensureArticoloEsiste()`
+(`src/lib/articoliRepository.ts`) crea una riga minima (descrizione = codice stesso, mai sovrascritta
+se già presente) invece di bloccare/scartare:
+- `standardRepartoRepository.ts`: `registraChiusuraOdp` la chiama prima di scrivere, non scarta più
+  in silenzio i codici non censiti.
+- `offerteRepository.ts`: `aggiungiRigaOfferta` la chiama prima dell'INSERT.
+- `CodiceArticoloAutocomplete.tsx`: nuova voce "+ Nuovo articolo: {testo cercato}" quando il codice
+  digitato non esiste ancora — prima l'utente non poteva nemmeno tentare di selezionare un codice
+  non in elenco.
 
-Da capire con l'utente: `articoli` da dove viene popolata oggi, se è un import storico mai aggiornato
-con i codici delle commesse più recenti, e come tenerla sincronizzata (import periodico da Notion? da
-un'altra fonte OS1 come per Ferramenta?).
+Testato in produzione: registrazione ore su ODP con codice mai censito (BV373) → articolo creato al
+volo, `standard_reparto` valorizzato correttamente; riga Offerta con codice nuovo (ZZTEST-999) →
+stesso comportamento. Dati di test rimossi dopo la verifica.
 
 ### Notifiche email aggregate per fornitore (rilavorazioni da programmare)
 

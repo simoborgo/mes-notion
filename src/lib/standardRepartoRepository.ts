@@ -1,5 +1,5 @@
 import { pool } from "./db";
-import { getArticoloByCodice } from "./articoliRepository";
+import { ensureArticoloEsiste } from "./articoliRepository";
 import { getCodiceArticoloPerOdp } from "./notion";
 import { REPARTI_PRODUZIONE } from "./types";
 
@@ -58,11 +58,11 @@ export async function registraChiusuraOdp(odp: string, codiceArticolo: string | 
     console.warn(`[standardReparto] ODP ${odp} completato senza Codice Art. — registrazione storico saltata`);
     return;
   }
-  const articolo = await getArticoloByCodice(codiceArticolo).catch(() => null);
-  if (!articolo) {
-    console.warn(`[standardReparto] Codice Art. "${codiceArticolo}" (ODP ${odp}) non presente in articoli — registrazione storico saltata`);
-    return;
-  }
+  // articoli non cresce da sola (import una tantum, 2026-08-04) — un codice di una commessa
+  // nuova o mai censita prima va creato al volo, non scartato in silenzio (deciso con l'utente
+  // 2026-08-08): senza articoli.codice_articolo la FK di storico_consuntivo_articolo/standard_reparto
+  // impedirebbe comunque la scrittura più sotto.
+  await ensureArticoloEsiste(codiceArticolo);
 
   const client = await pool.connect();
   try {
