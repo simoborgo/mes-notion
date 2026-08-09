@@ -180,7 +180,7 @@ export default function TabellaArticoliFerramenta({
               <Th label="Categoria" sortKey="descrizioneCategoria" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Cat. Merceologica" sortKey="categoriaMerceologica" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Metodo Gestione" sortKey="metodoGestione" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-              <Th label="Qtà Vaschetta" sortKey="quantitaStandardVaschetta" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              <Th label="Qtà Riordino" sortKey="quantitaStandardVaschetta" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Soglia Minima" sortKey="sogliaMinima" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Giacenza" sortKey="giacenzaAttuale" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Inventariati" sortKey="inventariato" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
@@ -238,7 +238,7 @@ const RigaArticoloFerramenta = memo(function RigaArticoloFerramenta({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           metodoGestione: metodoGestione || null,
-          quantitaStandardVaschetta: metodoGestione === "Kanban" && quantitaStandardVaschetta ? Number(quantitaStandardVaschetta) : null,
+          quantitaStandardVaschetta: metodoGestione && quantitaStandardVaschetta ? Number(quantitaStandardVaschetta) : null,
           sogliaMinima: sogliaMinima ? Number(sogliaMinima) : null,
           attivo,
           ubicazione: ubicazione || null,
@@ -305,7 +305,7 @@ const RigaArticoloFerramenta = memo(function RigaArticoloFerramenta({
         <input
           type="number" min="0" step="any"
           className={inputCls + " w-24"}
-          disabled={metodoGestione !== "Kanban"}
+          disabled={!metodoGestione}
           value={quantitaStandardVaschetta}
           onChange={(e) => setQuantitaStandardVaschetta(e.target.value)}
         />

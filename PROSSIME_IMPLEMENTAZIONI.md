@@ -225,17 +225,22 @@ corrispondente nella UI (`VistaPrevisionale.tsx`), stesso pattern di `oreEsterne
 
 ## Ferramenta
 
-### Valore di riordino per articoli "A Pezzo"
+### ~~Valore di riordino per articoli "A Pezzo"~~ — fatto (2026-08-09)
 
-**Stato:** annunciata dall'utente, non ancora specificata
+**Stato:** fatto. L'utente ha scelto di riusare lo stesso campo dei Kanban (`quantitaStandardVaschetta`,
+impostato a mano in tabella) invece di un campo dedicato o di un valore calcolato, e di lasciare
+fuori scope per ora il modal "sotto soglia → stampa etichetta di riordino".
 
-Solo gli articoli Kanban hanno oggi un concetto di "quantità di riordino"
-(`quantitaStandardVaschetta`) e un'etichetta di riordino stampabile. Gli articoli A Pezzo non hanno
-alcun valore di riordino configurato — il modal "sotto soglia → stampa etichetta di riordino" in
-`ScaricoKanbanCard.tsx` è escluso per A Pezzo in attesa di questa feature.
+Il backend (`updateArticoloFerramentaClassificazione`/`articoliFerramentaRepository.ts`) era già
+generico — scrive il valore indipendentemente dal `metodoGestione`, nessuna modifica necessaria.
+Cambiato solo `TabellaArticoliFerramenta.tsx`: input "Qtà Riordino" (rinominata da "Qtà Vaschetta")
+non più disabilitato per A Pezzo (`disabled={!metodoGestione}` invece di `!== "Kanban"`), e il
+payload di salvataggio non azzera più il valore digitato quando il metodo non è Kanban. Resta
+obbligatorio (>0) solo per Kanban, opzionale per A Pezzo.
 
-**Come affrontarla**: chiarire con l'utente la semantica esatta (quantità fissa come Kanban?
-calcolata? inserita manualmente all'occorrenza?) prima di toccare `types.ts`/`notion.ts`.
+**Deliberatamente fuori scope**: `ScaricoAPezzoCard.tsx` non ha lo stato "sotto-soglia" e la route
+`etichetta-riordino` resta bloccata ai soli Kanban (`etichetta-riordino/route.ts:23-28`) — da
+riprendere se/quando l'utente chiede anche la stampa etichetta per A Pezzo.
 
 ### Conferma manuale di `prezzo_riferimento` estesa a tutti gli articoli
 
