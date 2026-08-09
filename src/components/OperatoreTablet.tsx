@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Operatore, OdpAttivo } from "@/lib/types";
-import OdpAutocomplete from "./OdpAutocomplete";
+import OdpSelettore from "./OdpSelettore";
 
 interface OperatoreLoggato {
   matricola: string;
@@ -58,7 +58,7 @@ export default function OperatoreTablet() {
 
   return (
     <div className="min-h-screen w-full flex items-start justify-center px-4 py-8" style={{ background: "var(--color-offwhite)" }}>
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-md md:max-w-2xl">
         {!pronto ? null : operatore ? (
           <SchermataLavoro operatore={operatore} onCambiaOperatore={handleCambiaOperatore} />
         ) : (
@@ -334,7 +334,7 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
             <p className="text-sm font-semibold" style={{ color: "var(--color-black)" }}>
               {aperto ? "Passa a un altro ODP" : "Su cosa stai lavorando?"}
             </p>
-            <OdpAutocomplete odpList={odpList} value={odp} onChange={setOdp} placeholder="Cerca ODP…" />
+            <OdpSelettore odpList={odpList} value={odp} onChange={setOdp} placeholder="Cerca ODP…" />
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input type="checkbox" checked={rif} onChange={e => setRif(e.target.checked)} className="w-4 h-4 accent-red-600" />
               <span style={{ color: rif ? "#991B1B" : "var(--color-grey-mid)" }}>È un rifacimento?</span>

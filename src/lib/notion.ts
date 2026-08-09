@@ -579,6 +579,8 @@ export async function getOdpAttivi(): Promise<OdpAttivo[]> {
       numeroScheda: s.numeroScheda || undefined,
       clienteInfo: s.clienteInfo || undefined,
       codiceArticolo: s.codiceArticolo || undefined,
+      commessaNr: s.commessaNr || undefined,
+      copertina: s.copertina,
       isSpeciale: false,
     }));
   const speciali: OdpAttivo[] = ODP_SPECIALI.map(s => ({
