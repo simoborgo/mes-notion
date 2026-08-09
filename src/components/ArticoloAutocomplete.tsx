@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { ArticoloFerramenta } from "@/lib/types";
+import { normalizzaCodiceFornitore } from "@/lib/ferramentaCodici";
 
 interface Props {
   articoli: ArticoloFerramenta[];
@@ -19,16 +20,21 @@ export default function ArticoloAutocomplete({ articoli, value, onChange, placeh
   const filtrati = useMemo(() => {
     const q = search.toLowerCase().trim();
     if (!q) return articoli.slice(0, 30);
-    return articoli.filter(a => `${a.descrizione} ${a.codiceOs1}`.toLowerCase().includes(q)).slice(0, 30);
+    return articoli.filter(a => `${a.descrizione} ${a.codiceOs1} ${a.codiceFornitore}`.toLowerCase().includes(q)).slice(0, 30);
   }, [articoli, search]);
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key !== "Enter" || filtrati.length === 0) return;
     e.preventDefault();
-    // Match esatto sul codice (es. scanner barcode: digita il codice e invia Invio)
-    // ha la precedenza sul primo risultato del filtro fuzzy per descrizione.
+    // Match esatto sul codice (es. scanner barcode: digita il codice e invia Invio) ha la
+    // precedenza sul primo risultato del filtro fuzzy per descrizione. Il codice fornitore è
+    // confrontato normalizzato (senza separatori/zeri iniziali) perché il barcode stampato non
+    // usa sempre lo stesso formato dell'anagrafica.
     const q = search.toLowerCase().trim();
-    const esatto = filtrati.find(a => a.codiceOs1.toLowerCase() === q);
+    const qNormalizzato = normalizzaCodiceFornitore(search);
+    const esatto =
+      filtrati.find(a => a.codiceOs1.toLowerCase() === q) ??
+      filtrati.find(a => a.codiceFornitore && normalizzaCodiceFornitore(a.codiceFornitore) === qNormalizzato);
     const scelto = esatto ?? filtrati[0];
     onChange(scelto.id);
     setSearch("");
@@ -73,6 +79,9 @@ export default function ArticoloAutocomplete({ articoli, value, onChange, placeh
             >
               <span className="font-semibold">{a.descrizione}</span>
               <span className="text-xs ml-2" style={{ color: "var(--color-grey-mid)" }}>{a.codiceOs1}</span>
+              {a.codiceFornitore && (
+                <span className="text-xs ml-2" style={{ color: "var(--color-grey-mid)" }}>· {a.codiceFornitore}</span>
+              )}
             </li>
           ))}
         </ul>
