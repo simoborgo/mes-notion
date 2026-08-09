@@ -316,6 +316,8 @@ export interface Vernice {
   codiceTintometro: string | null;
   codiceVendita: string | null;
   codiceInventario: string | null;
+  // Scritta solo da carico/scarico/rettifica (movimenti_magazzino) — mai da VerniceUpdate.
+  giacenzaAttuale: number;
   unitaMisura: UnitaMisuraVernice | null;
   tipologia: string;
   finitura: string | null;

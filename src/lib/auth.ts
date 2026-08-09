@@ -2,7 +2,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
 
-export type Role = "admin" | "operatore" | "logistica" | "spedizioni" | "produzione" | "responsabile_produzione" | "magazziniere";
+export type Role = "admin" | "operatore" | "logistica" | "spedizioni" | "produzione" | "responsabile_produzione" | "magazziniere" | "magazziniere_vernici";
 
 export const WRITE_ROLES: Role[] = ["admin", "logistica"];
 // Solo la creazione di un nuovo Ritiro/Consegna — non modifica/eliminazione (restano
@@ -14,6 +14,10 @@ export const SPEDIZIONI_ROLES: Role[] = ["admin", "spedizioni"];
 export const RILEVAMENTO_ORE_ROLES: Role[] = ["admin", "responsabile_produzione"];
 export const FERRAMENTA_ROLES: Role[] = ["admin", "magazziniere", "produzione"];
 export const VERNICIATURA_ROLES: Role[] = ["admin", "produzione"];
+// Solo il magazzino Vernici (giacenza/carico/scarico/inventario) — separato da VERNICIATURA_ROLES
+// perché l'addetto al magazzino non deve necessariamente poter operare su Cicli/Campionature.
+// Assegnare questo ruolo a una persona richiede modificare USERS_JSON sulla VPS (nessuna UI admin).
+export const MAGAZZINO_VERNICI_ROLES: Role[] = ["admin", "magazziniere_vernici"];
 export const MODIFICA_SCHEDA_ROLES: Role[] = ["admin", "produzione"];
 export const RIENTRO_QUALITA_ROLES: Role[] = ["admin", "operatore", "logistica", "spedizioni", "produzione", "responsabile_produzione"];
 // Nessun ruolo "commerciale" esiste oggi — solo admin per ora, facile da ampliare su richiesta.
@@ -47,7 +51,7 @@ export async function verifyToken(token: string): Promise<Session | null> {
   try {
     const { payload } = await jwtVerify(token, getSecret());
     const { username, name, role } = payload as Record<string, unknown>;
-    const ALL_ROLES: string[] = ["admin", "operatore", "logistica", "spedizioni", "produzione", "responsabile_produzione", "magazziniere"];
+    const ALL_ROLES: string[] = ["admin", "operatore", "logistica", "spedizioni", "produzione", "responsabile_produzione", "magazziniere", "magazziniere_vernici"];
     if (
       typeof username !== "string" ||
       typeof name !== "string" ||

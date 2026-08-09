@@ -1,3 +1,4 @@
+import type { Pool, PoolClient } from "pg";
 import { pool } from "./db";
 import type { Vernice, VerniceUpdate } from "./types";
 
@@ -11,6 +12,7 @@ function mapRow(r: any): Vernice {
     codiceTintometro: r.codice_tintometro,
     codiceVendita: r.codice_vendita,
     codiceInventario: r.codice_inventario,
+    giacenzaAttuale: Number(r.giacenza_attuale),
     unitaMisura: r.unita_misura,
     tipologia: r.tipologia,
     finitura: r.finitura,
@@ -156,4 +158,10 @@ export async function setVerniceTsDocumento(id: string, driveFileId: string): Pr
 
 export async function setVerniceSdsDocumento(id: string, driveFileId: string): Promise<void> {
   await pool.query(`UPDATE vernici SET sds_drive_file_id = $1, updated_at = now() WHERE id = $2`, [driveFileId, id]);
+}
+
+// Scrittura giacenza separata da updateVernice/VerniceUpdate: la giacenza si modifica solo
+// tramite carico/scarico/rettifica (movimenti_magazzino), mai via update generico anagrafica.
+export async function aggiornaGiacenzaVernice(id: string, giacenzaAttuale: number, executor: Pool | PoolClient = pool): Promise<void> {
+  await executor.query(`UPDATE vernici SET giacenza_attuale = $1, updated_at = now() WHERE id = $2`, [giacenzaAttuale, id]);
 }

@@ -110,6 +110,78 @@ invece di ributtare via tutto e ripartire da Notion; (c) accettare il limite e c
 
 ---
 
+## Magazzino — motore generico multi-categoria
+
+### ~~Inventario Vernici + motore di magazzino generico condiviso~~ — fatto (2026-08-09)
+
+**Stato:** fatto. OS1 tiene un'unica tabella "merci" per Ferramenta/Vernici/Legname/Tranciato/
+Bordi/Metalli, ma l'utente vuole anagrafiche separate in MES per poterle personalizzare
+liberamente (un merge verso OS1 solo in fase di export, non ancora specificato — vedi sotto).
+Ferramenta era già fatta con un proprio schema dedicato (`movimenti_ferramenta`/
+`inventari_ferramenta`); invece di riscrivere lo stesso schema/repository da capo per ognuna delle
+altre categorie, è stato costruito un **motore di magazzino generico condiviso**, usato per la
+prima volta da Vernici e pronto per Legname/Tranciato/Bordi/Metalli.
+
+Schema: `verifiche-backend/schema_magazzino_generico.sql` — tabelle `movimenti_magazzino`
+(append-only: carico/scarico/rettifica, colonna `categoria`) e `inventari_magazzino`/
+`inventario_righe_magazzino` (sessioni di riconteggio apri/conta/chiudi, **una sola sessione
+aperta per categoria**, non globale — un inventario Vernici aperto non blocca un futuro
+inventario Legname). `entita_id` è l'UUID della riga anagrafica di quella categoria (es.
+`vernici.id`), mai un nome tabella dinamico — il motore non conosce mai l'anagrafica specifica.
+Ferramenta non è stata toccata/migrata: resta sul proprio schema separato, zero rischio su ciò
+che già funzionava. `verifiche-backend/schema_verniciatura_fase7_giacenza.sql` aggiunge
+`vernici.giacenza_attuale` (a differenza di Ferramenta: **nessuna soglia minima/riordino** per
+Vernici, richiesta esclusa esplicitamente dall'utente, vale anche per le categorie future — solo
+giacenza + carico/scarico libero + inventario periodico).
+
+Repository generico: `src/lib/magazzinoRepository.ts` (movimenti) +
+`src/lib/inventarioMagazzinoRepository.ts` (sessioni), entrambi parametrizzati da `categoria` e
+mai a conoscenza della tabella anagrafica — la lettura/scrittura della giacenza resta
+responsabilità del repository di categoria (`verniciRepository.aggiornaGiacenzaVernice`),
+orchestrata dalla route API in due chiamate sequenziali (stesso pattern già in uso in
+`ferramenta/scarico/route.ts`).
+
+Ruoli: nuovo `magazziniere_vernici` in `src/lib/auth.ts` (+ `MAGAZZINO_VERNICI_ROLES`) — separato
+da `VERNICIATURA_ROLES` perché l'addetto al magazzino Vernici non deve necessariamente accedere a
+Cicli/Campionature (produzione verniciatura pezzi, processo diverso). **Assegnare questo ruolo
+richiede modificare `USERS_JSON` sulla VPS** (nessuna UI admin). Navigazione: Vernici resta dentro
+il modulo "Verniciatura" esistente come 4ª tab "Magazzino" in `VerniciaturaSubNav.tsx` (ora accetta
+`canProduzione`/`canMagazzino` per filtrare le tab in base al ruolo) — non una voce di nav
+separata, su scelta esplicita dell'utente.
+
+Testato: build (`npx tsc --noEmit`, `npm run lint`, `next build`) pulita; flusso end-to-end
+diretto sul DB (crea vernice → carico 10 → scarico 4 → apri inventario categoria vernici →
+blocco su doppia apertura stessa categoria (23505) → conta con scostamento -1 → verifica
+movimento rettifica + giacenza aggiornata → chiudi → riapertura successiva senza conflitti),
+dati di test rimossi. Non testato via UI/click-through browser (nessuna sessione autenticata
+disponibile in questo ambiente).
+
+**Aggiornamento stessa sessione**: aggiunto bottone "Inventario →" nella pagina Magazzino (prima
+raggiungibile solo digitando l'URL), conferma esplicita (`confirm()`) prima di chiudere un
+inventario con righe non ancora contate (restano alla giacenza teorica, mai un'uscita silenziosa),
+e **scelta dell'ambito all'apertura**: Tutto il catalogo / per Tipologia / per Colore-codice
+(ricerca testuale) — `inventari_magazzino.ambito`/`ambito_valore`
+(`schema_magazzino_generico_ambito.sql`), stesso pattern di `inventari_ferramenta` ma con
+vocabolario proprio di Vernici. **Richiesta dall'utente ma non implementata**: ambito "per
+Posizione" — campo non ancora presente su `vernici`, verrà aggiunto in futuro dall'utente; quando
+arriva basta estendere la CHECK `ambito` e il filtro nella route apertura, stesso schema di
+tipologia/colore_codice.
+
+**Prossimo passo per Legname/Tranciato/Bordi/Metalli** (quando richiesto, non ora): (a) estendere
+la CHECK `categoria` in `movimenti_magazzino`/`inventari_magazzino` con una micro-migrazione
+(`ALTER TABLE ... DROP CONSTRAINT / ADD CONSTRAINT`, stesso pattern di
+`schema_ferramenta_inventario_ambito_inventariato.sql`) — altrimenti l'INSERT fallisce con 23514;
+(b) tabella anagrafica + repository dedicati con la propria `aggiornaGiacenza*`; (c) nuove route
+API; (d) nuovo ruolo `magazziniere_<categoria>` stesso pattern di sopra; (e) **queste categorie non
+hanno un modulo esistente in cui infilarsi come tab** (a differenza di Vernici) — a quel punto va
+creata una voce di nav "Magazzino ▾" a dropdown (pattern di "Amministrazione ▾"), non prima.
+
+**Fuori scope, non dimenticato**: export/merge unificato verso OS1 (oggi un'unica tabella
+"merci") — `vernici.codice_inventario` è già pronto come chiave di aggancio; il formato OS1
+unificato non è stato specificato, si progetterà quando tutte le categorie saranno pronte.
+
+---
+
 ## Ferramenta
 
 ### Altre categorie di INVENTARIO MP non ancora gestite da mes-notion

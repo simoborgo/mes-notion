@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getSession, VERNICIATURA_ROLES } from "@/lib/auth";
+import { getSession, VERNICIATURA_ROLES, MAGAZZINO_VERNICI_ROLES } from "@/lib/auth";
 import { getCicli } from "@/lib/cicliVerniciaturaRepository";
 import VerniciaturaSubNav from "@/components/VerniciaturaSubNav";
 import TabellaCicli from "@/components/TabellaCicli";
@@ -15,7 +15,7 @@ export default async function CicliPage() {
 
   return (
     <div className="space-y-4">
-      <VerniciaturaSubNav />
+      <VerniciaturaSubNav canProduzione={VERNICIATURA_ROLES.includes(session.role)} canMagazzino={MAGAZZINO_VERNICI_ROLES.includes(session.role)} />
       <div>
         <h1 className="text-2xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>Cicli di verniciatura</h1>
         <p className="text-sm mt-1" style={{ color: "var(--color-grey-mid)" }}>

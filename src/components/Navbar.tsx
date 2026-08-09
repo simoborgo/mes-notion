@@ -123,13 +123,14 @@ const GUIDA_ICON = (
   </svg>
 );
 
-const ALL_ROLES = ["admin", "operatore", "logistica", "spedizioni", "produzione", "responsabile_produzione", "magazziniere"];
+const ALL_ROLES = ["admin", "operatore", "logistica", "spedizioni", "produzione", "responsabile_produzione", "magazziniere", "magazziniere_vernici"];
 const CARICO_ROLES = ["admin", "produzione"];
 const SPEDIZIONI_ROLES = ["admin", "spedizioni"];
 const RILEVAMENTO_ORE_ROLES = ["admin", "responsabile_produzione"];
 const FERRAMENTA_ROLES = ["admin", "magazziniere", "produzione"];
 const SCARICO_MATERIALE_ROLES = ["admin", "logistica"];
 const VERNICIATURA_ROLES = ["admin", "produzione"];
+const MAGAZZINO_VERNICI_ROLES = ["admin", "magazziniere_vernici"];
 
 const links = [
   {
@@ -208,7 +209,9 @@ const links = [
   {
     href: "/verniciatura",
     label: "Verniciatura",
-    roles: VERNICIATURA_ROLES,
+    // Include anche MAGAZZINO_VERNICI_ROLES: chi ha solo magazziniere_vernici deve vedere questa
+    // voce per arrivare alla tab Magazzino, anche senza accesso a Cicli/Campionature.
+    roles: [...VERNICIATURA_ROLES, ...MAGAZZINO_VERNICI_ROLES],
     icon: (
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M18 2H8a2 2 0 0 0-2 2v3h14V4a2 2 0 0 0-2-2z" /><path d="M6 7h14v4H6z" /><path d="M10 11v4a2 2 0 0 0 2 2 2 2 0 0 1 2 2v3a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-3a2 2 0 0 1 2-2" />
