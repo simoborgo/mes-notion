@@ -359,6 +359,22 @@ Scheda (WINDOW SCREEN 78,5h, Vitrine showcase 39,5h, ecc.), non accorpate. Non c
 end-to-end via UI (nessuna credenziale di sessione disponibile in questo ambiente per autenticarsi
 all'app) — verifica fatta a livello di dati/logica, non di click-through browser.
 
+### ~~Nav bar principale usciva dai limiti orizzontali per l'admin~~ — fatto (2026-08-09)
+
+**Stato:** fatto. L'admin vede tutte le 9 sezioni base più le 5 voci solo-admin (Previsionale,
+Import Schede, Kit Ferramenta ODP, Audit Log, PIN Operatori) più Guida = 15 voci in una riga
+`flex` senza wrap né scroll — nessun contenimento. Problema specifico dell'admin: gli altri ruoli
+vedono al massimo 6-7 voci, mai overflow.
+
+Le 5 voci solo-admin (già isolate nel codice come blocco `isAdmin`) raggruppate sotto un unico
+menu a tendina "Amministrazione ▾" (`NavDropdown`/`NavDropdownItem`, nuovi in `Navbar.tsx`) — click
+per aprire, chiusura su click esterno o su selezione di una voce. Riduce l'admin da 15 a 11 voci in
+riga. Menu mobile lasciato invariato (lista piatta): lì le voci si impilano verticalmente, nessun
+overflow da risolvere, un livello di click in più sarebbe stato solo peggiorativo.
+
+Scelto tra 3 opzioni proposte all'utente (raggruppamento mirato vs overflow menu automatico "Altro"
+vs nav a sole icone) — l'utente ha scelto il raggruppamento mirato.
+
 ### ~~Vista "Standard Articoli" in Rilevamento Ore~~ — fatto (2026-08-08)
 
 **Stato:** fatto. L'utente vuole vedere direttamente in UI come gli standard ore per articolo/reparto

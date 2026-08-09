@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, ReactNode } from "react";
+import { useState, useRef, useEffect, ReactNode } from "react";
 
 function NavTab({
   href,
@@ -27,6 +27,67 @@ function NavTab({
       className="nav-tab flex items-center gap-2 px-4 text-sm font-medium transition-all"
       data-active={active}
       data-hovered={hovered}
+    >
+      <span>{icon}</span>
+      {children}
+    </Link>
+  );
+}
+
+// Menu a tendina desktop per le voci solo-admin — raggruppate qui (2026-08-09) perché con tutte
+// e 15 le voci (9 sezioni base + 5 admin + Guida) la nav bar principale usciva dai limiti
+// orizzontali: nessun wrap/scroll sulla riga `flex items-stretch flex-1`. Il menu mobile resta
+// invece piatto (stessa lista ADMIN_LINKS sotto): lì le voci si impilano verticalmente, non c'è
+// overflow da risolvere e un livello di click in più sarebbe solo peggiorativo.
+function NavDropdown({ label, icon, active, children }: { label: string; icon: ReactNode; active: boolean; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [open]);
+
+  return (
+    <div className="relative flex items-stretch" ref={ref}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        className="nav-tab flex items-center gap-2 px-4 text-sm font-medium transition-all"
+        data-active={active || open}
+        data-hovered={hovered}
+      >
+        <span>{icon}</span>
+        {label}
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }}>
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      {open && (
+        <div
+          className="absolute top-full left-0 mt-1 rounded-lg overflow-hidden shadow-lg z-50"
+          style={{ background: "var(--color-black)", border: "1px solid #2a2724", minWidth: 220 }}
+          onClick={() => setOpen(false)}
+        >
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NavDropdownItem({ href, active, icon, children }: { href: string; active: boolean; icon: ReactNode; children: ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-white/5"
+      style={{ color: active ? "white" : "#9ca3af" }}
     >
       <span>{icon}</span>
       {children}
@@ -213,8 +274,20 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
             </NavTab>
           ))}
           {isAdmin && (
-            <>
-              <NavTab
+            <NavDropdown
+              label="Amministrazione"
+              active={
+                pathname === "/previsionale" || pathname.startsWith("/offerte") ||
+                pathname === "/admin/import" || pathname.startsWith("/admin/ferramenta/kit") ||
+                pathname === "/admin/log" || pathname === "/admin/operatori-pin"
+              }
+              icon={
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
+              }
+            >
+              <NavDropdownItem
                 href="/previsionale"
                 active={pathname === "/previsionale" || pathname.startsWith("/offerte")}
                 icon={
@@ -224,8 +297,8 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
                 }
               >
                 Previsionale
-              </NavTab>
-              <NavTab
+              </NavDropdownItem>
+              <NavDropdownItem
                 href="/admin/import"
                 active={pathname === "/admin/import"}
                 icon={
@@ -235,8 +308,8 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
                 }
               >
                 Import Schede
-              </NavTab>
-              <NavTab
+              </NavDropdownItem>
+              <NavDropdownItem
                 href="/admin/ferramenta/kit"
                 active={pathname === "/admin/ferramenta/kit" || pathname.startsWith("/admin/ferramenta/kit/")}
                 icon={
@@ -246,8 +319,8 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
                 }
               >
                 Kit Ferramenta ODP
-              </NavTab>
-              <NavTab
+              </NavDropdownItem>
+              <NavDropdownItem
                 href="/admin/log"
                 active={pathname === "/admin/log"}
                 icon={
@@ -257,8 +330,8 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
                 }
               >
                 Audit Log
-              </NavTab>
-              <NavTab
+              </NavDropdownItem>
+              <NavDropdownItem
                 href="/admin/operatori-pin"
                 active={pathname === "/admin/operatori-pin"}
                 icon={
@@ -268,8 +341,8 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
                 }
               >
                 PIN Operatori
-              </NavTab>
-            </>
+              </NavDropdownItem>
+            </NavDropdown>
           )}
           <NavTabExternal href="/manuale-mes/index.html" icon={GUIDA_ICON}>
             Guida
