@@ -13,6 +13,8 @@ function mapCicloRow(r: any): Ciclo {
     validatoAt: r.validato_at ? new Date(r.validato_at).toISOString() : null,
     validatoDaCampionaturaId: r.validato_da_campionatura_id,
     note: r.note,
+    essenza: r.essenza,
+    ignifuga: r.ignifuga,
     attivo: r.attivo,
     createdAt: new Date(r.created_at).toISOString(),
     updatedAt: new Date(r.updated_at).toISOString(),
@@ -25,7 +27,8 @@ function mapProdottoRow(r: any): CicloFaseProdottoRiga {
     id: r.id,
     verniceId: r.vernice_id,
     ruoloInFase: r.ruolo_in_fase,
-    percentuale: r.percentuale != null ? Number(r.percentuale) : null,
+    quantita: r.quantita != null ? Number(r.quantita) : null,
+    unita: r.unita,
     note: r.note,
   };
 }
@@ -75,16 +78,16 @@ interface FaseInput {
   ordine: number;
   nomeFase?: string | null;
   note?: string | null;
-  prodotti: { verniceId: string; ruoloInFase: RuoloInFase; percentuale?: number | null; note?: string | null }[];
+  prodotti: { verniceId: string; ruoloInFase: RuoloInFase; quantita?: number | null; unita?: string | null; note?: string | null }[];
 }
 
-export async function createCiclo(data: { nome?: string | null; note?: string | null; fasi: FaseInput[] }): Promise<Ciclo> {
+export async function createCiclo(data: { nome?: string | null; note?: string | null; essenza?: string | null; ignifuga?: boolean | null; fasi: FaseInput[] }): Promise<Ciclo> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     const { rows } = await client.query(
-      `INSERT INTO cicli (nome, note) VALUES ($1, $2) RETURNING id`,
-      [data.nome ?? null, data.note ?? null]
+      `INSERT INTO cicli (nome, note, essenza, ignifuga) VALUES ($1, $2, $3, $4) RETURNING id`,
+      [data.nome ?? null, data.note ?? null, data.essenza ?? null, data.ignifuga ?? null]
     );
     const cicloId = rows[0].id as string;
 
@@ -96,8 +99,8 @@ export async function createCiclo(data: { nome?: string | null; note?: string | 
       const faseId = faseRows[0].id as string;
       for (const p of fase.prodotti) {
         await client.query(
-          `INSERT INTO cicli_fasi_prodotti (fase_id, vernice_id, ruolo_in_fase, percentuale, note) VALUES ($1,$2,$3,$4,$5)`,
-          [faseId, p.verniceId, p.ruoloInFase, p.percentuale ?? null, p.note ?? null]
+          `INSERT INTO cicli_fasi_prodotti (fase_id, vernice_id, ruolo_in_fase, quantita, unita, note) VALUES ($1,$2,$3,$4,$5,$6)`,
+          [faseId, p.verniceId, p.ruoloInFase, p.quantita ?? null, p.unita ?? null, p.note ?? null]
         );
       }
     }
@@ -111,13 +114,16 @@ export async function createCiclo(data: { nome?: string | null; note?: string | 
   }
 }
 
-// nome/note sono sempre modificabili, anche a ciclo validato: non toccano la "ricetta".
-export async function updateCiclo(id: string, data: { nome?: string | null; note?: string | null }): Promise<Ciclo> {
+// nome/note/essenza/ignifuga sono sempre modificabili, anche a ciclo validato: non toccano la
+// "ricetta" (fasi/prodotti).
+export async function updateCiclo(id: string, data: { nome?: string | null; note?: string | null; essenza?: string | null; ignifuga?: boolean | null }): Promise<Ciclo> {
   const sets: string[] = [];
   const values: unknown[] = [];
   let i = 1;
   if (data.nome !== undefined) { sets.push(`nome = $${i++}`); values.push(data.nome); }
   if (data.note !== undefined) { sets.push(`note = $${i++}`); values.push(data.note); }
+  if (data.essenza !== undefined) { sets.push(`essenza = $${i++}`); values.push(data.essenza); }
+  if (data.ignifuga !== undefined) { sets.push(`ignifuga = $${i++}`); values.push(data.ignifuga); }
   if (sets.length === 0) return getCicloById(id);
   sets.push(`updated_at = now()`);
   values.push(id);
@@ -192,14 +198,14 @@ export async function deleteFase(cicloId: string, faseId: string): Promise<Ciclo
 export async function addProdotto(
   cicloId: string,
   faseId: string,
-  data: { verniceId: string; ruoloInFase: RuoloInFase; percentuale?: number | null; note?: string | null }
+  data: { verniceId: string; ruoloInFase: RuoloInFase; quantita?: number | null; unita?: string | null; note?: string | null }
 ): Promise<Ciclo> {
   await withCicloBozzaTransazione(cicloId, async (client) => {
     const { rowCount } = await client.query(`SELECT 1 FROM cicli_fasi WHERE id = $1 AND ciclo_id = $2`, [faseId, cicloId]);
     if (rowCount === 0) throw new Error(`Fase non trovata: ${faseId}`);
     await client.query(
-      `INSERT INTO cicli_fasi_prodotti (fase_id, vernice_id, ruolo_in_fase, percentuale, note) VALUES ($1,$2,$3,$4,$5)`,
-      [faseId, data.verniceId, data.ruoloInFase, data.percentuale ?? null, data.note ?? null]
+      `INSERT INTO cicli_fasi_prodotti (fase_id, vernice_id, ruolo_in_fase, quantita, unita, note) VALUES ($1,$2,$3,$4,$5,$6)`,
+      [faseId, data.verniceId, data.ruoloInFase, data.quantita ?? null, data.unita ?? null, data.note ?? null]
     );
   });
   return getCicloById(cicloId);
@@ -225,9 +231,9 @@ export async function generaFiglio(cicloPadreId: string): Promise<Ciclo> {
     const padre = padreRows[0];
 
     const { rows: figlioRows } = await client.query(
-      `INSERT INTO cicli (nome, ciclo_padre_id, stato, versione, note)
-       VALUES ($1, $2, 'bozza', $3, $4) RETURNING id`,
-      [padre.nome, cicloPadreId, (padre.versione as number) + 1, padre.note]
+      `INSERT INTO cicli (nome, ciclo_padre_id, stato, versione, note, essenza, ignifuga)
+       VALUES ($1, $2, 'bozza', $3, $4, $5, $6) RETURNING id`,
+      [padre.nome, cicloPadreId, (padre.versione as number) + 1, padre.note, padre.essenza, padre.ignifuga]
     );
     const figlioId = figlioRows[0].id as string;
 
@@ -241,8 +247,8 @@ export async function generaFiglio(cicloPadreId: string): Promise<Ciclo> {
       const { rows: prodotti } = await client.query(`SELECT * FROM cicli_fasi_prodotti WHERE fase_id = $1`, [fase.id]);
       for (const p of prodotti) {
         await client.query(
-          `INSERT INTO cicli_fasi_prodotti (fase_id, vernice_id, ruolo_in_fase, percentuale, note) VALUES ($1,$2,$3,$4,$5)`,
-          [nuovaFaseId, p.vernice_id, p.ruolo_in_fase, p.percentuale, p.note]
+          `INSERT INTO cicli_fasi_prodotti (fase_id, vernice_id, ruolo_in_fase, quantita, unita, note) VALUES ($1,$2,$3,$4,$5,$6)`,
+          [nuovaFaseId, p.vernice_id, p.ruolo_in_fase, p.quantita, p.unita, p.note]
         );
       }
     }

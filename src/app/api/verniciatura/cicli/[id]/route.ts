@@ -14,8 +14,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   }
 }
 
-// nome/note sono sempre modificabili, anche a ciclo validato (non fanno parte della "ricetta").
-// Per modificare fasi/prodotti va usato genera-figlio se il ciclo è già validato.
+// nome/note/essenza/ignifuga sono sempre modificabili, anche a ciclo validato (non fanno parte
+// della "ricetta"). Per modificare fasi/prodotti va usato genera-figlio se il ciclo è già validato.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getSessionFromRequest(req);
@@ -25,7 +25,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const { id } = await params;
     const body = await req.json();
 
-    const ciclo = await updateCiclo(id, { nome: body.nome, note: body.note });
+    const ciclo = await updateCiclo(id, { nome: body.nome, note: body.note, essenza: body.essenza, ignifuga: body.ignifuga });
     void logOperation(session.name, "UPDATE", "ciclo_verniciatura", id, body);
     return NextResponse.json(ciclo);
   } catch (e) {

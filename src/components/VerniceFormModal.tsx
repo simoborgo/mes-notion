@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import type { ColoreSistema, Laboratorio, RuoloVernice, TipoBilancioMassa, UnitaMisuraVernice, Vernice } from "@/lib/types";
-import { CLIENTI_VERNICIATURA, FAMIGLIE_PRODOTTO_VERNICIATURA } from "@/lib/types";
+import { FAMIGLIE_PRODOTTO_VERNICIATURA, TIPI_BILANCIO_MASSA_VERNICIATURA } from "@/lib/types";
 
 const ALTRO = "__altro__";
 
@@ -188,10 +188,7 @@ export default function VerniceFormModal({ vernice, laboratori, onClose, onSalva
 
           <div>
             <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Cliente (riferimento)</label>
-            <select className={inputCls} value={clienteRiferimento} onChange={(e) => setClienteRiferimento(e.target.value)}>
-              <option value="">—</option>
-              {CLIENTI_VERNICIATURA.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
+            <input type="text" className={inputCls} value={clienteRiferimento} onChange={(e) => setClienteRiferimento(e.target.value)} />
             <p className="text-xs mt-1" style={{ color: "var(--color-grey-mid)" }}>
               Informativo, non è il legame ufficiale col cliente (quello vive sulle Campionature) — utile per non perdere il riferimento su vernici migrate senza ancora una campionatura reale.
             </p>
@@ -234,15 +231,10 @@ export default function VerniceFormModal({ vernice, laboratori, onClose, onSalva
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Bilancio di massa (classificazione VOC)</label>
+              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Bilancio di massa (categoria)</label>
               <select className={inputCls} value={tipoBilancioMassa} onChange={(e) => setTipoBilancioMassa(e.target.value as TipoBilancioMassa | "")}>
                 <option value="">—</option>
-                <option value="solvente">Solvente</option>
-                <option value="acqua">Acqua</option>
-                <option value="polvere">Polvere</option>
-                <option value="primer">Primer</option>
-                <option value="smalto">Smalto</option>
-                <option value="altro">Altro</option>
+                {TIPI_BILANCIO_MASSA_VERNICIATURA.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div>

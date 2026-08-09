@@ -67,7 +67,7 @@ export default function TabellaVernici({ vernici: initial, laboratori }: { verni
         if (clienteFiltro && v.clienteRiferimento !== clienteFiltro) return false;
         if (fornitoreFiltro && v.fornitoreId !== fornitoreFiltro) return false;
         if (!q) return true;
-        const testo = `${v.coloreCodice ?? ""} ${v.coloreNome ?? ""} ${v.famigliaProdotto} ${v.codiceInventario ?? ""} ${v.codiceTintometro ?? ""} ${v.codiceVendita ?? ""}`.toLowerCase();
+        const testo = `${v.coloreCodice ?? ""} ${v.coloreNome ?? ""} ${v.famigliaProdotto} ${v.codiceInventario ?? ""} ${v.codiceTintometro ?? ""} ${v.codiceVendita ?? ""} ${v.clienteRiferimento ?? ""}`.toLowerCase();
         return testo.includes(q);
       })
       .sort((a, b) => cmp(a, b, laboratori, sortKey, sortDir));
@@ -87,7 +87,7 @@ export default function TabellaVernici({ vernici: initial, laboratori }: { verni
       <div className="flex flex-wrap gap-2 items-center">
         <input
           className={inputCls + " min-w-52"}
-          placeholder="Cerca colore, famiglia, codice inventario/tintometro…"
+          placeholder="Cerca colore, famiglia, codice inventario/tintometro, cliente…"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") applicaFiltri(); }}

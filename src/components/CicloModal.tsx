@@ -10,11 +10,11 @@ const inputCls = "w-full border rounded px-3 py-2 text-sm focus:outline-none foc
 const labelCls = "block text-xs font-medium mb-1";
 const RUOLI_IN_FASE: RuoloInFase[] = ["vernice", "catalizzatore", "diluente", "indurente", "additivo", "altro"];
 
-interface ProdottoLocale { verniceId: string | null; ruoloInFase: RuoloInFase; percentuale: string; note: string }
+interface ProdottoLocale { verniceId: string | null; ruoloInFase: RuoloInFase; quantita: string; unita: string; note: string }
 interface FaseLocale { ordine: number; nomeFase: string; note: string; prodotti: ProdottoLocale[] }
 
 function nuovaFaseLocale(ordine: number): FaseLocale {
-  return { ordine, nomeFase: "", note: "", prodotti: [{ verniceId: null, ruoloInFase: "vernice", percentuale: "", note: "" }] };
+  return { ordine, nomeFase: "", note: "", prodotti: [{ verniceId: null, ruoloInFase: "vernice", quantita: "", unita: "", note: "" }] };
 }
 
 interface Props {
@@ -29,6 +29,8 @@ export default function CicloModal({ cicloId, onClose, onSaved }: Props) {
   const [vernici, setVernici] = useState<Vernice[]>([]);
   const [nome, setNome] = useState("");
   const [note, setNote] = useState("");
+  const [essenza, setEssenza] = useState("");
+  const [ignifuga, setIgnifuga] = useState<"" | "si" | "no">("");
   const [fasiLocali, setFasiLocali] = useState<FaseLocale[]>([nuovaFaseLocale(1)]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -45,7 +47,13 @@ export default function CicloModal({ cicloId, onClose, onSaved }: Props) {
     // cicloId è fisso per la vita del componente (la modale si riapre con una nuova instance).
     fetch(`/api/verniciatura/cicli/${cicloId}`)
       .then((r) => r.json())
-      .then((c: Ciclo) => { setCiclo(c); setNome(c.nome ?? ""); setNote(c.note ?? ""); })
+      .then((c: Ciclo) => {
+        setCiclo(c);
+        setNome(c.nome ?? "");
+        setNote(c.note ?? "");
+        setEssenza(c.essenza ?? "");
+        setIgnifuga(c.ignifuga === true ? "si" : c.ignifuga === false ? "no" : "");
+      })
       .catch(() => setError("Errore nel caricamento del ciclo"))
       .finally(() => setLoading(false));
   }, [cicloId]);
@@ -61,7 +69,7 @@ export default function CicloModal({ cicloId, onClose, onSaved }: Props) {
     setFasiLocali((prev) => prev.map((f, i) => i !== faseIdx ? f : { ...f, prodotti: f.prodotti.map((p, j) => (j === prodIdx ? { ...p, ...patch } : p)) }));
   }
   function aggiungiProdottoLocale(faseIdx: number) {
-    setFasiLocali((prev) => prev.map((f, i) => i !== faseIdx ? f : { ...f, prodotti: [...f.prodotti, { verniceId: null, ruoloInFase: "catalizzatore", percentuale: "", note: "" }] }));
+    setFasiLocali((prev) => prev.map((f, i) => i !== faseIdx ? f : { ...f, prodotti: [...f.prodotti, { verniceId: null, ruoloInFase: "catalizzatore", quantita: "", unita: "", note: "" }] }));
   }
   function rimuoviProdottoLocale(faseIdx: number, prodIdx: number) {
     setFasiLocali((prev) => prev.map((f, i) => i !== faseIdx ? f : { ...f, prodotti: f.prodotti.filter((_, j) => j !== prodIdx) }));
@@ -92,11 +100,19 @@ export default function CicloModal({ cicloId, onClose, onSaved }: Props) {
         body: JSON.stringify({
           nome: nome.trim() || null,
           note: note.trim() || null,
+          essenza: essenza.trim() || null,
+          ignifuga: ignifuga === "" ? null : ignifuga === "si",
           fasi: fasiLocali.map((f) => ({
             ordine: f.ordine,
             nomeFase: f.nomeFase.trim() || null,
             note: f.note.trim() || null,
-            prodotti: f.prodotti.map((p) => ({ verniceId: p.verniceId, ruoloInFase: p.ruoloInFase, percentuale: p.percentuale ? Number(p.percentuale) : null, note: p.note.trim() || null })),
+            prodotti: f.prodotti.map((p) => ({
+              verniceId: p.verniceId,
+              ruoloInFase: p.ruoloInFase,
+              quantita: p.quantita ? Number(p.quantita) : null,
+              unita: p.unita.trim() || null,
+              note: p.note.trim() || null,
+            })),
           })),
         }),
       });
@@ -110,9 +126,9 @@ export default function CicloModal({ cicloId, onClose, onSaved }: Props) {
     }
   }
 
-  // --- Modifica ciclo esistente (nome/note sempre; fasi/prodotti solo se bozza) ---
+  // --- Modifica ciclo esistente (nome/note/essenza/ignifuga sempre; fasi/prodotti solo se bozza) ---
 
-  async function salvaNomeNote() {
+  async function salvaTestata() {
     if (!ciclo) return;
     setSaving(true);
     setError("");
@@ -120,7 +136,12 @@ export default function CicloModal({ cicloId, onClose, onSaved }: Props) {
       const res = await fetch(`/api/verniciatura/cicli/${ciclo.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nome: nome.trim() || null, note: note.trim() || null }),
+        body: JSON.stringify({
+          nome: nome.trim() || null,
+          note: note.trim() || null,
+          essenza: essenza.trim() || null,
+          ignifuga: ignifuga === "" ? null : ignifuga === "si",
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error ?? `Errore ${res.status}`);
@@ -164,13 +185,13 @@ export default function CicloModal({ cicloId, onClose, onSaved }: Props) {
     if (data) { setCiclo(data); onSaved(data); }
   }
 
-  async function aggiungiProdottoRemoto(faseId: string, verniceId: string, ruoloInFase: RuoloInFase, percentuale: string) {
+  async function aggiungiProdottoRemoto(faseId: string, verniceId: string, ruoloInFase: RuoloInFase, quantita: string, unita: string) {
     if (!ciclo) return;
     const data = await eseguiAzione(`add-prodotto-${faseId}`, () =>
       fetch(`/api/verniciatura/cicli/${ciclo.id}/fasi/${faseId}/prodotti`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ verniceId, ruoloInFase, percentuale: percentuale ? Number(percentuale) : null }),
+        body: JSON.stringify({ verniceId, ruoloInFase, quantita: quantita ? Number(quantita) : null, unita: unita.trim() || null }),
       })
     );
     if (data) { setCiclo(data); onSaved(data); }
@@ -191,6 +212,8 @@ export default function CicloModal({ cicloId, onClose, onSaved }: Props) {
       setCiclo(data);
       setNome(data.nome ?? "");
       setNote(data.note ?? "");
+      setEssenza(data.essenza ?? "");
+      setIgnifuga(data.ignifuga === true ? "si" : data.ignifuga === false ? "no" : "");
       onSaved(data);
     }
   }
@@ -216,7 +239,7 @@ export default function CicloModal({ cicloId, onClose, onSaved }: Props) {
               {ciclo && <BadgeStato stato={ciclo.stato === "bozza" ? "Bozza" : "Validato"} />}
             </h2>
             <p className="text-xs mt-0.5" style={{ color: "var(--color-grey-mid)" }}>
-              Sequenza ordinata di fasi, ognuna con una o più vernici principali e gli ausiliari (catalizzatore/diluente…) con percentuale.
+              Sequenza ordinata di fasi, ognuna con una o più vernici principali e gli ausiliari (catalizzatore/diluente…) con quantità.
             </p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
@@ -237,9 +260,23 @@ export default function CicloModal({ cicloId, onClose, onSaved }: Props) {
                   <input type="text" className={inputCls} value={note} onChange={(e) => setNote(e.target.value)} />
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Essenza</label>
+                  <input type="text" className={inputCls} value={essenza} onChange={(e) => setEssenza(e.target.value)} placeholder="es. Teak, Noce Americano…" />
+                </div>
+                <div>
+                  <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Ignifuga</label>
+                  <select className={inputCls} value={ignifuga} onChange={(e) => setIgnifuga(e.target.value as "" | "si" | "no")}>
+                    <option value="">— Non specificato —</option>
+                    <option value="si">Sì</option>
+                    <option value="no">No</option>
+                  </select>
+                </div>
+              </div>
               {ciclo && (
-                <button onClick={salvaNomeNote} disabled={saving} className="text-xs px-3 py-1.5 rounded-lg font-semibold border disabled:opacity-50" style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)", borderColor: "rgba(240,143,37,0.3)" }}>
-                  {saving ? "Salvo…" : "Salva nome/note"}
+                <button onClick={salvaTestata} disabled={saving} className="text-xs px-3 py-1.5 rounded-lg font-semibold border disabled:opacity-50" style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)", borderColor: "rgba(240,143,37,0.3)" }}>
+                  {saving ? "Salvo…" : "Salva nome/note/essenza/ignifuga"}
                 </button>
               )}
 
@@ -255,7 +292,7 @@ export default function CicloModal({ cicloId, onClose, onSaved }: Props) {
                       </div>
                       <div className="flex-1">
                         <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Nome fase</label>
-                        <input type="text" className={inputCls} value={f.nomeFase} onChange={(e) => aggiornaFaseLocale(faseIdx, { nomeFase: e.target.value })} placeholder="fondo, sfumatura, finitura…" />
+                        <input type="text" className={inputCls} value={f.nomeFase} onChange={(e) => aggiornaFaseLocale(faseIdx, { nomeFase: e.target.value })} placeholder="fondo, sfumatura, finitura… (usa fasi separate per passaggi sequenziali distinti, es. Fondo 1 / Fondo 2)" />
                       </div>
                       {fasiLocali.length > 1 && (
                         <button type="button" onClick={() => rimuoviFaseLocale(faseIdx)} className="text-xs px-2 py-2 rounded border" style={{ color: "#991B1B", borderColor: "#FCA5A5" }}>Rimuovi fase</button>
@@ -271,7 +308,10 @@ export default function CicloModal({ cicloId, onClose, onSaved }: Props) {
                             </select>
                           </div>
                           <div className="w-20 shrink-0">
-                            <input type="number" min="0" step="any" placeholder="%" className={inputCls} value={p.percentuale} onChange={(e) => aggiornaProdottoLocale(faseIdx, prodIdx, { percentuale: e.target.value })} />
+                            <input type="number" min="0" step="any" placeholder="qtà" className={inputCls} value={p.quantita} onChange={(e) => aggiornaProdottoLocale(faseIdx, prodIdx, { quantita: e.target.value })} />
+                          </div>
+                          <div className="w-24 shrink-0">
+                            <input type="text" placeholder="%, gr, gocce…" className={inputCls} value={p.unita} onChange={(e) => aggiornaProdottoLocale(faseIdx, prodIdx, { unita: e.target.value })} />
                           </div>
                           <button type="button" onClick={() => rimuoviProdottoLocale(faseIdx, prodIdx)} className="text-gray-400 hover:text-gray-600 text-lg leading-none px-1">×</button>
                         </div>
@@ -304,7 +344,7 @@ export default function CicloModal({ cicloId, onClose, onSaved }: Props) {
                           <div key={p.id} className="flex items-center gap-2 text-sm">
                             <RuoloInFaseBadge ruolo={p.ruoloInFase} />
                             <span className="flex-1">{v ? (v.coloreCodice || v.coloreNome || v.famigliaProdotto) : p.verniceId}</span>
-                            {p.percentuale != null && <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>{p.percentuale}%</span>}
+                            {p.quantita != null && <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>{p.quantita} {p.unita}</span>}
                             {bozza && (
                               <button onClick={() => rimuoviProdottoRemoto(f.id, p.id)} disabled={azioneInCorso === `rm-prodotto-${p.id}`} className="text-gray-400 hover:text-gray-600 text-lg leading-none px-1">×</button>
                             )}
@@ -312,7 +352,7 @@ export default function CicloModal({ cicloId, onClose, onSaved }: Props) {
                         );
                       })}
                     </div>
-                    {bozza && <AggiungiProdottoRemoto vernici={vernici} onAdd={(verniceId, ruolo, perc) => aggiungiProdottoRemoto(f.id, verniceId, ruolo, perc)} loading={azioneInCorso === `add-prodotto-${f.id}`} />}
+                    {bozza && <AggiungiProdottoRemoto vernici={vernici} onAdd={(verniceId, ruolo, qta, unita) => aggiungiProdottoRemoto(f.id, verniceId, ruolo, qta, unita)} loading={azioneInCorso === `add-prodotto-${f.id}`} />}
                   </div>
                 ))}
                 {ciclo && bozza && (
@@ -357,10 +397,11 @@ export default function CicloModal({ cicloId, onClose, onSaved }: Props) {
   );
 }
 
-function AggiungiProdottoRemoto({ vernici, onAdd, loading }: { vernici: Vernice[]; onAdd: (verniceId: string, ruolo: RuoloInFase, percentuale: string) => void; loading: boolean }) {
+function AggiungiProdottoRemoto({ vernici, onAdd, loading }: { vernici: Vernice[]; onAdd: (verniceId: string, ruolo: RuoloInFase, quantita: string, unita: string) => void; loading: boolean }) {
   const [verniceId, setVerniceId] = useState<string | null>(null);
   const [ruolo, setRuolo] = useState<RuoloInFase>("vernice");
-  const [percentuale, setPercentuale] = useState("");
+  const [quantita, setQuantita] = useState("");
+  const [unita, setUnita] = useState("");
 
   return (
     <div className="flex gap-2 items-center pt-1">
@@ -371,12 +412,15 @@ function AggiungiProdottoRemoto({ vernici, onAdd, loading }: { vernici: Vernice[
         </select>
       </div>
       <div className="w-20 shrink-0">
-        <input type="number" min="0" step="any" placeholder="%" className={inputCls} value={percentuale} onChange={(e) => setPercentuale(e.target.value)} />
+        <input type="number" min="0" step="any" placeholder="qtà" className={inputCls} value={quantita} onChange={(e) => setQuantita(e.target.value)} />
+      </div>
+      <div className="w-24 shrink-0">
+        <input type="text" placeholder="%, gr, gocce…" className={inputCls} value={unita} onChange={(e) => setUnita(e.target.value)} />
       </div>
       <button
         type="button"
         disabled={!verniceId || loading}
-        onClick={() => { if (verniceId) { onAdd(verniceId, ruolo, percentuale); setVerniceId(null); setPercentuale(""); } }}
+        onClick={() => { if (verniceId) { onAdd(verniceId, ruolo, quantita, unita); setVerniceId(null); setQuantita(""); setUnita(""); } }}
         className="text-xs px-3 py-2 rounded-lg font-semibold border disabled:opacity-50"
         style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)", borderColor: "rgba(240,143,37,0.3)" }}
       >

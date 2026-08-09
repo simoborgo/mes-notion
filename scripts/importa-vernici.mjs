@@ -12,9 +12,9 @@
 // questa informazione finché non esistono ancora cicli/campionature reali per queste vernici
 // migrate dal CSV. Rieseguibile: sulle righe già presenti (stesso codice_inventario) fa solo
 // da backfill di cliente_riferimento se era rimasto NULL, non tocca altro.
-// La colonna "Bilancio di Massa" viene migrata grezza in bilancio_massa_raw: la mappatura
-// verso tipo_bilancio_massa (solvente/acqua/polvere/primer/smalto/altro) non è ancora nota
-// e va completata in un secondo momento.
+// La colonna "Bilancio di Massa" viene migrata grezza in bilancio_massa_raw E decodificata in
+// tipo_bilancio_massa tramite la mappatura reale (TABELLA CATEGORIE VERNICI.pdf fornita
+// dall'utente, 2026-08-09) — sigle non presenti in tabella (es. "0") restano solo grezze.
 //
 // Uso: node scripts/importa-vernici.mjs <path-csv>
 import fs from "node:fs";
@@ -42,6 +42,23 @@ const CLIENTI_VERNICIATURA = [
   "Gucci", "Armani", "Cartier", "Diesel", "Bottega Veneta",
   "Brioni", "Boucheron", "Mage", "Villa Giuseppina", "Valentino",
 ];
+
+// Da "TABELLA CATEGORIE VERNICI.pdf" (fornita dall'utente, 2026-08-09). Sigle non presenti
+// qui (es. "0") restano solo grezze in bilancio_massa_raw, non decodificate.
+const CATEGORIE_BILANCIO_MASSA = {
+  A: "ACETONE",
+  F: "DILUENTE",
+  B: "VERNICE ALL'ACQUA",
+  D: "CATALIZZATORE ACRILICO",
+  G: "VERNICE ACRILICA",
+  L: "FONDO ACRILICO",
+  E: "CATALIZZATORE POLIURETANICO",
+  H: "VERNICE POLIURETANICA",
+  N: "FONDO POLIURETANICO",
+  M: "FONDO POLIESTERE",
+  NO: "VERNICE NITRO",
+  Q: "TINTA SOLVENTE",
+};
 
 // Parser CSV minimale RFC4180 con separatore ';' (stesso approccio di
 // importa-anagrafica-ferramenta.mjs, adattato al delimitatore di questo estratto).
@@ -104,7 +121,7 @@ async function main() {
   console.log("Righe da importare:", dati.length);
 
   const clientiVisti = new Set();
-  let bilancioIgnoto = 0;
+  let bilancioDecodificato = 0, bilancioSconosciuto = 0;
 
   const client = await pool.connect();
   try {
@@ -112,7 +129,7 @@ async function main() {
 
     let inseriteONuove = 0, invariate = 0;
     for (const r of dati) {
-      const [bilancioMassaRaw, codiceInventario, , tipoVernice, codiceTintometro, colore, gloss, cliente, unitaMisuraRaw] = r;
+      const [bilancioMassaRawGrezzo, codiceInventario, , tipoVernice, codiceTintometro, colore, gloss, cliente, unitaMisuraRaw] = r;
 
       const { sistema: coloreSistema, codice: coloreCodice, nome: coloreNome } = classificaColore(colore);
 
@@ -125,18 +142,25 @@ async function main() {
         clienteRiferimento = trovato || cliente.trim();
         clientiVisti.add(clienteRiferimento);
       }
-      if (bilancioMassaRaw?.trim()) bilancioIgnoto++;
+
+      const bilancioMassaRaw = bilancioMassaRawGrezzo?.trim() || null;
+      const tipoBilancioMassa = bilancioMassaRaw ? (CATEGORIE_BILANCIO_MASSA[bilancioMassaRaw.toUpperCase()] ?? null) : null;
+      if (bilancioMassaRaw) { if (tipoBilancioMassa) bilancioDecodificato++; else bilancioSconosciuto++; }
 
       // Rieseguibile: su una riga già presente (stesso codice_inventario) fa solo backfill di
-      // cliente_riferimento se era NULL — non sovrascrive modifiche fatte medio tempore da UI.
+      // cliente_riferimento/tipo_bilancio_massa se erano NULL — non sovrascrive modifiche fatte
+      // medio tempore da UI.
       const { rows: risultato } = await client.query(
         `INSERT INTO vernici
            (colore_sistema, colore_codice, colore_nome, codice_tintometro, codice_inventario,
             unita_misura, famiglia_prodotto, tipo_bilancio_massa, bilancio_massa_raw, gloss, cliente_riferimento)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,NULL,$8,$9,$10)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
          ON CONFLICT (codice_inventario) WHERE codice_inventario IS NOT NULL
-         DO UPDATE SET cliente_riferimento = EXCLUDED.cliente_riferimento
-           WHERE vernici.cliente_riferimento IS NULL AND EXCLUDED.cliente_riferimento IS NOT NULL
+         DO UPDATE SET
+           cliente_riferimento = EXCLUDED.cliente_riferimento,
+           tipo_bilancio_massa = COALESCE(vernici.tipo_bilancio_massa, EXCLUDED.tipo_bilancio_massa)
+           WHERE (vernici.cliente_riferimento IS NULL AND EXCLUDED.cliente_riferimento IS NOT NULL)
+              OR (vernici.tipo_bilancio_massa IS NULL AND EXCLUDED.tipo_bilancio_massa IS NOT NULL)
          RETURNING id`,
         [
           coloreSistema,
@@ -146,7 +170,8 @@ async function main() {
           codiceInventario.trim(),
           unitaMisura,
           (tipoVernice || "").trim() || "NON CLASSIFICATO",
-          bilancioMassaRaw?.trim() || null,
+          tipoBilancioMassa,
+          bilancioMassaRaw,
           gloss?.trim() || null,
           clienteRiferimento,
         ]
@@ -156,9 +181,9 @@ async function main() {
 
     await client.query("COMMIT");
     console.log("\n--- RISULTATO ---");
-    console.log("Vernici inserite o aggiornate (nuove + backfill cliente_riferimento):", inseriteONuove);
+    console.log("Vernici inserite o aggiornate (nuove + backfill cliente_riferimento/bilancio_massa):", inseriteONuove);
     console.log("Invariate (già presenti, nulla da aggiornare):", invariate);
-    console.log("Righe con Bilancio di Massa non decodificato (migrato grezzo):", bilancioIgnoto);
+    console.log("Bilancio di Massa decodificato:", bilancioDecodificato, "| sigla sconosciuta (solo grezzo):", bilancioSconosciuto);
     console.log("Clienti visti nel CSV (migrati in cliente_riferimento):", [...clientiVisti].sort().join(", "));
   } catch (e) {
     await client.query("ROLLBACK");

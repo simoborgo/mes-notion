@@ -49,14 +49,17 @@ export async function POST(req: NextRequest) {
     const ciclo = await createCiclo({
       nome: body.nome ?? null,
       note: body.note ?? null,
-      fasi: fasi.map((f: { ordine: number; nomeFase?: string; note?: string; prodotti: { verniceId: string; ruoloInFase: string; percentuale?: number; note?: string }[] }) => ({
+      essenza: body.essenza ?? null,
+      ignifuga: body.ignifuga ?? null,
+      fasi: fasi.map((f: { ordine: number; nomeFase?: string; note?: string; prodotti: { verniceId: string; ruoloInFase: string; quantita?: number; unita?: string; note?: string }[] }) => ({
         ordine: f.ordine,
         nomeFase: f.nomeFase ?? null,
         note: f.note ?? null,
         prodotti: f.prodotti.map((p) => ({
           verniceId: p.verniceId,
           ruoloInFase: p.ruoloInFase,
-          percentuale: p.percentuale ?? null,
+          quantita: p.quantita ?? null,
+          unita: p.unita ?? null,
           note: p.note ?? null,
         })),
       })),

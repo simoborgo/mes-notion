@@ -255,7 +255,27 @@ export const REPARTI_PRODUZIONE: string[] = [
 export type ColoreSistema = "RAL" | "NCS" | "Pantone" | "Custom";
 export type RuoloVernice = "fondo" | "finitura" | "trasparente";
 export type UnitaMisuraVernice = "KG" | "LT" | "NR";
-export type TipoBilancioMassa = "solvente" | "acqua" | "polvere" | "primer" | "smalto" | "altro";
+// Categorie reali da "TABELLA CATEGORIE VERNICI.pdf" (fornita dall'utente, 2026-08-09) —
+// sostituisce l'enum ipotizzato inizialmente (mai usato in produzione, vedi memoria di sessione).
+export type TipoBilancioMassa =
+  | "ACETONE"
+  | "DILUENTE"
+  | "VERNICE ALL'ACQUA"
+  | "CATALIZZATORE ACRILICO"
+  | "VERNICE ACRILICA"
+  | "FONDO ACRILICO"
+  | "CATALIZZATORE POLIURETANICO"
+  | "VERNICE POLIURETANICA"
+  | "FONDO POLIURETANICO"
+  | "FONDO POLIESTERE"
+  | "VERNICE NITRO"
+  | "TINTA SOLVENTE";
+
+export const TIPI_BILANCIO_MASSA_VERNICIATURA: TipoBilancioMassa[] = [
+  "ACETONE", "DILUENTE", "VERNICE ALL'ACQUA", "CATALIZZATORE ACRILICO", "VERNICE ACRILICA",
+  "FONDO ACRILICO", "CATALIZZATORE POLIURETANICO", "VERNICE POLIURETANICA", "FONDO POLIURETANICO",
+  "FONDO POLIESTERE", "VERNICE NITRO", "TINTA SOLVENTE",
+];
 export type RuoloInFase = "vernice" | "catalizzatore" | "diluente" | "indurente" | "additivo" | "altro";
 export type EsitoCampionatura = "approvato" | "rifiutato" | "in_revisione";
 export type StatoCiclo = "bozza" | "validato";
@@ -270,6 +290,7 @@ export const FAMIGLIE_PRODOTTO_VERNICIATURA: string[] = [
   "OPACO", "LUCIDO", "SEMILUCIDO", "FONDO", "FINITURA", "SMALTO", "METALLIZZATO",
   "GOFFRATO", "PRIMER", "PATINA", "TINTA", "IDROPITTURA", "VERNICE", "RESINA",
   "CATALIZZATORE", "DILUENTE", "INDURITORE", "ADDITIVO", "CONCENTRATO", "ISOLANTE",
+  "COLORANTE", "ACETONE", "ACQUA",
 ];
 
 export const CLIENTI_VERNICIATURA: string[] = [
@@ -345,7 +366,10 @@ export interface CicloFaseProdottoRiga {
   id: string;
   verniceId: string;
   ruoloInFase: RuoloInFase;
-  percentuale: number | null;
+  // Quantità libera: percentuale su base vernice principale (unita="%") o quantità assoluta
+  // di una formula (es. "160" + unita="gr") — stessa colonna copre entrambi i casi reali.
+  quantita: number | null;
+  unita: string | null;
   note: string | null;
 }
 
@@ -366,6 +390,9 @@ export interface Ciclo {
   validatoAt: string | null;
   validatoDaCampionaturaId: string | null;
   note: string | null;
+  // Sempre presenti nella distinta di verniciatura reale, insieme a Commessa/Negozio.
+  essenza: string | null;
+  ignifuga: boolean | null;
   attivo: boolean;
   createdAt: string;
   updatedAt: string;

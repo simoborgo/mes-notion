@@ -20,14 +20,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!RUOLI_VALIDI.includes(body.ruoloInFase)) {
       return NextResponse.json({ error: `ruoloInFase non valido, ammessi: ${RUOLI_VALIDI.join(", ")}` }, { status: 400 });
     }
-    if (body.percentuale !== undefined && body.percentuale !== null && !(Number(body.percentuale) > 0)) {
-      return NextResponse.json({ error: "percentuale deve essere maggiore di 0" }, { status: 400 });
+    if (body.quantita !== undefined && body.quantita !== null && !(Number(body.quantita) > 0)) {
+      return NextResponse.json({ error: "quantita deve essere maggiore di 0" }, { status: 400 });
     }
 
     const ciclo = await addProdotto(id, faseId, {
       verniceId: body.verniceId,
       ruoloInFase: body.ruoloInFase,
-      percentuale: body.percentuale != null ? Number(body.percentuale) : null,
+      quantita: body.quantita != null ? Number(body.quantita) : null,
+      unita: body.unita ?? null,
       note: body.note ?? null,
     });
     void logOperation(session.name, "UPDATE", "ciclo_verniciatura", id, { azione: "aggiunta_prodotto", faseId, verniceId: body.verniceId, ruoloInFase: body.ruoloInFase });

@@ -12,7 +12,7 @@ function fmtData(iso: string): string {
   return new Date(iso).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-type SortKey = "nome" | "stato" | "versione" | "validatoAt" | "createdAt";
+type SortKey = "nome" | "essenza" | "stato" | "versione" | "validatoAt" | "createdAt";
 type SortDir = "asc" | "desc";
 
 function cmp(a: Ciclo, b: Ciclo, key: SortKey, dir: SortDir): number {
@@ -20,6 +20,7 @@ function cmp(a: Ciclo, b: Ciclo, key: SortKey, dir: SortDir): number {
   if (key === "versione") res = a.versione - b.versione;
   else if (key === "validatoAt" || key === "createdAt") res = (a[key] ?? "").localeCompare(b[key] ?? "");
   else if (key === "nome") res = (a.nome ?? "").localeCompare(b.nome ?? "", "it");
+  else if (key === "essenza") res = (a.essenza ?? "").localeCompare(b.essenza ?? "", "it");
   else res = a.stato.localeCompare(b.stato, "it");
   return dir === "asc" ? res : -res;
 }
@@ -43,7 +44,7 @@ export default function TabellaCicli({ cicli: initial }: { cicli: Ciclo[] }) {
     return cicli
       .filter((c) => {
         if (statoFiltro && c.stato !== statoFiltro) return false;
-        if (q && !(c.nome ?? "").toLowerCase().includes(q)) return false;
+        if (q && !`${c.nome ?? ""} ${c.essenza ?? ""}`.toLowerCase().includes(q)) return false;
         return true;
       })
       .sort((a, b) => cmp(a, b, sortKey, sortDir));
@@ -65,7 +66,7 @@ export default function TabellaCicli({ cicli: initial }: { cicli: Ciclo[] }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2 items-center">
-        <input className={inputCls + " min-w-52"} placeholder="Cerca per nome scheda…" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <input className={inputCls + " min-w-52"} placeholder="Cerca per nome scheda, essenza…" value={search} onChange={(e) => setSearch(e.target.value)} />
         <select className={inputCls} value={statoFiltro} onChange={(e) => setStatoFiltro(e.target.value as StatoCiclo | "")}>
           <option value="">Tutti gli stati</option>
           <option value="bozza">Bozza</option>
@@ -89,6 +90,7 @@ export default function TabellaCicli({ cicli: initial }: { cicli: Ciclo[] }) {
           <thead>
             <tr className="border-b text-left text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-grey-mid)", background: "#faf9f7" }}>
               <Th label="Nome scheda" sortKey="nome" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              <Th label="Essenza" sortKey="essenza" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Stato" sortKey="stato" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Versione" sortKey="versione" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <th className="px-4 py-3">Derivato da</th>
@@ -99,11 +101,15 @@ export default function TabellaCicli({ cicli: initial }: { cicli: Ciclo[] }) {
           </thead>
           <tbody>
             {filtrati.length === 0 ? (
-              <tr><td colSpan={7} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>Nessuna scheda trovata</td></tr>
+              <tr><td colSpan={8} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>Nessuna scheda trovata</td></tr>
             ) : (
               filtrati.map((c) => (
                 <tr key={c.id} className="border-b last:border-0 hover:bg-orange-50/30 cursor-pointer" onClick={() => apriModifica(c.id)}>
-                  <td className="px-4 py-3 font-medium">{c.nome || "— senza nome —"}</td>
+                  <td className="px-4 py-3 font-medium">
+                    {c.nome || "— senza nome —"}
+                    {c.ignifuga === true && <span className="ml-2 text-xs px-1.5 py-0.5 rounded font-medium" style={{ background: "#FEE2E2", color: "#991B1B" }}>Ignifuga</span>}
+                  </td>
+                  <td className="px-4 py-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>{c.essenza || "—"}</td>
                   <td className="px-4 py-3"><BadgeStato stato={c.stato === "bozza" ? "Bozza" : "Validato"} /></td>
                   <td className="px-4 py-3">v{c.versione}</td>
                   <td className="px-4 py-3 text-xs font-mono" style={{ color: "var(--color-grey-mid)" }}>{c.cicloPadreId ? c.cicloPadreId.slice(0, 8) : "—"}</td>

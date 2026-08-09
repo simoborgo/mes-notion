@@ -19,7 +19,7 @@ export default async function CicliPage() {
       <div>
         <h1 className="text-2xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>Cicli di verniciatura</h1>
         <p className="text-sm mt-1" style={{ color: "var(--color-grey-mid)" }}>
-          Schede: sequenza ordinata di fasi, ognuna con vernice/i principali e ausiliari con percentuale.
+          Schede: sequenza ordinata di fasi, ognuna con vernice/i principali e ausiliari con quantità (percentuale o assoluta, es. grammi/gocce).
         </p>
       </div>
       <TabellaCicli cicli={cicli} />
