@@ -13,6 +13,7 @@ export const SCARICO_MATERIALE_ROLES: Role[] = ["admin", "logistica"];
 export const SPEDIZIONI_ROLES: Role[] = ["admin", "spedizioni"];
 export const RILEVAMENTO_ORE_ROLES: Role[] = ["admin", "responsabile_produzione"];
 export const FERRAMENTA_ROLES: Role[] = ["admin", "magazziniere", "produzione"];
+export const VERNICIATURA_ROLES: Role[] = ["admin", "produzione"];
 export const MODIFICA_SCHEDA_ROLES: Role[] = ["admin", "produzione"];
 export const RIENTRO_QUALITA_ROLES: Role[] = ["admin", "operatore", "logistica", "spedizioni", "produzione", "responsabile_produzione"];
 // Nessun ruolo "commerciale" esiste oggi — solo admin per ora, facile da ampliare su richiesta.

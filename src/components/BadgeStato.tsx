@@ -39,6 +39,13 @@ const colorMap: Record<string, { bg: string; text: string }> = {
   // Legacy
   "Completata":         { bg: "#D1FAE5", text: "#065F46" },
   "Annullata":          { bg: "#FEE2E2", text: "#991B1B" },
+  // Verniciatura — Ciclo (stato)
+  "Bozza":              { bg: "#FEF3C7", text: "#92400E" },
+  "Validato":           { bg: "#D1FAE5", text: "#065F46" },
+  // Verniciatura — Campionatura (esito)
+  "Approvato":          { bg: "#D1FAE5", text: "#065F46" },
+  "Rifiutato":          { bg: "#FEE2E2", text: "#991B1B" },
+  "In revisione":       { bg: "#FEF9C3", text: "#713F12" },
 };
 
 const fallback = { bg: "#F3F4F6", text: "#374151" };

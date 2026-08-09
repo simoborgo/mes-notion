@@ -249,3 +249,149 @@ export const REPARTI_PRODUZIONE: string[] = [
   "Cablaggi",
   "Sezionatura",
 ];
+
+// --- Modulo Verniciatura -----------------------------------------------------------------
+
+export type ColoreSistema = "RAL" | "NCS" | "Pantone" | "Custom";
+export type RuoloVernice = "fondo" | "finitura" | "trasparente";
+export type UnitaMisuraVernice = "KG" | "LT" | "NR";
+export type TipoBilancioMassa = "solvente" | "acqua" | "polvere" | "primer" | "smalto" | "altro";
+export type RuoloInFase = "vernice" | "catalizzatore" | "diluente" | "indurente" | "additivo" | "altro";
+export type EsitoCampionatura = "approvato" | "rifiutato" | "in_revisione";
+export type StatoCiclo = "bozza" | "validato";
+
+// Clienti ricostruiti dal catalogo reale (ETICHETTE_VERNICI_estratto.csv, 2026-08-08): lista
+// fissa applicativa, non una tabella — evita varianti di scrittura sullo stesso cliente.
+// Prada/Hermès esclusi finché non diventano clienti attivi davvero (mai visti nei dati reali).
+// Valori più frequenti osservati nel catalogo reale (ETICHETTE_VERNICI_estratto.csv,
+// 2026-08-08). Suggerimento in UI, non un vincolo DB: famiglia_prodotto resta TEXT libero in
+// Postgres (nessun CHECK) — la UI offre "Altro" per qualsiasi valore non in lista.
+export const FAMIGLIE_PRODOTTO_VERNICIATURA: string[] = [
+  "OPACO", "LUCIDO", "SEMILUCIDO", "FONDO", "FINITURA", "SMALTO", "METALLIZZATO",
+  "GOFFRATO", "PRIMER", "PATINA", "TINTA", "IDROPITTURA", "VERNICE", "RESINA",
+  "CATALIZZATORE", "DILUENTE", "INDURITORE", "ADDITIVO", "CONCENTRATO", "ISOLANTE",
+];
+
+export const CLIENTI_VERNICIATURA: string[] = [
+  "Gucci",
+  "Armani",
+  "Cartier",
+  "Diesel",
+  "Bottega Veneta",
+  "Brioni",
+  "Boucheron",
+  "Mage",
+  "Villa Giuseppina",
+  "Valentino",
+];
+
+export interface Laboratorio {
+  id: string;
+  nome: string;
+  note: string | null;
+  attivo: boolean;
+}
+
+export interface Vernice {
+  id: string;
+  coloreSistema: ColoreSistema | null;
+  coloreCodice: string | null;
+  coloreNome: string | null;
+  fornitoreId: string | null;
+  laboratorioId: string | null;
+  codiceTintometro: string | null;
+  codiceVendita: string | null;
+  codiceInventario: string | null;
+  unitaMisura: UnitaMisuraVernice | null;
+  famigliaProdotto: string;
+  ruolo: RuoloVernice | null;
+  finitura: string | null;
+  gloss: string | null;
+  tipoBilancioMassa: TipoBilancioMassa | null;
+  bilancioMassaRaw: string | null;
+  // Informativo/storico (da import CSV): NON è il legame strutturale col cliente, quello vive
+  // solo su Campionature. Serve a non perdere il riferimento cliente originale finché non
+  // esistono ancora cicli/campionature reali per una vernice migrata dal catalogo legacy.
+  clienteRiferimento: string | null;
+  driveFolderId: string | null;
+  tsDriveFileId: string | null;
+  sdsDriveFileId: string | null;
+  attivo: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VerniceUpdate {
+  coloreSistema?: ColoreSistema | null;
+  coloreCodice?: string | null;
+  coloreNome?: string | null;
+  fornitoreId?: string | null;
+  laboratorioId?: string | null;
+  codiceTintometro?: string | null;
+  codiceVendita?: string | null;
+  codiceInventario?: string | null;
+  unitaMisura?: UnitaMisuraVernice | null;
+  famigliaProdotto?: string;
+  ruolo?: RuoloVernice | null;
+  finitura?: string | null;
+  gloss?: string | null;
+  tipoBilancioMassa?: TipoBilancioMassa | null;
+  bilancioMassaRaw?: string | null;
+  clienteRiferimento?: string | null;
+  attivo?: boolean;
+}
+
+export interface CicloFaseProdottoRiga {
+  id: string;
+  verniceId: string;
+  ruoloInFase: RuoloInFase;
+  percentuale: number | null;
+  note: string | null;
+}
+
+export interface CicloFase {
+  id: string;
+  ordine: number;
+  nomeFase: string | null;
+  note: string | null;
+  prodotti: CicloFaseProdottoRiga[];
+}
+
+export interface Ciclo {
+  id: string;
+  nome: string | null;
+  cicloPadreId: string | null;
+  stato: StatoCiclo;
+  versione: number;
+  validatoAt: string | null;
+  validatoDaCampionaturaId: string | null;
+  note: string | null;
+  attivo: boolean;
+  createdAt: string;
+  updatedAt: string;
+  fasi?: CicloFase[];
+}
+
+export interface CampionaturaFoto {
+  id: string;
+  driveFileId: string;
+  nomeFile: string | null;
+  ordine: number | null;
+}
+
+export interface Campionatura {
+  id: string;
+  cicloId: string;
+  cliente: string;
+  codiceCampioneMaterialista: string | null;
+  codicePubblico: string;
+  dataCampionatura: string;
+  esito: EsitoCampionatura;
+  note: string | null;
+  driveFolderId: string | null;
+  attivo: boolean;
+  validatoAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  foto?: CampionaturaFoto[];
+}

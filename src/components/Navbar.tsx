@@ -68,6 +68,7 @@ const SPEDIZIONI_ROLES = ["admin", "spedizioni"];
 const RILEVAMENTO_ORE_ROLES = ["admin", "responsabile_produzione"];
 const FERRAMENTA_ROLES = ["admin", "magazziniere", "produzione"];
 const SCARICO_MATERIALE_ROLES = ["admin", "logistica"];
+const VERNICIATURA_ROLES = ["admin", "produzione"];
 
 const links = [
   {
@@ -140,6 +141,16 @@ const links = [
     icon: (
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="M20 4L8.12 15.88" /><path d="M14.47 14.48L20 20" /><path d="M8.12 8.12L12 12" />
+      </svg>
+    ),
+  },
+  {
+    href: "/verniciatura",
+    label: "Verniciatura",
+    roles: VERNICIATURA_ROLES,
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M18 2H8a2 2 0 0 0-2 2v3h14V4a2 2 0 0 0-2-2z" /><path d="M6 7h14v4H6z" /><path d="M10 11v4a2 2 0 0 0 2 2 2 2 0 0 1 2 2v3a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-3a2 2 0 0 1 2-2" />
       </svg>
     ),
   },
