@@ -1,26 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { Laboratorio, Vernice } from "@/lib/types";
+import type { Vernice } from "@/lib/types";
 import { CLIENTI_VERNICIATURA } from "@/lib/types";
-import { ColoreSistemaBadge } from "./VerniciaturaBadges";
 import VerniceFormModal from "./VerniceFormModal";
 import { Th } from "./SortableTh";
 
 const inputCls = "border rounded px-2 py-1 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300";
 
-function nomeLaboratorio(laboratori: Laboratorio[], id: string | null): string {
-  if (!id) return "—";
-  return laboratori.find((l) => l.id === id)?.nome ?? "—";
-}
-
-type SortKey = "colore" | "famigliaProdotto" | "clienteRiferimento" | "fornitore" | "codiceTintometro" | "codiceInventario" | "unitaMisura" | "bilancioMassa" | "attivo";
+type SortKey = "colore" | "tipologia" | "clienteRiferimento" | "fornitore" | "codiceTintometro" | "codiceInventario" | "unitaMisura" | "bilancioMassa" | "attivo";
 type SortDir = "asc" | "desc";
 
-function valoreOrdinamento(v: Vernice, laboratori: Laboratorio[], key: SortKey): string | boolean {
+function valoreOrdinamento(v: Vernice, key: SortKey): string | boolean {
   switch (key) {
     case "colore": return v.coloreCodice || v.coloreNome || "";
-    case "fornitore": return nomeLaboratorio(laboratori, v.fornitoreId);
+    case "fornitore": return v.fornitore ?? "";
     case "codiceTintometro": return v.codiceTintometro ?? "";
     case "codiceInventario": return v.codiceInventario ?? "";
     case "unitaMisura": return v.unitaMisura ?? "";
@@ -31,19 +25,18 @@ function valoreOrdinamento(v: Vernice, laboratori: Laboratorio[], key: SortKey):
   }
 }
 
-function cmp(a: Vernice, b: Vernice, laboratori: Laboratorio[], key: SortKey, dir: SortDir): number {
-  const va = valoreOrdinamento(a, laboratori, key);
-  const vb = valoreOrdinamento(b, laboratori, key);
+function cmp(a: Vernice, b: Vernice, key: SortKey, dir: SortDir): number {
+  const va = valoreOrdinamento(a, key);
+  const vb = valoreOrdinamento(b, key);
   const res = typeof va === "boolean" && typeof vb === "boolean" ? (va === vb ? 0 : va ? 1 : -1) : String(va).localeCompare(String(vb), "it");
   return dir === "asc" ? res : -res;
 }
 
-export default function TabellaVernici({ vernici: initial, laboratori }: { vernici: Vernice[]; laboratori: Laboratorio[] }) {
+export default function TabellaVernici({ vernici: initial }: { vernici: Vernice[] }) {
   const [vernici, setVernici] = useState(initial);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [clienteFiltro, setClienteFiltro] = useState("");
-  const [fornitoreFiltro, setFornitoreFiltro] = useState("");
   const [soloAttive, setSoloAttive] = useState(true);
   const [modaleAperta, setModaleAperta] = useState(false);
   const [verniceInModifica, setVerniceInModifica] = useState<Vernice | null>(null);
@@ -65,13 +58,12 @@ export default function TabellaVernici({ vernici: initial, laboratori }: { verni
       .filter((v) => {
         if (soloAttive && !v.attivo) return false;
         if (clienteFiltro && v.clienteRiferimento !== clienteFiltro) return false;
-        if (fornitoreFiltro && v.fornitoreId !== fornitoreFiltro) return false;
         if (!q) return true;
-        const testo = `${v.coloreCodice ?? ""} ${v.coloreNome ?? ""} ${v.famigliaProdotto} ${v.codiceInventario ?? ""} ${v.codiceTintometro ?? ""} ${v.codiceVendita ?? ""} ${v.clienteRiferimento ?? ""}`.toLowerCase();
+        const testo = `${v.coloreCodice ?? ""} ${v.coloreNome ?? ""} ${v.tipologia} ${v.codiceInventario ?? ""} ${v.codiceTintometro ?? ""} ${v.codiceVendita ?? ""} ${v.clienteRiferimento ?? ""} ${v.fornitore ?? ""}`.toLowerCase();
         return testo.includes(q);
       })
-      .sort((a, b) => cmp(a, b, laboratori, sortKey, sortDir));
-  }, [vernici, search, clienteFiltro, fornitoreFiltro, soloAttive, laboratori, sortKey, sortDir]);
+      .sort((a, b) => cmp(a, b, sortKey, sortDir));
+  }, [vernici, search, clienteFiltro, soloAttive, sortKey, sortDir]);
 
   function handleUpsert(v: Vernice) {
     setVernici((prev) => {
@@ -87,7 +79,7 @@ export default function TabellaVernici({ vernici: initial, laboratori }: { verni
       <div className="flex flex-wrap gap-2 items-center">
         <input
           className={inputCls + " min-w-52"}
-          placeholder="Cerca colore, famiglia, codice inventario/tintometro, cliente…"
+          placeholder="Cerca colore, tipologia, fornitore, codice, cliente…"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") applicaFiltri(); }}
@@ -95,10 +87,6 @@ export default function TabellaVernici({ vernici: initial, laboratori }: { verni
         <select className={inputCls} value={clienteFiltro} onChange={(e) => setClienteFiltro(e.target.value)}>
           <option value="">Tutti i clienti</option>
           {CLIENTI_VERNICIATURA.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <select className={inputCls} value={fornitoreFiltro} onChange={(e) => setFornitoreFiltro(e.target.value)}>
-          <option value="">Tutti i fornitori</option>
-          {laboratori.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
         </select>
         <button
           onClick={() => setSoloAttive((v) => !v)}
@@ -124,7 +112,6 @@ export default function TabellaVernici({ vernici: initial, laboratori }: { verni
       {modaleAperta && (
         <VerniceFormModal
           vernice={verniceInModifica}
-          laboratori={laboratori}
           onClose={() => { setModaleAperta(false); setVerniceInModifica(null); }}
           onSalvato={handleUpsert}
         />
@@ -135,7 +122,7 @@ export default function TabellaVernici({ vernici: initial, laboratori }: { verni
           <thead>
             <tr className="border-b text-left text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-grey-mid)", background: "#faf9f7" }}>
               <Th label="Colore" sortKey="colore" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-              <Th label="Famiglia prodotto" sortKey="famigliaProdotto" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              <Th label="Tipologia" sortKey="tipologia" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Cliente" sortKey="clienteRiferimento" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Fornitore" sortKey="fornitore" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Codice tintometro" sortKey="codiceTintometro" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
@@ -150,24 +137,21 @@ export default function TabellaVernici({ vernici: initial, laboratori }: { verni
           <tbody>
             {filtrate.length === 0 ? (
               <tr>
-                <td colSpan={11} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
+                <td colSpan={10} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
                   Nessuna vernice trovata
                 </td>
               </tr>
             ) : (
               filtrate.map((v) => (
                 <tr key={v.id} className="border-b last:border-0 align-top hover:bg-orange-50/30 cursor-pointer" onClick={() => { setVerniceInModifica(v); setModaleAperta(true); }}>
-                  <td className="px-4 py-3">
-                    <ColoreSistemaBadge sistema={v.coloreSistema} />
-                    <div className="mt-1 font-medium">{v.coloreCodice || v.coloreNome || "—"}</div>
-                  </td>
-                  <td className="px-4 py-3">{v.famigliaProdotto}</td>
+                  <td className="px-4 py-3 font-medium">{v.coloreCodice || v.coloreNome || "—"}</td>
+                  <td className="px-4 py-3">{v.tipologia}</td>
                   <td className="px-4 py-3">
                     {v.clienteRiferimento
                       ? <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#FCE7F3", color: "#9D174D" }}>{v.clienteRiferimento}</span>
                       : <span style={{ color: "var(--color-grey-mid)" }}>—</span>}
                   </td>
-                  <td className="px-4 py-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>{nomeLaboratorio(laboratori, v.fornitoreId)}</td>
+                  <td className="px-4 py-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>{v.fornitore || "—"}</td>
                   <td className="px-4 py-3 font-mono text-xs">{v.codiceTintometro || "—"}</td>
                   <td className="px-4 py-3 font-mono text-xs">{v.codiceInventario || "—"}</td>
                   <td className="px-4 py-3">{v.unitaMisura || "—"}</td>

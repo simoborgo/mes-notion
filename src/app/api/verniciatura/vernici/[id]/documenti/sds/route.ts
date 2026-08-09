@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getVerniceById, setVerniceDriveFolderId, setVerniceSdsDocumento } from "@/lib/verniciRepository";
-import { getLaboratorioById } from "@/lib/laboratoriRepository";
 import { getOrCreateVerniceFolder, uploadSchedaSicurezza } from "@/lib/googleDriveVerniciatura";
 import { getSessionFromRequest, VERNICIATURA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
@@ -26,10 +25,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   try {
     const vernice = await getVerniceById(id);
-    const fornitoreNome = vernice.fornitoreId ? (await getLaboratorioById(vernice.fornitoreId)).nome : null;
     const buf = Buffer.from(await file.arrayBuffer());
 
-    const folderId = vernice.driveFolderId ?? (await getOrCreateVerniceFolder(fornitoreNome, vernice.id));
+    const folderId = vernice.driveFolderId ?? (await getOrCreateVerniceFolder(vernice.fornitore, vernice.id));
     const { id: driveFileId } = await uploadSchedaSicurezza(folderId, buf);
 
     if (!vernice.driveFolderId) await setVerniceDriveFolderId(id, folderId);

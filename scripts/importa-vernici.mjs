@@ -81,30 +81,32 @@ function parseCsv(text, delimiter = ";") {
   return rows;
 }
 
+// Non persiste più un "sistema colore" separato (colonna rimossa da vernici): serve solo a
+// normalizzare la formattazione del codice colore libero (es. "RAL7016" -> "RAL 7016").
 function classificaColore(raw) {
   const v = (raw || "").trim();
-  if (!v) return { sistema: null, codice: null, nome: null };
+  if (!v) return { codice: null, nome: null };
 
   const compattaRal = v.toUpperCase().match(/^RAL\s*(\d+)/);
   if (compattaRal && compattaRal[1].length === 4) {
-    return { sistema: "RAL", codice: `RAL ${compattaRal[1]}`, nome: null };
+    return { codice: `RAL ${compattaRal[1]}`, nome: null };
   }
 
   const compattaNcs = v.toUpperCase().replace(/\s|-/g, "").match(/^NCS?S?(\d{4})([A-Z0-9]*)$/);
   if (compattaNcs) {
     const [, cifre, tinta] = compattaNcs;
-    return { sistema: "NCS", codice: tinta ? `NCS S${cifre}-${tinta}` : `NCS S${cifre}`, nome: null };
+    return { codice: tinta ? `NCS S${cifre}-${tinta}` : `NCS S${cifre}`, nome: null };
   }
 
   const pantone = v.toUpperCase().match(/^PANTONE\s*(.+)/);
   if (pantone) {
-    return { sistema: "Pantone", codice: `PANTONE ${pantone[1].trim()}`, nome: null };
+    return { codice: `PANTONE ${pantone[1].trim()}`, nome: null };
   }
 
-  // Custom: nome libero title-case, nessuna struttura riconosciuta (es. "TRASPARENTE",
-  // "VERDE PERGOLA", "PANTONE 9224C" malformato, RAL con cifre errate, ecc.)
+  // Nessuna struttura riconosciuta (es. "TRASPARENTE", "VERDE PERGOLA", RAL con cifre errate,
+  // ecc.): nome libero title-case.
   const nome = v.toLowerCase().split(/\s+/).map(p => p ? p[0].toUpperCase() + p.slice(1) : p).join(" ");
-  return { sistema: "Custom", codice: nome, nome };
+  return { codice: nome, nome };
 }
 
 async function main() {
@@ -131,7 +133,7 @@ async function main() {
     for (const r of dati) {
       const [bilancioMassaRawGrezzo, codiceInventario, , tipoVernice, codiceTintometro, colore, gloss, cliente, unitaMisuraRaw] = r;
 
-      const { sistema: coloreSistema, codice: coloreCodice, nome: coloreNome } = classificaColore(colore);
+      const { codice: coloreCodice, nome: coloreNome } = classificaColore(colore);
 
       const umNorm = (unitaMisuraRaw || "").trim().toUpperCase();
       const unitaMisura = ["KG", "LT", "NR"].includes(umNorm) ? umNorm : null;
@@ -152,9 +154,9 @@ async function main() {
       // medio tempore da UI.
       const { rows: risultato } = await client.query(
         `INSERT INTO vernici
-           (colore_sistema, colore_codice, colore_nome, codice_tintometro, codice_inventario,
-            unita_misura, famiglia_prodotto, tipo_bilancio_massa, bilancio_massa_raw, gloss, cliente_riferimento)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+           (colore_codice, colore_nome, codice_tintometro, codice_inventario,
+            unita_misura, tipologia, tipo_bilancio_massa, bilancio_massa_raw, gloss, cliente_riferimento)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
          ON CONFLICT (codice_inventario) WHERE codice_inventario IS NOT NULL
          DO UPDATE SET
            cliente_riferimento = EXCLUDED.cliente_riferimento,
@@ -163,7 +165,6 @@ async function main() {
               OR (vernici.tipo_bilancio_massa IS NULL AND EXCLUDED.tipo_bilancio_massa IS NOT NULL)
          RETURNING id`,
         [
-          coloreSistema,
           coloreCodice,
           coloreNome,
           codiceTintometro?.trim() || null,

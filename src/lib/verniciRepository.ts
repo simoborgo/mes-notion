@@ -5,17 +5,14 @@ import type { Vernice, VerniceUpdate } from "./types";
 function mapRow(r: any): Vernice {
   return {
     id: r.id,
-    coloreSistema: r.colore_sistema,
     coloreCodice: r.colore_codice,
     coloreNome: r.colore_nome,
-    fornitoreId: r.fornitore_id,
-    laboratorioId: r.laboratorio_id,
+    fornitore: r.fornitore,
     codiceTintometro: r.codice_tintometro,
     codiceVendita: r.codice_vendita,
     codiceInventario: r.codice_inventario,
     unitaMisura: r.unita_misura,
-    famigliaProdotto: r.famiglia_prodotto,
-    ruolo: r.ruolo,
+    tipologia: r.tipologia,
     finitura: r.finitura,
     gloss: r.gloss,
     tipoBilancioMassa: r.tipo_bilancio_massa,
@@ -33,9 +30,8 @@ function mapRow(r: any): Vernice {
 export interface VerniciFiltro {
   soloAttivi?: boolean;
   coloreCodice?: string;
-  fornitoreId?: string;
-  famigliaProdotto?: string;
-  ruolo?: string;
+  fornitore?: string;
+  tipologia?: string;
   tipoBilancioMassa?: string;
   clienteRiferimento?: string;
 }
@@ -47,15 +43,14 @@ export async function getVernici(filtro: VerniciFiltro = {}): Promise<Vernice[]>
 
   if (filtro.soloAttivi !== false) where.push(`attivo = true`);
   if (filtro.coloreCodice) { where.push(`colore_codice ILIKE $${i++}`); values.push(`%${filtro.coloreCodice}%`); }
-  if (filtro.fornitoreId) { where.push(`fornitore_id = $${i++}`); values.push(filtro.fornitoreId); }
-  if (filtro.famigliaProdotto) { where.push(`famiglia_prodotto ILIKE $${i++}`); values.push(`%${filtro.famigliaProdotto}%`); }
-  if (filtro.ruolo) { where.push(`ruolo = $${i++}`); values.push(filtro.ruolo); }
+  if (filtro.fornitore) { where.push(`fornitore ILIKE $${i++}`); values.push(`%${filtro.fornitore}%`); }
+  if (filtro.tipologia) { where.push(`tipologia ILIKE $${i++}`); values.push(`%${filtro.tipologia}%`); }
   if (filtro.tipoBilancioMassa) { where.push(`tipo_bilancio_massa = $${i++}`); values.push(filtro.tipoBilancioMassa); }
   if (filtro.clienteRiferimento) { where.push(`cliente_riferimento = $${i++}`); values.push(filtro.clienteRiferimento); }
 
   const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
   const { rows } = await pool.query(
-    `SELECT * FROM vernici ${whereClause} ORDER BY colore_codice NULLS LAST, famiglia_prodotto`,
+    `SELECT * FROM vernici ${whereClause} ORDER BY colore_codice NULLS LAST, tipologia`,
     values
   );
   return rows.map(mapRow);
@@ -68,17 +63,14 @@ export async function getVerniceById(id: string): Promise<Vernice> {
 }
 
 export async function createVernice(data: {
-  coloreSistema?: string | null;
   coloreCodice?: string | null;
   coloreNome?: string | null;
-  fornitoreId?: string | null;
-  laboratorioId?: string | null;
+  fornitore?: string | null;
   codiceTintometro?: string | null;
   codiceVendita?: string | null;
   codiceInventario?: string | null;
   unitaMisura?: string | null;
-  famigliaProdotto: string;
-  ruolo?: string | null;
+  tipologia: string;
   finitura?: string | null;
   gloss?: string | null;
   tipoBilancioMassa?: string | null;
@@ -88,23 +80,20 @@ export async function createVernice(data: {
 }): Promise<Vernice> {
   const { rows } = await pool.query(
     `INSERT INTO vernici
-       (colore_sistema, colore_codice, colore_nome, fornitore_id, laboratorio_id, codice_tintometro,
-        codice_vendita, codice_inventario, unita_misura, famiglia_prodotto, ruolo, finitura, gloss,
+       (colore_codice, colore_nome, fornitore, codice_tintometro,
+        codice_vendita, codice_inventario, unita_misura, tipologia, finitura, gloss,
         tipo_bilancio_massa, bilancio_massa_raw, cliente_riferimento, created_by, updated_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$17)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$14)
      RETURNING *`,
     [
-      data.coloreSistema ?? null,
       data.coloreCodice ?? null,
       data.coloreNome ?? null,
-      data.fornitoreId ?? null,
-      data.laboratorioId ?? null,
+      data.fornitore ?? null,
       data.codiceTintometro ?? null,
       data.codiceVendita ?? null,
       data.codiceInventario ?? null,
       data.unitaMisura ?? null,
-      data.famigliaProdotto,
-      data.ruolo ?? null,
+      data.tipologia,
       data.finitura ?? null,
       data.gloss ?? null,
       data.tipoBilancioMassa ?? null,
@@ -122,17 +111,14 @@ export async function updateVernice(id: string, data: VerniceUpdate & { updatedB
   let i = 1;
 
   const campi: [keyof VerniceUpdate, string][] = [
-    ["coloreSistema", "colore_sistema"],
     ["coloreCodice", "colore_codice"],
     ["coloreNome", "colore_nome"],
-    ["fornitoreId", "fornitore_id"],
-    ["laboratorioId", "laboratorio_id"],
+    ["fornitore", "fornitore"],
     ["codiceTintometro", "codice_tintometro"],
     ["codiceVendita", "codice_vendita"],
     ["codiceInventario", "codice_inventario"],
     ["unitaMisura", "unita_misura"],
-    ["famigliaProdotto", "famiglia_prodotto"],
-    ["ruolo", "ruolo"],
+    ["tipologia", "tipologia"],
     ["finitura", "finitura"],
     ["gloss", "gloss"],
     ["tipoBilancioMassa", "tipo_bilancio_massa"],

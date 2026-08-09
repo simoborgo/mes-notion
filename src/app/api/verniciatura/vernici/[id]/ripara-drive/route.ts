@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getVerniceById, setVerniceDriveFolderId } from "@/lib/verniciRepository";
-import { getLaboratorioById } from "@/lib/laboratoriRepository";
 import { getOrCreateVerniceFolder } from "@/lib/googleDriveVerniciatura";
 import { getSessionFromRequest, VERNICIATURA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
@@ -19,8 +18,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (vernice.driveFolderId) {
       return NextResponse.json({ ok: true, driveFolderId: vernice.driveFolderId, giaPresente: true });
     }
-    const fornitoreNome = vernice.fornitoreId ? (await getLaboratorioById(vernice.fornitoreId)).nome : null;
-    const folderId = await getOrCreateVerniceFolder(fornitoreNome, vernice.id);
+    const folderId = await getOrCreateVerniceFolder(vernice.fornitore, vernice.id);
     await setVerniceDriveFolderId(id, folderId);
 
     void logOperation(session.name, "UPDATE", "vernice", id, { riparaDrive: true, driveFolderId: folderId });

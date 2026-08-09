@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getVerniceById, setVerniceDriveFolderId, setVerniceTsDocumento } from "@/lib/verniciRepository";
-import { getLaboratorioById } from "@/lib/laboratoriRepository";
 import { getOrCreateVerniceFolder, uploadSchedaTecnica } from "@/lib/googleDriveVerniciatura";
 import { getSessionFromRequest, VERNICIATURA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
@@ -26,11 +25,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   try {
     const vernice = await getVerniceById(id);
-    const fornitoreNome = vernice.fornitoreId ? (await getLaboratorioById(vernice.fornitoreId)).nome : null;
     const buf = Buffer.from(await file.arrayBuffer());
 
     // Cartella creata/riusata al momento dell'upload (non eagerly alla creazione della vernice).
-    const folderId = vernice.driveFolderId ?? (await getOrCreateVerniceFolder(fornitoreNome, vernice.id));
+    const folderId = vernice.driveFolderId ?? (await getOrCreateVerniceFolder(vernice.fornitore, vernice.id));
     const { id: driveFileId } = await uploadSchedaTecnica(folderId, buf);
 
     if (!vernice.driveFolderId) await setVerniceDriveFolderId(id, folderId);

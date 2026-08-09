@@ -1,39 +1,36 @@
 "use client";
 
 import { useRef, useState } from "react";
-import type { ColoreSistema, Laboratorio, RuoloVernice, TipoBilancioMassa, UnitaMisuraVernice, Vernice } from "@/lib/types";
-import { FAMIGLIE_PRODOTTO_VERNICIATURA, TIPI_BILANCIO_MASSA_VERNICIATURA } from "@/lib/types";
+import type { TipoBilancioMassa, UnitaMisuraVernice, Vernice } from "@/lib/types";
+import { TIPOLOGIE_VERNICIATURA, TIPI_BILANCIO_MASSA_VERNICIATURA } from "@/lib/types";
 
 const ALTRO = "__altro__";
 
 const inputCls = "w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300";
+const inputDisabledCls = "w-full border rounded px-3 py-2 text-sm bg-gray-100 text-gray-500 cursor-not-allowed";
 const labelCls = "block text-xs font-medium mb-1";
 
 interface Props {
   vernice: Vernice | null;
-  laboratori: Laboratorio[];
   onClose: () => void;
   onSalvato: (v: Vernice) => void;
 }
 
-export default function VerniceFormModal({ vernice, laboratori, onClose, onSalvato }: Props) {
+export default function VerniceFormModal({ vernice, onClose, onSalvato }: Props) {
   const isEdit = !!vernice;
-  const [coloreSistema, setColoreSistema] = useState<ColoreSistema | "">(vernice?.coloreSistema ?? "");
   const [coloreCodice, setColoreCodice] = useState(vernice?.coloreCodice ?? "");
   const [coloreNome, setColoreNome] = useState(vernice?.coloreNome ?? "");
-  const [fornitoreId, setFornitoreId] = useState(vernice?.fornitoreId ?? "");
-  const [laboratorioId, setLaboratorioId] = useState(vernice?.laboratorioId ?? "");
+  const [fornitore, setFornitore] = useState(vernice?.fornitore ?? "");
   const [codiceTintometro, setCodiceTintometro] = useState(vernice?.codiceTintometro ?? "");
   const [codiceVendita, setCodiceVendita] = useState(vernice?.codiceVendita ?? "");
   const [codiceInventario, setCodiceInventario] = useState(vernice?.codiceInventario ?? "");
   const [unitaMisura, setUnitaMisura] = useState<UnitaMisuraVernice | "">(vernice?.unitaMisura ?? "");
-  const famigliaNota = vernice?.famigliaProdotto && FAMIGLIE_PRODOTTO_VERNICIATURA.includes(vernice.famigliaProdotto);
-  const [famigliaProdottoSelezionata, setFamigliaProdottoSelezionata] = useState(
-    vernice ? (famigliaNota ? vernice.famigliaProdotto : vernice.famigliaProdotto ? ALTRO : "") : ""
+  const tipologiaNota = vernice?.tipologia && TIPOLOGIE_VERNICIATURA.includes(vernice.tipologia);
+  const [tipologiaSelezionata, setTipologiaSelezionata] = useState(
+    vernice ? (tipologiaNota ? vernice.tipologia : vernice.tipologia ? ALTRO : "") : ""
   );
-  const [famigliaProdottoAltro, setFamigliaProdottoAltro] = useState(vernice && !famigliaNota ? vernice.famigliaProdotto : "");
-  const famigliaProdotto = famigliaProdottoSelezionata === ALTRO ? famigliaProdottoAltro : famigliaProdottoSelezionata;
-  const [ruolo, setRuolo] = useState<RuoloVernice | "">(vernice?.ruolo ?? "");
+  const [tipologiaAltro, setTipologiaAltro] = useState(vernice && !tipologiaNota ? vernice.tipologia : "");
+  const tipologia = tipologiaSelezionata === ALTRO ? tipologiaAltro : tipologiaSelezionata;
   const [finitura, setFinitura] = useState(vernice?.finitura ?? "");
   const [gloss, setGloss] = useState(vernice?.gloss ?? "");
   const [tipoBilancioMassa, setTipoBilancioMassa] = useState<TipoBilancioMassa | "">(vernice?.tipoBilancioMassa ?? "");
@@ -51,29 +48,22 @@ export default function VerniceFormModal({ vernice, laboratori, onClose, onSalva
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!famigliaProdotto.trim()) {
-      setError("Famiglia prodotto obbligatoria.");
-      return;
-    }
-    if (coloreSistema && !coloreCodice.trim()) {
-      setError("Colore codice obbligatorio quando è indicato un sistema colore.");
+    if (!tipologia.trim()) {
+      setError("Tipologia obbligatoria.");
       return;
     }
     setSaving(true);
     setError("");
     try {
       const payload = {
-        coloreSistema: coloreSistema || null,
-        coloreCodice: coloreSistema ? coloreCodice.trim() : null,
+        coloreCodice: coloreCodice.trim() || null,
         coloreNome: coloreNome.trim() || null,
-        fornitoreId: fornitoreId || null,
-        laboratorioId: laboratorioId || null,
+        fornitore: fornitore.trim() || null,
         codiceTintometro: codiceTintometro.trim() || null,
         codiceVendita: codiceVendita.trim() || null,
-        codiceInventario: codiceInventario.trim() || null,
+        ...(isEdit ? {} : { codiceInventario: codiceInventario.trim() || null }),
         unitaMisura: unitaMisura || null,
-        famigliaProdotto: famigliaProdotto.trim(),
-        ruolo: ruolo || null,
+        tipologia: tipologia.trim(),
         finitura: finitura.trim() || null,
         gloss: gloss.trim() || null,
         tipoBilancioMassa: tipoBilancioMassa || null,
@@ -118,7 +108,7 @@ export default function VerniceFormModal({ vernice, laboratori, onClose, onSalva
           <div>
             <h2 className="font-semibold text-base">{isEdit ? "Modifica vernice" : "Nuova vernice"}</h2>
             <p className="text-xs mt-0.5" style={{ color: "var(--color-grey-mid)" }}>
-              Vale sia per vernici colore sia per ausiliari (catalizzatori, diluenti, induritori) — lascia sistema/codice colore vuoti per un ausiliario.
+              Vale sia per vernici colore sia per ausiliari (catalizzatori, diluenti, induritori) — lascia il codice colore vuoto per un ausiliario.
             </p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
@@ -126,73 +116,40 @@ export default function VerniceFormModal({ vernice, laboratori, onClose, onSalva
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Sistema colore</label>
-              <select className={inputCls} value={coloreSistema} onChange={(e) => setColoreSistema(e.target.value as ColoreSistema | "")}>
-                <option value="">— Ausiliario / nessun colore —</option>
-                <option value="RAL">RAL</option>
-                <option value="NCS">NCS</option>
-                <option value="Pantone">Pantone</option>
-                <option value="Custom">Custom</option>
-              </select>
+              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Codice colore</label>
+              <input type="text" className={inputCls} value={coloreCodice} onChange={(e) => setColoreCodice(e.target.value)} placeholder="es. RAL 7016, NCS S1002-Y50R…" />
             </div>
             <div>
-              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Colore codice {coloreSistema && "*"}</label>
-              <input type="text" className={inputCls} value={coloreCodice} onChange={(e) => setColoreCodice(e.target.value)} placeholder={coloreSistema === "RAL" ? "es. 7016" : "es. codice"} />
+              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Colore nome</label>
+              <input type="text" className={inputCls} value={coloreNome} onChange={(e) => setColoreNome(e.target.value)} />
             </div>
           </div>
 
           <div>
-            <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Colore nome</label>
-            <input type="text" className={inputCls} value={coloreNome} onChange={(e) => setColoreNome(e.target.value)} />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Famiglia prodotto *</label>
-              <select className={inputCls} value={famigliaProdottoSelezionata} onChange={(e) => setFamigliaProdottoSelezionata(e.target.value)}>
-                <option value="">—</option>
-                {FAMIGLIE_PRODOTTO_VERNICIATURA.map((f) => <option key={f} value={f}>{f}</option>)}
-                <option value={ALTRO}>Altro (specifica)…</option>
-              </select>
-              {famigliaProdottoSelezionata === ALTRO && (
-                <input type="text" required autoFocus className={inputCls + " mt-2"} value={famigliaProdottoAltro} onChange={(e) => setFamigliaProdottoAltro(e.target.value)} placeholder="Specifica la famiglia prodotto" />
-              )}
-            </div>
-            <div>
-              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Ruolo</label>
-              <select className={inputCls} value={ruolo} onChange={(e) => setRuolo(e.target.value as RuoloVernice | "")}>
-                <option value="">— Nessuno (ausiliario) —</option>
-                <option value="fondo">Fondo</option>
-                <option value="finitura">Finitura</option>
-                <option value="trasparente">Trasparente</option>
-              </select>
-            </div>
+            <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Tipologia *</label>
+            <select className={inputCls} value={tipologiaSelezionata} onChange={(e) => setTipologiaSelezionata(e.target.value)}>
+              <option value="">—</option>
+              {TIPOLOGIE_VERNICIATURA.map((t) => <option key={t} value={t}>{t}</option>)}
+              <option value={ALTRO}>Altro (specifica)…</option>
+            </select>
+            {tipologiaSelezionata === ALTRO && (
+              <input type="text" required autoFocus className={inputCls + " mt-2"} value={tipologiaAltro} onChange={(e) => setTipologiaAltro(e.target.value)} placeholder="Specifica la tipologia" />
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Fornitore</label>
-              <select className={inputCls} value={fornitoreId} onChange={(e) => setFornitoreId(e.target.value)}>
-                <option value="">—</option>
-                {laboratori.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
-              </select>
+              <input type="text" className={inputCls} value={fornitore} onChange={(e) => setFornitore(e.target.value)} />
             </div>
             <div>
-              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Laboratorio tintometrico</label>
-              <select className={inputCls} value={laboratorioId} onChange={(e) => setLaboratorioId(e.target.value)}>
-                <option value="">—</option>
-                {laboratori.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
-              </select>
+              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Cliente (riferimento)</label>
+              <input type="text" className={inputCls} value={clienteRiferimento} onChange={(e) => setClienteRiferimento(e.target.value)} />
             </div>
           </div>
-
-          <div>
-            <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Cliente (riferimento)</label>
-            <input type="text" className={inputCls} value={clienteRiferimento} onChange={(e) => setClienteRiferimento(e.target.value)} />
-            <p className="text-xs mt-1" style={{ color: "var(--color-grey-mid)" }}>
-              Informativo, non è il legame ufficiale col cliente (quello vive sulle Campionature) — utile per non perdere il riferimento su vernici migrate senza ancora una campionatura reale.
-            </p>
-          </div>
+          <p className="text-xs -mt-2" style={{ color: "var(--color-grey-mid)" }}>
+            Entrambi informativi: il fornitore non è ancora collegato a un registro condiviso, il cliente non è il legame ufficiale (quello vive sulle Campionature).
+          </p>
 
           <div className="grid grid-cols-3 gap-4">
             <div>
@@ -204,8 +161,15 @@ export default function VerniceFormModal({ vernice, laboratori, onClose, onSalva
               <input type="text" className={inputCls} value={codiceVendita} onChange={(e) => setCodiceVendita(e.target.value)} />
             </div>
             <div>
-              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Cod. inventario</label>
-              <input type="text" className={inputCls} value={codiceInventario} onChange={(e) => setCodiceInventario(e.target.value)} />
+              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Cod. inventario {isEdit && <span className="normal-case font-normal">(non modificabile)</span>}</label>
+              <input
+                type="text"
+                className={isEdit ? inputDisabledCls : inputCls}
+                value={codiceInventario}
+                onChange={(e) => setCodiceInventario(e.target.value)}
+                disabled={isEdit}
+                readOnly={isEdit}
+              />
             </div>
           </div>
 

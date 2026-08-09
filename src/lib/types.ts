@@ -252,8 +252,6 @@ export const REPARTI_PRODUZIONE: string[] = [
 
 // --- Modulo Verniciatura -----------------------------------------------------------------
 
-export type ColoreSistema = "RAL" | "NCS" | "Pantone" | "Custom";
-export type RuoloVernice = "fondo" | "finitura" | "trasparente";
 export type UnitaMisuraVernice = "KG" | "LT" | "NR";
 // Categorie reali da "TABELLA CATEGORIE VERNICI.pdf" (fornita dall'utente, 2026-08-09) —
 // sostituisce l'enum ipotizzato inizialmente (mai usato in produzione, vedi memoria di sessione).
@@ -284,9 +282,9 @@ export type StatoCiclo = "bozza" | "validato";
 // fissa applicativa, non una tabella — evita varianti di scrittura sullo stesso cliente.
 // Prada/Hermès esclusi finché non diventano clienti attivi davvero (mai visti nei dati reali).
 // Valori più frequenti osservati nel catalogo reale (ETICHETTE_VERNICI_estratto.csv,
-// 2026-08-08). Suggerimento in UI, non un vincolo DB: famiglia_prodotto resta TEXT libero in
+// 2026-08-08). Suggerimento in UI, non un vincolo DB: tipologia resta TEXT libero in
 // Postgres (nessun CHECK) — la UI offre "Altro" per qualsiasi valore non in lista.
-export const FAMIGLIE_PRODOTTO_VERNICIATURA: string[] = [
+export const TIPOLOGIE_VERNICIATURA: string[] = [
   "OPACO", "LUCIDO", "SEMILUCIDO", "FONDO", "FINITURA", "SMALTO", "METALLIZZATO",
   "GOFFRATO", "PRIMER", "PATINA", "TINTA", "IDROPITTURA", "VERNICE", "RESINA",
   "CATALIZZATORE", "DILUENTE", "INDURITORE", "ADDITIVO", "CONCENTRATO", "ISOLANTE",
@@ -306,26 +304,18 @@ export const CLIENTI_VERNICIATURA: string[] = [
   "Valentino",
 ];
 
-export interface Laboratorio {
-  id: string;
-  nome: string;
-  note: string | null;
-  attivo: boolean;
-}
-
 export interface Vernice {
   id: string;
-  coloreSistema: ColoreSistema | null;
   coloreCodice: string | null;
   coloreNome: string | null;
-  fornitoreId: string | null;
-  laboratorioId: string | null;
+  // Testo libero: in futuro collegato alla vera tabella Fornitori condivisa (non ancora
+  // esistente) — nel frattempo niente registro dedicato, solo un campo informativo.
+  fornitore: string | null;
   codiceTintometro: string | null;
   codiceVendita: string | null;
   codiceInventario: string | null;
   unitaMisura: UnitaMisuraVernice | null;
-  famigliaProdotto: string;
-  ruolo: RuoloVernice | null;
+  tipologia: string;
   finitura: string | null;
   gloss: string | null;
   tipoBilancioMassa: TipoBilancioMassa | null;
@@ -343,17 +333,16 @@ export interface Vernice {
 }
 
 export interface VerniceUpdate {
-  coloreSistema?: ColoreSistema | null;
   coloreCodice?: string | null;
   coloreNome?: string | null;
-  fornitoreId?: string | null;
-  laboratorioId?: string | null;
+  fornitore?: string | null;
   codiceTintometro?: string | null;
   codiceVendita?: string | null;
+  // Non esposto in modifica in UI (solo in creazione) — resta comunque un campo aggiornabile
+  // lato API se davvero necessario correggerlo a mano.
   codiceInventario?: string | null;
   unitaMisura?: UnitaMisuraVernice | null;
-  famigliaProdotto?: string;
-  ruolo?: RuoloVernice | null;
+  tipologia?: string;
   finitura?: string | null;
   gloss?: string | null;
   tipoBilancioMassa?: TipoBilancioMassa | null;

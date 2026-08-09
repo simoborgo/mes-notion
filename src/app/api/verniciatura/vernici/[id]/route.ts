@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getVerniceById, updateVernice, disattivaVernice } from "@/lib/verniciRepository";
-import { normalizzaColoreCodice } from "@/lib/verniciNormalizers";
 import { getSessionFromRequest, VERNICIATURA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
-import type { ColoreSistema } from "@/lib/types";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -16,6 +14,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   }
 }
 
+// codiceInventario non è modificabile qui di proposito: si scrive solo in creazione (POST).
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getSessionFromRequest(req);
@@ -25,35 +24,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const { id } = await params;
     const body = await req.json();
 
-    let coloreCodice: string | undefined = undefined;
-    if (body.coloreCodice !== undefined) {
-      if (body.coloreCodice === null) {
-        coloreCodice = undefined; // niente modifica se non accompagnato da un sistema valido
-      } else {
-        const sistema = (body.coloreSistema as ColoreSistema | undefined) ?? (await getVerniceById(id)).coloreSistema;
-        if (!sistema) {
-          return NextResponse.json({ error: "colore_sistema obbligatorio per normalizzare colore_codice" }, { status: 400 });
-        }
-        try {
-          coloreCodice = normalizzaColoreCodice(sistema, String(body.coloreCodice));
-        } catch (e) {
-          return NextResponse.json({ error: e instanceof Error ? e.message : "colore_codice non valido" }, { status: 400 });
-        }
-      }
-    }
-
     const vernice = await updateVernice(id, {
-      coloreSistema: body.coloreSistema,
-      coloreCodice,
+      coloreCodice: body.coloreCodice,
       coloreNome: body.coloreNome,
-      fornitoreId: body.fornitoreId,
-      laboratorioId: body.laboratorioId,
+      fornitore: body.fornitore,
       codiceTintometro: body.codiceTintometro,
       codiceVendita: body.codiceVendita,
-      codiceInventario: body.codiceInventario,
       unitaMisura: body.unitaMisura,
-      famigliaProdotto: body.famigliaProdotto,
-      ruolo: body.ruolo,
+      tipologia: body.tipologia,
       finitura: body.finitura,
       gloss: body.gloss,
       tipoBilancioMassa: body.tipoBilancioMassa,

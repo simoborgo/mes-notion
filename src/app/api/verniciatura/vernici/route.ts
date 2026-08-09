@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getVernici, createVernice } from "@/lib/verniciRepository";
-import { normalizzaColoreCodice } from "@/lib/verniciNormalizers";
 import { getSessionFromRequest, VERNICIATURA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
-import type { ColoreSistema } from "@/lib/types";
 
 export async function GET(req: NextRequest) {
   try {
@@ -11,9 +9,8 @@ export async function GET(req: NextRequest) {
     const vernici = await getVernici({
       soloAttivi: sp.get("includeInattivi") !== "true",
       coloreCodice: sp.get("coloreCodice") ?? undefined,
-      fornitoreId: sp.get("fornitoreId") ?? undefined,
-      famigliaProdotto: sp.get("famigliaProdotto") ?? undefined,
-      ruolo: sp.get("ruolo") ?? undefined,
+      fornitore: sp.get("fornitore") ?? undefined,
+      tipologia: sp.get("tipologia") ?? undefined,
       tipoBilancioMassa: sp.get("tipoBilancioMassa") ?? undefined,
       clienteRiferimento: sp.get("clienteRiferimento") ?? undefined,
     });
@@ -32,33 +29,20 @@ export async function POST(req: NextRequest) {
     }
     const body = await req.json();
 
-    const famigliaProdotto = typeof body.famigliaProdotto === "string" ? body.famigliaProdotto.trim() : "";
-    if (!famigliaProdotto) {
-      return NextResponse.json({ error: "Famiglia prodotto obbligatoria" }, { status: 400 });
-    }
-
-    // Normalizzazione bloccante PRIMA dell'insert: fail fast su colore_codice malformato.
-    let coloreCodice: string | null = null;
-    if (body.coloreSistema) {
-      try {
-        coloreCodice = normalizzaColoreCodice(body.coloreSistema as ColoreSistema, String(body.coloreCodice ?? ""));
-      } catch (e) {
-        return NextResponse.json({ error: e instanceof Error ? e.message : "colore_codice non valido" }, { status: 400 });
-      }
+    const tipologia = typeof body.tipologia === "string" ? body.tipologia.trim() : "";
+    if (!tipologia) {
+      return NextResponse.json({ error: "Tipologia obbligatoria" }, { status: 400 });
     }
 
     const vernice = await createVernice({
-      coloreSistema: body.coloreSistema ?? null,
-      coloreCodice,
+      coloreCodice: body.coloreCodice ?? null,
       coloreNome: body.coloreNome ?? null,
-      fornitoreId: body.fornitoreId ?? null,
-      laboratorioId: body.laboratorioId ?? null,
+      fornitore: body.fornitore ?? null,
       codiceTintometro: body.codiceTintometro ?? null,
       codiceVendita: body.codiceVendita ?? null,
       codiceInventario: body.codiceInventario ?? null,
       unitaMisura: body.unitaMisura ?? null,
-      famigliaProdotto,
-      ruolo: body.ruolo ?? null,
+      tipologia,
       finitura: body.finitura ?? null,
       gloss: body.gloss ?? null,
       tipoBilancioMassa: body.tipoBilancioMassa ?? null,
@@ -67,7 +51,7 @@ export async function POST(req: NextRequest) {
       createdBy: session.username,
     });
 
-    void logOperation(session.name, "CREATE", "vernice", vernice.id, { famigliaProdotto, coloreCodice });
+    void logOperation(session.name, "CREATE", "vernice", vernice.id, { tipologia });
     return NextResponse.json(vernice, { status: 201 });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

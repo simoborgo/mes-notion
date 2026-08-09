@@ -4,14 +4,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Vernice } from "@/lib/types";
 
 function etichetta(v: Vernice): string {
-  const parti = [v.coloreCodice || v.coloreNome, v.famigliaProdotto, v.codiceInventario ? `#${v.codiceInventario}` : null];
+  const parti = [v.coloreCodice || v.coloreNome, v.tipologia, v.codiceInventario ? `#${v.codiceInventario}` : null];
   return parti.filter(Boolean).join(" · ");
 }
 
 // Combobox minimale con ricerca client-side: niente libreria (coerente col resto del MES, che
 // non ha componenti combobox condivisi) — input di testo + lista filtrata sotto, click per
 // selezionare. Il catalogo vernici è ~600 righe: un <select> nativo sarebbe usabile ma senza
-// ricerca full-text sarebbe scomodo da usare in produzione (colore_codice/famiglia_prodotto).
+// ricerca full-text sarebbe scomodo da usare in produzione (colore_codice/tipologia).
 //
 // Il dropdown è position:fixed (non absolute) con coordinate calcolate da getBoundingClientRect():
 // dentro il modal CicloModal l'elemento vive in un contenitore overflow-y-auto, che con

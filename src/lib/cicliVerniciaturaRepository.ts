@@ -290,7 +290,7 @@ export async function validaCicloInTransazione(
   }
 
   const { rows: verniciUsate } = await client.query(
-    `SELECT DISTINCT v.id, v.colore_codice, v.famiglia_prodotto, v.ts_drive_file_id, v.sds_drive_file_id
+    `SELECT DISTINCT v.id, v.colore_codice, v.tipologia, v.ts_drive_file_id, v.sds_drive_file_id
      FROM cicli_fasi_prodotti cfp
      JOIN cicli_fasi cf ON cf.id = cfp.fase_id
      JOIN vernici v ON v.id = cfp.vernice_id
@@ -299,7 +299,7 @@ export async function validaCicloInTransazione(
   );
   const warnings: string[] = [];
   for (const v of verniciUsate) {
-    const nome = v.colore_codice || v.famiglia_prodotto || v.id;
+    const nome = v.colore_codice || v.tipologia || v.id;
     if (!v.ts_drive_file_id) warnings.push(`Scheda tecnica mancante per la vernice "${nome}"`);
     if (!v.sds_drive_file_id) warnings.push(`Scheda di sicurezza mancante per la vernice "${nome}"`);
   }

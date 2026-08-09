@@ -13,7 +13,6 @@ const TABS: Tab[] = [
   { href: "/verniciatura", label: "Vernici", match: (p) => p === "/verniciatura" },
   { href: "/verniciatura/cicli", label: "Cicli", match: (p) => p.startsWith("/verniciatura/cicli") },
   { href: "/verniciatura/campionature", label: "Campionature", match: (p) => p.startsWith("/verniciatura/campionature") },
-  { href: "/verniciatura/laboratori", label: "Fornitori e Laboratori", match: (p) => p.startsWith("/verniciatura/laboratori") },
 ];
 
 // Stessa struttura "segmented pill" di OreSubNav (adatta a più tab di quante ne regga il
