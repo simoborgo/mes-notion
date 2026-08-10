@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { creaDistinta, getDistinte, type StatoDistinta } from "@/lib/distinteScaricoRepository";
-import { getSessionFromRequest, FERRAMENTA_ROLES } from "@/lib/auth";
+import { getSessionFromRequest, DISTINTE_SCARICO_CREA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
 const STATI_VALIDI: StatoDistinta[] = ["aperta", "chiusa", "annullata"];
 
 export async function GET(req: NextRequest) {
   const session = await getSessionFromRequest(req);
-  if (!session || !FERRAMENTA_ROLES.includes(session.role)) {
+  if (!session || !DISTINTE_SCARICO_CREA_ROLES.includes(session.role)) {
     return NextResponse.json({ error: "Non autorizzato" }, { status: 403 });
   }
   const { searchParams } = new URL(req.url);
@@ -24,15 +24,17 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getSessionFromRequest(req);
-  if (!session || !FERRAMENTA_ROLES.includes(session.role)) {
+  if (!session || !DISTINTE_SCARICO_CREA_ROLES.includes(session.role)) {
     return NextResponse.json({ error: "Non autorizzato" }, { status: 403 });
   }
   const body = await req.json().catch(() => ({}));
   const odpId = typeof body.odpId === "string" && body.odpId ? body.odpId : null;
   const odpLabel = typeof body.odpLabel === "string" && body.odpLabel ? body.odpLabel : null;
+  const commessaId = typeof body.commessaId === "string" && body.commessaId ? body.commessaId : null;
+  const commessaLabel = typeof body.commessaLabel === "string" && body.commessaLabel ? body.commessaLabel : null;
   try {
-    const distinta = await creaDistinta({ odpId, odpLabel, apertaDa: session.name });
-    void logOperation(session.name, "CREATE", "distinta_scarico", distinta.id, { odpId, odpLabel });
+    const distinta = await creaDistinta({ odpId, odpLabel, commessaId, commessaLabel, apertaDa: session.name });
+    void logOperation(session.name, "CREATE", "distinta_scarico", distinta.id, { odpId, odpLabel, commessaId, commessaLabel });
     return NextResponse.json(distinta);
   } catch (e) {
     console.error("[distinte-scarico POST]", e);

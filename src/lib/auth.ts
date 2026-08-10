@@ -2,7 +2,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
 
-export type Role = "admin" | "operatore" | "logistica" | "spedizioni" | "produzione" | "responsabile_produzione" | "magazziniere" | "magazziniere_vernici";
+export type Role = "admin" | "operatore" | "logistica" | "spedizioni" | "produzione" | "responsabile_produzione" | "magazziniere" | "magazziniere_vernici" | "ufficio_tecnico";
 
 export const WRITE_ROLES: Role[] = ["admin", "logistica"];
 // Solo la creazione di un nuovo Ritiro/Consegna — non modifica/eliminazione (restano
@@ -13,6 +13,10 @@ export const SCARICO_MATERIALE_ROLES: Role[] = ["admin", "logistica"];
 export const SPEDIZIONI_ROLES: Role[] = ["admin", "spedizioni"];
 export const RILEVAMENTO_ORE_ROLES: Role[] = ["admin", "responsabile_produzione"];
 export const FERRAMENTA_ROLES: Role[] = ["admin", "magazziniere", "produzione"];
+// Distinte di Scarico: chi può creare/modificare righe (Ufficio Tecnico incluso) — la chiusura
+// (scarico reale della giacenza) resta esclusiva di FERRAMENTA_ROLES, mai di ufficio_tecnico.
+// Assegnare questo ruolo a una persona richiede modificare USERS_JSON sulla VPS (nessuna UI admin).
+export const DISTINTE_SCARICO_CREA_ROLES: Role[] = [...FERRAMENTA_ROLES, "ufficio_tecnico"];
 export const VERNICIATURA_ROLES: Role[] = ["admin", "produzione"];
 // Solo il magazzino Vernici (giacenza/carico/scarico/inventario) — separato da VERNICIATURA_ROLES
 // perché l'addetto al magazzino non deve necessariamente poter operare su Cicli/Campionature.
@@ -51,7 +55,7 @@ export async function verifyToken(token: string): Promise<Session | null> {
   try {
     const { payload } = await jwtVerify(token, getSecret());
     const { username, name, role } = payload as Record<string, unknown>;
-    const ALL_ROLES: string[] = ["admin", "operatore", "logistica", "spedizioni", "produzione", "responsabile_produzione", "magazziniere", "magazziniere_vernici"];
+    const ALL_ROLES: string[] = ["admin", "operatore", "logistica", "spedizioni", "produzione", "responsabile_produzione", "magazziniere", "magazziniere_vernici", "ufficio_tecnico"];
     if (
       typeof username !== "string" ||
       typeof name !== "string" ||

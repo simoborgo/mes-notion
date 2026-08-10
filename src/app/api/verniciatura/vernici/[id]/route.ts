@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getVerniceById, updateVernice, disattivaVernice } from "@/lib/verniciRepository";
+import { spostaVerniceFolderPerFornitore } from "@/lib/googleDriveVerniciatura";
 import { getSessionFromRequest, VERNICIATURA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
@@ -24,6 +25,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const { id } = await params;
     const body = await req.json();
 
+    const prima = await getVerniceById(id);
+
     const vernice = await updateVernice(id, {
       coloreCodice: body.coloreCodice,
       coloreNome: body.coloreNome,
@@ -42,6 +45,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     });
 
     void logOperation(session.name, "UPDATE", "vernice", id, body);
+
+    // Cartella Drive già creata (primo upload TS/SDS fatto) e fornitore cambiato: sposta la
+    // cartella sotto il nuovo fornitore, senza far fallire il salvataggio se Drive non risponde.
+    const warnings: string[] = [];
+    if (body.fornitore !== undefined && body.fornitore !== prima.fornitore && prima.driveFolderId) {
+      try {
+        await spostaVerniceFolderPerFornitore(prima.driveFolderId, body.fornitore);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error("[PATCH /api/verniciatura/vernici] spostamento cartella Drive fallito:", message);
+        warnings.push(`Vernice aggiornata, ma la cartella Drive non è stata spostata: ${message}`);
+      }
+    }
+
+    if (warnings.length > 0) return NextResponse.json({ ...vernice, warnings }, { status: 207 });
     return NextResponse.json(vernice);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

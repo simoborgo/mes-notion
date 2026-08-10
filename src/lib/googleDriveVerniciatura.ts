@@ -44,6 +44,27 @@ export async function getOrCreateVerniceFolder(fornitoreNome: string | null, ver
   return getOrCreateSubfolder(verniceId, fornitoreFolder);
 }
 
+// Sposta la cartella già esistente di una vernice (id fisso, mai ricreata) sotto la cartella
+// del nuovo fornitore — chiamata quando il fornitore viene rinominato dopo il primo upload,
+// per tenere la struttura visibile su Drive coerente col dato corrente in MES.
+export async function spostaVerniceFolderPerFornitore(driveFolderId: string, nuovoFornitoreNome: string | null): Promise<void> {
+  if (!ROOT_FOLDER_ID) throw new Error("VERNICIATURA_DRIVE_FOLDER_ID non configurato");
+  const d = drive();
+  const verniciFolder = await getOrCreateSubfolder("Vernici", ROOT_FOLDER_ID);
+  const nuovaFornitoreFolder = await getOrCreateSubfolder(nuovoFornitoreNome || "Senza-fornitore", verniciFolder);
+
+  const attuale = await d.files.get({ fileId: driveFolderId, fields: "parents" });
+  const parentiAttuali = attuale.data.parents ?? [];
+  if (parentiAttuali.includes(nuovaFornitoreFolder)) return; // già lì (es. fornitore invariato)
+
+  await d.files.update({
+    fileId: driveFolderId,
+    addParents: nuovaFornitoreFolder,
+    removeParents: parentiAttuali.join(","),
+    fields: "id, parents",
+  });
+}
+
 // Verniciatura/Campionature/<cliente>/<codice_pubblico>/
 export async function getOrCreateCampionaturaFolder(cliente: string, codicePubblico: string): Promise<string> {
   if (!ROOT_FOLDER_ID) throw new Error("VERNICIATURA_DRIVE_FOLDER_ID non configurato");

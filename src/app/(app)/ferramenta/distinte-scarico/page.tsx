@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getSession, FERRAMENTA_ROLES } from "@/lib/auth";
-import { getOdpAttivi } from "@/lib/notion";
+import { getSession, FERRAMENTA_ROLES, DISTINTE_SCARICO_CREA_ROLES } from "@/lib/auth";
+import { getOdpAttivi, getCommesse } from "@/lib/notion";
 import { getDistinte } from "@/lib/distinteScaricoRepository";
 import FerramentaSubNav from "@/components/FerramentaSubNav";
 import FormNuovaDistintaScarico from "@/components/FormNuovaDistintaScarico";
@@ -15,17 +15,19 @@ function fmt(d: string) {
 export default async function DistinteScaricoPage() {
   const session = await getSession();
   if (!session) redirect("/login");
-  if (!FERRAMENTA_ROLES.includes(session.role)) redirect("/");
+  if (!DISTINTE_SCARICO_CREA_ROLES.includes(session.role)) redirect("/");
+  const canManage = FERRAMENTA_ROLES.includes(session.role);
 
-  const [odpList, aperte, chiuse] = await Promise.all([
+  const [odpList, commesseList, aperte, chiuse] = await Promise.all([
     getOdpAttivi(),
+    getCommesse(),
     getDistinte("aperta"),
     getDistinte("chiusa"),
   ]);
 
   return (
     <div className="space-y-4">
-      <FerramentaSubNav canManage={FERRAMENTA_ROLES.includes(session.role)} />
+      <FerramentaSubNav canManage={canManage} soloDistinteScarico={!canManage} />
       <div>
         <h1 className="text-2xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
           Distinte di Scarico
@@ -35,7 +37,7 @@ export default async function DistinteScaricoPage() {
         </p>
       </div>
 
-      <FormNuovaDistintaScarico odpList={odpList} />
+      <FormNuovaDistintaScarico odpList={odpList} commesseList={commesseList} />
 
       <div>
         <h2 className="text-sm font-semibold mb-2" style={{ color: "var(--color-black)" }}>Aperte</h2>
@@ -53,7 +55,7 @@ export default async function DistinteScaricoPage() {
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div>
                     <p className="font-semibold text-sm" style={{ color: "var(--color-black)" }}>
-                      {d.odpLabel || "Distinta libera"}
+                      {d.odpLabel || d.commessaLabel || "Distinta libera"}
                     </p>
                     <p className="text-xs" style={{ color: "var(--color-grey-mid)" }}>
                       Aperta da {d.apertaDa} — {fmt(d.apertaIl)}
@@ -85,7 +87,7 @@ export default async function DistinteScaricoPage() {
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div>
                     <p className="text-sm font-medium" style={{ color: "var(--color-black)" }}>
-                      {d.odpLabel || "Distinta libera"}
+                      {d.odpLabel || d.commessaLabel || "Distinta libera"}
                     </p>
                     <p className="text-xs" style={{ color: "var(--color-grey-mid)" }}>
                       {d.apertaDa} — chiusa {d.chiusaIl ? fmt(d.chiusaIl) : ""}

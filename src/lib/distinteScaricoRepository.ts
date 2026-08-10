@@ -10,10 +10,17 @@ export interface DistintaScarico {
   id: string;
   odpId: string | null;
   odpLabel: string | null;
+  // Alternativo a odp*: per un foglio/kit di scarico legato alla sola Commessa, senza uno
+  // specifico ODP/Scheda — mai entrambi popolati dalla UI, ma nessun vincolo DB li rende esclusivi.
+  commessaId: string | null;
+  commessaLabel: string | null;
   stato: StatoDistinta;
   apertaDa: string;
   apertaIl: string;
   chiusaIl: string | null;
+  // Indipendente da stato/chiusura: segna quando è stata notificata al magazziniere come
+  // "pronta" — stessa logica del Kit Ferramenta ODP (kit/[schedaId]/conferma).
+  confermataIl: string | null;
 }
 
 export interface DistintaScaricoRiga {
@@ -33,10 +40,13 @@ function mapDistinta(r: any): DistintaScarico {
     id: r.id,
     odpId: r.odp_id,
     odpLabel: r.odp_label,
+    commessaId: r.commessa_id,
+    commessaLabel: r.commessa_label,
     stato: r.stato,
     apertaDa: r.aperta_da,
     apertaIl: r.aperta_il,
     chiusaIl: r.chiusa_il,
+    confermataIl: r.confermata_il,
   };
 }
 
@@ -54,11 +64,24 @@ function mapRiga(r: any): DistintaScaricoRiga {
   };
 }
 
-export async function creaDistinta({ odpId, odpLabel, apertaDa }: { odpId: string | null; odpLabel: string | null; apertaDa: string }): Promise<DistintaScarico> {
+export async function creaDistinta({ odpId, odpLabel, commessaId, commessaLabel, apertaDa }: {
+  odpId: string | null; odpLabel: string | null;
+  commessaId?: string | null; commessaLabel?: string | null;
+  apertaDa: string;
+}): Promise<DistintaScarico> {
   const { rows } = await pool.query(
-    `INSERT INTO distinte_scarico (odp_id, odp_label, aperta_da) VALUES ($1, $2, $3) RETURNING *`,
-    [odpId, odpLabel, apertaDa]
+    `INSERT INTO distinte_scarico (odp_id, odp_label, commessa_id, commessa_label, aperta_da) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+    [odpId, odpLabel, commessaId ?? null, commessaLabel ?? null, apertaDa]
   );
+  return mapDistinta(rows[0]);
+}
+
+export async function confermaDistinta(id: string): Promise<DistintaScarico> {
+  const { rows } = await pool.query(
+    `UPDATE distinte_scarico SET confermata_il = now() WHERE id = $1 RETURNING *`,
+    [id]
+  );
+  if (rows.length === 0) throw new Error("Distinta non trovata");
   return mapDistinta(rows[0]);
 }
 
@@ -142,7 +165,7 @@ export async function chiudiDistinta(id: string, operatore: string): Promise<{ w
         giacenzaRisultante,
         operatore,
         fonte: "mes",
-        note: `Distinta di scarico ${id}${distinta.odpLabel ? ` — ${distinta.odpLabel}` : ""}`,
+        note: `Distinta di scarico ${id}${distinta.odpLabel ? ` — ${distinta.odpLabel}` : distinta.commessaLabel ? ` — ${distinta.commessaLabel}` : ""}`,
         odpId: distinta.odpId,
         odpLabel: distinta.odpLabel,
       }, client);

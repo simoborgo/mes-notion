@@ -6,6 +6,11 @@ import BadgeStato from "./BadgeStato";
 import PdfAnnotatoreModal, { type AnnotazioneData } from "./PdfAnnotatoreModal";
 import FormModificaScheda from "./FormModificaScheda";
 import FormNuovaSottoscheda from "./FormNuovaSottoscheda";
+import KitFerramentaTab from "./KitFerramentaTab";
+
+// Duplicato locale di FERRAMENTA_ROLES: auth.ts importa next/headers (server-only), non
+// bundlabile in un componente "use client" — stesso pattern già usato in Navbar.tsx.
+const FERRAMENTA_ROLES = ["admin", "magazziniere", "produzione"];
 
 interface Props {
   scheda: Scheda;
@@ -297,6 +302,8 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
   const [showNuovaSottoscheda, setShowNuovaSottoscheda] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const [eliminaError, setEliminaError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"info" | "kit">("info");
+  const canFerramenta = !!userRole && FERRAMENTA_ROLES.includes(userRole);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
@@ -470,8 +477,30 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
           </div>
         </div>
 
+        {/* ── Tab (solo se il ruolo può operare su Ferramenta — altrimenti nessuna tab, comportamento invariato) ── */}
+        {canFerramenta && (
+          <div className="shrink-0 flex gap-1 px-6 pt-3" style={{ borderBottom: "1px solid #e5e4e0", background: "#f3f2ef" }}>
+            {([["info", "Info"], ["kit", "Kit Ferramenta"]] as const).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key)}
+                className="px-3 py-2 text-sm font-semibold rounded-t-lg -mb-px border-b-2 transition-colors"
+                style={activeTab === key
+                  ? { color: "var(--color-primary)", borderColor: "var(--color-primary)" }
+                  : { color: "var(--color-grey-mid)", borderColor: "transparent" }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* ── Body ── */}
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+
+          {activeTab === "kit" && canFerramenta && <KitFerramentaTab scheda={s} />}
+
+          {activeTab === "info" && <>
 
           {showWizard && (
             <RilavorazioneWizard
@@ -658,6 +687,8 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
               </div>
             </section>
           )}
+
+          </>}
 
         </div>
       </div>

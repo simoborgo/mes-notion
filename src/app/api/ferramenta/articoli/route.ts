@@ -1,8 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { createArticoloFerramenta, getCodiciOs1Esistenti } from "@/lib/articoliFerramentaRepository";
+import { createArticoloFerramenta, getArticoliFerramenta, getCodiciOs1Esistenti } from "@/lib/articoliFerramentaRepository";
 import { getSessionFromRequest, FERRAMENTA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
+
+// Usata dalla tab "Kit Ferramenta" dentro il dettaglio Scheda per popolare l'autocomplete
+// articoli senza scaricare l'intero catalogo (~8000 righe) — filtro sempre lato server.
+export async function GET(req: NextRequest) {
+  const session = await getSessionFromRequest(req);
+  if (!session || !FERRAMENTA_ROLES.includes(session.role)) {
+    return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
+  }
+  const sp = req.nextUrl.searchParams;
+  const metodoGestione = sp.get("metodoGestione");
+  const tutti = await getArticoliFerramenta();
+  const filtrati = tutti.filter(a => a.attivo && (!metodoGestione || a.metodoGestione === metodoGestione));
+  return NextResponse.json(filtrati);
+}
 
 export async function POST(req: NextRequest) {
   const session = await getSessionFromRequest(req);

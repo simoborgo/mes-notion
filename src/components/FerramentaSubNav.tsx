@@ -20,9 +20,13 @@ const TABS: Tab[] = [
   { href: "/ferramenta/ordini-wurth", label: "Ordini Wurth", adminOnly: true, match: (p) => p.startsWith("/ferramenta/ordini-wurth") },
 ];
 
-export default function FerramentaSubNav({ canManage }: { canManage: boolean }) {
+// soloDistinteScarico: vista ristretta per ufficio_tecnico — vede solo la tab Distinte di
+// Scarico (unica sezione Ferramenta a cui ha accesso), nessun'altra voce.
+export default function FerramentaSubNav({ canManage, soloDistinteScarico }: { canManage: boolean; soloDistinteScarico?: boolean }) {
   const pathname = usePathname();
-  const tabs = TABS.filter((t) => !t.adminOnly || canManage);
+  const tabs = soloDistinteScarico
+    ? TABS.filter((t) => t.href === "/ferramenta/distinte-scarico")
+    : TABS.filter((t) => !t.adminOnly || canManage);
 
   return (
     <div className="flex flex-wrap gap-2 pb-3 mb-1 border-b" style={{ borderColor: "#E4E0DA" }}>

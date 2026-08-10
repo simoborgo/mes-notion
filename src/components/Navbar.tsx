@@ -123,11 +123,12 @@ const GUIDA_ICON = (
   </svg>
 );
 
-const ALL_ROLES = ["admin", "operatore", "logistica", "spedizioni", "produzione", "responsabile_produzione", "magazziniere", "magazziniere_vernici"];
+const ALL_ROLES = ["admin", "operatore", "logistica", "spedizioni", "produzione", "responsabile_produzione", "magazziniere", "magazziniere_vernici", "ufficio_tecnico"];
 const CARICO_ROLES = ["admin", "produzione"];
 const SPEDIZIONI_ROLES = ["admin", "spedizioni"];
 const RILEVAMENTO_ORE_ROLES = ["admin", "responsabile_produzione"];
 const FERRAMENTA_ROLES = ["admin", "magazziniere", "produzione"];
+const DISTINTE_SCARICO_CREA_ROLES = [...FERRAMENTA_ROLES, "ufficio_tecnico"];
 const SCARICO_MATERIALE_ROLES = ["admin", "logistica"];
 const VERNICIATURA_ROLES = ["admin", "produzione"];
 const MAGAZZINO_VERNICI_ROLES = ["admin", "magazziniere_vernici"];
@@ -199,7 +200,9 @@ const links = [
   {
     href: "/ferramenta",
     label: "Ferramenta",
-    roles: FERRAMENTA_ROLES,
+    // Include ufficio_tecnico: vede solo la voce, la pagina /ferramenta root lo rimanda dritto a
+    // /ferramenta/distinte-scarico (nessun accesso a giacenze/anagrafica/altro).
+    roles: DISTINTE_SCARICO_CREA_ROLES,
     icon: (
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="M20 4L8.12 15.88" /><path d="M14.47 14.48L20 20" /><path d="M8.12 8.12L12 12" />

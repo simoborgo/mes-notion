@@ -1,9 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { updateSchedaKitFerramenta, invalidateSchedeCache } from "@/lib/notion";
-import { deleteDistintaKitByOdp } from "@/lib/kitFerramentaRepository";
+import { deleteDistintaKitByOdp, getDistintaKitByOdp } from "@/lib/kitFerramentaRepository";
 import { getSessionFromRequest, FERRAMENTA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
+
+// Usata dalla tab "Kit Ferramenta" dentro il dettaglio Scheda (client-side, fetch on demand) —
+// la pagina admin/ferramenta/kit/[schedaId] invece legge le righe direttamente server-side.
+export async function GET(req: NextRequest, { params }: { params: Promise<{ schedaId: string }> }) {
+  const session = await getSessionFromRequest(req);
+  if (!session || !FERRAMENTA_ROLES.includes(session.role)) {
+    return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
+  }
+  const { schedaId } = await params;
+  const righe = await getDistintaKitByOdp(schedaId);
+  return NextResponse.json(righe);
+}
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ schedaId: string }> }) {
   const session = await getSessionFromRequest(req);

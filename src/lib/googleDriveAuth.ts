@@ -11,6 +11,9 @@ export function getAuthClient() {
 
   if (credentials) {
     _client = google.auth.fromJSON(credentials) as ReturnType<typeof google.auth.fromJSON>;
+    // Un client Service Account (JWT) non richiede un token senza scope espliciti — senza questa
+    // riga la richiesta parte priva di identità ("unregistered callers") invece di autenticata.
+    (_client as unknown as { scopes: string[] }).scopes = ["https://www.googleapis.com/auth/drive"];
     return _client;
   }
 

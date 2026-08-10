@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getSession, FERRAMENTA_ROLES } from "@/lib/auth";
+import { getSession, FERRAMENTA_ROLES, DISTINTE_SCARICO_CREA_ROLES } from "@/lib/auth";
 import { getArticoliFerramenta } from "@/lib/articoliFerramentaRepository";
 import FerramentaHome from "@/components/FerramentaHome";
 import FerramentaSubNav from "@/components/FerramentaSubNav";
@@ -9,7 +9,10 @@ export const dynamic = "force-dynamic";
 export default async function FerramentaPage() {
   const session = await getSession();
   if (!session) redirect("/login");
-  if (!FERRAMENTA_ROLES.includes(session.role)) redirect("/");
+  if (!DISTINTE_SCARICO_CREA_ROLES.includes(session.role)) redirect("/");
+  // ufficio_tecnico non ha accesso a giacenze/anagrafica — l'unica sezione Ferramenta sua è
+  // Distinte di Scarico, quindi lo mandiamo dritto lì invece di mostrargli questa pagina.
+  if (!FERRAMENTA_ROLES.includes(session.role)) redirect("/ferramenta/distinte-scarico");
 
   const articoli = await getArticoliFerramenta();
 

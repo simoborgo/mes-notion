@@ -184,6 +184,113 @@ unificato non è stato specificato, si progetterà quando tutte le categorie sar
 
 ## Ferramenta
 
+### ~~Tab "Kit Ferramenta" nel dettaglio Scheda~~ — fatto (2026-08-10)
+
+**Stato:** fatto. Prima il Kit Ferramenta (distinta articoli A Pezzo per ODP) era raggiungibile
+solo da `/admin/ferramenta/kit/[schedaId]`, separato dal flusso normale di consultazione di una
+Scheda. L'utente ha chiesto una tab dedicata anche dentro il modal Scheda (`DettaglioSchedaModal.tsx`),
+per vedere/inserire la distinta senza uscire dal contesto.
+
+`DettaglioSchedaModal` non aveva alcun sistema di tab (solo sezioni sequenziali) — aggiunto un
+piccolo tab-switcher locale (`activeTab: "info" | "kit"`), visibile **solo** se `userRole` è tra
+`FERRAMENTA_ROLES` (duplicato locale della costante, stesso pattern già usato in `Navbar.tsx` —
+`auth.ts` importa `next/headers`, non bundlabile in un client component). Nuovo componente
+`KitFerramentaTab.tsx`: la Scheda è già disponibile come prop (nessuna fetch aggiuntiva), righe e
+articoli A Pezzo vengono caricati on-demand via due nuove route GET (`GET /api/ferramenta/kit/[schedaId]`
+e `GET /api/ferramenta/articoli?metodoGestione=A Pezzo`, quest'ultima aggiunta perché non esisteva
+alcun GET su `articoli/route.ts`), poi renderizza **lo stesso** `GestioneKitOdp.tsx` già usato dalla
+pagina admin — zero duplicazione di logica, `scheda.id` coincide già con l'`odpId` usato dal
+repository Kit Ferramenta (nessuna trasformazione necessaria).
+
+### ~~Distinte di Scarico collegabili a una Commessa (non solo a un ODP)~~ — fatto (2026-08-10)
+
+**Stato:** fatto. L'utente non ricordava se fosse già possibile — non lo era: le Distinte di
+Scarico avevano già `odp_id` opzionale ("distinta libera" se vuoto), ma nessun aggancio a una
+Commessa specifica.
+
+Aggiunte colonne `commessa_id`/`commessa_label` a `distinte_scarico` (nullable, stesso pattern di
+`odp_id`/`odp_label` — Notion page id + label denormalizzata, nessuna vera FK), alternative a
+odp_id ma non vincolate a esclusione reciproca a livello DB (la UI garantisce di popolare solo
+l'uno o l'altro). `FormNuovaDistintaScarico.tsx` ora ha un selettore radio a 3 vie — Libera / ODP /
+Commessa — con nuovo `CommessaAutocomplete.tsx` (stesso pattern di `OdpAutocomplete.tsx`, riceve
+`commesseList: Commessa[]` già caricata server-side via `getCommesse()`, nessuna fetch aggiuntiva).
+Titoli/liste (`distinte-scarico/page.tsx`, `DettaglioDistintaScarico.tsx`) mostrano
+`odpLabel || commessaLabel || "Distinta libera"`. La nota sul movimento di magazzino generato alla
+chiusura cita la Commessa quando non c'è un ODP. Nessuna modifica a `kit_ferramenta_righe`, che
+resta correttamente vincolata al singolo ODP (è una BOM attesa, non una sessione di prelievo).
+
+Testato: `tsc`/`eslint`/`next build` puliti; verifica diretta su Postgres che una distinta con solo
+`commessa_id` popolato (e `odp_id` nullo) si crei e persista correttamente.
+
+### Kit Ferramenta riutilizzabili (per Codice Articolo e per Commessa)
+
+**Stato:** annotata dall'utente (sessione 2026-08-10), non ancora specificata nei dettagli —
+esplicitamente "per il futuro", non implementare finché non richiesta esplicitamente.
+
+Oggi sia `kit_ferramenta_righe` (BOM per ODP) sia `distinte_scarico` (sessione di prelievo) si
+compilano da zero ogni volta, anche quando la lista è concettualmente sempre la stessa. L'utente
+ha confermato di aver bisogno di **entrambi** questi meccanismi, che sono strutturalmente diversi
+e vanno progettati separatamente:
+
+1. **Per Codice Articolo** (vera distinta base/BOM): un articolo specifico richiede sempre la
+   stessa ferramenta, indipendentemente dalla commessa. Andrebbe definita una volta (tabella tipo
+   `kit_template_righe` con `codice_articolo` + `articolo_id` + `quantita`) e applicata
+   automaticamente quando si crea un nuovo ODP/Scheda con quel codice articolo — popolando
+   `kit_ferramenta_righe` per quell'ODP a partire dal template, invece di reinserirla a mano.
+   Da chiarire: cosa succede se il template cambia dopo che alcuni ODP l'hanno già usato (gli ODP
+   esistenti restano con la versione applicata a suo tempo, presumibilmente sì — nessuna retroattività).
+2. **Per Commessa** (duplicazione): commesse simili tendono a riusare la stessa lista complessiva,
+   non legata a un singolo articolo — qui serve più un bottone "Duplica questa distinta" che copi
+   le righe di una vecchia `distinta_scarico` (o di un vecchio Kit ODP) in una nuova, come punto di
+   partenza da poi modificare, non un'applicazione automatica.
+
+**Come affrontarla, quando richiesta**: partire dal caso più chiaramente specificato tra i due
+(probabilmente il Codice Articolo, essendo un vero BOM); il caso Commessa è più semplice (solo un
+"duplica", nessuna nuova tabella necessaria, basta una route che legge le righe di una distinta/kit
+esistente e le re-inserisce in una nuova).
+
+### ~~Ruolo Ufficio Tecnico per le Distinte di Scarico~~ — fatto (2026-08-10)
+
+**Stato:** fatto. L'Ufficio Tecnico non aveva alcun accesso al MES — quando riceve/prepara una
+lista di ferramenta per una Commessa da mandare in cantiere, non aveva modo di inserirla nel
+sistema per farla preparare al magazziniere.
+
+Nuovo ruolo `ufficio_tecnico` in `src/lib/auth.ts`, con permessi volutamente limitati: nuova
+costante `DISTINTE_SCARICO_CREA_ROLES` (= `FERRAMENTA_ROLES` + `ufficio_tecnico`) usata per
+creare/vedere/aggiungere-togliere righe nelle Distinte di Scarico — **ma non per chiudere**
+(scarico reale della giacenza), che resta esclusiva di `FERRAMENTA_ROLES`
+(`chiudi/route.ts` non toccata apposta). Separazione netta tra chi pianifica (Ufficio Tecnico) e
+chi esegue fisicamente in magazzino (magazziniere/produzione/admin).
+
+Il ruolo vede in nav solo "Ferramenta" (ridiretto automaticamente a `/ferramenta/distinte-scarico`,
+mai alla home giacenze) e nella sotto-nav Ferramenta solo la tab "Distinte di Scarico"
+(`FerramentaSubNav` nuovo prop `soloDistinteScarico`). Nel dettaglio distinta, il bottone "Chiudi"
+è sostituito da un testo informativo se `puoChiudere=false`.
+
+**Assegnare questo ruolo richiede modificare `USERS_JSON` sulla VPS** (nessuna UI admin per farlo,
+stessa limitazione già nota per gli altri ruoli custom di questa sessione).
+
+**Correzione nella stessa sessione**: la Distinta di Scarico era pensata solo per il magazziniere
+che scopre/aggiunge articoli scansionando i QR mentre gira in magazzino (`DettaglioDistintaScarico.tsx`
+non aveva alcun form di inserimento diretto) — inutilizzabile per l'Ufficio Tecnico, che riceve una
+lista già completa (tipicamente un file Excel da UTT) e deve poterla inserire tutta subito, non
+scoprirla articolo per articolo camminando in magazzino. Aggiunto un form diretto (articolo via
+`ArticoloAutocomplete` + quantità, stesso pattern di `GestioneKitOdp`) che convive con la modalità
+QR esistente — l'utente può scegliere quale usare, nessuna delle due sostituisce l'altra.
+
+**Ulteriore correzione, stessa sessione**: mancava ancora il pezzo centrale richiesto — "Kit
+Commessa" con lo **stesso comportamento del Kit Ferramenta ODP**: conferma che notifica il
+magazziniere, separata dallo scarico effettivo. Aggiunta `distinte_scarico.confermata_il`
+(indipendente da stato/chiusura) + `POST /api/ferramenta/distinte-scarico/[id]/conferma`
+(stessa logica di `kit/[schedaId]/conferma`, stesso `sendNotifica`/webhook
+`N8N_WEBHOOK_FERRAMENTA`, `eventType: "kit_pronto"`) — a differenza del Kit ODP, qui l'`eventId`
+è l'id della distinta stessa (non un UUID casuale ad ogni click), quindi riconfermare non genera
+mai una seconda notifica duplicata. UI: bottone "Conferma e notifica magazziniere" in
+`DettaglioDistintaScarico.tsx`, stesso stile del blocco conferma di `GestioneKitOdp.tsx`. Il flusso
+finale è quindi identico al Kit ODP: crea lista → conferma (notifica) → magazziniere prepara →
+chiudi (scarico reale) — ultimo passo indipendente dal terzo, si può chiudere anche senza aver
+mai confermato.
+
 ### Altre categorie di INVENTARIO MP non ancora gestite da mes-notion
 
 **Stato:** annotata (sessione 2026-08-06), decisione esplicitamente rimandata dall'utente
