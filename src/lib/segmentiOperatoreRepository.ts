@@ -244,6 +244,9 @@ export async function registraSegmentoRetroattivo(op: DatiOperatore, odp: string
     }
     await registraOreDelta(client, op, dataSegmento, odp, false, oreSegmento);
     await client.query("COMMIT");
+    // DOPO il commit, mai dentro la transazione (stesso motivo di apriSegmento/chiudiSegmentoCorrente
+    // sopra): il ricalcolo deve vedere le ore appena scritte, non partire prima che siano visibili.
+    void aggiornaStandardRepartoPerOdp(odp);
     return mapRow(rows[0]);
   } catch (e) {
     await client.query("ROLLBACK");

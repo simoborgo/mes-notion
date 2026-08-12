@@ -137,6 +137,7 @@ function pageToScheda(page: any): Scheda {
     produzioneEsterna: getCheckbox(prop(page, "Produzione Esterna")),
     statoProdEsterna: getText(prop(page, "Stato Produzione Esterna")),
     fornitore: getText(prop(page, "Nome Fornitore")),
+    fornitoreId: getRelationId(prop(page, "Fornitore")),
     ordineFornitore: getText(prop(page, "Ordine Fornitore")),
     pdfOrdineFornitore: getFiles(prop(page, "Ordine Fornitore")),
     dataRientroPrevista: getDate(prop(page, "Data Rientro Prevista")),
@@ -840,11 +841,15 @@ export async function updateScheda(id: string, data: SchedaUpdate): Promise<Sche
     properties["Data Scheda Ricevuta"] = { date: data.dataSchedaRicevuta ? { start: data.dataSchedaRicevuta } : null };
   if (data.noteStato !== undefined)
     properties["Note Stato"] = { rich_text: [{ text: { content: data.noteStato } }] };
-  // "Nome Fornitore" è una rollup (deriva dalla relation "Fornitore", non scrivibile
-  // direttamente) e "Ordine Fornitore" è un campo files (allegato), non testo — verificato
-  // sullo schema Notion reale il 2026-08-07. SchedaUpdate espone questi due campi ma qui
-  // deliberatamente non vengono scritti: servirebbe un vero selettore Fornitori (relation)
-  // per il primo, un upload dedicato per il secondo. Vedi PROSSIME_IMPLEMENTAZIONI.md.
+  // "Nome Fornitore" è una rollup (deriva dalla relation "Fornitore") — non scrivibile
+  // direttamente, per questo SchedaUpdate.fornitore (testo) resta ignorato qui. L'unico modo
+  // reale di cambiare fornitore è scrivere sulla relation stessa (fornitoreId, sotto).
+  // "Ordine Fornitore" è invece un campo files (allegato): va trattato come upload
+  // (appendOrdineFornitoreToScheda, stesso pattern di appendPdfAllegatoToScheda), mai come testo
+  // — scriverci rich_text fa fallire la PATCH con 500 (verificato sullo schema Notion reale
+  // il 2026-08-07, vedi PROSSIME_IMPLEMENTAZIONI.md).
+  if (data.fornitoreId !== undefined)
+    properties["Fornitore"] = { relation: data.fornitoreId ? [{ id: data.fornitoreId }] : [] };
 
   const page = await notion.pages.update({ page_id: id, properties });
   return pageToScheda(page);
@@ -1206,6 +1211,28 @@ export async function appendPdfAllegatoToScheda(schedaId: string, pdfBase64: str
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const properties: Record<string, any> = {
     "PDF Allegato": { files: [...existing, { type: "file_upload", name: filename, file_upload: { id: uploadId } }] },
+  };
+  await notion.pages.update({ page_id: schedaId, properties });
+}
+
+// Aggiunge un allegato alla property "Ordine Fornitore" (files, non rich_text — vedi commento
+// in updateScheda) senza rimuovere quelli già presenti — stesso pattern di appendPdfAllegatoToScheda.
+export async function appendOrdineFornitoreToScheda(schedaId: string, pdfBase64: string, filename: string): Promise<void> {
+  const { buffer } = decodeBase64File(pdfBase64);
+  const uploadId = await uploadFileToNotionRaw(buffer, filename, "application/pdf");
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const page = await notion.pages.retrieve({ page_id: schedaId }) as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const existing = (page.properties?.["Ordine Fornitore"]?.files ?? []).map((f: any) => (
+    f.type === "external"
+      ? { type: "external", name: f.name, external: { url: f.external.url } }
+      : { type: "file", name: f.name, file: { url: f.file.url } }
+  ));
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const properties: Record<string, any> = {
+    "Ordine Fornitore": { files: [...existing, { type: "file_upload", name: filename, file_upload: { id: uploadId } }] },
   };
   await notion.pages.update({ page_id: schedaId, properties });
 }

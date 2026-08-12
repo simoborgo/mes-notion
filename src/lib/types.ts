@@ -19,6 +19,7 @@ export interface Scheda {
   produzioneEsterna: boolean;
   statoProdEsterna: string;
   fornitore: string;
+  fornitoreId: string | null;
   ordineFornitore: string;
   pdfOrdineFornitore: { name: string; url: string }[];
   dataRientroPrevista: string | null;
@@ -42,6 +43,7 @@ export interface SchedaUpdate {
   produzioneEsterna?: boolean;
   statoProdEsterna?: string;
   fornitore?: string;
+  fornitoreId?: string | null;
   ordineFornitore?: string;
   dataRientroPrevista?: string | null;
   dataUscitaMateriale?: string | null;

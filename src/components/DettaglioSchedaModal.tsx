@@ -30,10 +30,16 @@ function fmt(d: string | null) {
 function InfoItem({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="rounded-lg px-3 py-2.5" style={{ background: "#f8f7f5", border: "1px solid #ebe9e5" }}>
-      <div className="text-[11px] font-bold uppercase tracking-widest mb-1" style={{ color: "#9c9894" }}>{label}</div>
-      <div className="text-sm font-medium" style={{ color: "var(--color-black)" }}>{value || "—"}</div>
+      <div className="text-[12.1px] font-bold uppercase tracking-widest mb-1" style={{ color: "#9c9894" }}>{label}</div>
+      <div className="text-[15.4px] font-medium" style={{ color: "var(--color-black)" }}>{value || "—"}</div>
     </div>
   );
+}
+
+// Badge per i campi essenziali vuoti — al posto di sparire (InfoItem sotto un `x &&`) o di un
+// "—" neutro, un vero segnale che manca un dato, non solo che non c'è nulla da mostrare.
+function Mancante() {
+  return <span className="font-bold px-1.5 py-0.5 rounded" style={{ background: "#FEF3C7", color: "#92400E" }}>MANCANTE</span>;
 }
 
 interface Fornitore { id: string; nome: string }
@@ -139,7 +145,7 @@ function RilavorazioneWizard({
     }
   }
 
-  const inputCls = "w-full text-sm px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-orange-300 transition-shadow";
+  const inputCls = "w-full text-[15.4px] px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-orange-300 transition-shadow";
   const inputStyle = { border: "1px solid #e5e4e0", background: "white", color: "var(--color-black)" };
 
   // Step 2 — fullscreen annotatore (sopra il modal corrente)
@@ -162,7 +168,7 @@ function RilavorazioneWizard({
     <div className="rounded-xl p-4 space-y-4 mt-2" style={{ background: "#FFFBEB", border: "1px solid #FDE68A" }}>
       {stepLabel && (
         <div className="flex items-center gap-2">
-          <span className="text-xs font-bold uppercase tracking-widest" style={{ color: "#92400E" }}>{stepLabel}</span>
+          <span className="text-[13.2px] font-bold uppercase tracking-widest" style={{ color: "#92400E" }}>{stepLabel}</span>
           {hasPdf && (
             <div className="flex gap-1">
               {[1, 2, 3].map(n => (
@@ -176,66 +182,66 @@ function RilavorazioneWizard({
       {/* ── Step 1: form ── */}
       {step === 1 && (
         <>
-          <div className="text-sm font-semibold" style={{ color: "#92400E" }}>Nuova rilavorazione su {schedaOdp}</div>
+          <div className="text-[15.4px] font-semibold" style={{ color: "#92400E" }}>Nuova rilavorazione su {schedaOdp}</div>
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: "#92400E" }}>Descrizione pezzo *</label>
+            <label className="text-[13.2px] font-semibold block mb-1" style={{ color: "#92400E" }}>Descrizione pezzo *</label>
             <input type="text" value={descrizione} onChange={e => setDescrizione(e.target.value)}
               placeholder="Es. Cornice sx rovinata durante assemblaggio"
               className={inputCls} style={inputStyle} required autoFocus />
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: "#92400E" }}>Quantità</label>
+              <label className="text-[13.2px] font-semibold block mb-1" style={{ color: "#92400E" }}>Quantità</label>
               <input type="number" min="1" value={quantita} onChange={e => setQuantita(e.target.value)}
                 placeholder="es. 2" className={inputCls} style={inputStyle} />
             </div>
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: "#92400E" }}>Fornitore</label>
+              <label className="text-[13.2px] font-semibold block mb-1" style={{ color: "#92400E" }}>Fornitore</label>
               <select value={fornitoreNome} onChange={e => setFornitoreNome(e.target.value)} className={inputCls} style={inputStyle}>
                 <option value="">— nessuno —</option>
                 {fornitori.map(f => <option key={f.id} value={f.nome}>{f.nome}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: "#92400E" }}>Data rientro</label>
+              <label className="text-[13.2px] font-semibold block mb-1" style={{ color: "#92400E" }}>Data rientro</label>
               <input type="date" value={dataRientro} onChange={e => setDataRientro(e.target.value)} className={inputCls} style={inputStyle} />
             </div>
           </div>
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: "#92400E" }}>Note</label>
+            <label className="text-[13.2px] font-semibold block mb-1" style={{ color: "#92400E" }}>Note</label>
             <textarea value={note} onChange={e => setNote(e.target.value)} rows={2}
               placeholder="Motivazione, dettagli…" className={inputCls} style={{ ...inputStyle, resize: "vertical" }} />
           </div>
           {/* Flag ritiro — visibile solo se c'è un fornitore */}
           {fornitoreNome && (
-            <label className="flex items-center gap-2 cursor-pointer select-none text-xs" style={{ color: "#92400E" }}>
+            <label className="flex items-center gap-2 cursor-pointer select-none text-[13.2px]" style={{ color: "#92400E" }}>
               <input type="checkbox" checked={creaRitiro} onChange={e => setCreaRitiro(e.target.checked)}
                 className="w-4 h-4 accent-amber-600 cursor-pointer" />
               Crea riga in <strong>Ritiri e Consegne</strong> + notifica Telegram
             </label>
           )}
-          {error && <p className="text-xs font-medium px-2 py-1.5 rounded-lg" style={{ color: "#991B1B", background: "#FEE2E2" }}>{error}</p>}
+          {error && <p className="text-[13.2px] font-medium px-2 py-1.5 rounded-lg" style={{ color: "#991B1B", background: "#FEE2E2" }}>{error}</p>}
           <div className="flex justify-end gap-2 pt-1">
-            <button type="button" onClick={onCancel} className="text-sm px-3 py-1.5 rounded-lg border font-medium"
+            <button type="button" onClick={onCancel} className="text-[15.4px] px-3 py-1.5 rounded-lg border font-medium"
               style={{ color: "var(--color-grey-mid)", borderColor: "#e5e4e0", background: "white" }}>
               Annulla
             </button>
             {hasPdf ? (
               <>
                 <button type="button" onClick={submit} disabled={saving || !descrizione.trim()}
-                  className="text-sm px-3 py-1.5 rounded-lg font-medium disabled:opacity-50 border"
+                  className="text-[15.4px] px-3 py-1.5 rounded-lg font-medium disabled:opacity-50 border"
                   style={{ color: "#92400E", borderColor: "#FDE68A", background: "white" }}>
                   {saving ? "Creazione…" : "Crea senza PDF"}
                 </button>
                 <button type="button" onClick={() => setStep(2)} disabled={!descrizione.trim()}
-                  className="text-sm px-4 py-1.5 rounded-lg font-semibold disabled:opacity-50"
+                  className="text-[15.4px] px-4 py-1.5 rounded-lg font-semibold disabled:opacity-50"
                   style={{ background: "#D97706", color: "white" }}>
                   Avanti: Annota PDF →
                 </button>
               </>
             ) : (
               <button type="button" onClick={submit} disabled={saving || !descrizione.trim()}
-                className="text-sm px-4 py-1.5 rounded-lg font-semibold disabled:opacity-50"
+                className="text-[15.4px] px-4 py-1.5 rounded-lg font-semibold disabled:opacity-50"
                 style={{ background: "#D97706", color: "white" }}>
                 {saving ? "Creazione…" : "Crea Rilavorazione"}
               </button>
@@ -247,13 +253,13 @@ function RilavorazioneWizard({
       {/* ── Step 3: foto ── */}
       {step === 3 && (
         <>
-          <div className="text-sm font-semibold" style={{ color: "#92400E" }}>Aggiungi foto al PDF (opzionale)</div>
-          <p className="text-xs" style={{ color: "#92400E" }}>
+          <div className="text-[15.4px] font-semibold" style={{ color: "#92400E" }}>Aggiungi foto al PDF (opzionale)</div>
+          <p className="text-[13.2px]" style={{ color: "#92400E" }}>
             Le foto verranno aggiunte come pagine in coda al PDF annotato.
           </p>
           <input ref={fotoInputRef} type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={handleFoto} />
           <button type="button" onClick={() => fotoInputRef.current?.click()}
-            className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg border font-medium w-full justify-center"
+            className="flex items-center gap-2 text-[15.4px] px-3 py-2 rounded-lg border font-medium w-full justify-center"
             style={{ borderColor: "#FDE68A", background: "white", color: "#92400E" }}>
             <span>📷</span> Scatta / seleziona foto
           </button>
@@ -264,7 +270,7 @@ function RilavorazioneWizard({
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={f} alt="" className="w-20 h-20 object-cover rounded-lg border" style={{ borderColor: "#FDE68A" }} />
                   <button onClick={() => setFotos(prev => prev.filter((_, j) => j !== i))}
-                    className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full text-xs flex items-center justify-center"
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full text-[13.2px] flex items-center justify-center"
                     style={{ background: "#991B1B", color: "white" }}>
                     ✕
                   </button>
@@ -272,15 +278,15 @@ function RilavorazioneWizard({
               ))}
             </div>
           )}
-          {error && <p className="text-xs font-medium px-2 py-1.5 rounded-lg" style={{ color: "#991B1B", background: "#FEE2E2" }}>{error}</p>}
+          {error && <p className="text-[13.2px] font-medium px-2 py-1.5 rounded-lg" style={{ color: "#991B1B", background: "#FEE2E2" }}>{error}</p>}
           <div className="flex justify-end gap-2 pt-1">
             <button type="button" onClick={() => setStep(2)}
-              className="text-sm px-3 py-1.5 rounded-lg border font-medium"
+              className="text-[15.4px] px-3 py-1.5 rounded-lg border font-medium"
               style={{ color: "var(--color-grey-mid)", borderColor: "#e5e4e0", background: "white" }}>
               ← Indietro
             </button>
             <button type="button" onClick={submit} disabled={saving}
-              className="text-sm px-4 py-1.5 rounded-lg font-semibold disabled:opacity-50"
+              className="text-[15.4px] px-4 py-1.5 rounded-lg font-semibold disabled:opacity-50"
               style={{ background: "#D97706", color: "white" }}>
               {saving ? "Creazione…" : "Crea Rilavorazione"}
             </button>
@@ -302,8 +308,36 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
   const [showNuovaSottoscheda, setShowNuovaSottoscheda] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const [eliminaError, setEliminaError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"info" | "kit">("info");
+  const [activeTab, setActiveTab] = useState<"info" | "fornitore" | "kit">("info");
+  const [showNoteStato, setShowNoteStato] = useState(false);
   const canFerramenta = !!userRole && FERRAMENTA_ROLES.includes(userRole);
+
+  const tabs: { key: "info" | "fornitore" | "kit"; label: string; icon: React.ReactNode }[] = [
+    {
+      key: "info", label: "Info",
+      icon: (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" />
+        </svg>
+      ),
+    },
+    {
+      key: "fornitore", label: "Fornitore Esterno",
+      icon: (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="1" y="3" width="15" height="13" /><polygon points="16 8 20 8 23 11 23 16 16 16 16 8" /><circle cx="5.5" cy="18.5" r="2.5" /><circle cx="18.5" cy="18.5" r="2.5" />
+        </svg>
+      ),
+    },
+    ...(canFerramenta ? [{
+      key: "kit" as const, label: "Kit Ferramenta",
+      icon: (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
+        </svg>
+      ),
+    }] : []),
+  ];
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
@@ -316,8 +350,15 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
   }, [onClose]);
 
   const today = new Date().toISOString().slice(0, 10);
-  const inRitardoProd = !["Completato", "Annullata"].includes(s.statoProduzione) && !!s.dataProduzionePrevista && s.dataProduzionePrevista < today;
-  const inRitardoRientro = !["Completato", "Annullata"].includes(s.statoProduzione) && s.produzioneEsterna && !!s.dataRientroPrevista && s.dataRientroPrevista < today;
+  const inLavorazione = !["Completato", "Annullata"].includes(s.statoProduzione);
+  const inRitardoProd = inLavorazione && !!s.dataProduzionePrevista && s.dataProduzionePrevista < today;
+  const inRitardoRientro = inLavorazione && s.produzioneEsterna && !!s.dataRientroPrevista && s.dataRientroPrevista < today;
+  // Solo mentre "in lavorazione": una volta Completata/Annullata i giorni trascorsi da allora
+  // non sono più "lavoro in corso" — mostrare comunque il conteggio sarebbe fuorviante (WIP =
+  // Work In Progress), e non esiste una data di completamento da cui congelarlo.
+  const giorniWip = inLavorazione && s.dataSchedaRicevuta
+    ? Math.max(0, Math.floor((new Date().getTime() - new Date(s.dataSchedaRicevuta).getTime()) / 86_400_000))
+    : null;
   const canHaveRilavorazione = s.tipologia === "Scheda" || s.tipologia === "Sottoscheda";
   const isInAttesaRilavorazione = s.statoProduzione === "In Attesa Rilavorazione";
   const hasPdf = s.pdfAllegato.length > 0;
@@ -385,111 +426,134 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
         <div className="shrink-0 px-6 pt-5 pb-4 border-b" style={{ background: "#f3f2ef", borderColor: "#e5e4e0" }}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <div className="flex items-baseline gap-2 flex-wrap">
-                <span className="font-mono font-bold text-2xl tracking-tight" style={{ color: "var(--color-black)" }}>
-                  {s.odp || "—"}
-                </span>
-                {(s.commessaNr || s.clienteInfo) && (
-                  <>
-                    <span className="text-lg font-light" style={{ color: "#bbb" }}>—</span>
-                    {s.commessaNr && <span className="text-base font-semibold" style={{ color: "var(--color-grey-mid)" }}>{s.commessaNr}</span>}
-                    {s.clienteInfo && <span className="text-base font-medium truncate" style={{ color: "var(--color-grey-mid)" }}>{s.clienteInfo}</span>}
-                  </>
-                )}
+              <div className="font-mono font-bold text-[26.4px] tracking-tight truncate" style={{ color: "var(--color-black)" }}>
+                {s.odp || "—"}{s.numeroScheda ? ` - ${s.numeroScheda}` : ""}
               </div>
-              {s.numeroScheda && (
-                <div className="font-mono font-bold text-2xl tracking-tight mt-0.5" style={{ color: "var(--color-black)" }}>
-                  {s.numeroScheda}
+              {(s.commessaNr || s.clienteInfo) && (
+                <div className="text-[17.6px] font-medium mt-0.5 truncate" style={{ color: "var(--color-grey-mid)" }}>
+                  {s.commessaNr}{s.commessaNr && s.clienteInfo ? " - " : ""}{s.clienteInfo}
                 </div>
               )}
-              <div className="flex items-center gap-2 mt-3">
-                <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>Stato di produzione</span>
-                <BadgeStato stato={s.statoProduzione} className="text-sm px-3 py-1" />
-                {s.faseCorrente && <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>· {s.faseCorrente}</span>}
-              </div>
-            </div>
-            <div className="flex flex-col items-end gap-2 shrink-0">
-              <div className="flex items-center gap-2">
-                {(userRole === "admin" || userRole === "produzione") && (
-                  <button onClick={() => setShowEditForm(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-gray-100"
-                    style={{ color: "var(--color-grey-mid)", border: "1px solid #d1d5db", background: "white" }}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                      <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z" />
-                    </svg>
-                    Modifica
+              {giorniWip != null && (
+                <div className="text-[13.2px] mt-2" style={{ color: "var(--color-grey-mid)" }}>
+                  In produzione da {fmt(s.dataSchedaRicevuta)} · Giorni in produzione (WIP): <strong style={{ color: "var(--color-black)" }}>{giorniWip}</strong>
+                </div>
+              )}
+              <div className="flex items-center gap-2 mt-3 flex-wrap">
+                <span className="text-[12.1px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>Stato di produzione</span>
+                <BadgeStato stato={s.statoProduzione} className="text-[15.4px] px-3 py-1" />
+                {s.faseCorrente && <span className="text-[13.2px]" style={{ color: "var(--color-grey-mid)" }}>· {s.faseCorrente}</span>}
+                {s.noteStato && (
+                  <button
+                    type="button"
+                    onClick={() => setShowNoteStato(v => !v)}
+                    title={s.noteStato}
+                    className="text-[13.2px] underline decoration-dotted"
+                    style={{ color: "var(--color-primary)" }}
+                  >
+                    note ⓘ
                   </button>
                 )}
-                {(userRole === "admin" || userRole === "produzione") && (
-                  <button onClick={handleElimina} disabled={eliminando}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-red-50 disabled:opacity-50"
-                    style={{ color: "#DC2626", border: "1px solid #fecaca", background: "white" }}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6" />
-                    </svg>
-                    {eliminando ? "Elimino…" : "Elimina"}
-                  </button>
-                )}
-                <a href={s.notionUrl} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-gray-100"
-                  style={{ color: "var(--color-grey-mid)", border: "1px solid #d1d5db", background: "white" }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
-                  </svg>
-                  Notion
-                </a>
-                <button onClick={onClose}
-                  className="flex items-center justify-center w-8 h-8 rounded-full transition-colors hover:bg-gray-200"
-                  style={{ color: "var(--color-grey-mid)" }} aria-label="Chiudi">
-                  ✕
-                </button>
               </div>
-              {eliminaError && <p className="text-xs" style={{ color: "#DC2626" }}>{eliminaError}</p>}
-              {s.tipologia === "Scheda" && (userRole === "admin" || userRole === "produzione") && (
-                <button onClick={() => setShowNuovaSottoscheda(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-gray-100"
-                  style={{ color: "var(--color-grey-mid)", border: "1px solid #d1d5db", background: "white" }}>
-                  + Sottoscheda
-                </button>
+              {showNoteStato && s.noteStato && (
+                <div className="mt-2 text-[13.2px] rounded-lg px-3 py-2" style={{ background: "white", border: "1px solid #e5e4e0", color: "var(--color-black)", maxWidth: 420 }}>
+                  {s.noteStato}
+                </div>
               )}
-              {canHaveRilavorazione && !rilavorazioneCreata && !showWizard && (
-                <button onClick={() => setShowWizard(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-90"
-                  style={{
-                    background: isInAttesaRilavorazione ? "#FEF9C3" : "linear-gradient(135deg,#F59E0B,#D97706)",
-                    color: isInAttesaRilavorazione ? "#92400E" : "white",
-                    border: isInAttesaRilavorazione ? "1px solid #FDE68A" : "none",
-                    boxShadow: isInAttesaRilavorazione ? "none" : "0 2px 6px rgba(217,119,6,0.3)",
-                  }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M12 5v14M5 12h14"/>
-                  </svg>
-                  {isInAttesaRilavorazione ? "Nuova rilavorazione" : "Invia in Rilavorazione"}
-                </button>
-              )}
-              {rilavorazioneCreata && (
-                <span className="text-xs font-medium px-2 py-1 rounded-lg" style={{ background: "#D1FAE5", color: "#065F46" }}>
-                  ✓ {rilavorazioneCreata.odp} creata
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                <span className="text-[12.1px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>Produzione Prevista</span>
+                <span
+                  className="text-[15.4px] font-semibold"
+                  style={{ color: !s.dataProduzionePrevista ? "var(--color-grey-mid)" : inRitardoProd ? "#DC2626" : "#16A34A" }}
+                >
+                  {fmt(s.dataProduzionePrevista)}
                 </span>
-              )}
+              </div>
             </div>
+            <button onClick={onClose}
+              className="flex items-center justify-center w-8 h-8 rounded-full transition-colors hover:bg-gray-200 shrink-0"
+              style={{ color: "var(--color-grey-mid)" }} aria-label="Chiudi">
+              ✕
+            </button>
           </div>
+
+          {/* ── Riga comandi (spostata qui per lasciare libero il testo del titolo sopra) ── */}
+          <div className="flex items-center gap-2 flex-wrap mt-4">
+            {(userRole === "admin" || userRole === "produzione") && (
+              <button onClick={() => setShowEditForm(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13.2px] font-medium transition-colors hover:bg-gray-100"
+                style={{ color: "var(--color-grey-mid)", border: "1px solid #d1d5db", background: "white" }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z" />
+                </svg>
+                Modifica
+              </button>
+            )}
+            {(userRole === "admin" || userRole === "produzione") && (
+              <button onClick={handleElimina} disabled={eliminando}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13.2px] font-medium transition-colors hover:bg-red-50 disabled:opacity-50"
+                style={{ color: "#DC2626", border: "1px solid #fecaca", background: "white" }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6" />
+                </svg>
+                {eliminando ? "Elimino…" : "Elimina"}
+              </button>
+            )}
+            <a href={s.notionUrl} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13.2px] font-medium transition-colors hover:bg-gray-100"
+              style={{ color: "var(--color-grey-mid)", border: "1px solid #d1d5db", background: "white" }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+              </svg>
+              Notion
+            </a>
+            {s.tipologia === "Scheda" && (userRole === "admin" || userRole === "produzione") && (
+              <button onClick={() => setShowNuovaSottoscheda(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13.2px] font-medium transition-colors hover:bg-gray-100"
+                style={{ color: "var(--color-grey-mid)", border: "1px solid #d1d5db", background: "white" }}>
+                + Sottoscheda
+              </button>
+            )}
+            {canHaveRilavorazione && !rilavorazioneCreata && !showWizard && (
+              <button onClick={() => setShowWizard(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13.2px] font-semibold transition-opacity hover:opacity-90"
+                style={{
+                  background: isInAttesaRilavorazione ? "#FEF9C3" : "linear-gradient(135deg,#F59E0B,#D97706)",
+                  color: isInAttesaRilavorazione ? "#92400E" : "white",
+                  border: isInAttesaRilavorazione ? "1px solid #FDE68A" : "none",
+                  boxShadow: isInAttesaRilavorazione ? "none" : "0 2px 6px rgba(217,119,6,0.3)",
+                }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M12 5v14M5 12h14"/>
+                </svg>
+                {isInAttesaRilavorazione ? "Nuova rilavorazione" : "Invia in Rilavorazione"}
+              </button>
+            )}
+            {rilavorazioneCreata && (
+              <span className="text-[13.2px] font-medium px-2 py-1 rounded-lg" style={{ background: "#D1FAE5", color: "#065F46" }}>
+                ✓ {rilavorazioneCreata.odp} creata
+              </span>
+            )}
+          </div>
+          {eliminaError && <p className="text-[13.2px] mt-2" style={{ color: "#DC2626" }}>{eliminaError}</p>}
         </div>
 
-        {/* ── Tab (solo se il ruolo può operare su Ferramenta — altrimenti nessuna tab, comportamento invariato) ── */}
-        {canFerramenta && (
-          <div className="shrink-0 flex gap-1 px-6 pt-3" style={{ borderBottom: "1px solid #e5e4e0", background: "#f3f2ef" }}>
-            {([["info", "Info"], ["kit", "Kit Ferramenta"]] as const).map(([key, label]) => (
+        {/* ── Tab "a cartellina" stile Impostazioni (striscia grigia + tab attiva che "sale" e si
+             fonde col pannello bianco sottostante) — nessuna tab se c'è solo "Info" da mostrare. ── */}
+        {tabs.length > 1 && (
+          <div className="shrink-0 flex flex-wrap" style={{ background: "#EDE9E3", borderBottom: "1px solid #e5e4e0" }}>
+            {tabs.map((t) => (
               <button
-                key={key}
-                onClick={() => setActiveTab(key)}
-                className="px-3 py-2 text-sm font-semibold rounded-t-lg -mb-px border-b-2 transition-colors"
-                style={activeTab === key
-                  ? { color: "var(--color-primary)", borderColor: "var(--color-primary)" }
-                  : { color: "var(--color-grey-mid)", borderColor: "transparent" }}
+                key={t.key}
+                onClick={() => setActiveTab(t.key)}
+                className="flex items-center gap-2 px-5 py-3 text-[15.4px] font-semibold transition-all"
+                style={activeTab === t.key
+                  ? { background: "white", color: "var(--color-black)", borderTop: "2px solid var(--color-primary)", marginBottom: -1 }
+                  : { background: "transparent", color: "var(--color-grey-mid)", borderTop: "2px solid transparent", marginBottom: -1 }}
               >
-                {label}
+                <span style={{ color: activeTab === t.key ? "var(--color-primary)" : "currentColor" }}>{t.icon}</span>
+                {t.label}
               </button>
             ))}
           </div>
@@ -499,6 +563,41 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
 
           {activeTab === "kit" && canFerramenta && <KitFerramentaTab scheda={s} />}
+
+          {activeTab === "fornitore" && (
+            <section className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <InfoItem label="Fornitore" value={s.fornitore || <Mancante />} />
+                <InfoItem label="Stato Produzione Esterna" value={s.statoProdEsterna ? <BadgeStato stato={s.statoProdEsterna} /> : <Mancante />} />
+                <InfoItem label="Uscita materiale" value={fmt(s.dataUscitaMateriale)} />
+                <InfoItem label="Rientro previsto" value={
+                  s.dataRientroPrevista ? (
+                    <span style={inRitardoRientro ? { color: "#991B1B", fontWeight: 700 } : undefined}>
+                      {fmt(s.dataRientroPrevista)}
+                    </span>
+                  ) : <Mancante />
+                } />
+                <InfoItem label="Rientro effettivo" value={fmt(s.dataRientroEffettiva)} />
+              </div>
+              <div className="rounded-lg px-3 py-2.5" style={{ background: "#f8f7f5", border: "1px solid #ebe9e5" }}>
+                <div className="text-[12.1px] font-bold uppercase tracking-widest mb-1" style={{ color: "#9c9894" }}>Ordine Fornitore</div>
+                {s.pdfOrdineFornitore.length > 0 ? (
+                  <div className="flex flex-col gap-1.5">
+                    {s.pdfOrdineFornitore.map((pdf, i) => (
+                      <a key={i} href={pdf.url} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-[15.4px] font-medium transition-colors hover:opacity-80 w-fit"
+                        style={{ borderColor: "#c7d2fe", color: "#4338ca", background: "#eef2ff" }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/>
+                        </svg>
+                        {pdf.name || `Ordine Fornitore ${i > 0 ? i + 1 : ""}`}
+                      </a>
+                    ))}
+                  </div>
+                ) : <Mancante />}
+              </div>
+            </section>
+          )}
 
           {activeTab === "info" && <>
 
@@ -517,8 +616,8 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
 
           {rilavorazioneCreata && !rilavorazioneCreata.ritiroCreato && (
             <div className="rounded-xl px-4 py-3 space-y-1" style={{ background: "#FFFBEB", border: "1px solid #FCD34D" }}>
-              <div className="text-sm font-semibold" style={{ color: "#92400E" }}>⚠ Nessun ritiro creato</div>
-              <p className="text-xs" style={{ color: "#92400E" }}>
+              <div className="text-[15.4px] font-semibold" style={{ color: "#92400E" }}>⚠ Nessun ritiro creato</div>
+              <p className="text-[13.2px]" style={{ color: "#92400E" }}>
                 La rilavorazione {rilavorazioneCreata.odp} è stata creata, ma senza fornitore non è stata generata alcuna riga in Ritiri e Consegne — vai lì e creane una manualmente, altrimenti nessuno saprà che il pezzo va ritirato.
               </p>
             </div>
@@ -527,13 +626,13 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
           {/* ── Rientro rilavorazione ── */}
           {s.tipologia === "Rilavorazione" && !["Completato", "Annullata"].includes(s.statoProduzione) && !rientroFatto && (
             <div className="rounded-xl px-4 py-3 space-y-2" style={{ background: "#F0FDF4", border: "1px solid #86EFAC" }}>
-              <div className="text-sm font-semibold" style={{ color: "#14532D" }}>Rientro rilavorazione</div>
-              <p className="text-xs" style={{ color: "#166534" }}>
+              <div className="text-[15.4px] font-semibold" style={{ color: "#14532D" }}>Rientro rilavorazione</div>
+              <p className="text-[13.2px]" style={{ color: "#166534" }}>
                 Quando il pezzo torna dalla rilavorazione, segna il rientro per sbloccare la scheda padre.
               </p>
-              {rientroError && <p className="text-xs font-medium px-2 py-1 rounded" style={{ color: "#991B1B", background: "#FEE2E2" }}>{rientroError}</p>}
+              {rientroError && <p className="text-[13.2px] font-medium px-2 py-1 rounded" style={{ color: "#991B1B", background: "#FEE2E2" }}>{rientroError}</p>}
               <button onClick={handleRientro} disabled={rientrando}
-                className="text-sm px-4 py-1.5 rounded-lg font-semibold disabled:opacity-50 transition-opacity hover:opacity-90"
+                className="text-[15.4px] px-4 py-1.5 rounded-lg font-semibold disabled:opacity-50 transition-opacity hover:opacity-90"
                 style={{ background: "#16A34A", color: "white" }}>
                 {rientrando ? "Aggiornamento…" : "✓ Segna Rientrata"}
               </button>
@@ -541,14 +640,14 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
           )}
           {rientroFatto && (
             <div className="rounded-xl px-4 py-3" style={{ background: "#F0FDF4", border: "1px solid #86EFAC" }}>
-              <span className="text-sm font-semibold" style={{ color: "#14532D" }}>✓ Rilavorazione completata — scheda padre sbloccata</span>
+              <span className="text-[15.4px] font-semibold" style={{ color: "#14532D" }}>✓ Rilavorazione completata — scheda padre sbloccata</span>
             </div>
           )}
 
           {/* ── Sottoschede / Rilavorazioni ── */}
           {figlie.length > 0 && (
             <section className="space-y-2">
-              <h3 className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>
+              <h3 className="text-[12.1px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>
                 {figlie.some(f => f.tipologia === "Rilavorazione") ? "Sottoschede / Rilavorazioni" : "Sottoschede"}
               </h3>
               <div className="space-y-1.5">
@@ -559,17 +658,17 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
                       border: `1px solid ${f.tipologia === "Rilavorazione" ? "#FDE68A" : "#ebe9e5"}`,
                     }}>
                     <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                      <span className="font-mono text-sm font-bold shrink-0" style={{ color: f.tipologia === "Rilavorazione" ? "#92400E" : "var(--color-black)" }}>
+                      <span className="font-mono text-[15.4px] font-bold shrink-0" style={{ color: f.tipologia === "Rilavorazione" ? "#92400E" : "var(--color-black)" }}>
                         {f.tipologia === "Rilavorazione" ? "⚙ " : "↳ "}{f.odp || f.numeroScheda || "—"}
                       </span>
                       {f.numeroScheda && f.numeroScheda !== f.odp && (
-                        <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>{f.numeroScheda}</span>
+                        <span className="text-[13.2px]" style={{ color: "var(--color-grey-mid)" }}>{f.numeroScheda}</span>
                       )}
                       <BadgeStato stato={f.statoProduzione} />
                       {f.pdfAllegato.length > 0 && (
                         <a href={`/api/files/${f.id}?prop=${encodeURIComponent("PDF Allegato")}&index=0`}
                           target="_blank" rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs font-medium hover:underline"
+                          className="inline-flex items-center gap-1 text-[13.2px] font-medium hover:underline"
                           style={{ color: "#DC2626" }}>
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/></svg>
                           PDF
@@ -578,7 +677,7 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
                     </div>
                     {onViewScheda && (
                       <button onClick={() => { onViewScheda(f); }}
-                        className="shrink-0 text-xs px-2.5 py-1 rounded-lg font-semibold border transition-opacity hover:opacity-80"
+                        className="shrink-0 text-[13.2px] px-2.5 py-1 rounded-lg font-semibold border transition-opacity hover:opacity-80"
                         style={{ color: "var(--color-primary)", borderColor: "rgba(240,143,37,0.3)", background: "rgba(240,143,37,0.06)" }}>
                         Apri →
                       </button>
@@ -591,8 +690,8 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
 
           {(inRitardoProd || inRitardoRientro) && (
             <div className="rounded-xl px-4 py-3 space-y-1" style={{ background: "#FEF2F2", border: "1px solid #FCA5A5" }}>
-              {inRitardoProd && <div className="text-sm font-medium" style={{ color: "#991B1B" }}>⚠ Produzione in ritardo — prevista il {fmt(s.dataProduzionePrevista)}</div>}
-              {inRitardoRientro && <div className="text-sm font-medium" style={{ color: "#991B1B" }}>⚠ Rientro materiale in ritardo — previsto il {fmt(s.dataRientroPrevista)}</div>}
+              {inRitardoProd && <div className="text-[15.4px] font-medium" style={{ color: "#991B1B" }}>⚠ Produzione in ritardo — prevista il {fmt(s.dataProduzionePrevista)}</div>}
+              {inRitardoRientro && <div className="text-[15.4px] font-medium" style={{ color: "#991B1B" }}>⚠ Rientro materiale in ritardo — previsto il {fmt(s.dataRientroPrevista)}</div>}
             </div>
           )}
 
@@ -603,9 +702,9 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
           )}
 
           <section className="space-y-2">
-            <h3 className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>Dati scheda</h3>
+            <h3 className="text-[12.1px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>Dati scheda</h3>
             <div className="grid grid-cols-2 gap-2">
-              {s.codiceArticolo && <InfoItem label="Codice Articolo" value={s.codiceArticolo} />}
+              <InfoItem label="Codice Articolo" value={s.codiceArticolo || <Mancante />} />
               <InfoItem label="Tipologia" value={s.tipologia} />
               {s.quantita != null && <InfoItem label="Quantità" value={String(s.quantita)} />}
               {s.posizione && <InfoItem label="Posizione" value={s.posizione} />}
@@ -614,69 +713,19 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
             </div>
             {s.descrizioneFasi && (
               <div className="rounded-lg px-3 py-2.5" style={{ background: "#f8f7f5", border: "1px solid #ebe9e5" }}>
-                <div className="text-[11px] font-bold uppercase tracking-widest mb-1" style={{ color: "#9c9894" }}>Descrizione / Fasi</div>
-                <div className="text-sm whitespace-pre-wrap" style={{ color: "var(--color-black)" }}>{s.descrizioneFasi}</div>
-              </div>
-            )}
-            {s.noteStato && (
-              <div className="rounded-lg px-3 py-2.5" style={{ background: "#f8f7f5", border: "1px solid #ebe9e5" }}>
-                <div className="text-[11px] font-bold uppercase tracking-widest mb-1" style={{ color: "#9c9894" }}>Note Stato</div>
-                <div className="text-sm whitespace-pre-wrap" style={{ color: "var(--color-black)" }}>{s.noteStato}</div>
+                <div className="text-[12.1px] font-bold uppercase tracking-widest mb-1" style={{ color: "#9c9894" }}>Descrizione / Fasi</div>
+                <div className="text-[15.4px] whitespace-pre-wrap" style={{ color: "var(--color-black)" }}>{s.descrizioneFasi}</div>
               </div>
             )}
           </section>
-
-          <section className="space-y-2">
-            <h3 className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>Date</h3>
-            <div className="grid grid-cols-2 gap-2">
-              <InfoItem label="Scheda ricevuta" value={fmt(s.dataSchedaRicevuta)} />
-              <InfoItem label="Produzione prevista" value={
-                <span style={inRitardoProd ? { color: "#991B1B", fontWeight: 700 } : undefined}>
-                  {fmt(s.dataProduzionePrevista)}
-                </span>
-              } />
-            </div>
-          </section>
-
-          {s.produzioneEsterna && (
-            <section className="space-y-2">
-              <h3 className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>Produzione esterna</h3>
-              <div className="grid grid-cols-2 gap-2">
-                {s.fornitore && <InfoItem label="Fornitore" value={s.fornitore} />}
-                {s.ordineFornitore && <InfoItem label="Ordine fornitore" value={s.ordineFornitore} />}
-                {s.statoProdEsterna && <InfoItem label="Stato est." value={<BadgeStato stato={s.statoProdEsterna} />} />}
-                <InfoItem label="Uscita materiale" value={fmt(s.dataUscitaMateriale)} />
-                <InfoItem label="Rientro previsto" value={
-                  <span style={inRitardoRientro ? { color: "#991B1B", fontWeight: 700 } : undefined}>
-                    {fmt(s.dataRientroPrevista)}
-                  </span>
-                } />
-                <InfoItem label="Rientro effettivo" value={fmt(s.dataRientroEffettiva)} />
-              </div>
-              {s.pdfOrdineFornitore.length > 0 && (
-                <div className="flex flex-col gap-1.5 mt-1">
-                  {s.pdfOrdineFornitore.map((pdf, i) => (
-                    <a key={i} href={pdf.url} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors hover:opacity-80"
-                      style={{ borderColor: "#c7d2fe", color: "#4338ca", background: "#eef2ff" }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/>
-                      </svg>
-                      {pdf.name || `Ordine Fornitore ${i > 0 ? i + 1 : ""}`}
-                    </a>
-                  ))}
-                </div>
-              )}
-            </section>
-          )}
 
           {s.pdfAllegato.length > 0 && (
             <section className="space-y-2">
-              <h3 className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>PDF allegati</h3>
+              <h3 className="text-[12.1px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>PDF allegati</h3>
               <div className="flex flex-col gap-1.5">
                 {s.pdfAllegato.map((pdf, i) => (
                   <a key={i} href={pdf.url} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors hover:opacity-80"
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-[15.4px] font-medium transition-colors hover:opacity-80"
                     style={{ borderColor: "#FCA5A5", color: "#DC2626", background: "#FFF5F5" }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/>

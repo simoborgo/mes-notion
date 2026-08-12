@@ -2,6 +2,7 @@ import { pool } from "./db";
 import { ensureArticoloEsiste } from "./articoliRepository";
 import { getCodiceArticoloPerOdp } from "./notion";
 import { REPARTI_PRODUZIONE } from "./types";
+import { logOperation } from "./audit";
 
 // Media/varianza online (Welford) per (codice_articolo, reparto). Le formule di
 // aggiunta/rimozione sono esatte e simmetriche: rimuovere un valore precedentemente
@@ -56,6 +57,14 @@ function mapStandardRow(r: any): StatoWelford {
 export async function registraChiusuraOdp(odp: string, codiceArticolo: string | null): Promise<void> {
   if (!codiceArticolo) {
     console.warn(`[standardReparto] ODP ${odp} completato senza Codice Art. — registrazione storico saltata`);
+    // Nessun operatore umano dietro questa chiamata (parte da una scrittura di ore qualsiasi,
+    // vedi aggiornaStandardRepartoPerOdp) — "Sistema" come autore, così il buco resta visibile
+    // in Audit Log invece che solo nei log server, dove nessuno lo guarda mai.
+    void logOperation("Sistema", "UPDATE", "ore_registrate", odp, {
+      via: "standard-reparto",
+      azione: "codice-articolo-mancante",
+      nota: "storico_consuntivo_articolo/standard_reparto non aggiornati: nessun Codice Art. sulla Scheda",
+    });
     return;
   }
   // articoli non cresce da sola (import una tantum, 2026-08-04) — un codice di una commessa

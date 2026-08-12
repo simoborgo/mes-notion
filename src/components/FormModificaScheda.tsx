@@ -1,7 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Scheda, SchedaUpdate } from "@/lib/types";
+
+interface Fornitore { id: string; nome: string }
 
 const STATI = [
   "Da Iniziare",
@@ -68,6 +70,7 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
     dataProduzionePrevista: scheda.dataProduzionePrevista ?? "",
     produzioneEsterna: scheda.produzioneEsterna,
     statoProdEsterna: scheda.statoProdEsterna,
+    fornitoreId: scheda.fornitoreId,
     dataRientroPrevista: scheda.dataRientroPrevista ?? "",
     dataUscitaMateriale: scheda.dataUscitaMateriale ?? "",
     dataRientroEffettiva: scheda.dataRientroEffettiva ?? "",
@@ -75,19 +78,25 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
     codiceArticolo: scheda.codiceArticolo,
     posizione: scheda.posizione,
     quantita: scheda.quantita,
-    dataSchedaRicevuta: scheda.dataSchedaRicevuta ?? "",
     noteStato: scheda.noteStato,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const [fornitori, setFornitori] = useState<Fornitore[]>([]);
+  useEffect(() => {
+    fetch("/api/fornitori").then(r => r.json()).then(setFornitori).catch(() => {});
+  }, []);
+
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [uploadingFoto, setUploadingFoto] = useState(false);
   const [uploadingCopertina, setUploadingCopertina] = useState(false);
+  const [uploadingOrdineFornitore, setUploadingOrdineFornitore] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const fotoInputRef = useRef<HTMLInputElement>(null);
   const copertinaInputRef = useRef<HTMLInputElement>(null);
+  const ordineFornitoreInputRef = useRef<HTMLInputElement>(null);
 
   function set<K extends keyof SchedaUpdate>(k: K, v: SchedaUpdate[K]) {
     setForm((prev) => ({ ...prev, [k]: v }));
@@ -104,7 +113,6 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
         dataRientroPrevista: form.dataRientroPrevista || null,
         dataUscitaMateriale: form.dataUscitaMateriale || null,
         dataRientroEffettiva: form.dataRientroEffettiva || null,
-        dataSchedaRicevuta: form.dataSchedaRicevuta || null,
       };
       const res = await fetch(`/api/schede/${scheda.id}`, {
         method: "PATCH",
@@ -190,6 +198,29 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
     }
   }
 
+  async function handleOrdineFornitoreUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploadingOrdineFornitore(true);
+    setUploadError("");
+    try {
+      const pdfBase64 = await readAsBase64(file);
+      const res = await fetch(`/api/schede/${scheda.id}/ordine-fornitore`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pdfBase64, filename: file.name }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error ?? "Errore caricamento Ordine Fornitore");
+      setSchedaLive(data as Scheda);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Errore caricamento Ordine Fornitore");
+    } finally {
+      setUploadingOrdineFornitore(false);
+    }
+  }
+
   const inputCls = "w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300";
   const labelCls = "block text-xs font-medium mb-1";
   const uploadBtnCls = "text-xs px-3 py-1.5 rounded-lg font-semibold border transition-colors disabled:opacity-50";
@@ -226,10 +257,6 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Quantità</label>
               <input type="number" min="0" className={inputCls} value={form.quantita ?? ""} onChange={(e) => set("quantita", e.target.value === "" ? null : Number(e.target.value))} />
             </div>
-            <div>
-              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Data Scheda Ricevuta</label>
-              <input type="date" className={inputCls} value={form.dataSchedaRicevuta ?? ""} onChange={(e) => set("dataSchedaRicevuta", e.target.value)} />
-            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -260,6 +287,13 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
           {form.produzioneEsterna && (
             <div className="grid grid-cols-2 gap-4 p-4 rounded-lg border" style={{ background: "#faf9f7" }}>
               <div>
+                <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Fornitore</label>
+                <select className={inputCls} value={form.fornitoreId ?? ""} onChange={(e) => set("fornitoreId", e.target.value || null)}>
+                  <option value="">— nessuno —</option>
+                  {fornitori.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
+                </select>
+              </div>
+              <div>
                 <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Stato Produzione Esterna</label>
                 <select className={inputCls} value={form.statoProdEsterna} onChange={(e) => set("statoProdEsterna", e.target.value)}>
                   <option value="">— nessuno —</option>
@@ -277,6 +311,21 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
               <div>
                 <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Data Rientro Effettiva</label>
                 <input type="date" className={inputCls} value={form.dataRientroEffettiva ?? ""} onChange={(e) => set("dataRientroEffettiva", e.target.value)} />
+              </div>
+              <div className="col-span-2">
+                <AllegatoSection titolo={`Ordine Fornitore (${schedaLive.pdfOrdineFornitore.length})`}>
+                  <div className="flex flex-col gap-1">
+                    {schedaLive.pdfOrdineFornitore.map((pdf, i) => (
+                      <a key={i} href={pdf.url} target="_blank" rel="noreferrer" className="text-xs underline truncate" style={{ color: "#DC2626" }}>
+                        {pdf.name || `Ordine Fornitore ${i + 1}`}
+                      </a>
+                    ))}
+                  </div>
+                  <input ref={ordineFornitoreInputRef} type="file" accept="application/pdf" className="hidden" onChange={handleOrdineFornitoreUpload} />
+                  <button type="button" onClick={() => ordineFornitoreInputRef.current?.click()} disabled={uploadingOrdineFornitore} className={uploadBtnCls} style={uploadBtnStyle}>
+                    {uploadingOrdineFornitore ? "Carico…" : "+ Aggiungi Ordine Fornitore"}
+                  </button>
+                </AllegatoSection>
               </div>
             </div>
           )}
