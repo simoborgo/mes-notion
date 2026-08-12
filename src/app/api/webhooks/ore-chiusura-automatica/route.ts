@@ -1,20 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOperatori } from "@/lib/notion";
 import { chiudiSegmentoCorrente, getMatricoleConSegmentoAperto } from "@/lib/segmentiOperatoreRepository";
+import { getOrariTurno } from "@/lib/parametriGeneraliRepository";
 import { logOperation } from "@/lib/audit";
 
-// Orari nominali di fine turno, unica fonte usata per stimare l'orario di uscita di chi
-// dimentica di chiudere — NON l'orario di "adesso" (quando passa il job schedulato). Con la
-// chiusura automatica pensata come rete di sicurezza principale (l'operatore non deve più
-// ricordarsi di premere "Ho finito"), assumere "adesso" gonfierebbe sistematicamente le ore
-// di chiunque dimentichi, non solo nei rari casi di straordinario reale.
-const FINE_TURNO_FERIALE = { ore: 18, minuti: 30 }; // lun-ven
-const FINE_TURNO_SABATO = { ore: 12, minuti: 0 };   // sab (orario ridotto — talvolta 14:00, ma
-                                                     // chi fa davvero straordinario preme "Ho finito" a mano)
-
-function orarioChiusuraPresunta(now: Date): Date {
+// Orario nominale di fine turno (da Admin → Orari Turno), unica fonte usata per stimare
+// l'orario di uscita di chi dimentica di chiudere — NON l'orario di "adesso" (quando passa il
+// job schedulato). Con la chiusura automatica pensata come rete di sicurezza principale
+// (l'operatore non deve più ricordarsi di premere "Ho finito"), assumere "adesso" gonfierebbe
+// sistematicamente le ore di chiunque dimentichi, non solo nei rari casi di straordinario reale.
+function orarioChiusuraPresunta(now: Date, fineTurnoFeriale: string, fineTurnoSabato: string): Date {
   const sabato = now.getDay() === 6;
-  const { ore, minuti } = sabato ? FINE_TURNO_SABATO : FINE_TURNO_FERIALE;
+  const [ore, minuti] = (sabato ? fineTurnoSabato : fineTurnoFeriale).split(":").map(Number);
   const target = new Date(now);
   target.setHours(ore, minuti, 0, 0);
   // Se il job schedulato passa prima dell'orario nominale (drift/anticipo), non si può assegnare
@@ -40,7 +37,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, chiusi: 0, matricole: [], saltati: [] });
     }
 
-    const chiusura = orarioChiusuraPresunta(new Date());
+    const orariTurno = await getOrariTurno();
+    const chiusura = orarioChiusuraPresunta(new Date(), orariTurno.turnoFerialeFine, orariTurno.turnoSabatoFine);
     const operatori = await getOperatori();
     const chiusi: string[] = [];
     const saltati: string[] = [];

@@ -18,6 +18,7 @@ export interface Segmento {
   chiusoAlle: string | null;
   ore: number | null;
   anomalo: boolean;
+  daBuco: boolean;
 }
 
 function formatData(d: Date): string {
@@ -37,6 +38,7 @@ function mapRow(r: any): Segmento {
     chiusoAlle: r.chiuso_alle instanceof Date ? r.chiuso_alle.toISOString() : r.chiuso_alle,
     ore: r.ore != null ? Number(r.ore) : null,
     anomalo: r.anomalo,
+    daBuco: r.da_buco,
   };
 }
 
@@ -98,7 +100,11 @@ interface DatiOperatore {
 // Chiude il segmento aperto (se esiste), somma le ore risultanti a ore_registrate, poi ne
 // apre uno nuovo — tutto in un'unica transazione. Un solo segmento aperto per matricola è
 // garantito dall'indice univoco parziale su ore_segmenti_odp(matricola) WHERE chiuso_alle IS NULL.
-export async function apriSegmento(op: DatiOperatore, odp: string, rif: boolean): Promise<Segmento> {
+// iniziatoAlle: di norma "adesso" (default colonna); il primo ODP della giornata, se confermato
+// entro la soglia di tolleranza dal buco (vedi /api/ore/operatore/segmento), passa invece
+// l'orario nominale di inizio turno — altrimenti i minuti fra l'inizio turno e il tap sul tablet
+// andrebbero persi anche quando non c'è nulla da chiedere all'operatore.
+export async function apriSegmento(op: DatiOperatore, odp: string, rif: boolean, iniziatoAlle?: Date): Promise<Segmento> {
   const client = await pool.connect();
   let odpChiuso: string | null;
   try {
@@ -106,8 +112,8 @@ export async function apriSegmento(op: DatiOperatore, odp: string, rif: boolean)
     odpChiuso = await chiudiSegmentoInterno(client, op);
     const oggi = formatData(new Date());
     const { rows } = await client.query(
-      `INSERT INTO ore_segmenti_odp (matricola, data, odp, rif) VALUES ($1, $2, $3, $4) RETURNING *`,
-      [op.matricola, oggi, odp, rif]
+      `INSERT INTO ore_segmenti_odp (matricola, data, odp, rif, iniziato_alle) VALUES ($1, $2, $3, $4, COALESCE($5, now())) RETURNING *`,
+      [op.matricola, oggi, odp, rif, iniziatoAlle ?? null]
     );
     await client.query("COMMIT");
     if (odpChiuso) void aggiornaStandardRepartoPerOdp(odpChiuso);
@@ -162,16 +168,25 @@ async function chiudiSegmentoInterno(client: PoolClient, op: DatiOperatore, chiu
     [aperto.id, Math.round(oreSegmento * 100) / 100, anomalo, chiusura]
   );
 
-  // Arrotondare ogni segmento isolatamente perderebbe silenziosamente i cambi rapidi (es. tre
-  // passaggi da 10 minuti sullo stesso ODP farebbero 0h ciascuno, anche se insieme fanno 0,5h).
-  // Si arrotonda invece il TOTALE cumulato (esatto, dai timestamp) di oggi su questo ODP, e si
-  // somma solo la differenza rispetto a quanto già arrotondato prima di questo segmento — così
-  // nessun minuto va perso finché il cumulato giornaliero sull'ODP non supera i 15 minuti.
+  await registraOreDelta(client, op, dataSegmento, aperto.odp, aperto.rif, oreSegmento);
+
+  return aperto.odp as string;
+}
+
+// Arrotondare ogni segmento isolatamente perderebbe silenziosamente i cambi rapidi (es. tre
+// passaggi da 10 minuti sullo stesso ODP farebbero 0h ciascuno, anche se insieme fanno 0,5h).
+// Si arrotonda invece il TOTALE cumulato (esatto, dai timestamp) di oggi su questo ODP, e si
+// somma solo la differenza rispetto a quanto già arrotondato prima di questo segmento — così
+// nessun minuto va perso finché il cumulato giornaliero sull'ODP non supera i 15 minuti.
+// Condivisa fra la chiusura normale di un segmento e l'inserimento retroattivo (buco di inizio
+// giornata, vedi registraSegmentoRetroattivo): richiede che il segmento sia già scritto come
+// chiuso nella stessa transazione, cosi la SELECT sotto lo include nel totale.
+async function registraOreDelta(client: PoolClient, op: DatiOperatore, dataSegmento: string, odp: string, rif: boolean, oreSegmento: number): Promise<void> {
   const { rows: totRows } = await client.query(
     `SELECT COALESCE(SUM(LEAST(EXTRACT(EPOCH FROM (chiuso_alle - iniziato_alle)) / 3600, $4)), 0) AS totale
      FROM ore_segmenti_odp
      WHERE matricola = $1 AND data = $2 AND odp = $3 AND chiuso_alle IS NOT NULL`,
-    [op.matricola, dataSegmento, aperto.odp, SOGLIA_ANOMALIA_ORE]
+    [op.matricola, dataSegmento, odp, SOGLIA_ANOMALIA_ORE]
   );
   const totaleConQuesto = Number(totRows[0].totale);
   const totalePrima = totaleConQuesto - oreSegmento;
@@ -185,11 +200,55 @@ async function chiudiSegmentoInterno(client: PoolClient, op: DatiOperatore, chiu
       nome: op.nome,
       azienda: op.azienda,
       reparto: op.reparto,
-      odp: aperto.odp,
+      odp,
       oreDelta: delta,
-      rif: aperto.rif,
+      rif,
     }, client);
   }
+}
 
-  return aperto.odp as string;
+// Copre il buco tra l'inizio nominale del turno e la conferma del primo ODP della giornata:
+// inserisce direttamente un segmento GIÀ chiuso (non è mai passato per "aperto", quindi non
+// tocca l'indice univoco sui soli segmenti aperti) sull'ODP indicato dall'operatore per quel
+// periodo, marcato da_buco=true. Va chiamata PRIMA di apriSegmento() per il nuovo ODP scelto
+// adesso, altrimenti quest'ultimo non troverebbe nulla da chiudere e va bene così (nessun
+// conflitto: l'indice univoco sui segmenti aperti riguarda solo le righe con chiuso_alle IS NULL).
+//
+// Idempotente: l'indice univoco parziale ore_segmenti_odp_buco_unico(matricola, data) WHERE
+// da_buco garantisce al massimo un segmento-buco per operatore/giorno. Un doppio tap o un retry
+// di rete che arrivano qui una seconda volta (stessa richiesta o l'ODP scelto è diverso, non
+// importa) trovano ON CONFLICT DO NOTHING: niente riga in più, niente doppio conteggio in
+// ore_registrate — si ritorna semplicemente il segmento-buco già scritto dal primo tentativo.
+export async function registraSegmentoRetroattivo(op: DatiOperatore, odp: string, iniziatoAlle: Date, chiusoAlle: Date): Promise<Segmento> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const dataSegmento = formatData(iniziatoAlle);
+    const oreEsatte = (chiusoAlle.getTime() - iniziatoAlle.getTime()) / 3_600_000;
+    const anomalo = oreEsatte > SOGLIA_ANOMALIA_ORE;
+    const oreSegmento = Math.min(oreEsatte, SOGLIA_ANOMALIA_ORE);
+    const { rows } = await client.query(
+      `INSERT INTO ore_segmenti_odp (matricola, data, odp, rif, iniziato_alle, chiuso_alle, ore, anomalo, da_buco)
+       VALUES ($1, $2, $3, false, $4, $5, $6, $7, true)
+       ON CONFLICT (matricola, data) WHERE da_buco DO NOTHING
+       RETURNING *`,
+      [op.matricola, dataSegmento, odp, iniziatoAlle, chiusoAlle, Math.round(oreSegmento * 100) / 100, anomalo]
+    );
+    if (rows.length === 0) {
+      const { rows: esistente } = await client.query(
+        `SELECT * FROM ore_segmenti_odp WHERE matricola = $1 AND data = $2 AND da_buco LIMIT 1`,
+        [op.matricola, dataSegmento]
+      );
+      await client.query("COMMIT");
+      return mapRow(esistente[0]);
+    }
+    await registraOreDelta(client, op, dataSegmento, odp, false, oreSegmento);
+    await client.query("COMMIT");
+    return mapRow(rows[0]);
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
 }

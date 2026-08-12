@@ -13,10 +13,10 @@ export const SCARICO_MATERIALE_ROLES: Role[] = ["admin", "logistica"];
 export const SPEDIZIONI_ROLES: Role[] = ["admin", "spedizioni"];
 export const RILEVAMENTO_ORE_ROLES: Role[] = ["admin", "responsabile_produzione"];
 export const FERRAMENTA_ROLES: Role[] = ["admin", "magazziniere", "produzione"];
-// Distinte di Scarico: chi può creare/modificare righe (Ufficio Tecnico incluso) — la chiusura
-// (scarico reale della giacenza) resta esclusiva di FERRAMENTA_ROLES, mai di ufficio_tecnico.
+// Kit Commessa: chi può creare/importare/confermare (Ufficio Tecnico incluso) — la spunta con
+// scarico reale della giacenza resta esclusiva di FERRAMENTA_ROLES, mai di ufficio_tecnico.
 // Assegnare questo ruolo a una persona richiede modificare USERS_JSON sulla VPS (nessuna UI admin).
-export const DISTINTE_SCARICO_CREA_ROLES: Role[] = [...FERRAMENTA_ROLES, "ufficio_tecnico"];
+export const KIT_COMMESSA_CREA_ROLES: Role[] = [...FERRAMENTA_ROLES, "ufficio_tecnico"];
 export const VERNICIATURA_ROLES: Role[] = ["admin", "produzione"];
 // Solo il magazzino Vernici (giacenza/carico/scarico/inventario) — separato da VERNICIATURA_ROLES
 // perché l'addetto al magazzino non deve necessariamente poter operare su Cicli/Campionature.
@@ -28,6 +28,8 @@ export const RIENTRO_QUALITA_ROLES: Role[] = ["admin", "operatore", "logistica",
 export const OFFERTE_ROLES: Role[] = ["admin"];
 export const PARAMETRI_REPARTO_ROLES: Role[] = ["admin"];
 export const PREVISIONALE_ROLES: Role[] = ["admin"];
+export const ORARI_TURNO_ROLES: Role[] = ["admin"];
+export const IMPOSTAZIONI_ROLES: Role[] = ["admin"];
 
 export interface Session {
   username: string;

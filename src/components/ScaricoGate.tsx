@@ -6,12 +6,14 @@ import type { InventarioAmbito } from "@/lib/inventarioFerramentaRepository";
 import ScaricoKanbanCard from "./ScaricoKanbanCard";
 import ScaricoAPezzoCard from "./ScaricoAPezzoCard";
 
-// Chiave localStorage per la distinta di scarico "a giro" in corso — i QR fisici sono
-// etichette statiche, non sanno nulla di una sessione di prelievo attiva: la continuità
+// Chiave localStorage per lo scarico "a giro" in corso (raccolta multipla via QR) — i QR fisici
+// sono etichette statiche, non sanno nulla di una sessione di prelievo attiva: la continuità
 // tra una scansione e l'altra la teniamo qui, sullo stesso dispositivo usato per scansionare.
-export const DISTINTA_ATTIVA_KEY = "mes_distinta_scarico_attiva";
+// Stringa non rinominata insieme alla costante: cambiarla avrebbe fatto perdere la sessione
+// di raccolta a chiunque l'avesse già attiva sul telefono al momento del deploy.
+export const SCARICO_ATTIVO_KEY = "mes_distinta_scarico_attiva";
 
-interface DistintaAttiva {
+interface ScaricoAttivo {
   id: string;
   odpLabel: string | null;
 }
@@ -38,30 +40,30 @@ export default function ScaricoGate({
   ritorno?: string | null;
 }) {
   const [mostraForm, setMostraForm] = useState(false);
-  const [distintaAttiva, setDistintaAttiva] = useState<DistintaAttiva | null | undefined>(undefined);
+  const [scaricoAttivo, setScaricoAttivo] = useState<ScaricoAttivo | null | undefined>(undefined);
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(DISTINTA_ATTIVA_KEY);
-      setDistintaAttiva(raw ? JSON.parse(raw) : null);
+      const raw = localStorage.getItem(SCARICO_ATTIVO_KEY);
+      setScaricoAttivo(raw ? JSON.parse(raw) : null);
     } catch {
-      setDistintaAttiva(null);
+      setScaricoAttivo(null);
     }
   }, []);
 
   // undefined = non ancora letto localStorage (evita un flash della schermata normale)
-  if (distintaAttiva === undefined) return null;
+  if (scaricoAttivo === undefined) return null;
 
-  if (mostraForm || distintaAttiva) {
+  if (mostraForm || scaricoAttivo) {
     return (
       <div className="space-y-3">
-        {distintaAttiva && (
+        {scaricoAttivo && (
           <div className="rounded-lg px-3 py-2 flex items-center justify-between gap-2" style={{ background: "#FFF7ED", border: "1px solid #FDE8D0" }}>
             <p className="text-xs font-semibold" style={{ color: "var(--color-primary-dark)" }}>
-              📋 Aggiungendo a distinta di scarico{distintaAttiva.odpLabel ? ` — ${distintaAttiva.odpLabel}` : ""}
+              📋 Aggiungendo allo scarico{scaricoAttivo.odpLabel ? ` — ${scaricoAttivo.odpLabel}` : ""}
             </p>
             <button
-              onClick={() => { localStorage.removeItem(DISTINTA_ATTIVA_KEY); setDistintaAttiva(null); }}
+              onClick={() => { localStorage.removeItem(SCARICO_ATTIVO_KEY); setScaricoAttivo(null); }}
               className="text-xs font-semibold underline flex-shrink-0"
               style={{ color: "var(--color-primary-dark)" }}
             >
@@ -70,8 +72,8 @@ export default function ScaricoGate({
           </div>
         )}
         {articolo.metodoGestione === "Kanban"
-          ? <ScaricoKanbanCard articolo={articolo} odpList={odpList} initialOdp={initialOdp} ritorno={ritorno} distintaId={distintaAttiva?.id} />
-          : <ScaricoAPezzoCard articolo={articolo} odpList={odpList} initialOdp={initialOdp} ritorno={ritorno} distintaId={distintaAttiva?.id} />}
+          ? <ScaricoKanbanCard articolo={articolo} odpList={odpList} initialOdp={initialOdp} ritorno={ritorno} scaricoId={scaricoAttivo?.id} />
+          : <ScaricoAPezzoCard articolo={articolo} odpList={odpList} initialOdp={initialOdp} ritorno={ritorno} scaricoId={scaricoAttivo?.id} />}
       </div>
     );
   }

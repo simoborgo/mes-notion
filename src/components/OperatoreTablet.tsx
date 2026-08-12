@@ -230,6 +230,9 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
   const [rif, setRif] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState("");
+  const [odpGiornoPrecedente, setOdpGiornoPrecedente] = useState<string | null>(null);
+  const [gap, setGap] = useState<{ inizioTurno: string; oraAttuale: string } | null>(null);
+  const [gapOdp, setGapOdp] = useState<string | null>(null);
 
   const caricaStato = useCallback(async (precompila = false) => {
     const res = await fetch(`/api/ore/operatore/stato?matricola=${operatore.matricola}`);
@@ -237,6 +240,7 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
     if (res.ok) {
       setAperto(json.aperto);
       setSegmentiOggi(json.segmentiOggi);
+      setOdpGiornoPrecedente(json.odpGiornoPrecedente ?? null);
       if (precompila && !json.aperto && json.odpGiornoPrecedente) {
         setOdp(json.odpGiornoPrecedente);
       }
@@ -251,7 +255,7 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
     ]).finally(() => setLoading(false));
   }, [caricaStato]);
 
-  async function handleConferma() {
+  async function handleConferma(gapRisposta?: "primo" | { odpGap: string }) {
     if (!odp) { setErrore("Seleziona un ODP"); return; }
     setSalvando(true);
     setErrore("");
@@ -259,12 +263,42 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
       const res = await fetch("/api/ore/operatore/segmento", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ matricola: operatore.matricola, odp, rif }),
+        body: JSON.stringify({ matricola: operatore.matricola, odp, rif, gapRisposta }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Errore salvataggio");
+      if (json.gapRichiesto) {
+        setGap({ inizioTurno: json.inizioTurno, oraAttuale: json.oraAttuale });
+        setGapOdp(odpGiornoPrecedente);
+        return;
+      }
       setOdp(null);
       setRif(false);
+      setGap(null);
+      setGapOdp(null);
+      await caricaStato();
+    } catch (e) {
+      setErrore(e instanceof Error ? e.message : "Errore salvataggio");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  // Scorciatoia dalla card "Stai lavorando su": chiude il segmento corrente e ne apre uno nuovo
+  // sullo stesso ODP con rif=true, senza dover ripassare dal selettore per ricercare l'ODP già
+  // in corso — è la stessa apriSegmento() usata dal cambio ODP, solo con l'ODP invariato.
+  async function handleSegnalaRifacimento() {
+    if (!aperto) return;
+    setSalvando(true);
+    setErrore("");
+    try {
+      const res = await fetch("/api/ore/operatore/segmento", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ matricola: operatore.matricola, odp: aperto.odp, rif: true }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Errore salvataggio");
       await caricaStato();
     } catch (e) {
       setErrore(e instanceof Error ? e.message : "Errore salvataggio");
@@ -326,32 +360,90 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
                 <p className="text-sm mt-1" style={{ color: "#166534" }}>
                   Dalle {fmtOra(aperto.iniziatoAlle)}{aperto.rif ? " · Rifacimento" : ""}
                 </p>
+                {!aperto.rif && (
+                  <button
+                    type="button"
+                    onClick={handleSegnalaRifacimento}
+                    disabled={salvando}
+                    className="w-full mt-3 py-2.5 rounded-xl text-sm font-bold border disabled:opacity-60"
+                    style={{ borderColor: "#991B1B", color: "#991B1B", background: "white" }}
+                  >
+                    Segnala inizio Rifacimento
+                  </button>
+                )}
               </div>
             );
           })()}
 
-          <div className="rounded-2xl border bg-white p-5 space-y-3" style={{ borderColor: "#E4E0DA" }}>
-            <p className="text-sm font-semibold" style={{ color: "var(--color-black)" }}>
-              {aperto ? "Passa a un altro ODP" : "Su cosa stai lavorando?"}
-            </p>
-            <OdpSelettore odpList={odpList} value={odp} onChange={setOdp} placeholder="Cerca ODP…" />
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" checked={rif} onChange={e => setRif(e.target.checked)} className="w-4 h-4 accent-red-600" />
-              <span style={{ color: rif ? "#991B1B" : "var(--color-grey-mid)" }}>È un rifacimento?</span>
-            </label>
-            {errore && <p className="text-sm font-medium" style={{ color: "#991B1B" }}>{errore}</p>}
-            <button
-              type="button"
-              onClick={handleConferma}
-              disabled={salvando || !odp}
-              className="w-full py-3.5 rounded-xl text-base font-bold text-white disabled:opacity-60"
-              style={{ background: "var(--color-primary)" }}
-            >
-              {salvando ? "…" : "Conferma"}
-            </button>
-          </div>
+          {gap ? (
+            <div className="rounded-2xl border-2 p-5 space-y-3" style={{ borderColor: "#FED7AA", background: "#FFF7ED" }}>
+              <p className="text-sm font-semibold" style={{ color: "#9A3412" }}>
+                Il turno inizia alle {fmtOra(gap.inizioTurno)}, ma sono le {fmtOra(gap.oraAttuale)}. Prima di confermare {odp}, avevi già lavorato su qualcosa stamattina?
+              </p>
+              <button
+                type="button"
+                onClick={() => handleConferma("primo")}
+                disabled={salvando}
+                className="w-full py-2.5 rounded-xl text-sm font-bold border disabled:opacity-60"
+                style={{ borderColor: "#9A3412", color: "#9A3412", background: "white" }}
+              >
+                No, è il primo ODP di oggi
+              </button>
+              <div className="space-y-2">
+                <p className="text-sm" style={{ color: "#9A3412" }}>Sì, indica su cosa hai lavorato prima:</p>
+                {odpList.some(o => o.isSpeciale) && (
+                  <div className="flex flex-wrap gap-2">
+                    {odpList.filter(o => o.isSpeciale).map(o => (
+                      <button
+                        key={o.odp}
+                        type="button"
+                        onClick={() => handleConferma({ odpGap: o.odp })}
+                        disabled={salvando}
+                        className="px-3 py-2 rounded-full text-sm font-semibold border disabled:opacity-60"
+                        style={{ borderColor: "#9A3412", color: "#9A3412", background: "white" }}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <OdpSelettore odpList={odpList} value={gapOdp} onChange={setGapOdp} placeholder="Cerca ODP…" />
+                {errore && <p className="text-sm font-medium" style={{ color: "#991B1B" }}>{errore}</p>}
+                <button
+                  type="button"
+                  onClick={() => gapOdp && handleConferma({ odpGap: gapOdp })}
+                  disabled={salvando || !gapOdp}
+                  className="w-full py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-60"
+                  style={{ background: "#9A3412" }}
+                >
+                  {salvando ? "…" : "Conferma con questo ODP"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl border bg-white p-5 space-y-3" style={{ borderColor: "#E4E0DA" }}>
+              <p className="text-sm font-semibold" style={{ color: "var(--color-black)" }}>
+                {aperto ? "Passa a un altro ODP" : "Su cosa stai lavorando?"}
+              </p>
+              <OdpSelettore odpList={odpList} value={odp} onChange={setOdp} placeholder="Cerca ODP…" />
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={rif} onChange={e => setRif(e.target.checked)} className="w-4 h-4 accent-red-600" />
+                <span style={{ color: rif ? "#991B1B" : "var(--color-grey-mid)" }}>Segna ore come Rifacimento</span>
+              </label>
+              {errore && <p className="text-sm font-medium" style={{ color: "#991B1B" }}>{errore}</p>}
+              <button
+                type="button"
+                onClick={() => handleConferma()}
+                disabled={salvando || !odp}
+                className="w-full py-3.5 rounded-xl text-base font-bold text-white disabled:opacity-60"
+                style={{ background: "var(--color-primary)" }}
+              >
+                {salvando ? "…" : "Conferma"}
+              </button>
+            </div>
+          )}
 
-          {aperto && (
+          {aperto && !gap && (
             <button
               type="button"
               onClick={handleFineGiornata}

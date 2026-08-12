@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import type { OdpAttivo } from "@/lib/types";
-import { REPARTI_PRODUZIONE } from "@/lib/types";
+import { REPARTI_PRODUZIONE, CATEGORIA_ODP_LABEL } from "@/lib/types";
 import OdpAutocomplete from "./OdpAutocomplete";
 import OdpMultiAutocomplete from "./OdpMultiAutocomplete";
 
@@ -19,6 +19,7 @@ interface RegistrazioneRow {
   causale: Causale | null;
   note: string | null;
   reparto: string;
+  codiceArticolo: string | null;
 }
 
 interface Assenza {
@@ -761,6 +762,15 @@ function RegistrazioneChip({
       style={{ background: "#F5F2EE", color: "var(--color-black)" }}
     >
       <span className="font-semibold">{r.odp}</span>
+      {r.categoria === "COMMESSA" ? (
+        r.codiceArticolo ? (
+          <span style={{ color: "var(--color-grey-mid)" }}>{r.codiceArticolo}</span>
+        ) : (
+          <span className="font-bold px-1.5 py-0.5 rounded" style={{ background: "#FEF3C7", color: "#92400E" }}>NON CLASSIFICATO</span>
+        )
+      ) : (
+        <span style={{ color: "var(--color-grey-mid)" }}>{CATEGORIA_ODP_LABEL[r.categoria] ?? r.categoria}</span>
+      )}
       <span>{r.ore}h</span>
       {r.rif && (
         <span className="font-bold" style={{ color: "#991B1B" }}>

@@ -117,6 +117,7 @@ export async function updateArticoloFerramentaClassificazione(id: string, data: 
   const values: unknown[] = [];
   let i = 1;
 
+  if (data.descrizione !== undefined) { sets.push(`descrizione = $${i++}`); values.push(data.descrizione); }
   if (data.metodoGestione !== undefined) { sets.push(`metodo_gestione = $${i++}`); values.push(data.metodoGestione); }
   if (data.quantitaStandardVaschetta !== undefined) { sets.push(`quantita_standard_vaschetta = $${i++}`); values.push(data.quantitaStandardVaschetta); }
   if (data.sogliaMinima !== undefined) { sets.push(`soglia_minima = $${i++}`); values.push(data.sogliaMinima); }

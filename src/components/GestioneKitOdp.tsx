@@ -12,7 +12,9 @@ export default function GestioneKitOdp({
   articoliAPezzo: ArticoloFerramenta[];
 }) {
   const [righe, setRighe] = useState(righeIniziali);
+  const [modalitaLibera, setModalitaLibera] = useState(false);
   const [articoloId, setArticoloId] = useState<string | null>(null);
+  const [descrizioneLibera, setDescrizioneLibera] = useState("");
   const [quantita, setQuantita] = useState("");
   const [errore, setErrore] = useState("");
   const [aggiungendo, setAggiungendo] = useState(false);
@@ -21,7 +23,10 @@ export default function GestioneKitOdp({
 
   async function aggiungiRiga() {
     const q = Number(quantita);
-    if (!articoloId) { setErrore("Seleziona un articolo"); return; }
+    if (modalitaLibera ? !descrizioneLibera.trim() : !articoloId) {
+      setErrore(modalitaLibera ? "Scrivi una descrizione" : "Seleziona un articolo");
+      return;
+    }
     if (!(q > 0)) { setErrore("Quantità non valida"); return; }
     setAggiungendo(true);
     setErrore("");
@@ -29,12 +34,13 @@ export default function GestioneKitOdp({
       const res = await fetch(`/api/ferramenta/kit/${scheda.id}/righe`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ articoloId, quantita: q }),
+        body: JSON.stringify(modalitaLibera ? { descrizione: descrizioneLibera, quantita: q } : { articoloId, quantita: q }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? `Errore ${res.status}`);
       setRighe(prev => [...prev, data]);
       setArticoloId(null);
+      setDescrizioneLibera("");
       setQuantita("");
     } catch (e) {
       setErrore(e instanceof Error ? e.message : "Errore aggiunta riga");
@@ -92,9 +98,31 @@ export default function GestioneKitOdp({
           </div>
         )}
 
+        <div className="flex gap-3 text-xs">
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input type="radio" checked={!modalitaLibera} onChange={() => setModalitaLibera(false)} className="accent-orange-500" />
+            Articolo da anagrafica
+          </label>
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input type="radio" checked={modalitaLibera} onChange={() => setModalitaLibera(true)} className="accent-orange-500" />
+            Testo libero
+          </label>
+        </div>
+
         <div className="flex gap-2 items-end flex-wrap">
           <div className="flex-1 min-w-[200px]">
-            <ArticoloAutocomplete articoli={articoliAPezzo} value={articoloId} onChange={setArticoloId} placeholder="Cerca articolo A Pezzo…" />
+            {modalitaLibera ? (
+              <input
+                type="text"
+                className="w-full rounded-lg border px-3 text-sm"
+                style={{ height: 48, borderColor: "#d1d5db" }}
+                placeholder="Descrizione libera (es. viti M6x40)…"
+                value={descrizioneLibera}
+                onChange={(e) => setDescrizioneLibera(e.target.value)}
+              />
+            ) : (
+              <ArticoloAutocomplete articoli={articoliAPezzo} value={articoloId} onChange={setArticoloId} placeholder="Cerca articolo A Pezzo…" />
+            )}
           </div>
           <input
             type="number" min="0" step="any"

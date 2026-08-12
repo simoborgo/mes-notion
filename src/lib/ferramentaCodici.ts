@@ -13,3 +13,26 @@ export function normalizzaCodiceFornitore(codice: string): string {
 export function nomeFornitore(a: { fornitoreNome: string; fornitoreNomeOs1: string }): string {
   return a.fornitoreNome || a.fornitoreNomeOs1;
 }
+
+// Per un articolo Kanban la giacenza si muove sempre a Confezioni intere (Quantità Standard
+// Vaschetta) — mai a quantità libera. Carico/Scarico Rapido lo impongono già lato UI+API; questa
+// funzione porta lo stesso vincolo anche ai flussi "a lista" (Scarico via QR/distinta, Kit
+// Commessa) dove l'articolo può essere collegato solo in un secondo momento, quindi la quantità
+// va sempre rivalidata al momento in cui il collegamento diventa effettivo (non solo in fase di
+// classificazione anagrafica). Lancia se non valido, non ritorna un booleano: qui non c'è mai un
+// caso d'uso dove "non valido" debba proseguire silenziosamente.
+export function validaQuantitaConfezione(
+  articolo: { metodoGestione: string | null; quantitaStandardVaschetta: number | null; descrizione: string },
+  quantita: number,
+): void {
+  if (articolo.metodoGestione !== "Kanban") return;
+  const vaschetta = articolo.quantitaStandardVaschetta;
+  if (!vaschetta || vaschetta <= 0) {
+    throw new Error(`Quantità Standard Vaschetta non configurata per "${articolo.descrizione}"`);
+  }
+  if (quantita % vaschetta !== 0) {
+    throw new Error(
+      `${quantita} non è un multiplo della Confezione (Quantità Standard Vaschetta) di "${articolo.descrizione}": ${vaschetta}`
+    );
+  }
+}

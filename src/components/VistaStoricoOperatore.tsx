@@ -2,14 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Operatore } from "@/lib/types";
+import { CATEGORIA_ODP_LABEL } from "@/lib/types";
 
 interface Voce {
   id: string;
   data: string;
   odp: string;
+  categoria: string;
   ore: number;
   rif: boolean;
   causale: string | null;
+  codiceArticolo: string | null;
 }
 
 function fmt(d: string) {
@@ -120,21 +123,28 @@ export default function VistaStoricoOperatore() {
                 <tr className="text-left text-xs font-bold uppercase" style={{ background: "#faf9f7", color: "var(--color-grey-mid)" }}>
                   <th className="px-4 py-2">Data</th>
                   <th className="px-4 py-2">ODP</th>
+                  <th className="px-4 py-2">Cod. Articolo</th>
                   <th className="px-4 py-2">Ore</th>
                   <th className="px-4 py-2">RIF</th>
                 </tr>
               </thead>
               <tbody>
                 {voci.length === 0 ? (
-                  <tr><td colSpan={4} className="px-4 py-6 text-center" style={{ color: "var(--color-grey-mid)" }}>Nessuna registrazione nel periodo</td></tr>
-                ) : voci.map(v => (
-                  <tr key={v.id} className="border-t" style={{ borderColor: "#f0efec" }}>
-                    <td className="px-4 py-2 tabular-nums">{fmt(v.data)}</td>
-                    <td className="px-4 py-2 font-semibold">{v.odp}</td>
-                    <td className="px-4 py-2 tabular-nums">{v.ore}h</td>
-                    <td className="px-4 py-2">{v.rif ? `RIF${v.causale ? ` (${v.causale})` : ""}` : "—"}</td>
-                  </tr>
-                ))}
+                  <tr><td colSpan={5} className="px-4 py-6 text-center" style={{ color: "var(--color-grey-mid)" }}>Nessuna registrazione nel periodo</td></tr>
+                ) : voci.map(v => {
+                  const nonClassificato = v.categoria === "COMMESSA" && !v.codiceArticolo;
+                  return (
+                    <tr key={v.id} className="border-t" style={{ borderColor: "#f0efec", background: nonClassificato ? "#FFFBEB" : "transparent" }}>
+                      <td className="px-4 py-2 tabular-nums">{fmt(v.data)}</td>
+                      <td className="px-4 py-2 font-semibold">{v.odp}</td>
+                      <td className="px-4 py-2" style={nonClassificato ? { color: "#92400E", fontWeight: 700 } : undefined}>
+                        {v.categoria !== "COMMESSA" ? (CATEGORIA_ODP_LABEL[v.categoria] ?? v.categoria) : nonClassificato ? "NON CLASSIFICATO" : v.codiceArticolo}
+                      </td>
+                      <td className="px-4 py-2 tabular-nums">{v.ore}h</td>
+                      <td className="px-4 py-2">{v.rif ? `RIF${v.causale ? ` (${v.causale})` : ""}` : "—"}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

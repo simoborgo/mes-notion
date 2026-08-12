@@ -1,8 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Campionatura, EsitoCampionatura } from "@/lib/types";
-import { CLIENTI_VERNICIATURA } from "@/lib/types";
 import BadgeStato from "./BadgeStato";
 import CampionaturaFormModal from "./CampionaturaFormModal";
 import CampionaturaDetailModal from "./CampionaturaDetailModal";
@@ -24,6 +23,7 @@ function cmp(a: Campionatura, b: Campionatura, key: SortKey, dir: SortDir): numb
 
 export default function TabellaCampionature({ campionature: initial }: { campionature: Campionatura[] }) {
   const [campionature, setCampionature] = useState(initial);
+  const [clienti, setClienti] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [clienteFiltro, setClienteFiltro] = useState("");
   const [esitoFiltro, setEsitoFiltro] = useState<EsitoCampionatura | "">("");
@@ -31,6 +31,10 @@ export default function TabellaCampionature({ campionature: initial }: { campion
   const [dettaglioAperto, setDettaglioAperto] = useState<Campionatura | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("dataCampionatura");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  useEffect(() => {
+    fetch("/api/verniciatura/campionature/clienti").then((r) => r.json()).then((c) => Array.isArray(c) && setClienti(c)).catch(() => {});
+  }, []);
 
   function handleSort(key: SortKey) {
     if (key === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -60,7 +64,7 @@ export default function TabellaCampionature({ campionature: initial }: { campion
         <input className={inputCls + " min-w-52"} placeholder="Cerca barcode…" value={search} onChange={(e) => setSearch(e.target.value)} />
         <select className={inputCls} value={clienteFiltro} onChange={(e) => setClienteFiltro(e.target.value)}>
           <option value="">Tutti i clienti</option>
-          {CLIENTI_VERNICIATURA.map((c) => <option key={c} value={c}>{c}</option>)}
+          {clienti.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
         <select className={inputCls} value={esitoFiltro} onChange={(e) => setEsitoFiltro(e.target.value as EsitoCampionatura | "")}>
           <option value="">Tutti gli esiti</option>
@@ -96,7 +100,7 @@ export default function TabellaCampionature({ campionature: initial }: { campion
               <Th label="Data" sortKey="dataCampionatura" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Esito" sortKey="esito" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Foto" sortKey="foto" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-              <Th label="Cod. campione materialista" sortKey="codiceCampioneMaterialista" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              <Th label="Cod. Material List" sortKey="codiceCampioneMaterialista" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <th className="px-4 py-3"></th>
             </tr>
           </thead>

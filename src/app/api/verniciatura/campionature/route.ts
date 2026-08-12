@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCampionature, createCampionatura } from "@/lib/campionatureVerniciaturaRepository";
-import { validaCliente } from "@/lib/verniciNormalizers";
+import { ensureClienteVerniciaturaEsiste } from "@/lib/clientiVerniciaturaRepository";
 import { getSessionFromRequest, VERNICIATURA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 import type { EsitoCampionatura } from "@/lib/types";
@@ -34,10 +34,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "cicloId obbligatorio" }, { status: 400 });
     }
 
-    // Validazione bloccante PRIMA di aprire la transazione: fail fast su cliente non in enum.
+    // Crea il cliente al volo se non esiste ancora (case-insensitive) PRIMA di aprire la
+    // transazione della campionatura, così un typo bloccante fallisce subito.
     let cliente: string;
     try {
-      cliente = validaCliente(String(body.cliente ?? ""));
+      cliente = await ensureClienteVerniciaturaEsiste(String(body.cliente ?? ""));
     } catch (e) {
       return NextResponse.json({ error: e instanceof Error ? e.message : "Cliente non valido" }, { status: 400 });
     }

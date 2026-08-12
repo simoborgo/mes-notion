@@ -1,8 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Vernice } from "@/lib/types";
-import { CLIENTI_VERNICIATURA } from "@/lib/types";
 import VerniceFormModal from "./VerniceFormModal";
 import { Th } from "./SortableTh";
 
@@ -34,6 +33,7 @@ function cmp(a: Vernice, b: Vernice, key: SortKey, dir: SortDir): number {
 
 export default function TabellaVernici({ vernici: initial }: { vernici: Vernice[] }) {
   const [vernici, setVernici] = useState(initial);
+  const [clienti, setClienti] = useState<string[]>([]);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [clienteFiltro, setClienteFiltro] = useState("");
@@ -42,6 +42,10 @@ export default function TabellaVernici({ vernici: initial }: { vernici: Vernice[
   const [verniceInModifica, setVerniceInModifica] = useState<Vernice | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("colore");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  useEffect(() => {
+    fetch("/api/verniciatura/campionature/clienti").then((r) => r.json()).then((c) => Array.isArray(c) && setClienti(c)).catch(() => {});
+  }, []);
 
   function applicaFiltri() {
     setSearch(searchInput);
@@ -86,7 +90,7 @@ export default function TabellaVernici({ vernici: initial }: { vernici: Vernice[
         />
         <select className={inputCls} value={clienteFiltro} onChange={(e) => setClienteFiltro(e.target.value)}>
           <option value="">Tutti i clienti</option>
-          {CLIENTI_VERNICIATURA.map((c) => <option key={c} value={c}>{c}</option>)}
+          {clienti.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
         <button
           onClick={() => setSoloAttive((v) => !v)}

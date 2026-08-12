@@ -11,23 +11,13 @@ interface Props {
   placeholder?: string;
 }
 
-// Colore/iniziali deterministici per le commesse senza copertina, cosi le card restano
+// Colore deterministico di sfondo per le commesse senza copertina, cosi le card restano
 // riconoscibili a colpo d'occhio anche senza foto reale (v1: nessun campo colore su ODP).
 function coloreDaTesto(seed: string): { bg: string; fg: string } {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) hash = seed.charCodeAt(i) + ((hash << 5) - hash);
   const hue = Math.abs(hash) % 360;
   return { bg: `hsl(${hue}, 45%, 92%)`, fg: `hsl(${hue}, 45%, 30%)` };
-}
-
-function inizialiDaTesto(seed: string): string {
-  return seed
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(w => w[0])
-    .join("")
-    .toUpperCase();
 }
 
 export default function OdpSelettore({ odpList, value, onChange, placeholder }: Props) {
@@ -113,7 +103,7 @@ function OdpGriglia({ odpList, onChange }: { odpList: OdpAttivo[]; onChange: (od
           Cerca un cliente o una commessa per vedere le schede
         </p>
       ) : (
-        <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))" }}>
+        <div className="grid grid-cols-2 gap-2">
           {risultati.map(o => (
             <OdpCard key={o.odp} o={o} onClick={() => onChange(o.odp)} />
           ))}
@@ -130,9 +120,8 @@ function OdpGriglia({ odpList, onChange }: { odpList: OdpAttivo[]; onChange: (od
 
 function OdpCard({ o, onClick }: { o: OdpAttivo; onClick: () => void }) {
   const [caricata, setCaricata] = useState(false);
-  const seed = o.clienteInfo || o.odp;
-  const { bg, fg } = coloreDaTesto(seed);
-  const iniziali = inizialiDaTesto(seed);
+  const { bg, fg } = coloreDaTesto(o.clienteInfo || o.odp);
+  const odpLabel = `${o.odp}${o.numeroScheda ? ` - ${o.numeroScheda}` : ""}`;
 
   return (
     <button
@@ -141,26 +130,28 @@ function OdpCard({ o, onClick }: { o: OdpAttivo; onClick: () => void }) {
       className="rounded-xl border overflow-hidden text-left active:scale-[0.98] transition-transform"
       style={{ borderColor: "#e5e4e0", minHeight: 44 }}
     >
-      <div className="w-full flex items-center justify-center" style={{ aspectRatio: "4 / 3", background: o.copertina ? "#f3f3f1" : bg }}>
-        {o.copertina ? (
+      <div className="relative w-full flex items-center justify-center" style={{ aspectRatio: "4 / 3", background: o.copertina ? "#f3f3f1" : bg }}>
+        {o.copertina && (
           // eslint-disable-next-line @next/next/no-img-element -- copertine arrivano da Notion, dominio esterno non gestito da next/image
           <img
             src={o.copertina}
             alt=""
             loading="lazy"
             onLoad={() => setCaricata(true)}
-            className="w-full h-full object-cover"
+            className="absolute inset-0 w-full h-full object-cover"
             style={{ opacity: caricata ? 1 : 0, transition: "opacity 200ms" }}
           />
-        ) : (
-          <span className="font-bold text-lg" style={{ color: fg }}>{iniziali || "—"}</span>
         )}
+        <span
+          className="relative px-2 py-1 rounded-md text-sm font-bold text-center"
+          style={o.copertina ? { background: "rgba(0,0,0,0.55)", color: "white" } : { color: fg }}
+        >
+          {odpLabel}
+        </span>
       </div>
       <div className="px-2 py-1.5">
-        <p className="text-xs font-semibold truncate" style={{ color: "var(--color-black)" }}>{o.clienteInfo || o.odp}</p>
-        <p className="text-[11px] truncate" style={{ color: "var(--color-grey-mid)" }}>
-          {o.odp}{o.numeroScheda ? ` - ${o.numeroScheda}` : ""}
-        </p>
+        <p className="text-xs font-semibold truncate" style={{ color: "var(--color-black)" }}>{o.commessaNr || "—"}</p>
+        <p className="text-[11px] truncate" style={{ color: "var(--color-grey-mid)" }}>{o.clienteInfo || "—"}</p>
       </div>
     </button>
   );

@@ -8,21 +8,25 @@ function mapRow(r: any): DistintaKitRiga {
     id: r.id,
     odpId: r.odp_id,
     articoloId: r.articolo_id,
-    articoloDescrizione: r.articolo_descrizione,
-    articoloCodiceOs1: r.articolo_codice_os1,
+    // Denormalizzati sulla riga (non solo via JOIN): una riga a testo libero (articolo_id null)
+    // resta leggibile comunque. Se articolo_id è impostato, a.descrizione/codice_os1 sono sempre
+    // aggiornati e hanno priorità sullo snapshot preso al momento dell'inserimento.
+    articoloDescrizione: r.articolo_descrizione_live ?? r.descrizione,
+    articoloCodiceOs1: r.articolo_codice_os1_live ?? r.codice_os1 ?? "",
     quantita: Number(r.quantita),
     notionUrl: "", // nessuna pagina Notion per la riga: la distinta vive su Postgres
   };
 }
 
 const SELECT_JOIN = `
-  SELECT r.id, r.odp_id, r.articolo_id, a.descrizione AS articolo_descrizione, a.codice_os1 AS articolo_codice_os1, r.quantita
+  SELECT r.id, r.odp_id, r.articolo_id, r.descrizione, r.codice_os1, r.quantita,
+         a.descrizione AS articolo_descrizione_live, a.codice_os1 AS articolo_codice_os1_live
   FROM kit_ferramenta_righe r
-  JOIN articoli_ferramenta a ON a.id = r.articolo_id
+  LEFT JOIN articoli_ferramenta a ON a.id = r.articolo_id
 `;
 
 export async function getDistintaKitByOdp(odpId: string): Promise<DistintaKitRiga[]> {
-  const { rows } = await pool.query(`${SELECT_JOIN} WHERE r.odp_id = $1 ORDER BY a.descrizione`, [odpId]);
+  const { rows } = await pool.query(`${SELECT_JOIN} WHERE r.odp_id = $1 ORDER BY r.descrizione`, [odpId]);
   return rows.map(mapRow);
 }
 
@@ -38,10 +42,24 @@ async function aggiornaDescrizioneKitSuNotion(odpId: string): Promise<void> {
   }
 }
 
-export async function addDistintaRiga({ odpId, articoloId, quantita }: { odpId: string; articoloId: string; quantita: number }): Promise<DistintaKitRiga> {
+// Una riga ha SEMPRE un articoloId (da anagrafica) OPPURE una descrizione libera — mai nessuno
+// dei due, la validazione è a carico del chiamante (route API).
+export async function addDistintaRiga({ odpId, articoloId, descrizione, quantita }: {
+  odpId: string; articoloId?: string | null; descrizione?: string | null; quantita: number;
+}): Promise<DistintaKitRiga> {
+  let descrizioneSalvata = descrizione ?? null;
+  let codiceOs1Salvato: string | null = null;
+  if (articoloId) {
+    const { rows } = await pool.query(`SELECT descrizione, codice_os1 FROM articoli_ferramenta WHERE id = $1`, [articoloId]);
+    if (rows.length === 0) throw new Error("Articolo non trovato");
+    descrizioneSalvata = rows[0].descrizione;
+    codiceOs1Salvato = rows[0].codice_os1;
+  }
+  if (!descrizioneSalvata) throw new Error("Descrizione obbligatoria per una riga senza articolo");
+
   const { rows } = await pool.query(
-    `INSERT INTO kit_ferramenta_righe (odp_id, articolo_id, quantita) VALUES ($1, $2, $3) RETURNING id`,
-    [odpId, articoloId, quantita],
+    `INSERT INTO kit_ferramenta_righe (odp_id, articolo_id, descrizione, codice_os1, quantita) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+    [odpId, articoloId ?? null, descrizioneSalvata, codiceOs1Salvato, quantita],
   );
   const id = rows[0].id as string;
   const { rows: joined } = await pool.query(`${SELECT_JOIN} WHERE r.id = $1`, [id]);

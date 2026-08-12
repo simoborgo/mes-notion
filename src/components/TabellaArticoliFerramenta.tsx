@@ -7,6 +7,12 @@ import { normalizzaCodiceFornitore, nomeFornitore } from "@/lib/ferramentaCodici
 import FormNuovoArticoloFerramenta from "./FormNuovoArticoloFerramenta";
 
 const inputCls = "border rounded px-2 py-1 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300";
+// Con 8358 articoli, renderizzare tutte le righe insieme appesantisce sia il caricamento iniziale
+// che qualunque interazione (anche i re-render "a vuoto" del genitore, es. mentre digiti nel
+// filtro, restano più lenti quanto più elementi ci sono da riconciliare) — paginare lato client
+// riduce drasticamente i nodi DOM montati in un colpo, senza toccare filtro/ordinamento che
+// restano sull'intero array in memoria.
+const PAGE_SIZE = 100;
 
 type SortKey =
   | "codiceOs1" | "descrizione" | "fornitore" | "codiceFornitore" | "descrizioneCategoria"
@@ -86,14 +92,22 @@ export default function TabellaArticoliFerramenta({
   const [soloInventariati, setSoloInventariati] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("descrizione");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [page, setPage] = useState(1);
 
   function applicaFiltri() {
     setSearch(searchInput);
+    setPage(1);
+  }
+
+  function toggleSoloInventariati() {
+    setSoloInventariati(v => !v);
+    setPage(1);
   }
 
   function handleSort(key: SortKey) {
     if (key === sortKey) setSortDir(d => (d === "asc" ? "desc" : "asc"));
     else { setSortKey(key); setSortDir("asc"); }
+    setPage(1);
   }
 
   const filtered = useMemo(() => {
@@ -116,15 +130,20 @@ export default function TabellaArticoliFerramenta({
     setModalAperto(false);
   }
 
-  // Solo il campo che conta per la ricerca/visualizzazione nella riga stessa (codiceFornitore)
-  // va riportato nell'array del padre — gli altri campi (metodoGestione, soglie, ecc.) restano
-  // stato locale alla riga, quindi digitare in una riga non ri-renderizza le altre 8000+.
-  // useCallback con deps vuote (setArticoli è stabile) — senza, una nuova funzione ad ogni
-  // render del padre (es. ogni tasto in "searchInput") invaliderebbe il React.memo di TUTTE
-  // le righe, perché onSalvato cambierebbe identità e il confronto shallow lo vedrebbe "diverso".
-  const handleRigaSalvata = useCallback((id: string, codiceFornitore: string) => {
-    setArticoli(prev => prev.map(x => x.id === id ? { ...x, codiceFornitore } : x));
+  // Solo i campi che contano per la ricerca/ordinamento/visualizzazione nella riga stessa
+  // (codiceFornitore, descrizione) vanno riportati nell'array del padre — gli altri campi
+  // (metodoGestione, soglie, ecc.) restano stato locale alla riga, quindi digitare in una riga
+  // non ri-renderizza le altre 8000+. useCallback con deps vuote (setArticoli è stabile) —
+  // senza, una nuova funzione ad ogni render del padre (es. ogni tasto in "searchInput")
+  // invaliderebbe il React.memo di TUTTE le righe, perché onSalvato cambierebbe identità e il
+  // confronto shallow lo vedrebbe "diverso".
+  const handleRigaSalvata = useCallback((id: string, codiceFornitore: string, descrizione: string) => {
+    setArticoli(prev => prev.map(x => x.id === id ? { ...x, codiceFornitore, descrizione } : x));
   }, []);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageCorrente = Math.min(page, totalPages);
+  const pageItems = filtered.slice((pageCorrente - 1) * PAGE_SIZE, pageCorrente * PAGE_SIZE);
 
   return (
     <div className="space-y-3">
@@ -137,7 +156,7 @@ export default function TabellaArticoliFerramenta({
           onKeyDown={(e) => { if (e.key === "Enter") applicaFiltri(); }}
         />
         <button
-          onClick={() => setSoloInventariati(v => !v)}
+          onClick={toggleSoloInventariati}
           className="flex items-center gap-1.5 px-3 py-2 rounded border text-sm font-medium transition-colors"
           style={soloInventariati
             ? { background: "#DCFCE7", color: "#166534", borderColor: "#86EFAC" }
@@ -190,19 +209,41 @@ export default function TabellaArticoliFerramenta({
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? (
+            {pageItems.length === 0 ? (
               <tr>
                 <td colSpan={14} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
                   Nessun articolo trovato
                 </td>
               </tr>
             ) : (
-              filtered.map(a => (
+              pageItems.map(a => (
                 <RigaArticoloFerramenta key={a.id} articolo={a} onSalvato={handleRigaSalvata} />
               ))
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="flex items-center justify-between text-sm" style={{ color: "var(--color-grey-mid)" }}>
+        <span>{filtered.length} articoli — pagina {pageCorrente} di {totalPages}</span>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={pageCorrente <= 1}
+            className="px-3 py-1.5 rounded-lg border text-sm font-medium disabled:opacity-40"
+            style={{ borderColor: "#d1d5db", background: "white" }}
+          >
+            ← Precedente
+          </button>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={pageCorrente >= totalPages}
+            className="px-3 py-1.5 rounded-lg border text-sm font-medium disabled:opacity-40"
+            style={{ borderColor: "#d1d5db", background: "white" }}
+          >
+            Successiva →
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -212,8 +253,9 @@ const RigaArticoloFerramenta = memo(function RigaArticoloFerramenta({
   articolo: a, onSalvato,
 }: {
   articolo: ArticoloFerramenta;
-  onSalvato: (id: string, codiceFornitore: string) => void;
+  onSalvato: (id: string, codiceFornitore: string, descrizione: string) => void;
 }) {
+  const [descrizione, setDescrizione] = useState(a.descrizione ?? "");
   const [metodoGestione, setMetodoGestione] = useState<MetodoGestioneFerramenta | "">(a.metodoGestione ?? "");
   const [quantitaStandardVaschetta, setQuantitaStandardVaschetta] = useState(a.quantitaStandardVaschetta != null ? String(a.quantitaStandardVaschetta) : "");
   const [sogliaMinima, setSogliaMinima] = useState(a.sogliaMinima != null ? String(a.sogliaMinima) : "");
@@ -225,6 +267,10 @@ const RigaArticoloFerramenta = memo(function RigaArticoloFerramenta({
   const [savedAt, setSavedAt] = useState<number | null>(null);
 
   async function salva() {
+    if (!descrizione.trim()) {
+      setError("Descrizione obbligatoria");
+      return;
+    }
     if (metodoGestione === "Kanban" && !(Number(quantitaStandardVaschetta) > 0)) {
       setError("Quantità Standard Vaschetta obbligatoria (> 0) per Kanban");
       return;
@@ -237,6 +283,7 @@ const RigaArticoloFerramenta = memo(function RigaArticoloFerramenta({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          descrizione: descrizione.trim(),
           metodoGestione: metodoGestione || null,
           quantitaStandardVaschetta: metodoGestione && quantitaStandardVaschetta ? Number(quantitaStandardVaschetta) : null,
           sogliaMinima: sogliaMinima ? Number(sogliaMinima) : null,
@@ -247,7 +294,7 @@ const RigaArticoloFerramenta = memo(function RigaArticoloFerramenta({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error ?? `Errore ${res.status}`);
-      onSalvato(a.id, codiceFornitore);
+      onSalvato(a.id, codiceFornitore, descrizione.trim());
       setSaving(false);
       setSavedAt(Date.now());
       setTimeout(() => setSavedAt(null), 3000);
@@ -261,7 +308,12 @@ const RigaArticoloFerramenta = memo(function RigaArticoloFerramenta({
     <tr className="border-b last:border-0 align-top">
       <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">{a.codiceOs1 || "—"}</td>
       <td className="px-4 py-3 font-medium">
-        {a.descrizione}
+        <input
+          type="text"
+          className={inputCls + " w-full font-medium"}
+          value={descrizione}
+          onChange={(e) => setDescrizione(e.target.value)}
+        />
         {a.descrizioneFornitore && a.descrizioneFornitore !== a.descrizione && (
           <div className="text-xs font-normal mt-0.5" style={{ color: "var(--color-grey-mid)" }} title="Descrizione così come la scrive il fornitore nei tracciati">
             Fornitore: {a.descrizioneFornitore}

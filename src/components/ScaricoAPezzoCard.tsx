@@ -11,7 +11,7 @@ interface DistintaCheck {
   giaScaricato: number;
 }
 
-export default function ScaricoAPezzoCard({ articolo, odpList = [], initialOdp = null, ritorno = null, distintaId }: { articolo: ArticoloFerramenta; odpList?: OdpAttivo[]; initialOdp?: string | null; ritorno?: string | null; distintaId?: string }) {
+export default function ScaricoAPezzoCard({ articolo, odpList = [], initialOdp = null, ritorno = null, scaricoId }: { articolo: ArticoloFerramenta; odpList?: OdpAttivo[]; initialOdp?: string | null; ritorno?: string | null; scaricoId?: string }) {
   const router = useRouter();
   const destinazione = ritorno || "/ferramenta";
   const [quantita, setQuantita] = useState("");
@@ -33,10 +33,10 @@ export default function ScaricoAPezzoCard({ articolo, odpList = [], initialOdp =
     return () => { cancelled = true; };
   }, [odpMatch?.id, articolo.id]);
 
-  // Redirect automatico dopo la conferma — non in modalità distinta (il prossimo passo è
+  // Redirect automatico dopo la conferma — non in modalità scarico a giro (il prossimo passo è
   // scansionare il QR successivo, non navigare).
   useEffect(() => {
-    if (stato !== "done" || distintaId) return;
+    if (stato !== "done" || scaricoId) return;
     const t = setTimeout(() => router.push(destinazione), 1400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -48,8 +48,8 @@ export default function ScaricoAPezzoCard({ articolo, odpList = [], initialOdp =
     setStato("loading");
     setError("");
     try {
-      const res = distintaId
-        ? await fetch(`/api/ferramenta/distinte-scarico/${distintaId}/righe`, {
+      const res = scaricoId
+        ? await fetch(`/api/ferramenta/scarichi/${scaricoId}/righe`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ articoloId: articolo.id, quantita: q }),
@@ -106,19 +106,19 @@ export default function ScaricoAPezzoCard({ articolo, odpList = [], initialOdp =
             </svg>
           </span>
           <div>
-            <p className="font-semibold text-sm" style={{ color: "#14532D" }}>{distintaId ? "Aggiunto alla distinta" : "Scarico registrato"}</p>
+            <p className="font-semibold text-sm" style={{ color: "#14532D" }}>{scaricoId ? "Aggiunto allo scarico" : "Scarico registrato"}</p>
             <p className="text-xs mt-0.5" style={{ color: "#166534" }}>{articolo.descrizione} — {quantita} {articolo.unitaMisura}</p>
           </div>
         </div>
-        {distintaId ? (
+        {scaricoId ? (
           <>
             <p className="text-xs text-center" style={{ color: "#166534" }}>Scansiona il prossimo articolo, oppure:</p>
             <a
-              href={`/ferramenta/distinte-scarico/${distintaId}`}
+              href={`/ferramenta/scarichi/${scaricoId}`}
               className="block text-center w-full py-2.5 rounded-lg text-sm font-semibold text-white"
               style={{ background: "#166534" }}
             >
-              Vai alla distinta →
+              Vai allo scarico →
             </a>
           </>
         ) : (
@@ -181,7 +181,7 @@ export default function ScaricoAPezzoCard({ articolo, odpList = [], initialOdp =
         {stato === "loading" && (
           <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
         )}
-        {stato === "loading" ? "Registrazione in corso…" : distintaId ? "Aggiungi alla distinta" : "Conferma scarico"}
+        {stato === "loading" ? "Registrazione in corso…" : scaricoId ? "Aggiungi allo scarico" : "Conferma scarico"}
       </button>
 
       {avviso && (

@@ -178,6 +178,14 @@ export interface OdpAttivo {
   isSpeciale: boolean;
 }
 
+// Etichette per le categorie ore_registrate non-COMMESSA (ODP_SPECIALI in src/lib/notion.ts),
+// condivise fra route API (server) e viste Rilevamento Ore (client): non hanno un codice
+// articolo per definizione, quindi nei riepiloghi si mostra questa etichetta al suo posto
+// invece del badge "NON CLASSIFICATO" (che segnala invece una vera Scheda senza Codice Art.).
+export const CATEGORIA_ODP_LABEL: Record<string, string> = {
+  SETUP: "Setup", MANUTENZIONE: "Manutenzione", RIUNIONE: "Riunione", FORMAZIONE: "Formazione", PULIZIE: "Pulizie",
+};
+
 export type MetodoGestioneFerramenta = "Kanban" | "A Pezzo";
 
 export interface ArticoloFerramenta {
@@ -209,6 +217,7 @@ export interface ArticoloFerramenta {
 }
 
 export interface ArticoloFerramentaUpdate {
+  descrizione?: string;
   metodoGestione?: MetodoGestioneFerramenta | null;
   quantitaStandardVaschetta?: number | null;
   sogliaMinima?: number | null;
@@ -280,9 +289,6 @@ export type RuoloInFase = "vernice" | "catalizzatore" | "diluente" | "indurente"
 export type EsitoCampionatura = "approvato" | "rifiutato" | "in_revisione";
 export type StatoCiclo = "bozza" | "validato";
 
-// Clienti ricostruiti dal catalogo reale (ETICHETTE_VERNICI_estratto.csv, 2026-08-08): lista
-// fissa applicativa, non una tabella — evita varianti di scrittura sullo stesso cliente.
-// Prada/Hermès esclusi finché non diventano clienti attivi davvero (mai visti nei dati reali).
 // Valori più frequenti osservati nel catalogo reale (ETICHETTE_VERNICI_estratto.csv,
 // 2026-08-08). Suggerimento in UI, non un vincolo DB: tipologia resta TEXT libero in
 // Postgres (nessun CHECK) — la UI offre "Altro" per qualsiasi valore non in lista.
@@ -293,18 +299,10 @@ export const TIPOLOGIE_VERNICIATURA: string[] = [
   "COLORANTE", "ACETONE", "ACQUA",
 ];
 
-export const CLIENTI_VERNICIATURA: string[] = [
-  "Gucci",
-  "Armani",
-  "Cartier",
-  "Diesel",
-  "Bottega Veneta",
-  "Brioni",
-  "Boucheron",
-  "Mage",
-  "Villa Giuseppina",
-  "Valentino",
-];
+// Clienti verniciatura: tabella clienti_verniciatura (vedi schema_verniciatura_fase8_clienti.sql),
+// non più una lista fissa qui — il form Campionatura può aggiungerne di nuovi al volo
+// (ClienteVerniciaturaAutocomplete / ensureClienteVerniciaturaEsiste in
+// clientiVerniciaturaRepository.ts), con univocità case-insensitive garantita lato DB.
 
 export interface Vernice {
   id: string;

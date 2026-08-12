@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { updateArticoloFerramentaClassificazione } from "@/lib/articoliFerramentaRepository";
-import type { ArticoloFerramentaUpdate } from "@/lib/types";
+import { getArticoloFerramentaById, updateArticoloFerramentaClassificazione } from "@/lib/articoliFerramentaRepository";
+import type { ArticoloFerramenta, ArticoloFerramentaUpdate } from "@/lib/types";
 import { getSessionFromRequest, FERRAMENTA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
@@ -19,6 +19,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Payload non valido" }, { status: 400 });
   }
 
+  if (body.descrizione !== undefined && !body.descrizione.trim()) {
+    return NextResponse.json({ error: "Descrizione obbligatoria" }, { status: 400 });
+  }
   if (body.metodoGestione !== undefined && body.metodoGestione !== null) {
     if (body.metodoGestione !== "Kanban" && body.metodoGestione !== "A Pezzo") {
       return NextResponse.json({ error: "Metodo Gestione non valido" }, { status: 400 });
@@ -32,8 +35,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   try {
+    const precedente = await getArticoloFerramentaById(id);
     const updated = await updateArticoloFerramentaClassificazione(id, body);
-    void logOperation(session.name, "UPDATE", "articolo_ferramenta", id, body as Record<string, unknown>);
+    // Solo i campi effettivamente inviati nel PATCH, prima/dopo — altrimenti un audit log con solo
+    // il "dopo" non permette di capire cosa sia cambiato né di tornare indietro da un errore
+    // (es. una descrizione riscritta per sbaglio).
+    const campi = Object.keys(body) as (keyof ArticoloFerramenta)[];
+    const prima: Record<string, unknown> = {};
+    const dopo: Record<string, unknown> = {};
+    for (const campo of campi) {
+      prima[campo] = precedente[campo];
+      dopo[campo] = updated[campo];
+    }
+    void logOperation(session.name, "UPDATE", "articolo_ferramenta", id, { prima, dopo });
     revalidatePath("/ferramenta");
     revalidatePath("/admin/ferramenta");
     return NextResponse.json(updated);

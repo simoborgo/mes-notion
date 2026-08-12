@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { CATEGORIA_ODP_LABEL } from "@/lib/types";
 
 interface Voce {
   id: string;
@@ -13,6 +14,13 @@ interface Voce {
   causale: string | null;
 }
 
+interface Risultato {
+  voci: Voce[];
+  categoria: string;
+  codiceArticolo: string | null;
+  numeroScheda: string | null;
+}
+
 function fmt(d: string) {
   const [y, m, day] = d.split("-").map(Number);
   return new Date(y, m - 1, day).toLocaleDateString("it-IT");
@@ -22,7 +30,7 @@ const inputCls = "rounded-lg border px-3 text-sm bg-white focus:outline-none foc
 
 export default function VistaStoricoOdp() {
   const [odp, setOdp] = useState("");
-  const [voci, setVoci] = useState<Voce[] | null>(null);
+  const [risultato, setRisultato] = useState<Risultato | null>(null);
   const [loading, setLoading] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
 
@@ -34,7 +42,7 @@ export default function VistaStoricoOdp() {
       const res = await fetch(`/api/ore/storico-odp?odp=${encodeURIComponent(odp.trim())}`);
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
-      setVoci(json);
+      setRisultato(json);
     } catch (e) {
       setErrore(e instanceof Error ? e.message : "Errore ricerca");
     } finally {
@@ -42,8 +50,10 @@ export default function VistaStoricoOdp() {
     }
   }
 
+  const voci = risultato?.voci ?? null;
   const totaleOre = voci?.reduce((s, v) => s + v.ore, 0) ?? 0;
   const totaleRif = voci?.filter(v => v.rif).reduce((s, v) => s + v.ore, 0) ?? 0;
+  const nonClassificato = !!risultato && risultato.categoria === "COMMESSA" && !risultato.codiceArticolo;
 
   // Raggruppa per operatore
   const perOperatore = voci
@@ -85,9 +95,9 @@ export default function VistaStoricoOdp() {
         </div>
       )}
 
-      {voci && (
+      {risultato && voci && (
         <>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-3">
             <div className="rounded-lg border p-3" style={{ borderColor: "#e5e4e0" }}>
               <div className="text-xs font-semibold uppercase" style={{ color: "var(--color-grey-mid)" }}>Ore totali</div>
               <div className="text-2xl font-bold tabular-nums" style={{ color: "var(--color-black)" }}>{totaleOre}h</div>
@@ -99,6 +109,16 @@ export default function VistaStoricoOdp() {
             <div className="rounded-lg border p-3" style={{ borderColor: "#e5e4e0" }}>
               <div className="text-xs font-semibold uppercase" style={{ color: "var(--color-grey-mid)" }}>Costo totale</div>
               <div className="text-2xl font-bold tabular-nums" style={{ color: "var(--color-black)" }}>€{(totaleOre * 41).toFixed(0)}</div>
+            </div>
+            <div className="rounded-lg border p-3" style={{ borderColor: "#e5e4e0", background: nonClassificato ? "#FFFBEB" : "transparent" }}>
+              <div className="text-xs font-semibold uppercase" style={{ color: "var(--color-grey-mid)" }}>Codice articolo</div>
+              <div className="text-lg font-bold" style={{ color: nonClassificato ? "#92400E" : "var(--color-black)" }}>
+                {risultato.categoria !== "COMMESSA"
+                  ? (CATEGORIA_ODP_LABEL[risultato.categoria] ?? risultato.categoria)
+                  : nonClassificato
+                    ? `NON CLASSIFICATO${risultato.numeroScheda ? ` — ${risultato.numeroScheda}` : ""}`
+                    : risultato.codiceArticolo}
+              </div>
             </div>
           </div>
 

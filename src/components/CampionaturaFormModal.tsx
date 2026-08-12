@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import type { Campionatura, Ciclo } from "@/lib/types";
-import { CLIENTI_VERNICIATURA } from "@/lib/types";
+import ClienteVerniciaturaAutocomplete from "./ClienteVerniciaturaAutocomplete";
 
 const inputCls = "w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300";
 const labelCls = "block text-xs font-medium mb-1";
 
 export default function CampionaturaFormModal({ onClose, onCreata }: { onClose: () => void; onCreata: (c: Campionatura) => void }) {
   const [cicli, setCicli] = useState<Ciclo[]>([]);
+  const [clienti, setClienti] = useState<string[]>([]);
   const [cicloId, setCicloId] = useState("");
   const [cliente, setCliente] = useState("");
   const [codiceCampioneMaterialista, setCodiceCampioneMaterialista] = useState("");
@@ -20,6 +21,7 @@ export default function CampionaturaFormModal({ onClose, onCreata }: { onClose: 
 
   useEffect(() => {
     fetch("/api/verniciatura/cicli").then((r) => r.json()).then((c) => Array.isArray(c) && setCicli(c)).catch(() => {});
+    fetch("/api/verniciatura/campionature/clienti").then((r) => r.json()).then((c) => Array.isArray(c) && setClienti(c)).catch(() => {});
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -71,13 +73,10 @@ export default function CampionaturaFormModal({ onClose, onCreata }: { onClose: 
           </div>
           <div>
             <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Cliente *</label>
-            <select required className={inputCls} value={cliente} onChange={(e) => setCliente(e.target.value)}>
-              <option value="">—</option>
-              {CLIENTI_VERNICIATURA.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
+            <ClienteVerniciaturaAutocomplete clienti={clienti} value={cliente} onChange={setCliente} />
           </div>
           <div>
-            <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Codice campione materialista</label>
+            <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Codice Material List</label>
             <input type="text" className={inputCls} value={codiceCampioneMaterialista} onChange={(e) => setCodiceCampioneMaterialista(e.target.value)} />
           </div>
           <div>

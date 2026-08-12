@@ -129,7 +129,7 @@ export default function CampionaturaDetailModal({
           </div>
 
           {campionatura.codiceCampioneMaterialista && (
-            <p className="text-xs" style={{ color: "var(--color-grey-mid)" }}>Cod. campione materialista: {campionatura.codiceCampioneMaterialista}</p>
+            <p className="text-xs" style={{ color: "var(--color-grey-mid)" }}>Cod. Material List: {campionatura.codiceCampioneMaterialista}</p>
           )}
           {campionatura.note && <p className="text-sm">{campionatura.note}</p>}
 

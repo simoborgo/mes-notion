@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getOperatori } from "@/lib/notion";
+import { getOperatori, getSchede } from "@/lib/notion";
 import { getRegistrazioniPerData, getOdpGiornoPrecedenteMap } from "@/lib/oreRepository";
 import { getAssenzeApprovatePerData, isAssente } from "@/lib/permessiRepository";
 import {
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     const operatori = await getOperatori();
     const matricole = operatori.map(o => o.matricola);
 
-    const [registrazioni, odpGiornoPrecedenteMap, assenzeResult, repartiSecondari] = await Promise.all([
+    const [registrazioni, odpGiornoPrecedenteMap, assenzeResult, repartiSecondari, schede] = await Promise.all([
       getRegistrazioniPerData(data),
       getOdpGiornoPrecedenteMap(matricole, giornoPrecedente(data)),
       getAssenzeApprovatePerData(data).then(
@@ -41,10 +41,23 @@ export async function GET(req: NextRequest) {
         e => ({ ok: false as const, error: (e as Error).message })
       ),
       getRepartiSecondari(),
+      getSchede(),
     ]);
 
-    const registrazioniPerMatricola = new Map<string, typeof registrazioni>();
-    for (const r of registrazioni) {
+    // Codice articolo mai salvato su ore_registrate (vedi commento in oreRepository.ts): join a
+    // runtime con Notion, così se il codice viene aggiunto sulla Scheda dopo la registrazione
+    // delle ore compare comunque subito, anche per le ore già segnate nei giorni passati.
+    const codiceArticoloPerOdp = new Map<string, string | null>();
+    for (const s of schede) {
+      if (s.odp && !codiceArticoloPerOdp.has(s.odp)) codiceArticoloPerOdp.set(s.odp, s.codiceArticolo || null);
+    }
+    const registrazioniArricchite = registrazioni.map(r => ({
+      ...r,
+      codiceArticolo: codiceArticoloPerOdp.get(r.odp) ?? null,
+    }));
+
+    const registrazioniPerMatricola = new Map<string, typeof registrazioniArricchite>();
+    for (const r of registrazioniArricchite) {
       const list = registrazioniPerMatricola.get(r.matricola) ?? [];
       list.push(r);
       registrazioniPerMatricola.set(r.matricola, list);
