@@ -2,6 +2,7 @@ import { Client } from "@notionhq/client";
 import { unstable_cache } from "next/cache";
 import type { Scheda, SchedaUpdate, Ritiro, RitiroUpdate, Commessa, Area, Carico, CaricoUpdate, Operatore, OdpAttivo } from "./types";
 import { STATI_CHIUSI_ODP } from "./types";
+import { codiciSpecialiPerCommessa } from "./attivitaSpecialiCommessa";
 
 const notion = new Client({ auth: process.env.NOTION_TOKEN, fetch: globalThis.fetch });
 
@@ -559,6 +560,15 @@ const ODP_SPECIALI: { prefix: string; label: string }[] = [
 export async function getOdpAttivi(): Promise<OdpAttivo[]> {
   const [schede, commesse] = await Promise.all([getSchede(), getCommesse()]);
   const statoCommessaById = new Map(commesse.map(c => [c.id, c.stato]));
+  const specialiCommessa: OdpAttivo[] = commesse
+    .filter(c => c.numeroCommessa && c.stato !== "Chiusa")
+    .flatMap(c => codiciSpecialiPerCommessa(c.numeroCommessa, c.cliente).map(s => ({
+      id: null,
+      odp: s.odp,
+      label: s.label,
+      commessaNr: c.numeroCommessa,
+      isSpeciale: true,
+    })));
 
   // dedup per ODP: lo stesso testo ODP può comparire su più Schede quando ci sono
   // sub-item padre/figlio collegati (oggi non lavorabili singolarmente in Rilevamento
@@ -590,7 +600,7 @@ export async function getOdpAttivi(): Promise<OdpAttivo[]> {
     label: `${s.prefix} — ${s.label}`,
     isSpeciale: true,
   }));
-  return [...attivi, ...speciali];
+  return [...attivi, ...speciali, ...specialiCommessa];
 }
 
 // Risolve il Codice Art. di un ODP per aggiornare standard_reparto ad ogni scrittura di ore

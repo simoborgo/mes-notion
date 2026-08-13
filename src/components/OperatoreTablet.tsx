@@ -425,6 +425,25 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
               <p className="text-sm font-semibold" style={{ color: "var(--color-black)" }}>
                 {aperto ? "Passa a un altro ODP" : "Su cosa stai lavorando?"}
               </p>
+              {odpList.some(o => o.isSpeciale) && (
+                <div className="flex flex-wrap gap-2">
+                  {odpList.filter(o => o.isSpeciale).map(o => (
+                    <button
+                      key={o.odp}
+                      type="button"
+                      onClick={() => setOdp(o.odp)}
+                      className="px-3 py-2 rounded-full text-sm font-semibold border"
+                      style={{
+                        borderColor: odp === o.odp ? "var(--color-primary)" : "#d1d5db",
+                        color: odp === o.odp ? "var(--color-primary)" : "var(--color-grey-mid)",
+                        background: odp === o.odp ? "rgba(240,143,37,0.08)" : "white",
+                      }}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              )}
               <OdpSelettore odpList={odpList} value={odp} onChange={setOdp} placeholder="Cerca ODP…" />
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <input type="checkbox" checked={rif} onChange={e => setRif(e.target.checked)} className="w-4 h-4 accent-red-600" />
