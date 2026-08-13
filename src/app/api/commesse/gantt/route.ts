@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCommesse, getCarichi } from "@/lib/notion";
+import { getCarichi } from "@/lib/carichiRepository";
+import { getCommesse } from "@/lib/commesseRepository";
 import { getSessionFromRequest } from "@/lib/auth";
 import { buildCommesseConCarichi } from "@/lib/reportCommesse";
 import { buildGanttWorkbook } from "@/lib/excel/gantt";

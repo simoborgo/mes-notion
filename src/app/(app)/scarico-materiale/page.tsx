@@ -1,4 +1,5 @@
-import { getSchede, getRitiri } from "@/lib/notion";
+import { getSchede } from "@/lib/schedeRepository";
+import { getRitiri } from "@/lib/ritiriRepository";
 import FormScaricoMateriale from "@/components/FormScaricoMateriale";
 import { getSession, SCARICO_MATERIALE_ROLES } from "@/lib/auth";
 import { redirect } from "next/navigation";

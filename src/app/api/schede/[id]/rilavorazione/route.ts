@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getSessionFromRequest } from "@/lib/auth";
-import { createRilavorazione, invalidateSchedeCache } from "@/lib/notion";
+import { createRilavorazione } from "@/lib/ritiriRepository";
+import { appendPdfAllegatoToScheda } from "@/lib/schedeRepository";
 import { notionSvc } from "@/lib/verificheServices";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { buildVerificaPdf } = require("../../../../../../verifiche-backend/pdfBuilder");
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { uploadPdfAllegato } = require("../../../../../../verifiche-backend/notionService");
 
 type Point = { x: number; y: number };
 type Stamp = { x: number; y: number; tipo: string };
@@ -87,7 +86,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           });
 
           const filename = `rilavorazione-${subOdp.replace(/\//g, "-")}.pdf`;
-          await uploadPdfAllegato(rilavorazione.id, pdfBuffer, filename);
+          const pdfBase64 = `data:application/pdf;base64,${pdfBuffer.toString("base64")}`;
+          await appendPdfAllegatoToScheda(rilavorazione.id, pdfBase64, filename);
         }
       } catch (pdfErr) {
         // Non blocca la risposta — la rilavorazione è già creata
@@ -96,7 +96,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     revalidatePath("/schede");
-    invalidateSchedeCache();
 
     return NextResponse.json({ ok: true, odp: rilavorazione.odp, pageId: rilavorazione.id, ritiroCreato: !!ritiro });
   } catch (err) {

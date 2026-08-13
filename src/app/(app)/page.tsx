@@ -1,4 +1,7 @@
-import { getSchede, getRitiri, getCommesse, getCarichi } from "@/lib/notion";
+import { getCarichi } from "@/lib/carichiRepository";
+import { getSchede } from "@/lib/schedeRepository";
+import { getRitiri } from "@/lib/ritiriRepository";
+import { getCommesse } from "@/lib/commesseRepository";
 import Dashboard from "@/components/Dashboard";
 
 export const dynamic = "force-dynamic";

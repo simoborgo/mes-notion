@@ -1,6 +1,6 @@
 import { pool } from "./db";
 import { ensureArticoloEsiste } from "./articoliRepository";
-import { getCodiceArticoloPerOdp } from "./notion";
+import { getCodiceArticoloPerOdp } from "./schedeRepository";
 import { REPARTI_PRODUZIONE } from "./types";
 import { logOperation } from "./audit";
 

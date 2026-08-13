@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCarichi, getCommesse, getSchede } from "@/lib/notion";
+import { getCarichi } from "@/lib/carichiRepository";
+import { getSchede } from "@/lib/schedeRepository";
+import { getCommesse } from "@/lib/commesseRepository";
 import { getSessionFromRequest } from "@/lib/auth";
 import { toCsvRow, formatDateEnUS, commessaClienteInfoKey } from "@/lib/csv";
 

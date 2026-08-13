@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getOperatori, getSchede } from "@/lib/notion";
+import { getSchede } from "@/lib/schedeRepository";
+import { getOperatori } from "@/lib/operatoriRepository";
 import { getRegistrazioniPerData, getOdpGiornoPrecedenteMap } from "@/lib/oreRepository";
 import { getAssenzeApprovatePerData, isAssente } from "@/lib/permessiRepository";
 import {

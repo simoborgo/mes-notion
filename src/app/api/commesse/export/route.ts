@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCommesse } from "@/lib/notion";
+import { getCommesse } from "@/lib/commesseRepository";
 import { getSessionFromRequest } from "@/lib/auth";
 import { toCsvRow, formatDateEnUS } from "@/lib/csv";
 

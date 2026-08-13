@@ -30,6 +30,9 @@ export const PARAMETRI_REPARTO_ROLES: Role[] = ["admin"];
 export const PREVISIONALE_ROLES: Role[] = ["admin"];
 export const ORARI_TURNO_ROLES: Role[] = ["admin"];
 export const IMPOSTAZIONI_ROLES: Role[] = ["admin"];
+// Creazione/modifica di Commesse e Aree — prima gestite solo su Notion da chi ha accesso al
+// workspace; stesso perimetro già usato per la creazione Kit Commessa (Ufficio Tecnico incluso).
+export const COMMESSE_ROLES: Role[] = ["admin", "ufficio_tecnico"];
 
 export interface Session {
   username: string;

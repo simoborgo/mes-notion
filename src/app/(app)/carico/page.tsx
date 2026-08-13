@@ -1,4 +1,5 @@
-import { getSchede, getSottoschede, getFornitori } from "@/lib/notion";
+import { getSchede, getSottoschede } from "@/lib/schedeRepository";
+import { getFornitori } from "@/lib/fornitoriRepository";
 import FormCaricoMagazzino from "@/components/FormCaricoMagazzino";
 import { getSession, CARICO_ROLES } from "@/lib/auth";
 import { redirect } from "next/navigation";

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOffertaConRighe, aggiornaCampiOfferta } from "@/lib/offerteRepository";
-import { getCommessaById } from "@/lib/notion";
+import { getCommessaById } from "@/lib/commesseRepository";
 import { getSessionFromRequest, OFFERTE_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 

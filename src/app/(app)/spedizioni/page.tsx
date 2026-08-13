@@ -1,5 +1,5 @@
 import { getSession, SPEDIZIONI_ROLES } from "@/lib/auth";
-import { getSchede, getSottoschede } from "@/lib/notion";
+import { getSchede, getSottoschede } from "@/lib/schedeRepository";
 import { redirect } from "next/navigation";
 import SpedizioneVerifica from "@/components/SpedizioneVerifica";
 import type { OdpEntry } from "@/app/api/verifiche/odp-list/route";

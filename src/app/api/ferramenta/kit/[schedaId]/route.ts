@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { updateSchedaKitFerramenta, invalidateSchedeCache } from "@/lib/notion";
+import { updateSchedaKitFerramenta } from "@/lib/schedeRepository";
 import { deleteDistintaKitByOdp, getDistintaKitByOdp } from "@/lib/kitFerramentaRepository";
 import { getSessionFromRequest, FERRAMENTA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
@@ -38,7 +38,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ sc
   void logOperation(session.name, "UPDATE", "kit_ferramenta", schedaId, { stato: body.stato });
   revalidatePath("/admin/ferramenta/kit");
   revalidatePath("/ferramenta/fogli-scarico");
-  invalidateSchedeCache();
   return NextResponse.json(updated);
 }
 
@@ -58,6 +57,5 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ s
   void logOperation(session.name, "DELETE", "kit_ferramenta", schedaId, { azione: "elimina-foglio-scarico" });
   revalidatePath("/admin/ferramenta/kit");
   revalidatePath("/ferramenta/fogli-scarico");
-  invalidateSchedeCache();
   return NextResponse.json(updated);
 }

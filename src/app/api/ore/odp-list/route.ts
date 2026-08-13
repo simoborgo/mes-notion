@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getOdpAttivi } from "@/lib/notion";
+import { getOdpAttivi } from "@/lib/schedeRepository";
 import { getSessionFromRequest, RILEVAMENTO_ORE_ROLES } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStoricoOdps } from "@/lib/oreRepository";
-import { getSchedeByCommessa, getCommessaById } from "@/lib/notion";
+import { getSchedeByCommessa } from "@/lib/schedeRepository";
+import { getCommessaById } from "@/lib/commesseRepository";
 import { getSessionFromRequest, RILEVAMENTO_ORE_ROLES } from "@/lib/auth";
 
 const COSTO_ORARIO = 41;

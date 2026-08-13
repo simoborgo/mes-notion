@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { appendFotoToPage, getSchedaById, invalidateSchedeCache } from "@/lib/notion";
+import { appendFotoToPage, getSchedaById } from "@/lib/schedeRepository";
 import { getSessionFromRequest } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
@@ -25,7 +25,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await appendFotoToPage(id, body.fotoBase64);
     void logOperation(session.name, "UPDATE", "scheda", id, { azione: "upload_foto", numeroFoto: body.fotoBase64.length });
     revalidatePath("/schede");
-    invalidateSchedeCache();
     const updated = await getSchedaById(id);
     return NextResponse.json(updated);
   } catch (e) {

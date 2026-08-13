@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest, WRITE_ROLES } from "@/lib/auth";
-import { appendFotoToPage } from "@/lib/notion";
+import { appendFotoToRitiro } from "@/lib/ritiriRepository";
 import { logOperation } from "@/lib/audit";
 
 const MAX_BASE64_CHARS = 14 * 1024 * 1024;
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: e instanceof Error ? e.message : "Payload non valido" }, { status: 400 });
   }
   try {
-    await appendFotoToPage(id, fotoArray);
+    await appendFotoToRitiro(id, fotoArray);
     void logOperation(session.name, "UPLOAD_FOTO", "ritiro", id, { count: fotoArray.length });
     return NextResponse.json({ ok: true });
   } catch (e) {

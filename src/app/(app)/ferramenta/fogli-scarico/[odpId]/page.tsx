@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { getSession, FERRAMENTA_ROLES } from "@/lib/auth";
-import { getSchedaById } from "@/lib/notion";
+import { getSchedaById } from "@/lib/schedeRepository";
 import { getMovimentiByOdp } from "@/lib/ferramentaRepository";
 import { getDistintaKitByOdp } from "@/lib/kitFerramentaRepository";
 import { getArticoliFerramenta } from "@/lib/articoliFerramentaRepository";

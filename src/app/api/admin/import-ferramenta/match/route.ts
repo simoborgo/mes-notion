@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { findFornitoreMatch, getFornitoriList } from "@/lib/notion";
+import { findFornitoreMatch, getFornitoriList } from "@/lib/fornitoriRepository";
 import { getCodiciOs1Esistenti } from "@/lib/articoliFerramentaRepository";
 import { getSessionFromRequest, FERRAMENTA_ROLES } from "@/lib/auth";
 

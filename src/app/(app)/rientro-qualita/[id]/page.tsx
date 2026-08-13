@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getSession, RIENTRO_QUALITA_ROLES } from "@/lib/auth";
-import { getSchedaById, getRitiriByScheda } from "@/lib/notion";
+import { getSchedaById } from "@/lib/schedeRepository";
+import { getRitiriByScheda } from "@/lib/ritiriRepository";
 import RientroQualitaCard from "@/components/RientroQualitaCard";
 
 export const dynamic = "force-dynamic";

@@ -48,7 +48,7 @@ export default function FormModificaRitiro({ ritiro, schede = [], fornitori = []
     nrCollo:         ritiro.nrCollo,
     totColli:        ritiro.totColli,
     schedaId:        ritiro.numeroOrdineId,
-    fornitoreId:     fornitori.find(f => f.nome === ritiro.fornitore)?.id ?? null,
+    fornitoreId:     ritiro.fornitoreId,
     commessaId:      ritiro.commessaId,
   });
   const [schedaSearch, setSchedaSearch] = useState(() => {

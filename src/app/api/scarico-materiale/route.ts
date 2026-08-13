@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSchedaById } from "@/lib/notion";
+import { getSchedaById } from "@/lib/schedeRepository";
 import { creaScaricoMateriale } from "@/lib/scaricoMaterialeRepository";
 import { sendNotifica } from "@/lib/notify";
 import { getSessionFromRequest, SCARICO_MATERIALE_ROLES } from "@/lib/auth";

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { getCarichi, createCarico } from "@/lib/notion";
+import { getCarichi, createCarico } from "@/lib/carichiRepository";
 import { getSessionFromRequest, WRITE_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 

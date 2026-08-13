@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession, FERRAMENTA_ROLES } from "@/lib/auth";
-import { getSchedeOdpAvviate } from "@/lib/notion";
+import { getSchedeOdpAvviate } from "@/lib/schedeRepository";
 import TabellaKitOdp from "@/components/TabellaKitOdp";
 
 export const dynamic = "force-dynamic";

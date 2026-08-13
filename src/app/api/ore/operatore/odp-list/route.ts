@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getOdpAttivi } from "@/lib/notion";
+import { getOdpAttivi } from "@/lib/schedeRepository";
 import { getSessionFromRequest } from "@/lib/auth";
 
 // Qualunque sessione valida — v1 mostra tutti gli ODP attivi, nessun filtro per reparto/fase

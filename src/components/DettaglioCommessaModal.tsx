@@ -227,15 +227,6 @@ export default function DettaglioCommessaModal({ commessaId, onClose }: Props) {
                 {data.commessa.cliente}
               </span>
               <BadgeStato stato={data.commessa.stato} />
-              <a
-                href={data.commessa.notionUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs px-2.5 py-1 rounded font-medium"
-                style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.10)" }}
-              >
-                Apri in Notion ↗
-              </a>
             </>
           ) : (
             <span className="flex-1 text-base font-medium" style={{ color: "var(--color-grey-mid)" }}>Dettaglio commessa</span>

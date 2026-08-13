@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { getSchedaById, updateScheda, archiveScheda, invalidateSchedeCache } from "@/lib/notion";
+import { getSchedaById, updateScheda, archiveScheda } from "@/lib/schedeRepository";
 import type { SchedaUpdate } from "@/lib/types";
 import { getSessionFromRequest, MODIFICA_SCHEDA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
@@ -28,7 +28,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const updated = await updateScheda(id, body);
 
     revalidatePath("/schede");
-    invalidateSchedeCache();
 
     void logOperation(
       session?.name ?? "Sconosciuto",
@@ -56,7 +55,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     await archiveScheda(id);
 
     revalidatePath("/schede");
-    invalidateSchedeCache();
 
     void logOperation(session.name, "DELETE", "scheda", id, {});
 

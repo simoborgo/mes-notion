@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { revalidateTag } from "next/cache";
-import { updateOperatorePage } from "@/lib/notion";
+import { updateOperatorePage } from "@/lib/operatoriRepository";
 import { getSessionFromRequest, PARAMETRI_REPARTO_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
@@ -21,7 +20,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       azienda: typeof body.azienda === "string" ? body.azienda.trim() : undefined,
       inForza: typeof body.inForza === "boolean" ? body.inForza : undefined,
     });
-    revalidateTag("operatori", "max");
     void logOperation(session.name, "UPDATE", "operatore", id, body as Record<string, unknown>);
     return NextResponse.json(operatore);
   } catch (e) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getOperatori } from "@/lib/notion";
+import { getOperatori } from "@/lib/operatoriRepository";
 import { chiudiSegmentoCorrente, getMatricoleConSegmentoAperto } from "@/lib/segmentiOperatoreRepository";
 import { getOrariTurno } from "@/lib/parametriGeneraliRepository";
 import { logOperation } from "@/lib/audit";

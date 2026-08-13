@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRitiroById, getSchedaById } from "@/lib/notion";
+import { getSchedaById } from "@/lib/schedeRepository";
+import { getRitiroById } from "@/lib/ritiriRepository";
 import { getSessionFromRequest } from "@/lib/auth";
 import { notionSvc } from "@/lib/verificheServices";
 

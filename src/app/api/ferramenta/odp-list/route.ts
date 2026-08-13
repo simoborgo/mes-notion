@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getOdpAttivi } from "@/lib/notion";
+import { getOdpAttivi } from "@/lib/schedeRepository";
 import { getSessionFromRequest, FERRAMENTA_ROLES } from "@/lib/auth";
 
 // Separata dall'API GET/POST della pagina: caricata lato client SOLO quando serve (form ODP

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { getRitiri, createRitiro, getRitiroById, appendFotoToPage, getSchedaById, createRilavorazione, invalidateSchedeCache } from "@/lib/notion";
+import { getSchedaById } from "@/lib/schedeRepository";
+import { getRitiri, createRitiro, getRitiroById, appendFotoToRitiro, createRilavorazione } from "@/lib/ritiriRepository";
 import { getSessionFromRequest, RITIRI_CREATE_ROLES, RIENTRO_QUALITA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
@@ -104,7 +105,7 @@ export async function POST(req: NextRequest) {
     let ritiroFinale = ritiro;
     if (fotoArray.length) {
       try {
-        await appendFotoToPage(ritiro.id, fotoArray);
+        await appendFotoToRitiro(ritiro.id, fotoArray);
         // Rilegge la pagina per ottenere le URL firmate delle foto appena caricate
         ritiroFinale = await getRitiroById(ritiro.id);
       } catch (e) {
@@ -122,7 +123,7 @@ export async function POST(req: NextRequest) {
     );
 
     revalidatePath("/ritiri");
-    if (isNC || schedaId) { revalidatePath("/schede"); invalidateSchedeCache(); }
+    if (isNC || schedaId) { revalidatePath("/schede"); }
     return NextResponse.json(ritiroFinale, { status: 201 });
   } catch (e) {
     console.error(e);

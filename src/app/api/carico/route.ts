@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { createRitiro, updateSchedaStato, getFornitoriList, appendFotoToPage, getSchedaById, createRilavorazione, invalidateSchedeCache } from "@/lib/notion";
+import { updateSchedaStato, getSchedaById } from "@/lib/schedeRepository";
+import { createRitiro, appendFotoToRitiro, createRilavorazione } from "@/lib/ritiriRepository";
+import { getFornitoriList } from "@/lib/fornitoriRepository";
 import { getSessionFromRequest, CARICO_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
@@ -82,7 +84,7 @@ export async function POST(req: NextRequest) {
       rilavorazioneId = result.rilavorazione.id;
       statoNotion = "In Attesa Rilavorazione";
       if (result.ritiro && fotoArray.length) {
-        void appendFotoToPage(result.ritiro.id, fotoArray).catch(e =>
+        void appendFotoToRitiro(result.ritiro.id, fotoArray).catch(e =>
           console.error("[carico] appendFoto ritiro NC:", e)
         );
       }
@@ -182,7 +184,7 @@ export async function POST(req: NextRequest) {
       });
       // Carica le stesse foto anche nel campo Foto del ritiro
       if (fotoArray.length) {
-        void appendFotoToPage(nuovoRitiro.id, fotoArray).catch(e =>
+        void appendFotoToRitiro(nuovoRitiro.id, fotoArray).catch(e =>
           console.error("[carico] appendFoto ritiro:", e)
         );
       }
@@ -201,7 +203,6 @@ export async function POST(req: NextRequest) {
   );
 
   revalidatePath("/schede");
-  invalidateSchedeCache();
   revalidatePath("/ritiri");
 
   if (warnings.length > 0) {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { appendOrdineFornitoreToScheda, getSchedaById, invalidateSchedeCache } from "@/lib/notion";
+import { appendOrdineFornitoreToScheda, getSchedaById } from "@/lib/schedeRepository";
 import { getSessionFromRequest } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
@@ -25,7 +25,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await appendOrdineFornitoreToScheda(id, body.pdfBase64, body.filename);
     void logOperation(session.name, "UPDATE", "scheda", id, { azione: "upload_ordine_fornitore", filename: body.filename });
     revalidatePath("/schede");
-    invalidateSchedeCache();
     const updated = await getSchedaById(id);
     return NextResponse.json(updated);
   } catch (e) {

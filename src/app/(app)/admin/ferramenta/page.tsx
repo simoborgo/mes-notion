@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSession, FERRAMENTA_ROLES } from "@/lib/auth";
 import { getArticoliFerramenta } from "@/lib/articoliFerramentaRepository";
-import { getFornitoriList } from "@/lib/notion";
+import { getFornitoriList } from "@/lib/fornitoriRepository";
 import TabellaArticoliFerramenta from "@/components/TabellaArticoliFerramenta";
 import FerramentaSubNav from "@/components/FerramentaSubNav";
 

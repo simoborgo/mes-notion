@@ -1,5 +1,5 @@
 import { pool } from "./db";
-import { updateSchedaKitFerramentaDescrizione } from "./notion";
+import { updateSchedaKitFerramentaDescrizione } from "./schedeRepository";
 import type { DistintaKitRiga } from "./types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

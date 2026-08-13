@@ -1,4 +1,7 @@
-import { getRitiri, getSchede, getSottoschede, getFornitoriList, getCommesse } from "@/lib/notion";
+import { getSchede, getSottoschede } from "@/lib/schedeRepository";
+import { getRitiri } from "@/lib/ritiriRepository";
+import { getCommesse } from "@/lib/commesseRepository";
+import { getFornitoriList } from "@/lib/fornitoriRepository";
 import { getSession } from "@/lib/auth";
 import TabellaRitiri from "@/components/TabellaRitiri";
 import RitiriSubNav from "@/components/RitiriSubNav";

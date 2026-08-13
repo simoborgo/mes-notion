@@ -1,4 +1,6 @@
-import { getCarichi, getCommesse, getSchede } from "@/lib/notion";
+import { getCarichi } from "@/lib/carichiRepository";
+import { getSchede } from "@/lib/schedeRepository";
+import { getCommesse } from "@/lib/commesseRepository";
 import { getSession, WRITE_ROLES } from "@/lib/auth";
 import TabellaCarichi from "@/components/TabellaCarichi";
 import CommesseSubNav from "@/components/CommesseSubNav";

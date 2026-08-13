@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCommessaById } from "@/lib/notion";
+import { getCommessaById } from "@/lib/commesseRepository";
 import { confermaOfferta } from "@/lib/offerteRepository";
 import { getSessionFromRequest, OFFERTE_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";

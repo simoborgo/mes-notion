@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getOdpAttivi } from "@/lib/notion";
+import { getOdpAttivi } from "@/lib/schedeRepository";
 import { getArticoloFerramentaById } from "@/lib/articoliFerramentaRepository";
 import { getInventarioAperto, getRigaInventario } from "@/lib/inventarioFerramentaRepository";
 import ScaricoGate from "@/components/ScaricoGate";

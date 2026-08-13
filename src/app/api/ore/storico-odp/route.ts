@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStoricoOdp, categoriaFromOdp } from "@/lib/oreRepository";
-import { getSchede } from "@/lib/notion";
+import { getSchede } from "@/lib/schedeRepository";
 import { getSessionFromRequest, RILEVAMENTO_ORE_ROLES } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {

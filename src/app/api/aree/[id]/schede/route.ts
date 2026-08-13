@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSchedeByArea } from "@/lib/notion";
+import { getSchedeByArea } from "@/lib/schedeRepository";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {

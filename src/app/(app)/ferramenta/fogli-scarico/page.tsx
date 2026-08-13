@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession, FERRAMENTA_ROLES } from "@/lib/auth";
-import { getSchedeOdpAvviate } from "@/lib/notion";
+import { getSchedeOdpAvviate } from "@/lib/schedeRepository";
 import { getOdpConMovimenti } from "@/lib/ferramentaRepository";
 import FogliScaricoList from "@/components/FogliScaricoList";
 import FerramentaSubNav from "@/components/FerramentaSubNav";

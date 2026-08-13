@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { getSession, OFFERTE_ROLES } from "@/lib/auth";
 import { getOffertaConRighe, getStimaRepartoOfferta } from "@/lib/offerteRepository";
 import { getArticoli } from "@/lib/articoliRepository";
-import { getCommesse } from "@/lib/notion";
+import { getCommesse } from "@/lib/commesseRepository";
 import { getCostoOrarioManodopera } from "@/lib/parametriGeneraliRepository";
 import DettaglioOfferta from "@/components/DettaglioOfferta";
 

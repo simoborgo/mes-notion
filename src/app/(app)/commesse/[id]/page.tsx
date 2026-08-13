@@ -1,5 +1,8 @@
-import { getCommessaById, getAreeByCommessa, getSchedeByCommessa } from "@/lib/notion";
+import { getSchedeByCommessa } from "@/lib/schedeRepository";
+import { getCommessaById } from "@/lib/commesseRepository";
+import { getAreeByCommessa } from "@/lib/areeRepository";
 import BadgeStato from "@/components/BadgeStato";
+import AreeSection from "@/components/AreeSection";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -37,9 +40,6 @@ export default async function CommessaPage({ params }: { params: Promise<{ id: s
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
           <BadgeStato stato={commessa.stato} />
-          <a href={commessa.notionUrl} target="_blank" rel="noopener noreferrer" className="text-xs underline" style={{ color: "var(--color-grey-mid)" }}>
-            Apri in Notion ↗
-          </a>
         </div>
       </div>
 
@@ -59,67 +59,7 @@ export default async function CommessaPage({ params }: { params: Promise<{ id: s
       </div>
 
       {/* Aree */}
-      <div>
-        <h2 className="text-lg font-semibold mb-3" style={{ fontFamily: "var(--font-display)" }}>
-          Aree / Cartelle ({aree.length})
-        </h2>
-        {aree.length === 0 ? (
-          <p className="text-sm" style={{ color: "var(--color-grey-mid)" }}>Nessuna area collegata.</p>
-        ) : (
-          <div className="space-y-3">
-            {aree.map((area) => {
-              // Calcolato dalle schede reali dell'area, non dal campo Notion "Completamento"
-              // — quel campo è un numero semplice mai scritto da nessuna parte del codice.
-              const schedeArea = schede.filter((s) => s.areaId === area.id);
-              const pct = schedeArea.length > 0
-                ? Math.round((schedeArea.filter(s => s.statoProduzione === "Completato").length / schedeArea.length) * 100)
-                : null;
-              return (
-              <div key={area.id} className="rounded-lg border border-gray-200 bg-white p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="font-medium">{area.nomeArredo || "—"}</p>
-                    <p className="text-xs mt-0.5" style={{ color: "var(--color-grey-mid)" }}>
-                      {area.localitaCliente} {area.posizione ? `— ${area.posizione}` : ""}
-                    </p>
-                  </div>
-                  <div className="flex gap-2 shrink-0">
-                    <BadgeStato stato={area.statoProduzione} />
-                    <BadgeStato stato={area.statoCommessa} />
-                  </div>
-                </div>
-                {pct !== null && (
-                  <div className="mt-3">
-                    <div className="flex justify-between text-xs mb-1" style={{ color: "var(--color-grey-mid)" }}>
-                      <span>Completamento</span>
-                      <span>{pct}%</span>
-                    </div>
-                    <div className="w-full bg-gray-100 rounded-full h-1.5">
-                      <div
-                        className="h-1.5 rounded-full transition-all"
-                        style={{ width: `${pct}%`, background: "var(--color-primary)" }}
-                      />
-                    </div>
-                  </div>
-                )}
-                {area.note && (
-                  <p className="text-xs mt-2" style={{ color: "var(--color-grey-mid)" }}>{area.note}</p>
-                )}
-                <a
-                  href={area.notionUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs mt-2 inline-block underline"
-                  style={{ color: "var(--color-grey-mid)" }}
-                >
-                  Apri in Notion ↗
-                </a>
-              </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      <AreeSection commessaId={commessa.id} areeIniziali={aree} schede={schede} />
     </div>
   );
 }

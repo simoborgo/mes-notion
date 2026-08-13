@@ -1,13 +1,6 @@
-import { Client } from "@notionhq/client";
+import { pool } from "./db";
 
-// DB_AUDIT è opzionale: se non configurato, il log va solo in console.
-// Per crearlo su Notion: database con proprietà Title="Operatore" (title),
-// "Azione" (rich_text), "ID Risorsa" (rich_text), "Modifiche" (rich_text),
-// "Timestamp" (date).
-const notion = new Client({ auth: process.env.NOTION_TOKEN, fetch: globalThis.fetch });
-const DB_AUDIT = process.env.NOTION_DB_AUDIT;
-
-export type ResourceType = "ritiro" | "scheda" | "carico" | "commessa" | "ore_registrate" | "ore_assenza" | "operatore" | "operatore_pin" | "segmento_operatore" | "scarico_materiale" | "scarico" | "offerta" | "articolo_ferramenta" | "kit_ferramenta" | "inventario_ferramenta" | "wurth_ordine" | "wurth_ordine_riga" | "parametri_reparto" | "parametri_generali" | "laboratorio_verniciatura" | "vernice" | "ciclo_verniciatura" | "campionatura_verniciatura" | "movimento_magazzino" | "inventario_magazzino" | "kit_commessa";
+export type ResourceType = "ritiro" | "scheda" | "carico" | "commessa" | "area" | "ore_registrate" | "ore_assenza" | "operatore" | "operatore_pin" | "segmento_operatore" | "scarico_materiale" | "scarico" | "offerta" | "articolo_ferramenta" | "kit_ferramenta" | "inventario_ferramenta" | "wurth_ordine" | "wurth_ordine_riga" | "parametri_reparto" | "parametri_generali" | "laboratorio_verniciatura" | "vernice" | "ciclo_verniciatura" | "campionatura_verniciatura" | "movimento_magazzino" | "inventario_magazzino" | "kit_commessa";
 export type ActionType = "CREATE" | "UPDATE" | "DELETE" | "UPLOAD_FOTO";
 
 export interface AuditEntry {
@@ -39,73 +32,30 @@ export async function logOperation(
     JSON.stringify(changes)
   );
 
-  if (!DB_AUDIT) return;
-
-  // Notion rich_text ha limite di 2000 caratteri per blocco
-  const changesStr = JSON.stringify(changes).slice(0, 2000);
-
   try {
-    await notion.pages.create({
-      parent: { database_id: DB_AUDIT },
-      properties: {
-        Operatore: { title: [{ text: { content: operatorName } }] },
-        Azione: { rich_text: [{ text: { content: `${action} ${resourceType}` } }] },
-        "ID Risorsa": { rich_text: [{ text: { content: resourceId } }] },
-        Modifiche: { rich_text: [{ text: { content: changesStr } }] },
-        Timestamp: { date: { start: new Date().toISOString() } },
-      },
-    });
+    await pool.query(
+      `INSERT INTO audit_log (operatore, azione, id_risorsa, modifiche) VALUES ($1, $2, $3, $4)`,
+      [operatorName, `${action} ${resourceType}`, resourceId, JSON.stringify(changes)],
+    );
   } catch (e) {
     console.error("[audit] write failed:", e instanceof Error ? e.message : String(e));
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function pageToAuditEntry(page: any): AuditEntry {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const props = (page.properties ?? {}) as Record<string, any>;
-
-  function getText(p: unknown): string {
-    if (!p || typeof p !== "object") return "";
-    const prop = p as Record<string, unknown>;
-    if (prop.type === "title")
-      return ((prop.title as Array<{ plain_text: string }>) ?? [])
-        .map((t) => t.plain_text)
-        .join("");
-    if (prop.type === "rich_text")
-      return ((prop.rich_text as Array<{ plain_text: string }>) ?? [])
-        .map((t) => t.plain_text)
-        .join("");
-    return "";
-  }
-
-  function getDate(p: unknown): string | null {
-    if (!p || typeof p !== "object") return null;
-    const prop = p as Record<string, unknown>;
-    if (prop.type !== "date") return null;
-    const d = prop.date as { start?: string } | null;
-    return d?.start ?? null;
-  }
-
-  return {
-    id: page.id as string,
-    operatore: getText(props["Operatore"]),
-    azione: getText(props["Azione"]),
-    idRisorsa: getText(props["ID Risorsa"]),
-    modifiche: getText(props["Modifiche"]),
-    timestamp: getDate(props["Timestamp"]),
-  };
-}
-
 export async function getAuditLog(limit = 100): Promise<AuditEntry[]> {
-  if (!DB_AUDIT) return [];
   try {
-    const res = await notion.databases.query({
-      database_id: DB_AUDIT,
-      sorts: [{ property: "Timestamp", direction: "descending" }],
-      page_size: limit,
-    });
-    return res.results.map(pageToAuditEntry);
+    const { rows } = await pool.query(
+      `SELECT id, operatore, azione, id_risorsa, modifiche, creato_il FROM audit_log ORDER BY creato_il DESC LIMIT $1`,
+      [limit],
+    );
+    return rows.map((r) => ({
+      id: r.id as string,
+      operatore: r.operatore as string,
+      azione: r.azione as string,
+      idRisorsa: r.id_risorsa as string,
+      modifiche: r.modifiche as string,
+      timestamp: (r.creato_il as Date).toISOString(),
+    }));
   } catch (e) {
     console.error("[audit] getAuditLog failed:", e instanceof Error ? e.message : String(e));
     return [];

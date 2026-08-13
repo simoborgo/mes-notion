@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { appendPdfAllegatoToScheda, getSchedaById, invalidateSchedeCache } from "@/lib/notion";
+import { appendPdfAllegatoToScheda, getSchedaById } from "@/lib/schedeRepository";
 import { getSessionFromRequest } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
@@ -25,7 +25,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await appendPdfAllegatoToScheda(id, body.pdfBase64, body.filename);
     void logOperation(session.name, "UPDATE", "scheda", id, { azione: "upload_pdf_allegato", filename: body.filename });
     revalidatePath("/schede");
-    invalidateSchedeCache();
     const updated = await getSchedaById(id);
     return NextResponse.json(updated);
   } catch (e) {

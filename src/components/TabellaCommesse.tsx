@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import type { Commessa, Scheda } from "@/lib/types";
 import BadgeStato from "./BadgeStato";
 import DettaglioCommessaModal from "./DettaglioCommessaModal";
+import FormCommessa from "./FormCommessa";
 
 function fmt(d: string | null) {
   if (!d) return "—";
@@ -31,8 +33,20 @@ function MiniBar({ pct }: { pct: number }) {
   );
 }
 
-export default function TabellaCommesse({ commesse, schede = [] }: { commesse: Commessa[]; schede?: Scheda[] }) {
+export default function TabellaCommesse({ commesse: commesseIniziali, schede = [] }: { commesse: Commessa[]; schede?: Scheda[] }) {
+  const router = useRouter();
+  const [commesse, setCommesse] = useState(commesseIniziali);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [formAperto, setFormAperto] = useState<"nuova" | Commessa | null>(null);
+
+  function handleSaved(aggiornata: Commessa) {
+    setCommesse(prev => {
+      const esiste = prev.some(c => c.id === aggiornata.id);
+      return esiste ? prev.map(c => (c.id === aggiornata.id ? aggiornata : c)) : [aggiornata, ...prev];
+    });
+    setFormAperto(null);
+    router.refresh();
+  }
 
   const statiUniq = useMemo(
     () => Array.from(new Set(commesse.map((c) => c.stato).filter(Boolean))).sort(),
@@ -119,6 +133,13 @@ export default function TabellaCommesse({ commesse, schede = [] }: { commesse: C
         <span className="ml-auto text-sm" style={{ color: "var(--color-grey-mid)" }}>
           {filtered.length} commesse
         </span>
+        <button
+          onClick={() => setFormAperto("nuova")}
+          className="px-3 py-1.5 rounded-lg text-sm font-semibold text-white whitespace-nowrap"
+          style={{ background: "var(--color-primary)" }}
+        >
+          + Nuova Commessa
+        </button>
       </div>
 
       {/* Tabella */}
@@ -134,13 +155,13 @@ export default function TabellaCommesse({ commesse, schede = [] }: { commesse: C
               <th className="px-4 py-3">Inizio Mont.</th>
               <th className="px-4 py-3">Fine Mont.</th>
               <th className="px-4 py-3">Completamento</th>
-              <th className="px-4 py-3 w-20"></th>
+              <th className="px-4 py-3 w-32"></th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
+                <td colSpan={9} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
                   Nessuna commessa trovata
                 </td>
               </tr>
@@ -161,13 +182,22 @@ export default function TabellaCommesse({ commesse, schede = [] }: { commesse: C
                     }
                   </td>
                   <td className="px-4 py-3">
-                    <button
-                      onClick={() => setSelectedId(c.id)}
-                      className="text-xs px-2 py-1 rounded font-medium transition-colors"
-                      style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)" }}
-                    >
-                      Dettaglio
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setSelectedId(c.id)}
+                        className="text-xs px-2 py-1 rounded font-medium transition-colors"
+                        style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)" }}
+                      >
+                        Dettaglio
+                      </button>
+                      <button
+                        onClick={() => setFormAperto(c)}
+                        className="text-xs px-2 py-1 rounded font-medium hover:bg-gray-100 transition-colors"
+                        style={{ color: "var(--color-grey-mid)" }}
+                      >
+                        Modifica
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -176,6 +206,13 @@ export default function TabellaCommesse({ commesse, schede = [] }: { commesse: C
         </table>
       </div>
       <DettaglioCommessaModal commessaId={selectedId} onClose={() => setSelectedId(null)} />
+      {formAperto && (
+        <FormCommessa
+          commessa={formAperto === "nuova" ? undefined : formAperto}
+          onClose={() => setFormAperto(null)}
+          onSaved={handleSaved}
+        />
+      )}
     </div>
   );
 }

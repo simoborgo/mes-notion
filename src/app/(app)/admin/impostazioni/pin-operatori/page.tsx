@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession, IMPOSTAZIONI_ROLES } from "@/lib/auth";
-import { getOperatori } from "@/lib/notion";
+import { getOperatori } from "@/lib/operatoriRepository";
 import { getMatricoleConPin } from "@/lib/operatoriPinRepository";
 import TabellaOperatoriPin from "@/components/TabellaOperatoriPin";
 import ImpostazioniLayout from "@/components/ImpostazioniLayout";

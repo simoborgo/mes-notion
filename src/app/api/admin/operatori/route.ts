@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { revalidateTag } from "next/cache";
-import { createOperatorePage } from "@/lib/notion";
+import { createOperatorePage } from "@/lib/operatoriRepository";
 import { getSessionFromRequest, PARAMETRI_REPARTO_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
@@ -24,7 +23,6 @@ export async function POST(req: NextRequest) {
       azienda: typeof body.azienda === "string" ? body.azienda.trim() : "",
       inForza: body.inForza ?? true,
     });
-    revalidateTag("operatori", "max");
     void logOperation(session.name, "CREATE", "operatore", operatore.id, body as Record<string, unknown>);
     return NextResponse.json(operatore);
   } catch (e) {

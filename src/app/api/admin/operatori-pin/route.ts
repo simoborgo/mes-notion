@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getOperatori } from "@/lib/notion";
+import { getOperatori } from "@/lib/operatoriRepository";
 import { getMatricoleConPin } from "@/lib/operatoriPinRepository";
 import { getSessionFromRequest } from "@/lib/auth";
 

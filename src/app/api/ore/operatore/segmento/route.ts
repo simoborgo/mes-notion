@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getOperatori } from "@/lib/notion";
+import { getOperatori } from "@/lib/operatoriRepository";
 import { apriSegmento, registraSegmentoRetroattivo, getSegmentoAperto, getSegmentiOggi } from "@/lib/segmentiOperatoreRepository";
 import { getOrariTurno, OrariTurno } from "@/lib/parametriGeneraliRepository";
 import { getSessionFromRequest } from "@/lib/auth";

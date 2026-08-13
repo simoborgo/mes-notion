@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { updateCarico, deleteCarico } from "@/lib/notion";
+import { updateCarico, deleteCarico } from "@/lib/carichiRepository";
 import type { CaricoUpdate } from "@/lib/types";
 import { getSessionFromRequest, WRITE_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";

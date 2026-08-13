@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getOperatori } from "@/lib/notion";
+import { getOperatori } from "@/lib/operatoriRepository";
 import { getSessionFromRequest } from "@/lib/auth";
 
 // Qualunque sessione valida (l'identità del singolo operatore è garantita dal PIN, non dal ruolo).

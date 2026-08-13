@@ -4,7 +4,7 @@ import { calcolaPrevisionale } from "@/lib/capacityPlannerRepository";
 import { mesiOrizzonteDaOggi } from "@/lib/calendarioLavorativo";
 import { getParametriReparto } from "@/lib/parametriRepartoRepository";
 import { getCostoOrarioManodopera } from "@/lib/parametriGeneraliRepository";
-import { getTuttiOperatori } from "@/lib/notion";
+import { getTuttiOperatori } from "@/lib/operatoriRepository";
 import { getOfferte } from "@/lib/offerteRepository";
 import PrevisionaleHub from "@/components/PrevisionaleHub";
 

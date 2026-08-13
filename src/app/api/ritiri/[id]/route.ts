@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { updateRitiro, deleteRitiro, getRitiriByScheda, getRitiroById, getSchedaById, createRilavorazione, updateSchedaRientrato, updateSchedaConsegnaFatta, updateRilavorazioneRientrata, invalidateSchedeCache } from "@/lib/notion";
+import { getSchedaById, updateSchedaRientrato, updateSchedaConsegnaFatta, updateRilavorazioneRientrata } from "@/lib/schedeRepository";
+import { updateRitiro, deleteRitiro, getRitiriByScheda, getRitiroById, createRilavorazione } from "@/lib/ritiriRepository";
 import type { RitiroUpdate } from "@/lib/types";
 import { getSessionFromRequest, WRITE_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
@@ -60,7 +61,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
               // Parent rimane "In Attesa Rilavorazione" fino a "Segna Rientrata" manuale
               await updateRilavorazioneRientrata(updated.rilavorazioneId);
               revalidatePath("/schede");
-              invalidateSchedeCache();
             }
             // Consegna → Fatto: nessun cambio stato (solo tracking logistico)
             return;
@@ -76,11 +76,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             if (updated.tipoMovimento === "Ritiro") {
               await updateSchedaRientrato(schedaId);
               revalidatePath("/schede");
-              invalidateSchedeCache();
             } else if (updated.tipoMovimento === "Consegna") {
               await updateSchedaConsegnaFatta(schedaId);
               revalidatePath("/schede");
-              invalidateSchedeCache();
             }
           }
         } catch (e) {
@@ -90,7 +88,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     revalidatePath("/ritiri");
-    if (isNC || effectiveSchedaId) { revalidatePath("/schede"); invalidateSchedeCache(); }
+    if (isNC || effectiveSchedaId) { revalidatePath("/schede"); }
 
     // Audit log — fire-and-forget, non blocca la risposta
     void logOperation(

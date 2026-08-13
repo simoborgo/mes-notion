@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { getSession, FERRAMENTA_ROLES } from "@/lib/auth";
-import { getSchedaById } from "@/lib/notion";
+import { getSchedaById } from "@/lib/schedeRepository";
 import { getDistintaKitByOdp } from "@/lib/kitFerramentaRepository";
 import { getArticoliFerramenta } from "@/lib/articoliFerramentaRepository";
 import GestioneKitOdp from "@/components/GestioneKitOdp";

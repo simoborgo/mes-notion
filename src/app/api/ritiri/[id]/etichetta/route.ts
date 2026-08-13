@@ -3,7 +3,9 @@ import puppeteer from "puppeteer";
 import QRCode from "qrcode";
 import fs from "fs";
 import path from "path";
-import { getRitiroById, getSchedaById, getCommessaById } from "@/lib/notion";
+import { getSchedaById } from "@/lib/schedeRepository";
+import { getRitiroById } from "@/lib/ritiriRepository";
+import { getCommessaById } from "@/lib/commesseRepository";
 import { getSessionFromRequest } from "@/lib/auth";
 import { getPublicBaseUrl } from "@/lib/url";
 

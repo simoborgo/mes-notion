@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/auth";
 import { notionSvc } from "@/lib/verificheServices";
+import { appendPdfAllegatoToScheda } from "@/lib/schedeRepository";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { buildVerificaPdf } = require("../../../../../../verifiche-backend/pdfBuilder");
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { uploadPdfAllegato } = require("../../../../../../verifiche-backend/notionService");
 
 type Point = { x: number; y: number };
 type Stamp = { x: number; y: number; tipo: string };
@@ -43,7 +42,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     });
 
     const filename = `rilavorazione-${(body.schedaOdp ?? "rila").replace(/\//g, "-")}.pdf`;
-    await uploadPdfAllegato(rilavorazionePageId, pdfBuffer, filename);
+    const pdfBase64 = `data:application/pdf;base64,${pdfBuffer.toString("base64")}`;
+    await appendPdfAllegatoToScheda(rilavorazionePageId, pdfBase64, filename);
 
     return NextResponse.json({ ok: true });
   } catch (err) {

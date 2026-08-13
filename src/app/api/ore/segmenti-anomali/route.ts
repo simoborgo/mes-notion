@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSegmentiAnomali } from "@/lib/segmentiOperatoreRepository";
 import { getSessionFromRequest, RILEVAMENTO_ORE_ROLES } from "@/lib/auth";
-import { getTuttiOperatori, getSchede } from "@/lib/notion";
+import { getSchede } from "@/lib/schedeRepository";
+import { getTuttiOperatori } from "@/lib/operatoriRepository";
 
 export async function GET(req: NextRequest) {
   const session = await getSessionFromRequest(req);

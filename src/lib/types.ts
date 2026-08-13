@@ -74,6 +74,7 @@ export interface Ritiro {
   nrCollo: number | null;
   totColli: number | null;
   fornitore: string;
+  fornitoreId: string | null;
   ordineFornitore: { name: string; url: string }[];
   note: string;
   documentiAllegati: { name: string; url: string }[];
@@ -141,13 +142,12 @@ export interface CaricoUpdate {
 export interface Area {
   id: string;
   nomeArredo: string;
-  cliente: string;
   codiceArticoloA: string;
   commessaId: string | null;
-  commessaCliente: string;
-  completamento: number | null;
   dataConsegnaPrevista: string | null;
   descrizione: string;
+  // localitaCliente/statoCommessa non sono più colonne proprie: derivate via JOIN dalla Commessa
+  // collegata (prima erano rollup/formula Notion che mirroravano lo stesso dato).
   localitaCliente: string;
   note: string;
   posizione: string;
@@ -155,6 +155,30 @@ export interface Area {
   statoCommessa: string;
   statoProduzione: string;
   notionUrl: string;
+}
+
+export interface CommessaUpdate {
+  numeroCommessa?: string;
+  cliente?: string;
+  localita?: string;
+  info?: string;
+  responsabile?: string;
+  stato?: string;
+  dataCarico?: string | null;
+  inizioMontaggio?: string | null;
+  fineMontaggio?: string | null;
+}
+
+export interface AreaUpdate {
+  nomeArredo?: string;
+  codiceArticoloA?: string;
+  commessaId?: string;
+  dataConsegnaPrevista?: string | null;
+  descrizione?: string;
+  note?: string;
+  posizione?: string;
+  quantita?: number | null;
+  statoProduzione?: string;
 }
 
 export interface Operatore {

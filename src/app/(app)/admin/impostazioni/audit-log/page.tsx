@@ -36,7 +36,6 @@ export default async function AdminLogPage() {
   }
 
   const entries = await getAuditLog(200);
-  const dbConfigured = !!process.env.NOTION_DB_AUDIT;
 
   return (
     <ImpostazioniLayout>
@@ -44,17 +43,6 @@ export default async function AdminLogPage() {
         <p className="text-sm" style={{ color: "var(--color-grey-mid)" }}>
           Registro cronologico di tutte le operazioni di modifica
         </p>
-        {!dbConfigured && (
-          <div
-            className="text-xs px-3 py-2 rounded-lg"
-            style={{ background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a" }}
-          >
-            <strong>NOTION_DB_AUDIT</strong> non configurata — i log sono solo in console.
-            <br />
-            Crea un database Notion con campi: Operatore (title), Azione (rich_text),
-            ID Risorsa (rich_text), Modifiche (rich_text), Timestamp (date).
-          </div>
-        )}
       </div>
 
       {entries.length === 0 ? (
@@ -63,9 +51,7 @@ export default async function AdminLogPage() {
           style={{ background: "white", border: "1px solid #e5e4e0" }}
         >
           <p className="text-sm" style={{ color: "var(--color-grey-mid)" }}>
-            {dbConfigured
-              ? "Nessuna operazione registrata nel log."
-              : "Log non disponibile — configura NOTION_DB_AUDIT per abilitare la persistenza."}
+            Nessuna operazione registrata nel log.
           </p>
         </div>
       ) : (

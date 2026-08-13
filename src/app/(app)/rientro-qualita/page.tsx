@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
 import { getSession, RIENTRO_QUALITA_ROLES } from "@/lib/auth";
-import { getSottoschede, getRitiri, getFornitoriList, getCommesse } from "@/lib/notion";
+import { getSottoschede } from "@/lib/schedeRepository";
+import { getRitiri } from "@/lib/ritiriRepository";
+import { getCommesse } from "@/lib/commesseRepository";
+import { getFornitoriList } from "@/lib/fornitoriRepository";
 import RientroQualitaList from "@/components/RientroQualitaList";
 import RitiriSubNav from "@/components/RitiriSubNav";
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getStoricoOdps } from "@/lib/oreRepository";
-import { getOdpAttivi } from "@/lib/notion";
+import { getOdpAttivi } from "@/lib/schedeRepository";
 import { getSessionFromRequest, RILEVAMENTO_ORE_ROLES } from "@/lib/auth";
 import type { NextRequest } from "next/server";
 

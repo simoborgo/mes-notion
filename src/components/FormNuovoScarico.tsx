@@ -6,8 +6,7 @@ import type { OdpAttivo } from "@/lib/types";
 import OdpAutocomplete from "./OdpAutocomplete";
 
 // odpList caricata lato client SOLO quando si apre il form (non al caricamento della pagina):
-// getOdpAttivi() dipende dalla cache Notion delle Schede, a freddo può richiedere 15-20s — non
-// deve bloccare il rendering di tutta la pagina Scarico per chi usa solo lo scarico rapido.
+// evita di caricare l'intero elenco ODP per chi usa solo lo scarico rapido.
 export default function FormNuovoScarico() {
   const router = useRouter();
   const [aperto, setAperto] = useState(false);

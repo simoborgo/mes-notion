@@ -1,4 +1,5 @@
-import { getSchede, getSottoschede, getCommesse } from "@/lib/notion";
+import { getSchede, getSottoschede } from "@/lib/schedeRepository";
+import { getCommesse } from "@/lib/commesseRepository";
 import { getSession } from "@/lib/auth";
 import TabellaSchede from "@/components/TabellaSchede";
 import { revalidateSchede } from "./actions";

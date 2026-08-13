@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { getSchedaById, createSchedaPage, invalidateSchedeCache } from "@/lib/notion";
+import { getSchedaById, createSchedaPage } from "@/lib/schedeRepository";
 import { getSessionFromRequest, MODIFICA_SCHEDA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
@@ -34,7 +34,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     });
 
     revalidatePath("/schede");
-    invalidateSchedeCache();
 
     void logOperation(session.name, "CREATE", "scheda", sottoscheda.id, { ...body, tipologia: "Sottoscheda", parentId: id });
 

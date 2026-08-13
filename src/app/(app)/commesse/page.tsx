@@ -1,4 +1,5 @@
-import { getCommesse, getSchede } from "@/lib/notion";
+import { getSchede } from "@/lib/schedeRepository";
+import { getCommesse } from "@/lib/commesseRepository";
 import TabellaCommesse from "@/components/TabellaCommesse";
 import CommesseSubNav from "@/components/CommesseSubNav";
 

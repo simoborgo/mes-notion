@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSession, FERRAMENTA_ROLES, KIT_COMMESSA_CREA_ROLES } from "@/lib/auth";
-import { getCommesse } from "@/lib/notion";
+import { getCommesse } from "@/lib/commesseRepository";
 import { getKitCommesse } from "@/lib/kitCommessaRepository";
 import FerramentaSubNav from "@/components/FerramentaSubNav";
 import FormNuovoKitCommessa from "@/components/FormNuovoKitCommessa";

@@ -1,6 +1,6 @@
 import { getSession, RILEVAMENTO_ORE_ROLES } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { getCommesse } from "@/lib/notion";
+import { getCommesse } from "@/lib/commesseRepository";
 import OreSubNav from "@/components/OreSubNav";
 import VistaStoricoCommessa from "@/components/VistaStoricoCommessa";
 

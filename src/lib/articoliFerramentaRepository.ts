@@ -1,6 +1,6 @@
 import type { Pool, PoolClient } from "pg";
 import { pool } from "./db";
-import { getFornitoriMap } from "./notion";
+import { getFornitoriMap } from "./fornitoriRepository";
 import type { ArticoloFerramenta, ArticoloFerramentaUpdate } from "./types";
 import { normalizzaCodiceFornitore } from "./ferramentaCodici";
 
