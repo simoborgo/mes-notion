@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getSchedaById } from "@/lib/schedeRepository";
 import { getRitiri, createRitiro, getRitiroById, appendFotoToRitiro, createRilavorazione } from "@/lib/ritiriRepository";
-import { getSessionFromRequest, RITIRI_CREATE_ROLES, RIENTRO_QUALITA_ROLES } from "@/lib/auth";
+import { getSessionFromRequest, RITIRI_CREATE_ROLES, RITIRI_PICKUP_RILAVORAZIONE_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
 export async function GET() {
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     // organizzare il ritiro di una Rilavorazione già aperta e in attesa (pulsante "Inserisci
     // un ritiro" di Rientro Qualità) — mai la creazione libera di un Ritiro/Consegna qualsiasi.
     const puoScrivereLiberamente = RITIRI_CREATE_ROLES.includes(session.role);
-    const puoOrganizzarePickupRilavorazione = !isNC && schedaCollegataERilavorazione && RIENTRO_QUALITA_ROLES.includes(session.role);
+    const puoOrganizzarePickupRilavorazione = !isNC && schedaCollegataERilavorazione && RITIRI_PICKUP_RILAVORAZIONE_ROLES.includes(session.role);
     if (!puoScrivereLiberamente && !puoOrganizzarePickupRilavorazione) {
       return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
     }

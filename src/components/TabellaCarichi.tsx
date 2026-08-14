@@ -247,15 +247,6 @@ export default function TabellaCarichi({ carichi: initial, commesse, schede, can
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2 justify-end">
-                        <a
-                          href={c.notionUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs px-2 py-1 rounded font-medium whitespace-nowrap"
-                          style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)" }}
-                        >
-                          Notion ↗
-                        </a>
                         {canWrite && (
                           <button
                             onClick={() => setEditing(c)}

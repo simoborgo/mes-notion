@@ -87,23 +87,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ sch
       throw err;
     }
 
-    // Update Notion: Stato → Completato + PDF Scheda Verificata
-    let notionError: string | undefined;
-    try {
-      await notionSvc.aggiornaStatoOdp(scheda, {
-        pdfBuffer,
-        pdfFilename: `verifica-${schedaOdp}.pdf`,
-      });
-      await repo.setNotionSyncOk(scheda, true);
-    } catch (notionErr) {
-      notionError = (notionErr as Error).message;
-      console.error("[finalize] aggiornamento Notion fallito:", notionErr);
-      await repo.setNotionSyncOk(scheda, false).catch(() => {});
-    }
-
     await repo.appendLog({
       schedaNumero, operatore, azione: "finalizzazione",
-      dettaglio: { pdfDriveId: id, dimensioneByte: pdfBuffer.length, fotoCaricate: fotoRows.length, notionOk: !notionError },
+      dettaglio: { pdfDriveId: id, dimensioneByte: pdfBuffer.length, fotoCaricate: fotoRows.length },
     });
 
     if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
@@ -118,7 +104,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ sch
     // Invalida cache SSR così la pagina schede è aggiornata al prossimo router.refresh()
     revalidatePath("/spedizioni");
 
-    return NextResponse.json({ ok: true, record, driveUrl: webViewLink, notionError, fotoCount: fotoRows.length });
+    // Link tramite il nostro proxy autenticato (/api/drive-file), non l'URL Drive diretto: quello
+    // richiederebbe che chi apre il link sia loggato come utente Google "Mes Modar", non solo
+    // autenticato nella nostra app (deciso con l'utente 2026-08-13).
+    return NextResponse.json({ ok: true, record, driveUrl: `/api/drive-file/${id}`, fotoCount: fotoRows.length });
   } catch (err) {
     console.error("[verifiche/finalize]", err);
     return NextResponse.json({ ok: false, error: (err as Error).message }, { status: 500 });

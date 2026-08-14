@@ -657,11 +657,35 @@ struttura articolo+giacenza come Ferramenta o resta descrittivo/libero come Scar
 
 ### Vista "Da Imballare" — Operatore Imballo
 
-**Stato:** pianificato, non iniziato
+**Stato:** pianificato, non iniziato — schema confermato con l'utente (sessione 2026-08-13),
+aggiornato Notion → Postgres (Schede è su Postgres dalla migrazione di questa sessione)
 
-Sezione per l'operatore di imballo sugli ODP in stato `Verificato` (PDF spedizione già firmato).
-Bottone "Segna Completato" → Notion stato `Completato` + timestamp + operatore. Chiude il ciclo
-MES: Materiale Pronto → Verificato → Completato. Pattern simile a SpedizioneVerifica.
+Sezione per l'operatore di imballo sulle Schede in stato `Verificato`. Oggi `schede.stato` è
+**sempre manuale** (nessun trigger automatico da nessuna parte, nemmeno dalla Verifica Spedizione
+appena corretta in questa sessione — il vecchio codice tentava di scrivere `Completato` su Notion,
+mai su Postgres, ed era comunque rotto). Schema confermato in due passi:
+1. Quando `POST /api/verifiche/[scheda]/finalize` completa con successo (PDF caricato su Drive),
+   impostare automaticamente `schede.stato = "Verificato"` (opzione già presente nel dropdown di
+   `FormModificaScheda.tsx`, mai collegata a nulla finora).
+2. Nuova vista "Da Imballare" — pagina a sé o filtro dentro `/schede`/`/spedizioni` (da decidere
+   quando si parte) — che elenca le Schede con `stato = "Verificato"`. Bottone "Segna Completato"
+   per il magazziniere quando chiude fisicamente la cassa → `updateSchedaStato(id, "Completato")`
+   (già esiste in `schedeRepository.ts`, non richiede nuovo codice lato repository).
+
+Chiude il ciclo: Materiale Pronto → Verificato (automatico da Verifica Spedizione) → Da Imballare
+(vista, nuova) → Completato (manuale, imballo fisico confermato).
+
+### Checklist Cod. Articoli da produrre — controllo copertura Schede
+
+**Stato:** idea proposta dall'utente (sessione 2026-08-13), da riprendere — non ancora specificata
+
+L'utente vorrebbe poter partire da una lista di Codici Articolo "da produrre" per una Commessa e
+usarla come checklist per garantire che ogni codice abbia una Scheda di Produzione corrispondente
+— oggi non esiste alcun controllo di copertura: si può chiudere/consegnare una Commessa senza
+accorgersi che manca la Scheda per un articolo previsto. Nessun dettaglio ancora su dove dovrebbe
+vivere questa lista dei codici "da produrre" (import esterno da OS1? distinta base per Area? altro?)
+né su come confrontarla con le Schede esistenti. Riprendere quando l'utente porta più contesto
+("ne riparleremo").
 
 ---
 

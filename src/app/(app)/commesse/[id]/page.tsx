@@ -1,6 +1,7 @@
 import { getSchedeByCommessa } from "@/lib/schedeRepository";
 import { getCommessaById } from "@/lib/commesseRepository";
 import { getAreeByCommessa } from "@/lib/areeRepository";
+import { getSession } from "@/lib/auth";
 import BadgeStato from "@/components/BadgeStato";
 import AreeSection from "@/components/AreeSection";
 import Link from "next/link";
@@ -22,6 +23,7 @@ export default async function CommessaPage({ params }: { params: Promise<{ id: s
   } catch {
     notFound();
   }
+  const session = await getSession();
 
   return (
     <div className="space-y-6">
@@ -59,7 +61,7 @@ export default async function CommessaPage({ params }: { params: Promise<{ id: s
       </div>
 
       {/* Aree */}
-      <AreeSection commessaId={commessa.id} areeIniziali={aree} schede={schede} />
+      <AreeSection commessaId={commessa.id} areeIniziali={aree} schede={schede} userRole={session?.role} />
     </div>
   );
 }

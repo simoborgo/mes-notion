@@ -50,7 +50,7 @@ body{font-family:'Jost',sans-serif;background:#fff}
   <div class="info">
     <div class="desc">${esc(articolo.descrizione || "—")}</div>
     <div class="codice">${esc(articolo.codiceOs1 || "—")}</div>
-    <div class="fornitore">${esc(nomeFornitore(articolo) || "—")}</div>
+    <div class="fornitore">${esc([nomeFornitore(articolo), articolo.codiceFornitore].filter(Boolean).join(" · ") || "—")}</div>
     <div class="um">UM: ${esc(articolo.unitaMisura || "—")}</div>
   </div>
 </div>

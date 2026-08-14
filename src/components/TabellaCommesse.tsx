@@ -33,8 +33,11 @@ function MiniBar({ pct }: { pct: number }) {
   );
 }
 
-export default function TabellaCommesse({ commesse: commesseIniziali, schede = [] }: { commesse: Commessa[]; schede?: Scheda[] }) {
+export default function TabellaCommesse({ commesse: commesseIniziali, schede = [], userRole }: { commesse: Commessa[]; schede?: Scheda[]; userRole?: string }) {
   const router = useRouter();
+  // COMMESSE_ROLES (src/lib/auth.ts) — tenuto in sync a mano qui, stesso pattern già in uso
+  // altrove per i controlli di sola visibilità lato client.
+  const canWrite = userRole === "admin" || userRole === "produzione";
   const [commesse, setCommesse] = useState(commesseIniziali);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [formAperto, setFormAperto] = useState<"nuova" | Commessa | null>(null);
@@ -133,13 +136,15 @@ export default function TabellaCommesse({ commesse: commesseIniziali, schede = [
         <span className="ml-auto text-sm" style={{ color: "var(--color-grey-mid)" }}>
           {filtered.length} commesse
         </span>
-        <button
-          onClick={() => setFormAperto("nuova")}
-          className="px-3 py-1.5 rounded-lg text-sm font-semibold text-white whitespace-nowrap"
-          style={{ background: "var(--color-primary)" }}
-        >
-          + Nuova Commessa
-        </button>
+        {canWrite && (
+          <button
+            onClick={() => setFormAperto("nuova")}
+            className="px-3 py-1.5 rounded-lg text-sm font-semibold text-white whitespace-nowrap"
+            style={{ background: "var(--color-primary)" }}
+          >
+            + Nuova Commessa
+          </button>
+        )}
       </div>
 
       {/* Tabella */}
@@ -190,13 +195,15 @@ export default function TabellaCommesse({ commesse: commesseIniziali, schede = [
                       >
                         Dettaglio
                       </button>
-                      <button
-                        onClick={() => setFormAperto(c)}
-                        className="text-xs px-2 py-1 rounded font-medium hover:bg-gray-100 transition-colors"
-                        style={{ color: "var(--color-grey-mid)" }}
-                      >
-                        Modifica
-                      </button>
+                      {canWrite && (
+                        <button
+                          onClick={() => setFormAperto(c)}
+                          className="text-xs px-2 py-1 rounded font-medium hover:bg-gray-100 transition-colors"
+                          style={{ color: "var(--color-grey-mid)" }}
+                        >
+                          Modifica
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

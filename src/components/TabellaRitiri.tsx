@@ -133,9 +133,10 @@ export default function TabellaRitiri({
 }) {
   const canWrite = userRole === "admin" || userRole === "operatore" || userRole === "logistica";
   const canDelete = userRole === "admin" || userRole === "logistica";
-  // Solo la creazione di un nuovo Ritiro/Consegna, non le altre azioni di canWrite
-  // (modifica, transizioni di stato, riassegnazione) — produzione non le ha.
-  const canCreate = canWrite || userRole === "produzione";
+  // Creazione di un nuovo Ritiro/Consegna — RITIRI_CREATE_ROLES (src/lib/auth.ts), NON canWrite:
+  // operatore può correggere/aggiornare un Ritiro esistente ma non crearne uno nuovo (deciso con
+  // l'utente 2026-08-13).
+  const canCreate = userRole === "admin" || userRole === "logistica" || userRole === "produzione";
   const [ritiri, setRitiri] = useState(initial);
   const [search, setSearch] = useState("");
   const [filtroStato, setFiltroStato] = useState("");

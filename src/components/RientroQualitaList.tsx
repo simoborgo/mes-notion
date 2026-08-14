@@ -10,9 +10,13 @@ interface Props {
   ritiri: Ritiro[];
   fornitori: { id: string; nome: string }[];
   commesse: Commessa[];
+  userRole?: string;
 }
 
-export default function RientroQualitaList({ rilavorazioni, ritiri: ritiriIniziali, fornitori, commesse }: Props) {
+export default function RientroQualitaList({ rilavorazioni, ritiri: ritiriIniziali, fornitori, commesse, userRole }: Props) {
+  // operatore può vedere/lavorare Rientro Qualità, ma non creare Ritiri/Consegne — nemmeno questa
+  // eccezione di organizzare il ritiro di una Rilavorazione già aperta (RITIRI_PICKUP_RILAVORAZIONE_ROLES).
+  const puoInserireRitiro = userRole !== "operatore";
   const [search, setSearch] = useState("");
   const [ritiri, setRitiri] = useState(ritiriIniziali);
   const [schedaPerNuovoRitiro, setSchedaPerNuovoRitiro] = useState<Scheda | null>(null);
@@ -81,7 +85,7 @@ export default function RientroQualitaList({ rilavorazioni, ritiri: ritiriInizia
               key={s.id}
               scheda={s}
               ritiriCollegati={ritiriByRilavorazione.get(s.id) ?? []}
-              onInserisciRitiro={() => setSchedaPerNuovoRitiro(s)}
+              onInserisciRitiro={puoInserireRitiro ? () => setSchedaPerNuovoRitiro(s) : undefined}
             />
           ))}
         </div>

@@ -1,7 +1,7 @@
 import { pool, dateToStr } from "./db";
 import type { Scheda, SchedaUpdate, OdpAttivo } from "./types";
 import { STATI_CHIUSI_ODP } from "./types";
-import { codiciSpecialiPerCommessa } from "./attivitaSpecialiCommessa";
+import { codiciSpecialiPerCommessa, ODP_SPECIALI } from "./attivitaSpecialiCommessa";
 import { getCommesse, getCommessaFolderId, setCommessaFolderId } from "./commesseRepository";
 import {
   getOrCreateCommessaFolder, getOrCreateSchedaFolder,
@@ -177,13 +177,22 @@ export async function getOdpAttivi(): Promise<OdpAttivo[]> {
     attivi.push({
       id: s.id,
       odp: s.odp,
-      label: s.numeroScheda || s.clienteInfo || s.odp,
-      commessaNr: s.commessaNr,
+      label: s.clienteInfo ? `${s.odp} — ${s.clienteInfo}` : s.odp,
+      numeroScheda: s.numeroScheda || undefined,
+      clienteInfo: s.clienteInfo || undefined,
+      codiceArticolo: s.codiceArticolo || undefined,
+      commessaNr: s.commessaNr || undefined,
+      copertina: s.copertina,
       isSpeciale: false,
     });
   }
 
-  const speciali: OdpAttivo[] = [];
+  const speciali: OdpAttivo[] = ODP_SPECIALI.map(s => ({
+    id: null,
+    odp: s.prefix,
+    label: `${s.prefix} — ${s.label}`,
+    isSpeciale: true,
+  }));
   return [...attivi, ...speciali, ...specialiCommessa];
 }
 

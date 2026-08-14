@@ -35,7 +35,7 @@ export default async function RientroQualitaPage() {
           Rilavorazioni in attesa di rientro dal fornitore — {rilavorazioni.length} apert{rilavorazioni.length === 1 ? "a" : "e"}
         </p>
       </div>
-      <RientroQualitaList rilavorazioni={rilavorazioni} ritiri={ritiriRilavorazioni} fornitori={fornitori} commesse={commesse} />
+      <RientroQualitaList rilavorazioni={rilavorazioni} ritiri={ritiriRilavorazioni} fornitori={fornitori} commesse={commesse} userRole={session.role} />
     </div>
   );
 }

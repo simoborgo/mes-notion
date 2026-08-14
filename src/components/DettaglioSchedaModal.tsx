@@ -500,14 +500,6 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
                 {eliminando ? "Elimino…" : "Elimina"}
               </button>
             )}
-            <a href={s.notionUrl} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13.2px] font-medium transition-colors hover:bg-gray-100"
-              style={{ color: "var(--color-grey-mid)", border: "1px solid #d1d5db", background: "white" }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
-              </svg>
-              Notion
-            </a>
             {s.tipologia === "Scheda" && (userRole === "admin" || userRole === "produzione") && (
               <button onClick={() => setShowNuovaSottoscheda(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13.2px] font-medium transition-colors hover:bg-gray-100"
@@ -515,7 +507,7 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
                 + Sottoscheda
               </button>
             )}
-            {canHaveRilavorazione && !rilavorazioneCreata && !showWizard && (
+            {canHaveRilavorazione && !rilavorazioneCreata && !showWizard && (userRole === "admin" || userRole === "produzione") && (
               <button onClick={() => setShowWizard(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13.2px] font-semibold transition-opacity hover:opacity-90"
                 style={{

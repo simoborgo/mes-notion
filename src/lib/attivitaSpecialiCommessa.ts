@@ -1,6 +1,6 @@
 // Attività ricorrenti trasversali a tutta la commessa (non un singolo ODP/Scheda), tracciate
-// come pseudo-ODP — stesso principio di ODP_SPECIALI in notion.ts ma parametrico sulla commessa
-// invece che fisso a livello stabilimento. Nessuna tabella, nessuna creazione: esistono per ogni
+// come pseudo-ODP — stesso principio di ODP_SPECIALI sotto ma parametrico sulla commessa invece
+// che fisso a livello stabilimento. Nessuna tabella, nessuna creazione: esistono per ogni
 // commessa non chiusa, per tutta la sua vita (spariscono da soli alla chiusura commessa), usate
 // sia da Rilevamento Ore sia da Ferramenta. Elenco fisso e volutamente hardcoded qui (deciso con
 // l'utente 2026-08-12): un cambio è una decisione di prodotto, non un parametro d'ambiente, quindi
@@ -10,6 +10,18 @@ export const ATTIVITA_SPECIALI_COMMESSA = [
   { suffix: "FERRAMENTA", label: "Ferramenta" },
   { suffix: "GESTIONE", label: "Gestione Commessa" },
   { suffix: "SEMILAVORATI", label: "Preparazione Semilavorati" },
+] as const;
+
+// Codici speciali fissi a livello stabilimento (non legati a nessuna commessa) — usati da
+// getOdpAttivi() per popolare l'autocomplete di Rilevamento Ore e dal prefix-matching di
+// categoriaFromOdp() in oreRepository.ts. Nessun modulo server-only qui dentro: importabile
+// sia da codice server (schedeRepository.ts) sia da componenti client (VistaOggi.tsx).
+export const ODP_SPECIALI = [
+  { prefix: "SET", label: "Setup" },
+  { prefix: "MNT", label: "Manutenzione" },
+  { prefix: "MEET", label: "Riunione" },
+  { prefix: "FORM", label: "Formazione" },
+  { prefix: "PUL", label: "Pulizie" },
 ] as const;
 
 export type AttivitaSpecialeSuffix = (typeof ATTIVITA_SPECIALI_COMMESSA)[number]["suffix"];

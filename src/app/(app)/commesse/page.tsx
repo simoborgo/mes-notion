@@ -1,12 +1,13 @@
 import { getSchede } from "@/lib/schedeRepository";
 import { getCommesse } from "@/lib/commesseRepository";
+import { getSession } from "@/lib/auth";
 import TabellaCommesse from "@/components/TabellaCommesse";
 import CommesseSubNav from "@/components/CommesseSubNav";
 
 export const dynamic = "force-dynamic";
 
 export default async function CommessePage() {
-  const [commesse, schede] = await Promise.all([getCommesse(), getSchede()]);
+  const [commesse, schede, session] = await Promise.all([getCommesse(), getSchede(), getSession()]);
 
   return (
     <div className="space-y-5">
@@ -57,7 +58,7 @@ export default async function CommessePage() {
           </a>
         </div>
       </div>
-      <TabellaCommesse commesse={commesse} schede={schede} />
+      <TabellaCommesse commesse={commesse} schede={schede} userRole={session?.role} />
     </div>
   );
 }

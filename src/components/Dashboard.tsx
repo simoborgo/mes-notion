@@ -50,11 +50,15 @@ function GanttChart({ rows }: { rows: GanttRow[] }) {
   const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
 
   const { viewStart, viewDays } = useMemo(() => {
+    // Il Gantt parte sempre da una settimana prima di Oggi, non dalla data più vecchia tra i
+    // dati — evita che una commessa "In produzione" con un carico/montaggio molto nel passato
+    // allunghi tutta la vista all'indietro (deciso con l'utente 2026-08-13, per accorciare il
+    // Gantt mantenendo comunque visibili tutti i pallini/barre, mai nascosti).
+    const viewStart = addDays(today, -7);
     const dates = rows.flatMap(r => [...r.carichi.map(c => c.date), r.montaggioStart, r.montaggioEnd]).filter(Boolean) as Date[];
-    if (!dates.length) return { viewStart: addDays(today, -14), viewDays: 90 };
-    const min = new Date(Math.min(...dates.map(d => d.getTime())));
+    if (!dates.length) return { viewStart, viewDays: 90 };
     const max = new Date(Math.max(...dates.map(d => d.getTime())));
-    return { viewStart: addDays(min, -10), viewDays: Math.max(90, diffDays(min, max) + 20) };
+    return { viewStart, viewDays: Math.max(90, diffDays(viewStart, max) + 20) };
   }, [rows, today]);
 
   const viewEnd = addDays(viewStart, viewDays);
@@ -203,11 +207,16 @@ function GanttChart({ rows }: { rows: GanttRow[] }) {
             style={{ display: "flex", borderBottom: "1px solid #f3f4f6", background: isSel ? "rgba(240,143,37,.06)" : "#fff", cursor: "pointer", minHeight: ROW_H, transition: "background .1s" }}
           >
             {/* Label */}
-            <div style={{ width: 260, minWidth: 260, flexShrink: 0, borderRight: "1px solid #e5e7eb", padding: "10px 14px" }}>
+            <div style={{ width: 260, minWidth: 260, flexShrink: 0, borderRight: "1px solid #e5e7eb", padding: "10px 14px", position: "relative" }}>
+              {/* Etichette Carico/Montaggio spostate qui (prima colonna) — dentro la corsia del
+                  Gantt andavano in overlay coi pallini/barre. Allineate in verticale alla
+                  rispettiva corsia con gli stessi offset top usati lì (8 e 28). */}
+              <span style={{ position: "absolute", right: 6, top: 8, fontSize: 10, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "#F08F25", opacity: .8 }}>Carico</span>
+              <span style={{ position: "absolute", right: 6, top: 28, fontSize: 10, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "#3B82F6", opacity: .8 }}>Montaggio</span>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ fontWeight: 700, fontSize: 15, color: "var(--color-black)" }}>{r.commessa.numeroCommessa}</span>
               </div>
-              <div style={{ fontSize: 14, color: "#374151", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.commessa.cliente}</div>
+              <div style={{ fontSize: 14, color: "#374151", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 170 }}>{r.commessa.cliente}</div>
               <div style={{ fontSize: 12, color: "#6b7280" }}>{r.commessa.localita}</div>
               {isSel && (
                 <div style={{ marginTop: 6, fontSize: 10, color: "#9ca3af", lineHeight: 1.8, borderTop: "1px solid #f3f4f6", paddingTop: 4 }}>
@@ -233,14 +242,12 @@ function GanttChart({ rows }: { rows: GanttRow[] }) {
 
               {/* Carichi */}
               <div style={{ position: "absolute", top: 8, left: 0, right: 0, height: 16, display: "flex", alignItems: "center" }}>
-                <span style={{ position: "absolute", left: 4, fontSize: 10, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "#F08F25", opacity: .8, zIndex: 1 }}>Carico</span>
                 <CaricoSpan carichi={r.carichi} />
                 {r.carichi.map((c, i) => <DotCarico key={i} mark={c} />)}
               </div>
 
               {/* Montaggio */}
               <div style={{ position: "absolute", top: 28, left: 0, right: 0, height: 16, display: "flex", alignItems: "center" }}>
-                <span style={{ position: "absolute", left: 4, fontSize: 10, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "#3B82F6", opacity: .8, zIndex: 1 }}>Montaggio</span>
                 {hasMontaggioRange
                   ? <Bar start={r.montaggioStart} end={r.montaggioEnd} color="#3B82F6" fillColor="rgba(59,130,246,.15)" />
                   : <Dot date={r.montaggioStart} color="#3B82F6" />}

@@ -24,15 +24,19 @@ export const VERNICIATURA_ROLES: Role[] = ["admin", "produzione"];
 export const MAGAZZINO_VERNICI_ROLES: Role[] = ["admin", "magazziniere_vernici"];
 export const MODIFICA_SCHEDA_ROLES: Role[] = ["admin", "produzione"];
 export const RIENTRO_QUALITA_ROLES: Role[] = ["admin", "operatore", "logistica", "spedizioni", "produzione", "responsabile_produzione"];
+// Chi, oltre a RITIRI_CREATE_ROLES, può organizzare il ritiro di una Rilavorazione già aperta dal
+// pulsante "Inserisci un ritiro" di Rientro Qualità — operatore escluso (deciso con l'utente
+// 2026-08-13): non può creare nessun Ritiro/Consegna, nemmeno per questa eccezione.
+export const RITIRI_PICKUP_RILAVORAZIONE_ROLES: Role[] = RIENTRO_QUALITA_ROLES.filter(r => r !== "operatore");
 // Nessun ruolo "commerciale" esiste oggi — solo admin per ora, facile da ampliare su richiesta.
 export const OFFERTE_ROLES: Role[] = ["admin"];
 export const PARAMETRI_REPARTO_ROLES: Role[] = ["admin"];
 export const PREVISIONALE_ROLES: Role[] = ["admin"];
 export const ORARI_TURNO_ROLES: Role[] = ["admin"];
 export const IMPOSTAZIONI_ROLES: Role[] = ["admin"];
-// Creazione/modifica di Commesse e Aree — prima gestite solo su Notion da chi ha accesso al
-// workspace; stesso perimetro già usato per la creazione Kit Commessa (Ufficio Tecnico incluso).
-export const COMMESSE_ROLES: Role[] = ["admin", "ufficio_tecnico"];
+// Creazione/modifica di Commesse e Aree — stesso perimetro di CARICO_ROLES (deciso con l'utente
+// 2026-08-13): Ufficio Tecnico non ha più questo permesso, solo admin e produzione.
+export const COMMESSE_ROLES: Role[] = ["admin", "produzione"];
 
 export interface Session {
   username: string;

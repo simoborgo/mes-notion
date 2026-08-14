@@ -8,9 +8,7 @@ export default function Loading() {
         ↻
       </span>
       <p className="text-sm" style={{ color: "var(--color-grey-mid)" }}>
-        Caricamento dati da Notion…
-        <br />
-        Può richiedere fino a 20 secondi se i dati sono stati appena aggiornati.
+        Caricamento…
       </p>
     </div>
   );

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { repo, notionSvc, SCHEDA_REGEX } from "@/lib/verificheServices";
+import { repo, SCHEDA_REGEX } from "@/lib/verificheServices";
 import { getSessionFromRequest, SPEDIZIONI_ROLES } from "@/lib/auth";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ scheda: string }> }) {
@@ -27,23 +27,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ sch
     operatore: session.name,
   });
 
-  // Aggiorna Notion → stato Verificato (senza PDF)
-  let notionError: string | undefined;
-  try {
-    await notionSvc.aggiornaStatoOdp(scheda, {});
-  } catch (e) {
-    notionError = (e as Error).message;
-    console.error("[force-verify] Notion update fallito:", e);
-  }
-
   await repo.appendLog({
     schedaNumero: schedaNumero ?? scheda,
     operatore: session.name,
     azione: "finalizzazione",
-    dettaglio: { notionOk: !notionError },
+    dettaglio: {},
   });
 
   revalidatePath("/spedizioni");
 
-  return NextResponse.json({ ok: true, record, notionError });
+  return NextResponse.json({ ok: true, record });
 }

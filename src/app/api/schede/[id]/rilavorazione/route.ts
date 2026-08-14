@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { getSessionFromRequest } from "@/lib/auth";
+import { getSessionFromRequest, MODIFICA_SCHEDA_ROLES } from "@/lib/auth";
 import { createRilavorazione } from "@/lib/ritiriRepository";
 import { appendPdfAllegatoToScheda } from "@/lib/schedeRepository";
 import { notionSvc } from "@/lib/verificheServices";
@@ -15,6 +15,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const session = await getSessionFromRequest(req);
     if (!session) return NextResponse.json({ ok: false, error: "Non autorizzato" }, { status: 401 });
+    if (!MODIFICA_SCHEDA_ROLES.includes(session.role)) {
+      return NextResponse.json({ ok: false, error: "Permesso negato" }, { status: 403 });
+    }
 
     const { id: parentId } = await params;
     const body = (await req.json()) as {

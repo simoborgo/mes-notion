@@ -11,7 +11,7 @@ const PAGE_SIZE = 100;
 const STATI_COMPLETATI = new Set(["Completato", "Annullata"]);
 const STATI_RILAVORAZIONE_APERTA = new Set(["In lavorazione Esterna", "In lavorazione", "In Attesa Rilavorazione"]);
 
-type SortKey = "odp" | "numeroScheda" | "clienteInfo" | "statoProduzione" | "dataProduzionePrevista" | "dataRientroPrevista";
+type SortKey = "odp" | "codiceArticolo" | "numeroScheda" | "clienteInfo" | "statoProduzione" | "dataProduzionePrevista" | "dataRientroPrevista";
 type SortDir = "asc" | "desc";
 
 const FILTRI_SCHEDE_STORAGE_KEY = "mes:schede:filtri";
@@ -581,6 +581,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
             <tr className="border-b text-left text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-grey-mid)", background: "#faf9f7" }}>
               <Th label="Cliente / Commessa" sortable="clienteInfo" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="min-w-[200px]" />
               <Th label="ODP" sortable="odp" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              <Th label="Cod. Articolo" sortable="codiceArticolo" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="N° Scheda" sortable="numeroScheda" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <th className="px-4 py-3 min-w-[180px]">Descrizione</th>
               <Th label="Stato" sortable="statoProduzione" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="min-w-[120px]" />
@@ -594,7 +595,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
           <tbody>
             {pageSlice.length === 0 ? (
               <tr>
-                <td colSpan={10} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
+                <td colSpan={11} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
                   Nessuna scheda trovata
                 </td>
               </tr>
@@ -653,6 +654,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                         </span>
                       )}
                     </td>
+                    <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">{s.codiceArticolo || "—"}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {s.numeroScheda ? (
                         <button onClick={() => setViewing(s)} className="hover:underline font-medium text-left" style={{ color: "var(--color-black)" }}>
@@ -705,6 +707,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                             </span>
                           )}
                         </td>
+                        <td className="px-4 py-2 font-mono text-xs whitespace-nowrap">{f.codiceArticolo || "—"}</td>
                         <td className="px-4 py-2 text-xs whitespace-nowrap">
                           {f.numeroScheda ? (
                             <button onClick={() => setViewing(f)} className="hover:underline font-medium text-left" style={{ color: "var(--color-black)" }}>
@@ -744,6 +747,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                                 <span className="text-xs px-1 py-0.5 rounded font-medium" style={{ background: "#FEF9C3", color: "#92400E" }}>Rilav.</span>
                               </span>
                             </td>
+                            <td className="px-4 py-2 font-mono text-xs whitespace-nowrap">{n.codiceArticolo || "—"}</td>
                             <td className="px-4 py-2 text-xs whitespace-nowrap">
                               {n.numeroScheda ? (
                                 <button onClick={() => setViewing(n)} className="hover:underline font-medium text-left" style={{ color: "var(--color-black)" }}>
@@ -827,6 +831,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
           <tr>
             <th>Cliente / Commessa</th>
             <th>ODP</th>
+            <th>Cod. Articolo</th>
             <th>N° Scheda</th>
             <th>Descrizione</th>
             <th>Stato</th>
@@ -841,6 +846,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
             <tr key={s.id}>
               <td>{s.clienteInfo || "—"}{s.commessaNr ? ` (${s.commessaNr})` : ""}</td>
               <td>{s.odp || "—"}</td>
+              <td>{s.codiceArticolo || "—"}</td>
               <td>{s.numeroScheda || "—"}</td>
               <td>{s.descrizioneFasi || "—"}</td>
               <td>{s.statoProduzione || "—"}</td>

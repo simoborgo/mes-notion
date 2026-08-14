@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import type { OdpAttivo } from "@/lib/types";
 import { REPARTI_PRODUZIONE, CATEGORIA_ODP_LABEL } from "@/lib/types";
+import { ODP_SPECIALI, ATTIVITA_SPECIALI_COMMESSA } from "@/lib/attivitaSpecialiCommessa";
 import OdpAutocomplete from "./OdpAutocomplete";
 import OdpMultiAutocomplete from "./OdpMultiAutocomplete";
 
@@ -161,10 +162,6 @@ export default function VistaOggi() {
       });
   }, []);
 
-  // Derivata da odpList (stessa fonte dell'autocomplete: ODP_SPECIALI in src/lib/notion.ts)
-  // invece di una lista propria, per non poterla mai disallineare dai tag realmente accettati.
-  const tagSpeciali = useMemo(() => odpList.filter(o => o.isSpeciale), [odpList]);
-
   // Un solo giro di calcolo per operatore/reparto/globale — evitare di ripetere le stesse
   // somme in ogni RigaOperatore e in ogni header di sezione.
   const sezioni = useMemo<SezioneDerivata[]>(() => {
@@ -305,30 +302,29 @@ export default function VistaOggi() {
 
   return (
     <div className="space-y-4 pb-24">
-      {/* Legenda causali speciali — cosa digitare nel campo ODP quando non si tratta di una commessa */}
-      {tagSpeciali.length > 0 && (
-        <div
-          className="rounded-lg border px-4 py-3 flex flex-wrap items-center gap-x-5 gap-y-2"
-          style={{ borderColor: "#FDE8D0", background: "#FFF7ED" }}
-        >
-          <span className="text-xs font-bold uppercase tracking-wide flex-shrink-0" style={{ color: "var(--color-primary)" }}>
-            Causali speciali
+      {/* Promemoria causali speciali — solo un reminder testuale dei prefissi/suffissi
+          accettati nel campo ODP, non più l'elenco espanso per ogni commessa aperta */}
+      <div
+        className="rounded-lg border px-4 py-2 flex flex-col gap-1 text-xs"
+        style={{ borderColor: "#FDE8D0", background: "#FFF7ED" }}
+      >
+        <div>
+          <span className="font-bold uppercase tracking-wide" style={{ color: "var(--color-primary)" }}>
+            Causali speciali —{" "}
           </span>
-          {tagSpeciali.map(t => (
-            <span key={t.odp} className="flex items-center gap-1.5 text-xs">
-              <span
-                className="font-mono font-bold px-1.5 py-0.5 rounded"
-                style={{ background: "white", border: "1px solid #FDE8D0", color: "var(--color-black)" }}
-              >
-                {t.odp}
-              </span>
-              <span style={{ color: "var(--color-grey-mid)" }}>
-                {t.label.includes(" — ") ? t.label.split(" — ")[1] : t.label}
-              </span>
-            </span>
-          ))}
+          <span style={{ color: "var(--color-grey-mid)" }}>
+            {ODP_SPECIALI.map(s => `${s.prefix} (${s.label})`).join(" · ")}
+          </span>
         </div>
-      )}
+        <div>
+          <span className="font-bold uppercase tracking-wide" style={{ color: "var(--color-primary)" }}>
+            Legate a commessa —{" "}
+          </span>
+          <span style={{ color: "var(--color-grey-mid)" }}>
+            {ATTIVITA_SPECIALI_COMMESSA.map(a => `<commessa>-${a.suffix} (${a.label})`).join(" · ")}
+          </span>
+        </div>
+      </div>
 
       {/* Day navigator */}
       <div className="flex items-center gap-2 flex-wrap">

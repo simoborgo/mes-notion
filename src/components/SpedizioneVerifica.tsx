@@ -122,7 +122,7 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
   const [showFinalModal, setShowFinalModal] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [finalError, setFinalError] = useState<string | null>(null);
-  const [finalizeResult, setFinalizeResult] = useState<{ driveUrl: string; fotoCount: number; notionError?: string } | null>(null);
+  const [finalizeResult, setFinalizeResult] = useState<{ driveUrl: string; fotoCount: number } | null>(null);
 
   // ── Refs ──────────────────────────────────────────────────────────────────
   const pdfCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -604,11 +604,11 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ schedaOdp: schedaOdp || schedaPageId }),
       });
-      const d = await r.json() as { ok: boolean; error?: string; driveUrl?: string; notionError?: string; fotoCount?: number };
+      const d = await r.json() as { ok: boolean; error?: string; driveUrl?: string; fotoCount?: number };
       if (!r.ok) throw new Error(d.error ?? "Errore finalizzazione");
 
       setFinalizedIds(prev => { const n = new Set(prev); n.add(schedaPageId); return n; });
-      setFinalizeResult({ driveUrl: d.driveUrl ?? "", fotoCount: d.fotoCount ?? 0, notionError: d.notionError });
+      setFinalizeResult({ driveUrl: d.driveUrl ?? "", fotoCount: d.fotoCount ?? 0 });
       setShowFinalModal(false);
     } catch (err) {
       setFinalError((err as Error).message);
@@ -632,7 +632,7 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
   }
 
   async function forzaVerificato(pageId: string, odp: string, schedaNumero?: string) {
-    if (!confirm(`Forzare lo stato Verificato per ${odp}? Verrà aggiornato su Notion e PostgreSQL senza PDF.`)) return;
+    if (!confirm(`Forzare lo stato Verificato per ${odp}? Nessun PDF verrà generato.`)) return;
     setForcingVerify(pageId);
     try {
       const r = await fetch(`/api/verifiche/${pageId}/force-verify`, {
@@ -933,13 +933,6 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
             <p style={{ color: "#6B7280", fontSize: 13 }}>Verificato da {userName}</p>
           </div>
 
-          {finalizeResult.notionError && (
-            <div className="rounded-lg px-4 py-3 text-left" style={{ background: "#FFFBEB", border: "1px solid #FCD34D", borderRadius: 8, padding: "12px 16px" }}>
-              <p style={{ fontSize: 12, fontWeight: 600, color: "#92400E", marginBottom: 4 }}>⚠ PDF salvato su Drive, ma Notion non è stato aggiornato:</p>
-              <p style={{ fontSize: 12, color: "#92400E" }}>{finalizeResult.notionError}</p>
-            </div>
-          )}
-
           {finalizeResult.driveUrl && (
             <a
               href={finalizeResult.driveUrl}
@@ -1077,7 +1070,7 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
           <div style={{ background: "white", borderRadius: 8, padding: 28, maxWidth: 420, width: "100%", border: "1px solid #E5E4E0", boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }}>
             <h3 style={{ fontSize: 16, fontWeight: 700, color: "#1A1918", marginBottom: 8 }}>Finalizza verifica</h3>
             <p style={{ fontSize: 13, color: "#6B6560", marginBottom: 20 }}>
-              Il PDF con tratti, bolli e firme verrà caricato su Drive e Notion. L&apos;operazione non è reversibile.
+              Il PDF con tratti, bolli e firme verrà caricato su Drive. L&apos;operazione non è reversibile.
             </p>
             <div style={{ fontSize: 13, color: "#6B6560", marginBottom: 20, background: "#F5F2EE", borderRadius: 6, padding: "12px 14px" }}>
               <div>Scheda: <strong style={{ color: "#1A1918" }}>{schedaOdp || schedaPageId}</strong></div>

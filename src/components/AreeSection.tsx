@@ -7,15 +7,18 @@ import BadgeStato from "./BadgeStato";
 import FormArea from "./FormArea";
 
 export default function AreeSection({
-  commessaId, areeIniziali, schede,
+  commessaId, areeIniziali, schede, userRole,
 }: {
   commessaId: string;
   areeIniziali: Area[];
   schede: Scheda[];
+  userRole?: string;
 }) {
   const router = useRouter();
   const [aree, setAree] = useState(areeIniziali);
   const [formAperto, setFormAperto] = useState<"nuova" | Area | null>(null);
+  // COMMESSE_ROLES (src/lib/auth.ts) — tenuto in sync a mano, stesso pattern di TabellaCommesse.
+  const canWrite = userRole === "admin" || userRole === "produzione";
 
   function handleSaved(aggiornata: Area) {
     setAree(prev => {
@@ -32,13 +35,15 @@ export default function AreeSection({
         <h2 className="text-lg font-semibold" style={{ fontFamily: "var(--font-display)" }}>
           Aree / Cartelle ({aree.length})
         </h2>
-        <button
-          onClick={() => setFormAperto("nuova")}
-          className="px-3 py-1.5 rounded-lg text-sm font-semibold text-white whitespace-nowrap"
-          style={{ background: "var(--color-primary)" }}
-        >
-          + Nuova Area
-        </button>
+        {canWrite && (
+          <button
+            onClick={() => setFormAperto("nuova")}
+            className="px-3 py-1.5 rounded-lg text-sm font-semibold text-white whitespace-nowrap"
+            style={{ background: "var(--color-primary)" }}
+          >
+            + Nuova Area
+          </button>
+        )}
       </div>
       {aree.length === 0 ? (
         <p className="text-sm" style={{ color: "var(--color-grey-mid)" }}>Nessuna area collegata.</p>
@@ -63,13 +68,15 @@ export default function AreeSection({
                   <div className="flex gap-2 shrink-0 items-start">
                     <BadgeStato stato={area.statoProduzione} />
                     <BadgeStato stato={area.statoCommessa} />
-                    <button
-                      onClick={() => setFormAperto(area)}
-                      className="text-xs px-2 py-1 rounded font-medium hover:bg-gray-100 transition-colors"
-                      style={{ color: "var(--color-grey-mid)" }}
-                    >
-                      Modifica
-                    </button>
+                    {canWrite && (
+                      <button
+                        onClick={() => setFormAperto(area)}
+                        className="text-xs px-2 py-1 rounded font-medium hover:bg-gray-100 transition-colors"
+                        style={{ color: "var(--color-grey-mid)" }}
+                      >
+                        Modifica
+                      </button>
+                    )}
                   </div>
                 </div>
                 {pct !== null && (
