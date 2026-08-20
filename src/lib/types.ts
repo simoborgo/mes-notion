@@ -192,6 +192,13 @@ export interface Operatore {
   inForza: boolean;
 }
 
+export interface Fornitore {
+  id: string;
+  nome: string;
+  codiceOs1: string;
+  email: string | null;
+}
+
 export interface OdpAttivo {
   id: string | null;
   odp: string;

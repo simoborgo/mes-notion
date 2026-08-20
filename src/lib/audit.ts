@@ -1,6 +1,6 @@
 import { pool } from "./db";
 
-export type ResourceType = "ritiro" | "scheda" | "carico" | "commessa" | "area" | "ore_registrate" | "ore_assenza" | "operatore" | "operatore_pin" | "segmento_operatore" | "scarico_materiale" | "scarico" | "offerta" | "articolo_ferramenta" | "kit_ferramenta" | "inventario_ferramenta" | "wurth_ordine" | "wurth_ordine_riga" | "parametri_reparto" | "parametri_generali" | "laboratorio_verniciatura" | "vernice" | "ciclo_verniciatura" | "campionatura_verniciatura" | "movimento_magazzino" | "inventario_magazzino" | "kit_commessa";
+export type ResourceType = "ritiro" | "scheda" | "carico" | "commessa" | "area" | "ore_registrate" | "ore_assenza" | "operatore" | "operatore_pin" | "segmento_operatore" | "scarico_materiale" | "scarico" | "offerta" | "articolo_ferramenta" | "kit_ferramenta" | "inventario_ferramenta" | "wurth_ordine" | "wurth_ordine_riga" | "parametri_reparto" | "parametri_generali" | "laboratorio_verniciatura" | "vernice" | "ciclo_verniciatura" | "campionatura_verniciatura" | "movimento_magazzino" | "inventario_magazzino" | "kit_commessa" | "fornitore";
 export type ActionType = "CREATE" | "UPDATE" | "DELETE" | "UPLOAD_FOTO";
 
 export interface AuditEntry {

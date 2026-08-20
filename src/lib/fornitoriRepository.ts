@@ -1,8 +1,9 @@
 import { pool } from "./db";
+import type { Fornitore } from "./types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapRow(r: any): { id: string; nome: string; codiceOs1: string } {
-  return { id: r.id, nome: r.nome, codiceOs1: r.codice_os1 };
+function mapRow(r: any): Fornitore {
+  return { id: r.id, nome: r.nome, codiceOs1: r.codice_os1, email: r.email };
 }
 
 export async function getFornitori(): Promise<string[]> {
@@ -10,9 +11,33 @@ export async function getFornitori(): Promise<string[]> {
   return rows.map((r) => r.nome).filter(Boolean);
 }
 
-export async function getFornitoriList(): Promise<{ id: string; nome: string; codiceOs1: string }[]> {
-  const { rows } = await pool.query(`SELECT id, nome, codice_os1 FROM fornitori ORDER BY nome`);
+export async function getFornitoriList(): Promise<Fornitore[]> {
+  const { rows } = await pool.query(`SELECT id, nome, codice_os1, email FROM fornitori ORDER BY nome`);
   return rows.map(mapRow);
+}
+
+export async function createFornitore(data: { nome: string; codiceOs1: string; email: string | null }): Promise<Fornitore> {
+  const { rows } = await pool.query(
+    `INSERT INTO fornitori (id, nome, codice_os1, email) VALUES (gen_random_uuid(), $1, $2, $3) RETURNING *`,
+    [data.nome, data.codiceOs1, data.email]
+  );
+  return mapRow(rows[0]);
+}
+
+export async function updateFornitore(id: string, data: { nome?: string; codiceOs1?: string; email?: string | null }): Promise<Fornitore> {
+  const sets: string[] = [];
+  const values: unknown[] = [];
+  let i = 1;
+  if (data.nome !== undefined) { sets.push(`nome = $${i++}`); values.push(data.nome); }
+  if (data.codiceOs1 !== undefined) { sets.push(`codice_os1 = $${i++}`); values.push(data.codiceOs1); }
+  if (data.email !== undefined) { sets.push(`email = $${i++}`); values.push(data.email); }
+  sets.push(`aggiornato_il = now()`);
+  values.push(id);
+  const { rows } = await pool.query(
+    `UPDATE fornitori SET ${sets.join(", ")} WHERE id = $${i} RETURNING *`,
+    values
+  );
+  return mapRow(rows[0]);
 }
 
 export async function getFornitoriMap(): Promise<Record<string, string>> {

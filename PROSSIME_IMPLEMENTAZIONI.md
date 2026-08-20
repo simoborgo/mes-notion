@@ -9,107 +9,6 @@ conversazione. Segnare come fatto (barrato o rimosso) quando implementata, con r
 
 ---
 
-## Direzione strategica: abbandono graduale di Notion
-
-**Stato:** dichiarata esplicitamente dall'utente (sessione 2026-08-06) — non un singolo task, una
-direzione per le prossime implementazioni. Quando si progetta una nuova feature o si tocca codice
-esistente che legge/scrive Notion, preferire Postgres per i nuovi dati e considerare se vale la
-pena migrare anche quello esistente, invece di aggiungere altra roba su Notion per inerzia.
-
-### Migrazione tabella Fornitori (Notion → Postgres)
-
-**Stato:** richiesta esplicitamente, non ancora specificata nei dettagli
-
-Oggi "Fornitori" vive solo su Notion (`NOTION_DB_FORNITORI`, letto via `getFornitoriMap()`/
-`getFornitoriList()` in `src/lib/notion.ts`). Root cause diretta di due gap già noti:
-- **"Fornitori Ferramenta scollegati da Notion dopo l'import"** (vedi voce più sotto) — `fornitore_id`
-  è un riferimento testuale a una pagina Notion senza alcuna garanzia di integrità.
-- **Il bug "non vedo più il fornitore" di questa sessione** (commit `2e15852`) — esiste solo perché
-  `fornitore_nome` va risolto da Notion in scrittura e si può disallineare da `fornitore_nome_os1`.
-  Con una vera tabella `fornitori` su Postgres (FK reale da `articoli_ferramenta.fornitore_id`),
-  quel disallineamento non potrebbe più accadere strutturalmente.
-
-**Come affrontarla, quando si parte**: probabile pattern — tabella `fornitori` (id, nome, codice_os1,
-email se mai serve per le notifiche già rimandate altrove in questo file) + script di migrazione
-una tantum da Notion (stesso approccio di `scripts/migrate-ferramenta-to-postgres.mjs`) + FK reale
-da `articoli_ferramenta.fornitore_id` invece del riferimento testuale odierno. Da chiarire con
-l'utente: migrare anche gli usi di Fornitori fuori da Ferramenta (Ritiri/Consegne, Rientro Qualità
-citano "Nome Fornitore" come rollup Notion) nella stessa fase o in un secondo momento.
-
-### CRUD completo Schede di Produzione (backend ancora Notion)
-
-**Stato:** implementato (sessione 2026-08-07), backend resta Notion per scelta esplicita — la
-migrazione dati verso Postgres per Schede/Sottoschede/Rilavorazioni/Commesse resta un passo
-separato, non ancora pianificato nei dettagli.
-
-Prima di questa sessione, il MES sapeva leggere e aggiornare quasi tutto sulle Schede, ma non
-creare una Scheda "vuota" (solo import PDF) né una Sottoscheda generica (solo la variante
-Rilavorazione), e non esisteva alcuna eliminazione. Aggiunto: `POST /api/schede` (Scheda
-standalone), `POST /api/schede/[id]/sottoscheda` (Sottoscheda generica, eredita ODP/Commessa dal
-padre), `DELETE /api/schede/[id]` (soft-delete via `archiveScheda()`, stesso pattern di
-`deleteRitiro`/`deleteCarico` — pagina Notion archiviata, ancora leggibile per id, sparisce solo
-dalle liste).
-
-**Scoperto testando contro Notion reale (non assumibile dal solo codice/mapper)**: i campi
-"Fornitore" e "Ordine Fornitore" di `Scheda`/`SchedaUpdate` **non sono mai stati scrivibili**,
-né prima né nel primo tentativo di questa sessione — non è un gap dimenticato, è uno schema Notion
-diverso da quello che il mapper `pageToScheda` lascia intuire:
-- **"Nome Fornitore"** è una **rollup** (deriva dalla relation "Fornitore" verso `DB_FORNITORI`),
-  non testo libero — scriverci come rich_text non genera errore ma **viene silenziosamente
-  ignorato da Notion** (verificato: `pages.create` risponde 200 ma il valore resta vuoto). Il
-  parametro `fornitore` già esistente in `createSchedaPage` (usato da `import-scheda` e
-  `createRilavorazione`, non toccato in questa sessione) ha sempre avuto lo stesso problema.
-  L'unico modo reale per impostare il fornitore è scrivere sulla relation "Fornitore" (`fornitoreId`,
-  già supportato in creazione) — editarlo dopo la creazione richiederebbe un selettore Fornitori
-  nel form (non costruito qui).
-- **"Ordine Fornitore"** è un campo **files** (allegato), non rich_text — scriverci come testo
-  **fa fallire la PATCH con errore 500** (validazione Notion, verificato direttamente). Rimosso
-  il tentativo di scrittura da `updateScheda()` e i campi corrispondenti dai form. Se in futuro
-  serve renderlo editabile, va trattato come upload (stesso pattern di `pdf-allegato`/`foto`), non
-  come testo.
-
-Corretto in `src/lib/notion.ts` (`updateScheda`): entrambi i branch di scrittura sono stati tolti
-subito dopo averli scoperti rotti, prima di considerare la feature conclusa.
-
-**Deliberatamente fuori scope, non dimenticato:**
-- Editor per la relation "Fornitore" (selettore da `getFornitoriList()`/`getFornitoriMap()`) — è
-  l'unico modo reale per cambiare fornitore dopo la creazione, non ancora costruito.
-- Upload per "Ordine Fornitore" come allegato — non ancora costruito.
-- Assegnazione dell'Area-Cartella Commessa — mai stata scrivibile nemmeno da `createSchedaPage`,
-  resta solo gestibile da Notion.
-- Nessuna cascata automatica sull'eliminazione (Ritiri collegati, righe Kit Ferramenta su Postgres,
-  Verifiche spedizione) — l'archiviazione Notion non rompe questi riferimenti (restano risolvibili
-  per id), ma l'utente va avvisato in UI se la Scheda ha figlie prima di confermare.
-
-### Latenza fino a ~20s dopo una scrittura su una Scheda (cache `getSchede()`)
-
-**Stato:** caratteristica nota del sistema, mitigata parzialmente (sessione 2026-08-06), non
-eliminabile del tutto senza un ripensamento più ampio
-
-`getSchede()`/`getSottoschede()` (`src/lib/notion.ts`) sono una cache in memoria scritta a mano,
-senza TTL, popolata da una query completa del database Notion Schede (~1900 righe, 15-20s) —
-scelta deliberata per aggirare il limite dei 2MB della Data Cache di Next.js (vedi
-[[project_mes_cache_2mb_bug]]). `invalidateSchedeCache()` azzera la cache e la ripopola in
-background dopo ogni scrittura (`pages.update`), ma **chi guarda una pagina che dipende da
-questa cache può vedere il valore vecchio per diversi secondi** dopo aver salvato una modifica
-— scoperto testando l'eliminazione di un foglio di scarico Kit Ferramenta, ma riproducibile
-anche sul PATCH stato Sì/No già esistente, quindi non specifico a quella feature.
-
-Aggiunto un ritardo di 1.5s prima del refetch in background (`invalidateSchedeCache`), per
-ridurre il rischio che il refetch parta prima che Notion abbia propagato la scrittura appena
-fatta e catturi/congeli in cache lo snapshot vecchio (senza TTL, sarebbe rimasto sbagliato
-indefinitamente). Il ritardo riduce il rischio ma **non elimina** il tempo di propagazione reale
-del refetch stesso (15-20s) — un utente che ricarica una pagina Schede-dipendente subito dopo
-aver salvato può ancora vedere temporaneamente il dato vecchio.
-
-**Come affrontarla, se diventa un problema pratico**: (a) invalidare in modo mirato solo la
-Scheda toccata invece di rifare la query intera (richiede una cache indicizzata per id, non un
-array piatto); (b) aggiornare otticamente la cache in memoria con la modifica appena scritta,
-invece di ributtare via tutto e ripartire da Notion; (c) accettare il limite e comunicarlo in UI
-("salvataggio in corso, la vista si aggiorna entro X secondi").
-
----
-
 ## Magazzino — motore generico multi-categoria
 
 ### ~~Inventario Vernici + motore di magazzino generico condiviso~~ — fatto (2026-08-09)
@@ -311,16 +210,21 @@ importare le righe mancanti con `descrizione_categoria` diversa. Da confermare c
 vuole davvero lo stesso DB o una separazione (es. per permessi/visibilità diversi tra magazzino
 Ferramenta e altri reparti).
 
-### Riferimento Fornitori (`fornitore_id`) non popolato dal nuovo import
+### Riferimento Fornitori (`fornitore_id`) non popolato per gli articoli reimportati da OS1
 
-**Stato:** gap noto (sessione 2026-08-06), coerente con il gap già esistente sui fornitori Notion
+**Stato:** gap noto (sessione 2026-08-06), nessuna implementazione richiesta per ora — nota
+aggiornata dopo la migrazione Fornitori a Postgres (`fornitori`, FK reale da
+`articoli_ferramenta.fornitore_id`, vedi `schema_fornitori_fk_articoli.sql`): il disallineamento
+per rinomina non può più accadere strutturalmente, ma resta il gap di popolamento sotto.
 
 Il reimport completo dell'anagrafica (2026-08-06, 8358 articoli da
 `scripts/importa-anagrafica-ferramenta.mjs`) popola `fornitore_nome_os1` (Ragione sociale OS1) ma
-**non** `fornitore_id`/`fornitore_nome` (collegamento a Notion Fornitori) — il file OS1 non contiene
-alcun riferimento a pagine Notion. Stesso gap già descritto più sopra ("Fornitori Ferramenta
-scollegati da Notion dopo l'import"), ora esteso a tutti gli 8358 articoli, non solo ai 6897
-originali.
+**non** `fornitore_id` — il file OS1 non contiene alcun riferimento all'anagrafica Fornitori. Non
+esiste UI per riassegnare il fornitore di un articolo esistente o crearne uno nuovo fuori
+dall'import CSV.
+
+**Come affrontarla**: se serve correggere/assegnare un fornitore oggi si fa via query diretta su
+Postgres. Costruire una UI di riassegnazione solo se richiesta esplicitamente.
 
 ---
 
@@ -437,19 +341,6 @@ articoli? scheda articolo singola?) e se il valore di partenza proposto dev'esse
 `prezzo_ultimo_acquisto` (già presente per gli articoli OS1) o inserito a mano. Riusare lo stesso
 pattern di scrittura di `TabellaOrdiniWurth.tsx` (aggiorna `prezzo_riferimento` +
 `prezzo_riferimento_aggiornato_il`) invece di crearne uno nuovo.
-
-### Fornitori Ferramenta scollegati da Notion dopo l'import
-
-**Stato:** limite noto, confermato, nessuna implementazione richiesta per ora
-
-`fornitore_id`/`fornitore_nome` vengono risolti da Notion una sola volta, dentro
-`createArticoloFerramenta` (chiamata solo dall'import CSV in
-`src/app/api/admin/import-ferramenta/route.ts`). Da lì in poi sono testo congelato in Postgres:
-rinominare un fornitore su Notion non si riflette sugli articoli già importati, e non esiste UI
-per riassegnare il fornitore di un articolo esistente o crearne uno nuovo fuori dall'import CSV.
-
-**Come affrontarla**: se serve correggere un fornitore sbagliato oggi si fa via query diretta su
-Postgres. Costruire una UI di riassegnazione solo se richiesta esplicitamente.
 
 ---
 
@@ -638,8 +529,8 @@ Digest email periodico per fornitore con l'elenco del materiale in rilavorazione
 concordato il ritiro (collegata a "Nessun ritiro concordato" in Rientro Qualità). Nessuno
 scheduling/cron esiste oggi nel progetto (né via n8n né servizio email diretto). `notify.ts`/tabella
 `notifiche_inviate` sono già multi-canale (colonna `canale`, default `'telegram'`) — aggiungere
-`'email'` non richiede migrazione schema. Il DB Fornitori su Notion non ha un campo email — va
-aggiunto in ogni caso.
+`'email'` non richiede migrazione schema. `fornitori.email` esiste già su Postgres (aggiunta in
+previsione di questa feature) ma resta `NULL` per tutti — va popolata prima di poter usarla.
 
 ### Magazzino ponte — materiale in arrivo tracciato fino alla chiamata della produzione
 
