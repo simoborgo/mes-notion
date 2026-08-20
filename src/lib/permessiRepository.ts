@@ -45,8 +45,13 @@ export async function getAssenzeApprovatePerData(data: string): Promise<AssenzaA
   }));
 }
 
+// Bug reale scoperto in sessione (2026-08-20): "D'Amico"/"D'Ingeo" salvati con apostrofo
+// tipografico (’ U+2019) in operatori (questa app) ma dritto (' U+0027) in Gestione Permessi —
+// il confronto falliva sempre, silenziosamente, per QUALUNQUE giorno di ferie/permesso di quelle
+// persone, non solo l'ultimo giorno del range come sembrava dal sintomo osservato. Le varianti di
+// apostrofo/virgoletta singola vanno tutte ricondotte alla stessa (') prima del confronto.
 function normalizzaNome(s: string): string {
-  return s.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  return s.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[’ʼ‘`´]/g, "'");
 }
 
 // Punto di match isolato: oggi Cognome+Nome (case/accent-insensitive) è l'unico

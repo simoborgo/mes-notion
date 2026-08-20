@@ -76,18 +76,14 @@ function DataCell({ date, inRitardo }: { date: string | null; inRitardo: boolean
   return <span className="tabular-nums whitespace-nowrap">{fmt(date)}</span>;
 }
 
-function fileProxyUrl(pageId: string, prop: string, index: number) {
-  return `/api/files/${pageId}?prop=${encodeURIComponent(prop)}&index=${index}`;
-}
-
-function PdfLinks({ pageId, count }: { pageId: string; count: number }) {
-  if (!count) return <span style={{ color: "var(--color-grey-icon)" }}>—</span>;
+function PdfLinks({ pdfAllegato }: { pdfAllegato: { name: string; url: string }[] }) {
+  if (pdfAllegato.length === 0) return <span style={{ color: "var(--color-grey-icon)" }}>—</span>;
   return (
     <div className="flex flex-col gap-1">
-      {Array.from({ length: count }).map((_, i) => (
+      {pdfAllegato.map((pdf, i) => (
         <a
           key={i}
-          href={fileProxyUrl(pageId, "PDF Allegato", i)}
+          href={pdf.url}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1 text-xs font-medium hover:underline transition-colors"
@@ -96,49 +92,26 @@ function PdfLinks({ pageId, count }: { pageId: string; count: number }) {
           <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM8.5 17.5c-.3 0-.5-.1-.7-.3-.4-.4-.4-1 0-1.4l4-4c.4-.4 1-.4 1.4 0l1.5 1.5 1.8-2.4c.2-.3.5-.4.8-.4s.6.2.8.4l2 3c.3.4.2 1-.2 1.3-.4.3-1 .2-1.3-.2l-1.3-1.9-1.8 2.4c-.2.3-.5.4-.8.4s-.6-.1-.8-.4l-1.5-1.5-3.3 3.3c-.2.2-.4.2-.6.2z"/>
           </svg>
-          {count > 1 ? `PDF ${i + 1}` : "PDF"}
+          {pdfAllegato.length > 1 ? `PDF ${i + 1}` : "PDF"}
         </a>
       ))}
     </div>
   );
 }
 
-// Cache URL copertina per tutta la durata della sessione
-const copertinaUrlCache = new Map<string, string | null>();
-
 interface TooltipState {
-  pageId: string;
+  copertinaUrl: string;
   x: number;
   y: number;
 }
 
+// copertinaUrl arriva già risolta da s.copertina (Drive o legacy Notion, calcolato dal
+// repository) — niente più fetch verso /api/files/[pageId] qui: per una Scheda con copertina
+// caricata dopo la migrazione (Drive), quella query interrogava sempre la pagina Notion
+// congelata e falliva sempre (stesso bug del link PDF in tabella, corretto nella stessa sessione).
 function CopertinaTooltip({ tooltip }: { tooltip: TooltipState | null }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ top: 0, left: 0 });
-  const [imgUrl, setImgUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!tooltip) return;
-    const { pageId } = tooltip;
-
-    if (copertinaUrlCache.has(pageId)) {
-      setImgUrl(copertinaUrlCache.get(pageId) ?? null);
-      return;
-    }
-
-    setImgUrl(null);
-    setLoading(true);
-    fetch(`/api/files/${pageId}?prop=${encodeURIComponent("Copertina")}&index=0&json=1`)
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        const url: string | null = data?.url ?? null;
-        copertinaUrlCache.set(pageId, url);
-        setImgUrl(url);
-      })
-      .catch(() => { copertinaUrlCache.set(pageId, null); })
-      .finally(() => setLoading(false));
-  }, [tooltip?.pageId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!tooltip || !ref.current) return;
@@ -160,20 +133,8 @@ function CopertinaTooltip({ tooltip }: { tooltip: TooltipState | null }) {
       className="fixed z-50 pointer-events-none rounded-lg shadow-2xl border border-gray-200 overflow-hidden"
       style={{ top: pos.top, left: pos.left, width: 380, background: "white" }}
     >
-      {loading && (
-        <div className="flex items-center justify-center" style={{ height: 100, background: "#f3f4f6" }}>
-          <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>Caricamento…</span>
-        </div>
-      )}
-      {imgUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={imgUrl} alt="Copertina" className="block w-full" style={{ maxHeight: 360, objectFit: "contain" }} />
-      )}
-      {!loading && !imgUrl && (
-        <div className="flex items-center justify-center" style={{ height: 60 }}>
-          <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>Immagine non disponibile</span>
-        </div>
-      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={tooltip.copertinaUrl} alt="Copertina" className="block w-full" style={{ maxHeight: 360, objectFit: "contain" }} />
     </div>
   );
 }
@@ -621,7 +582,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                     {/* ODP con tooltip copertina + freccia sottoschede */}
                     <td
                       className="px-4 py-3 font-mono text-sm font-bold whitespace-nowrap"
-                      onMouseEnter={s.copertina ? (e) => setTooltip({ pageId: s.id, x: e.clientX, y: e.clientY }) : undefined}
+                      onMouseEnter={s.copertina ? (e) => setTooltip({ copertinaUrl: s.copertina!, x: e.clientX, y: e.clientY }) : undefined}
                       onMouseMove={s.copertina ? (e) => setTooltip((t) => t ? { ...t, x: e.clientX, y: e.clientY } : null) : undefined}
                       onMouseLeave={s.copertina ? () => setTooltip(null) : undefined}
                     >
@@ -672,7 +633,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                     <td className="px-4 py-3"><DataCell date={s.dataProduzionePrevista} inRitardo={ritardo.produzione} /></td>
                     <td className="px-4 py-3 text-xs max-w-[180px] truncate" title={s.fornitore || ""}>{s.fornitore || "—"}</td>
                     <td className="px-4 py-3"><DataCell date={s.dataRientroPrevista} inRitardo={ritardo.rientro} /></td>
-                    <td className="px-4 py-3"><PdfLinks pageId={s.id} count={s.pdfAllegato.length} /></td>
+                    <td className="px-4 py-3"><PdfLinks pdfAllegato={s.pdfAllegato} /></td>
                     <td className="px-4 py-3">
                       <button
                         onClick={() => setViewing(s)}
@@ -725,7 +686,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                         <td className="px-4 py-2"><DataCell date={f.dataProduzionePrevista} inRitardo={fRitardo.produzione} /></td>
                         <td className="px-4 py-2 text-xs max-w-[180px] truncate" title={f.fornitore || ""}>{f.fornitore || "—"}</td>
                         <td className="px-4 py-2"><DataCell date={f.dataRientroPrevista} inRitardo={fRitardo.rientro} /></td>
-                        <td className="px-4 py-2"><PdfLinks pageId={f.id} count={f.pdfAllegato.length} /></td>
+                        <td className="px-4 py-2"><PdfLinks pdfAllegato={f.pdfAllegato} /></td>
                         <td className="px-4 py-2">
                           <button
                             onClick={() => setViewing(f)}
@@ -760,7 +721,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                             <td className="px-4 py-2"><DataCell date={n.dataProduzionePrevista} inRitardo={nRitardo.produzione} /></td>
                             <td className="px-4 py-2 text-xs max-w-[180px] truncate" title={n.fornitore || ""}>{n.fornitore || "—"}</td>
                             <td className="px-4 py-2"><DataCell date={n.dataRientroPrevista} inRitardo={nRitardo.rientro} /></td>
-                            <td className="px-4 py-2"><PdfLinks pageId={n.id} count={n.pdfAllegato.length} /></td>
+                            <td className="px-4 py-2"><PdfLinks pdfAllegato={n.pdfAllegato} /></td>
                             <td className="px-4 py-2">
                               <button onClick={() => setViewing(n)}
                                 className="text-sm px-3 py-1.5 rounded-lg font-semibold transition-colors whitespace-nowrap border"

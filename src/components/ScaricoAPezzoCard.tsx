@@ -127,7 +127,7 @@ export default function ScaricoAPezzoCard({ articolo, odpList = [], initialOdp =
             className="w-full py-2.5 rounded-lg text-sm font-semibold text-white"
             style={{ background: "#166534" }}
           >
-            {ritorno ? "Torna al foglio di scarico →" : "Torna alle giacenze →"}
+            {ritorno ? "Torna alla richiesta ferramenta ODP →" : "Torna alle giacenze →"}
           </button>
         )}
       </div>

@@ -20,8 +20,9 @@ export const KIT_COMMESSA_CREA_ROLES: Role[] = [...FERRAMENTA_ROLES, "ufficio_te
 export const VERNICIATURA_ROLES: Role[] = ["admin", "produzione"];
 // Solo il magazzino Vernici (giacenza/carico/scarico/inventario) — separato da VERNICIATURA_ROLES
 // perché l'addetto al magazzino non deve necessariamente poter operare su Cicli/Campionature.
-// Assegnare questo ruolo a una persona richiede modificare USERS_JSON sulla VPS (nessuna UI admin).
-export const MAGAZZINO_VERNICI_ROLES: Role[] = ["admin", "magazziniere_vernici"];
+// produzione incluso (deciso con l'utente 2026-08-14). Assegnare magazziniere_vernici a una
+// persona richiede modificare USERS_JSON sulla VPS (nessuna UI admin).
+export const MAGAZZINO_VERNICI_ROLES: Role[] = ["admin", "magazziniere_vernici", "produzione"];
 export const MODIFICA_SCHEDA_ROLES: Role[] = ["admin", "produzione"];
 export const RIENTRO_QUALITA_ROLES: Role[] = ["admin", "operatore", "logistica", "spedizioni", "produzione", "responsabile_produzione"];
 // Chi, oltre a RITIRI_CREATE_ROLES, può organizzare il ritiro di una Rilavorazione già aperta dal

@@ -131,7 +131,7 @@ const FERRAMENTA_ROLES = ["admin", "magazziniere", "produzione"];
 const KIT_COMMESSA_CREA_ROLES = [...FERRAMENTA_ROLES, "ufficio_tecnico"];
 const SCARICO_MATERIALE_ROLES = ["admin", "logistica"];
 const VERNICIATURA_ROLES = ["admin", "produzione"];
-const MAGAZZINO_VERNICI_ROLES = ["admin", "magazziniere_vernici"];
+const MAGAZZINO_VERNICI_ROLES = ["admin", "magazziniere_vernici", "produzione"];
 
 const links = [
   {

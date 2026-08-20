@@ -10,6 +10,7 @@ export const ATTIVITA_SPECIALI_COMMESSA = [
   { suffix: "FERRAMENTA", label: "Ferramenta" },
   { suffix: "GESTIONE", label: "Gestione Commessa" },
   { suffix: "SEMILAVORATI", label: "Preparazione Semilavorati" },
+  { suffix: "CAMPIONATURA", label: "Campionatura" },
 ] as const;
 
 // Codici speciali fissi a livello stabilimento (non legati a nessuna commessa) — usati da
@@ -22,6 +23,7 @@ export const ODP_SPECIALI = [
   { prefix: "MEET", label: "Riunione" },
   { prefix: "FORM", label: "Formazione" },
   { prefix: "PUL", label: "Pulizie" },
+  { prefix: "FERMO", label: "Fermo Macchina" },
 ] as const;
 
 export type AttivitaSpecialeSuffix = (typeof ATTIVITA_SPECIALI_COMMESSA)[number]["suffix"];

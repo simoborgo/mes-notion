@@ -21,7 +21,7 @@ const TABS: Tab[] = [
   { href: "/ferramenta/inventario", label: "Inventario", match: (p) => p.startsWith("/ferramenta/inventario") },
   { href: "/ferramenta/carico", label: "Carico", accent: "verde", match: (p) => p === "/ferramenta/carico" },
   { href: "/ferramenta/scarichi", label: "Scarico", accent: "rosso", match: (p) => p.startsWith("/ferramenta/scarichi") },
-  { href: "/ferramenta/fogli-scarico", label: "Fogli di Scarico", match: (p) => p.startsWith("/ferramenta/fogli-scarico") },
+  { href: "/ferramenta/fogli-scarico", label: "Richieste Ferramenta ODP", match: (p) => p.startsWith("/ferramenta/fogli-scarico") },
   { href: "/ferramenta/kit-commessa", label: "Kit Commessa", kitCommessa: true, match: (p) => p.startsWith("/ferramenta/kit-commessa") },
   { href: "/ferramenta/ordini-wurth", label: "Ordini Wurth", adminOnly: true, match: (p) => p.startsWith("/ferramenta/ordini-wurth") },
 ];

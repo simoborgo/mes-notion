@@ -28,7 +28,7 @@ export default async function FogliScaricoPage() {
       <FerramentaSubNav canManage={FERRAMENTA_ROLES.includes(session.role)} />
       <div>
         <h1 className="text-2xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
-          Fogli di Scarico
+          Richieste Ferramenta ODP
         </h1>
         <p className="text-sm mt-1" style={{ color: "var(--color-grey-mid)" }}>
           Movimenti di ferramenta consuntivati per ODP — gli ODP con Kit Ferramenta confermato ma senza scarico sono segnalati

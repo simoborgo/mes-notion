@@ -47,7 +47,7 @@ export default function TabellaKitOdp({ schede: initial }: { schede: Scheda[] })
   }
 
   async function eliminaFoglio(s: Scheda) {
-    if (!confirm(`Eliminare il foglio di scarico di ${s.odp || s.numeroScheda}? Azzera il kit e cancella tutte le righe della distinta già inserite — non è recuperabile.`)) return;
+    if (!confirm(`Eliminare la richiesta ferramenta ODP di ${s.odp || s.numeroScheda}? Azzera il kit e cancella tutte le righe della distinta già inserite — non è recuperabile.`)) return;
     setRow(s.id, { saving: true, error: null });
     try {
       const res = await fetch(`/api/ferramenta/kit/${s.id}`, { method: "DELETE" });
@@ -112,7 +112,7 @@ export default function TabellaKitOdp({ schede: initial }: { schede: Scheda[] })
                             className="text-xs px-2 py-0.5 rounded-full font-medium border disabled:opacity-60"
                             style={{ color: "#991B1B", background: "white", borderColor: "#FCA5A5" }}
                           >
-                            {row.saving ? "…" : "Elimina foglio"}
+                            {row.saving ? "…" : "Elimina richiesta"}
                           </button>
                         </div>
                       ) : (

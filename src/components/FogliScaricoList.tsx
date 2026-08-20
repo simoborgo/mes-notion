@@ -92,7 +92,7 @@ export default function FogliScaricoList({ odp }: { odp: OdpKitRow[] }) {
                       className="text-sm px-3 py-1.5 rounded-lg font-semibold transition-colors whitespace-nowrap border"
                       style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)", borderColor: "rgba(240,143,37,0.3)" }}
                     >
-                      Apri foglio
+                      Apri richiesta
                     </Link>
                   </td>
                 </tr>

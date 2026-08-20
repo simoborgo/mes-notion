@@ -605,8 +605,18 @@ function RigaOperatore({
     }
   }
 
+  // Verde solo se la giornata è completa E non c'è un'assenza in corso — l'assenza (rosso) resta
+  // il segnale prioritario, più informativo di "ore complete" per chi scorre la lista.
+  const completaSenzaAssenza = giornataCompleta && !p.assenza;
+
   return (
-    <div className="rounded-xl border" style={{ borderColor: p.assenza ? "#FCA5A5" : "#e5e4e0", background: p.assenza ? "#FEF2F2" : "white" }}>
+    <div
+      className="rounded-xl border"
+      style={{
+        borderColor: p.assenza ? "#FCA5A5" : completaSenzaAssenza ? "#86EFAC" : "#e5e4e0",
+        background: p.assenza ? "#FEF2F2" : completaSenzaAssenza ? "#F0FDF4" : "white",
+      }}
+    >
       <div className="flex items-center gap-3 px-4 py-3">
         <input type="checkbox" checked={selezionato} onChange={onToggleSelezionato} className="w-5 h-5 accent-orange-500 flex-shrink-0" />
         <div className="flex-1 min-w-0">
@@ -615,6 +625,11 @@ function RigaOperatore({
             {p.assenza && (
               <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "#FEE2E2", color: "#991B1B" }}>
                 {p.assenza.tipo === "FERIE" ? "In ferie" : "In permesso"}
+              </span>
+            )}
+            {completaSenzaAssenza && (
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "#D1FAE5", color: "#065F46" }}>
+                ✓ Giornata completa
               </span>
             )}
             {oltreLimite && (
@@ -637,9 +652,12 @@ function RigaOperatore({
                 checked={assenteChecked}
                 disabled={assenzaSincronizzata || savingAssenza}
                 onChange={e => handleToggleAssenza(e.target.checked)}
-                className="w-3.5 h-3.5 accent-orange-500"
+                className="w-3.5 h-3.5"
+                style={{ accentColor: assenteChecked ? "#800020" : undefined }}
               />
-              <span style={{ color: "var(--color-grey-mid)" }}>Assente per malattia o permesso</span>
+              <span style={assenteChecked ? { color: "#800020", fontWeight: 700 } : { color: "var(--color-grey-mid)" }}>
+                Assente per malattia o permesso
+              </span>
             </label>
             {assenteChecked && (
               <>

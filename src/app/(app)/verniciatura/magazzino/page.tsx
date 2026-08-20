@@ -24,13 +24,22 @@ export default async function MagazzinoVerniciPage() {
             Giacenze, carico e scarico — nessuna soglia di riordino, solo quantità.
           </p>
         </div>
-        <Link
-          href="/verniciatura/magazzino/inventario"
-          className="shrink-0 text-sm px-4 py-2 rounded-lg font-semibold whitespace-nowrap border"
-          style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)", borderColor: "rgba(240,143,37,0.3)" }}
-        >
-          Inventario →
-        </Link>
+        <div className="shrink-0 flex items-center gap-2">
+          <a
+            href="/api/verniciatura/vernici/export"
+            className="text-sm px-4 py-2 rounded-lg font-medium whitespace-nowrap border transition-colors hover:opacity-90"
+            style={{ borderColor: "#d1d5db", color: "var(--color-grey-mid)" }}
+          >
+            Esporta CSV
+          </a>
+          <Link
+            href="/verniciatura/magazzino/inventario"
+            className="text-sm px-4 py-2 rounded-lg font-semibold whitespace-nowrap border"
+            style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)", borderColor: "rgba(240,143,37,0.3)" }}
+          >
+            Inventario →
+          </Link>
+        </div>
       </div>
       <MagazzinoVerniciHome vernici={vernici} />
     </div>

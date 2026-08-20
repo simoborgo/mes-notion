@@ -5,7 +5,7 @@ import type { Vernice } from "@/lib/types";
 import MagazzinoVerniceCaricoScaricoModal from "./MagazzinoVerniceCaricoScaricoModal";
 
 type SortKey =
-  | "codiceInventario" | "coloreNome" | "tipologia" | "tipoBilancioMassa" | "unitaMisura"
+  | "codiceInventario" | "coloreCodice" | "tipologia" | "tipoBilancioMassa" | "unitaMisura"
   | "codiceTintometro" | "finitura" | "gloss"
   | "clienteRiferimento" | "giacenzaAttuale";
 type SortDir = "asc" | "desc";
@@ -67,7 +67,7 @@ export default function MagazzinoVerniciHome({ vernici }: { vernici: Vernice[] }
     const q = search.toLowerCase().trim();
     const base = q
       ? vernici.filter(v =>
-          `${v.coloreNome ?? ""} ${v.tipologia} ${v.fornitore ?? ""} ${v.codiceInventario ?? ""} ${v.codiceTintometro ?? ""}`
+          `${v.coloreNome ?? ""} ${v.coloreCodice ?? ""} ${v.tipologia} ${v.fornitore ?? ""} ${v.codiceInventario ?? ""} ${v.codiceTintometro ?? ""}`
             .toLowerCase().includes(q)
         )
       : vernici;
@@ -76,19 +76,21 @@ export default function MagazzinoVerniciHome({ vernici }: { vernici: Vernice[] }
 
   return (
     <div className="space-y-3">
-      <input
-        className="border rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300 min-w-52"
-        placeholder="Cerca colore, tipologia, fornitore, codici…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+      <div className="flex items-center gap-3 flex-wrap">
+        <input
+          className="border rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300 min-w-52"
+          placeholder="Cerca colore, tipologia, fornitore, codici…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b text-left text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-grey-mid)", background: "#faf9f7" }}>
               <Th label="Codice Inventario" sortKey="codiceInventario" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-              <Th label="Nome Colore" sortKey="coloreNome" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="min-w-[140px]" />
+              <Th label="Cod. Colore" sortKey="coloreCodice" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="min-w-[140px]" />
               <Th label="Tipologia" sortKey="tipologia" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Bilancio Massa" sortKey="tipoBilancioMassa" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Unità Misura" sortKey="unitaMisura" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
@@ -111,7 +113,7 @@ export default function MagazzinoVerniciHome({ vernici }: { vernici: Vernice[] }
               filtered.map(v => (
                 <tr key={v.id} className="border-b last:border-0">
                   <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">{v.codiceInventario || "—"}</td>
-                  <td className="px-4 py-3 font-medium">{v.coloreNome || "—"}</td>
+                  <td className="px-4 py-3 font-medium font-mono">{v.coloreCodice || "—"}</td>
                   <td className="px-4 py-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>{v.tipologia}</td>
                   <td className="px-4 py-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>{v.tipoBilancioMassa || "—"}</td>
                   <td className="px-4 py-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>{v.unitaMisura || "—"}</td>
@@ -121,7 +123,16 @@ export default function MagazzinoVerniciHome({ vernici }: { vernici: Vernice[] }
                   <td className="px-4 py-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>{v.clienteRiferimento || "—"}</td>
                   <td className="px-4 py-3 tabular-nums">{v.giacenzaAttuale}</td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-2 justify-end">
+                    <div className="flex gap-2 justify-end items-center">
+                      <a
+                        href={`/api/verniciatura/vernici/${v.id}/etichetta`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs underline whitespace-nowrap"
+                        style={{ color: "var(--color-primary)" }}
+                      >
+                        Etichetta
+                      </a>
                       <button
                         onClick={() => setModale({ vernice: v, tipo: "carico" })}
                         className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors whitespace-nowrap border"

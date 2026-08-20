@@ -391,9 +391,9 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
               </button>
               <div className="space-y-2">
                 <p className="text-sm" style={{ color: "#9A3412" }}>Sì, indica su cosa hai lavorato prima:</p>
-                {odpList.some(o => o.isSpeciale) && (
+                {odpList.some(o => o.isSpeciale && !o.commessaNr) && (
                   <div className="flex flex-wrap gap-2">
-                    {odpList.filter(o => o.isSpeciale).map(o => (
+                    {odpList.filter(o => o.isSpeciale && !o.commessaNr).map(o => (
                       <button
                         key={o.odp}
                         type="button"
@@ -407,6 +407,9 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
                     ))}
                   </div>
                 )}
+                <p className="text-xs" style={{ color: "#9A3412", opacity: 0.8 }}>
+                  Per Cablaggio, Ferramenta, Gestione o Semilavorati di una commessa, cercali per numero commessa qui sotto.
+                </p>
                 <OdpSelettore odpList={odpList} value={gapOdp} onChange={setGapOdp} placeholder="Cerca ODP…" />
                 {errore && <p className="text-sm font-medium" style={{ color: "#991B1B" }}>{errore}</p>}
                 <button
@@ -425,9 +428,9 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
               <p className="text-sm font-semibold" style={{ color: "var(--color-black)" }}>
                 {aperto ? "Passa a un altro ODP" : "Su cosa stai lavorando?"}
               </p>
-              {odpList.some(o => o.isSpeciale) && (
+              {odpList.some(o => o.isSpeciale && !o.commessaNr) && (
                 <div className="flex flex-wrap gap-2">
-                  {odpList.filter(o => o.isSpeciale).map(o => (
+                  {odpList.filter(o => o.isSpeciale && !o.commessaNr).map(o => (
                     <button
                       key={o.odp}
                       type="button"
@@ -444,6 +447,9 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
                   ))}
                 </div>
               )}
+              <p className="text-xs" style={{ color: "var(--color-grey-mid)" }}>
+                Per Cablaggio, Ferramenta, Gestione o Semilavorati di una commessa, cercali per numero commessa qui sotto.
+              </p>
               <OdpSelettore odpList={odpList} value={odp} onChange={setOdp} placeholder="Cerca ODP…" />
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <input type="checkbox" checked={rif} onChange={e => setRif(e.target.checked)} className="w-4 h-4 accent-red-600" />

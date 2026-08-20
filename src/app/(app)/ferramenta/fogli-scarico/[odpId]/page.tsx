@@ -64,7 +64,7 @@ export default async function FoglioScaricoDettaglioPage({ params }: { params: P
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
         <h1 className="text-xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
-          Foglio di Scarico — {scheda.numeroScheda || scheda.odp}
+          Richiesta Ferramenta ODP — {scheda.numeroScheda || scheda.odp}
         </h1>
         <p className="text-sm mt-1" style={{ color: "var(--color-grey-mid)" }}>
           {scheda.odp} {scheda.clienteInfo ? `— ${scheda.clienteInfo}` : ""}

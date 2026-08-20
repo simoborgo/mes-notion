@@ -2,7 +2,7 @@ import type { Pool, PoolClient } from "pg";
 import { pool } from "./db";
 import { aggiornaStandardRepartoPerOdp } from "./standardRepartoRepository";
 
-export type OreCategoria = "COMMESSA" | "SETUP" | "MANUTENZIONE" | "RIUNIONE" | "FORMAZIONE" | "PULIZIE";
+export type OreCategoria = "COMMESSA" | "SETUP" | "MANUTENZIONE" | "RIUNIONE" | "FORMAZIONE" | "PULIZIE" | "FERMO_MACCHINA";
 export type OreCausale = "P" | "T" | "M" | "C";
 
 const COSTO_ORARIO = 41;
@@ -55,6 +55,7 @@ export function categoriaFromOdp(odp: string): OreCategoria {
   if (upper.startsWith("MEET")) return "RIUNIONE";
   if (upper.startsWith("FORM")) return "FORMAZIONE";
   if (upper.startsWith("PUL")) return "PULIZIE";
+  if (upper.startsWith("FERMO")) return "FERMO_MACCHINA";
   return "COMMESSA";
 }
 
