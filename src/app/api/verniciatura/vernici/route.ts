@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
 
     const vernice = await createVernice({
       coloreCodice: body.coloreCodice ?? null,
-      coloreNome: body.coloreNome ?? null,
+      descrizioneColore: body.descrizioneColore ?? null,
       fornitore: body.fornitore ?? null,
       codiceTintometro: body.codiceTintometro ?? null,
       codiceVendita: body.codiceVendita ?? null,

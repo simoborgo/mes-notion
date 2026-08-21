@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
       righe: inScope.map(v => ({
         entitaId: v.id,
         codice: v.coloreCodice,
-        descrizione: v.coloreNome ?? v.tipologia,
+        descrizione: v.descrizioneColore ?? v.tipologia,
         giacenzaTeorica: v.giacenzaAttuale,
       })),
     });

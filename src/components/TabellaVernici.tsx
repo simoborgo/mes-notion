@@ -7,12 +7,12 @@ import { Th } from "./SortableTh";
 
 const inputCls = "border rounded px-2 py-1 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300";
 
-type SortKey = "colore" | "tipologia" | "clienteRiferimento" | "fornitore" | "codiceTintometro" | "codiceInventario" | "unitaMisura" | "bilancioMassa" | "attivo";
+type SortKey = "descrizioneColore" | "tipologia" | "clienteRiferimento" | "fornitore" | "codiceTintometro" | "codiceInventario" | "unitaMisura" | "bilancioMassa" | "attivo";
 type SortDir = "asc" | "desc";
 
 function valoreOrdinamento(v: Vernice, key: SortKey): string | boolean {
   switch (key) {
-    case "colore": return v.coloreCodice || v.coloreNome || "";
+    case "descrizioneColore": return v.descrizioneColore || v.coloreCodice || "";
     case "fornitore": return v.fornitore ?? "";
     case "codiceTintometro": return v.codiceTintometro ?? "";
     case "codiceInventario": return v.codiceInventario ?? "";
@@ -40,7 +40,7 @@ export default function TabellaVernici({ vernici: initial }: { vernici: Vernice[
   const [soloAttive, setSoloAttive] = useState(true);
   const [modaleAperta, setModaleAperta] = useState(false);
   const [verniceInModifica, setVerniceInModifica] = useState<Vernice | null>(null);
-  const [sortKey, setSortKey] = useState<SortKey>("colore");
+  const [sortKey, setSortKey] = useState<SortKey>("codiceInventario");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   useEffect(() => {
@@ -63,7 +63,7 @@ export default function TabellaVernici({ vernici: initial }: { vernici: Vernice[
         if (soloAttive && !v.attivo) return false;
         if (clienteFiltro && v.clienteRiferimento !== clienteFiltro) return false;
         if (!q) return true;
-        const testo = `${v.coloreCodice ?? ""} ${v.coloreNome ?? ""} ${v.tipologia} ${v.codiceInventario ?? ""} ${v.codiceTintometro ?? ""} ${v.codiceVendita ?? ""} ${v.clienteRiferimento ?? ""} ${v.fornitore ?? ""}`.toLowerCase();
+        const testo = `${v.coloreCodice ?? ""} ${v.descrizioneColore ?? ""} ${v.tipologia} ${v.codiceInventario ?? ""} ${v.codiceTintometro ?? ""} ${v.codiceVendita ?? ""} ${v.clienteRiferimento ?? ""} ${v.fornitore ?? ""}`.toLowerCase();
         return testo.includes(q);
       })
       .sort((a, b) => cmp(a, b, sortKey, sortDir));
@@ -125,12 +125,12 @@ export default function TabellaVernici({ vernici: initial }: { vernici: Vernice[
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b text-left text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-grey-mid)", background: "#faf9f7" }}>
-              <Th label="Colore" sortKey="colore" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              <Th label="Cod. inventario" sortKey="codiceInventario" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              <Th label="Descrizione Colore" sortKey="descrizioneColore" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Tipologia" sortKey="tipologia" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Cliente" sortKey="clienteRiferimento" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Fornitore" sortKey="fornitore" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Codice tintometro" sortKey="codiceTintometro" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-              <Th label="Cod. inventario" sortKey="codiceInventario" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="U.M." sortKey="unitaMisura" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Bilancio massa" sortKey="bilancioMassa" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <th className="px-4 py-3">TS / SDS</th>
@@ -141,14 +141,15 @@ export default function TabellaVernici({ vernici: initial }: { vernici: Vernice[
           <tbody>
             {filtrate.length === 0 ? (
               <tr>
-                <td colSpan={10} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
+                <td colSpan={11} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
                   Nessuna vernice trovata
                 </td>
               </tr>
             ) : (
               filtrate.map((v) => (
                 <tr key={v.id} className="border-b last:border-0 align-top hover:bg-orange-50/30 cursor-pointer" onClick={() => { setVerniceInModifica(v); setModaleAperta(true); }}>
-                  <td className="px-4 py-3 font-medium">{v.coloreCodice || v.coloreNome || "—"}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{v.codiceInventario || "—"}</td>
+                  <td className="px-4 py-3 font-medium">{v.descrizioneColore || v.coloreCodice || "—"}</td>
                   <td className="px-4 py-3">{v.tipologia}</td>
                   <td className="px-4 py-3">
                     {v.clienteRiferimento
@@ -157,7 +158,6 @@ export default function TabellaVernici({ vernici: initial }: { vernici: Vernice[
                   </td>
                   <td className="px-4 py-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>{v.fornitore || "—"}</td>
                   <td className="px-4 py-3 font-mono text-xs">{v.codiceTintometro || "—"}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{v.codiceInventario || "—"}</td>
                   <td className="px-4 py-3">{v.unitaMisura || "—"}</td>
                   <td className="px-4 py-3">
                     {v.tipoBilancioMassa ? (
@@ -202,8 +202,8 @@ export default function TabellaVernici({ vernici: initial }: { vernici: Vernice[
                   </td>
                   <td className="px-4 py-3">
                     {v.attivo
-                      ? <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#DCFCE7", color: "#166534" }}>Sì</span>
-                      : <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>No</span>}
+                      ? <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#DCFCE7", color: "#166534" }}>In Uso</span>
+                      : <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#FEE2E2", color: "#991B1B" }}>Obsoleta</span>}
                   </td>
                   <td className="px-4 py-3 text-xs underline" style={{ color: "var(--color-primary)" }}>Modifica</td>
                 </tr>

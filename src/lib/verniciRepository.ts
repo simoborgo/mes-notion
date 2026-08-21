@@ -7,7 +7,7 @@ function mapRow(r: any): Vernice {
   return {
     id: r.id,
     coloreCodice: r.colore_codice,
-    coloreNome: r.colore_nome,
+    descrizioneColore: r.descrizione_colore,
     fornitore: r.fornitore,
     codiceTintometro: r.codice_tintometro,
     codiceVendita: r.codice_vendita,
@@ -66,7 +66,7 @@ export async function getVerniceById(id: string): Promise<Vernice> {
 
 export async function createVernice(data: {
   coloreCodice?: string | null;
-  coloreNome?: string | null;
+  descrizioneColore?: string | null;
   fornitore?: string | null;
   codiceTintometro?: string | null;
   codiceVendita?: string | null;
@@ -82,14 +82,14 @@ export async function createVernice(data: {
 }): Promise<Vernice> {
   const { rows } = await pool.query(
     `INSERT INTO vernici
-       (colore_codice, colore_nome, fornitore, codice_tintometro,
+       (colore_codice, descrizione_colore, fornitore, codice_tintometro,
         codice_vendita, codice_inventario, unita_misura, tipologia, finitura, gloss,
         tipo_bilancio_massa, bilancio_massa_raw, cliente_riferimento, created_by, updated_by)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$14)
      RETURNING *`,
     [
       data.coloreCodice ?? null,
-      data.coloreNome ?? null,
+      data.descrizioneColore ?? null,
       data.fornitore ?? null,
       data.codiceTintometro ?? null,
       data.codiceVendita ?? null,
@@ -114,7 +114,7 @@ export async function updateVernice(id: string, data: VerniceUpdate & { updatedB
 
   const campi: [keyof VerniceUpdate, string][] = [
     ["coloreCodice", "colore_codice"],
-    ["coloreNome", "colore_nome"],
+    ["descrizioneColore", "descrizione_colore"],
     ["fornitore", "fornitore"],
     ["codiceTintometro", "codice_tintometro"],
     ["codiceVendita", "codice_vendita"],

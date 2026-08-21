@@ -5,7 +5,7 @@ import type { Vernice } from "@/lib/types";
 import MagazzinoVerniceCaricoScaricoModal from "./MagazzinoVerniceCaricoScaricoModal";
 
 type SortKey =
-  | "codiceInventario" | "coloreCodice" | "tipologia" | "tipoBilancioMassa" | "unitaMisura"
+  | "codiceInventario" | "descrizioneColore" | "tipologia" | "fornitore" | "tipoBilancioMassa" | "unitaMisura"
   | "codiceTintometro" | "finitura" | "gloss"
   | "clienteRiferimento" | "giacenzaAttuale";
 type SortDir = "asc" | "desc";
@@ -67,7 +67,7 @@ export default function MagazzinoVerniciHome({ vernici }: { vernici: Vernice[] }
     const q = search.toLowerCase().trim();
     const base = q
       ? vernici.filter(v =>
-          `${v.coloreNome ?? ""} ${v.coloreCodice ?? ""} ${v.tipologia} ${v.fornitore ?? ""} ${v.codiceInventario ?? ""} ${v.codiceTintometro ?? ""}`
+          `${v.descrizioneColore ?? ""} ${v.coloreCodice ?? ""} ${v.tipologia} ${v.fornitore ?? ""} ${v.codiceInventario ?? ""} ${v.codiceTintometro ?? ""}`
             .toLowerCase().includes(q)
         )
       : vernici;
@@ -90,8 +90,9 @@ export default function MagazzinoVerniciHome({ vernici }: { vernici: Vernice[] }
           <thead>
             <tr className="border-b text-left text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-grey-mid)", background: "#faf9f7" }}>
               <Th label="Codice Inventario" sortKey="codiceInventario" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-              <Th label="Cod. Colore" sortKey="coloreCodice" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="min-w-[140px]" />
+              <Th label="Descrizione Colore" sortKey="descrizioneColore" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="min-w-[140px]" />
               <Th label="Tipologia" sortKey="tipologia" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              <Th label="Fornitore" sortKey="fornitore" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Bilancio Massa" sortKey="tipoBilancioMassa" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Unità Misura" sortKey="unitaMisura" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Codice Tintometro" sortKey="codiceTintometro" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
@@ -105,7 +106,7 @@ export default function MagazzinoVerniciHome({ vernici }: { vernici: Vernice[] }
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={11} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
+                <td colSpan={12} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
                   Nessuna vernice trovata
                 </td>
               </tr>
@@ -113,8 +114,9 @@ export default function MagazzinoVerniciHome({ vernici }: { vernici: Vernice[] }
               filtered.map(v => (
                 <tr key={v.id} className="border-b last:border-0">
                   <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">{v.codiceInventario || "—"}</td>
-                  <td className="px-4 py-3 font-medium font-mono">{v.coloreCodice || "—"}</td>
+                  <td className="px-4 py-3 font-medium">{v.descrizioneColore || "—"}</td>
                   <td className="px-4 py-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>{v.tipologia}</td>
+                  <td className="px-4 py-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>{v.fornitore || "—"}</td>
                   <td className="px-4 py-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>{v.tipoBilancioMassa || "—"}</td>
                   <td className="px-4 py-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>{v.unitaMisura || "—"}</td>
                   <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">{v.codiceTintometro || "—"}</td>

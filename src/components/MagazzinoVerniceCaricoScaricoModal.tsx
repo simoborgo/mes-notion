@@ -42,7 +42,7 @@ export default function MagazzinoVerniceCaricoScaricoModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.4)" }}>
       <div className="w-full max-w-sm rounded-2xl bg-white p-5 space-y-4 shadow-xl">
         <div>
-          <h2 className="text-lg font-semibold" style={{ fontFamily: "var(--font-display)" }}>{titolo} — {vernice.coloreNome ?? vernice.coloreCodice ?? vernice.tipologia}</h2>
+          <h2 className="text-lg font-semibold" style={{ fontFamily: "var(--font-display)" }}>{titolo} — {vernice.descrizioneColore ?? vernice.coloreCodice ?? vernice.tipologia}</h2>
           <p className="text-xs mt-1" style={{ color: "var(--color-grey-mid)" }}>
             Giacenza attuale: {vernice.giacenzaAttuale} {vernice.unitaMisura ?? ""}
           </p>

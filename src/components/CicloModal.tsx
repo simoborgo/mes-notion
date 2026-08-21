@@ -343,7 +343,7 @@ export default function CicloModal({ cicloId, onClose, onSaved }: Props) {
                         return (
                           <div key={p.id} className="flex items-center gap-2 text-sm">
                             <RuoloInFaseBadge ruolo={p.ruoloInFase} />
-                            <span className="flex-1">{v ? (v.coloreCodice || v.coloreNome || v.tipologia) : p.verniceId}</span>
+                            <span className="flex-1">{v ? (v.coloreCodice || v.descrizioneColore || v.tipologia) : p.verniceId}</span>
                             {p.quantita != null && <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>{p.quantita} {p.unita}</span>}
                             {bozza && (
                               <button onClick={() => rimuoviProdottoRemoto(f.id, p.id)} disabled={azioneInCorso === `rm-prodotto-${p.id}`} className="text-gray-400 hover:text-gray-600 text-lg leading-none px-1">×</button>

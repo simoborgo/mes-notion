@@ -29,7 +29,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const vernice = await updateVernice(id, {
       coloreCodice: body.coloreCodice,
-      coloreNome: body.coloreNome,
+      descrizioneColore: body.descrizioneColore,
       fornitore: body.fornitore,
       codiceTintometro: body.codiceTintometro,
       codiceVendita: body.codiceVendita,

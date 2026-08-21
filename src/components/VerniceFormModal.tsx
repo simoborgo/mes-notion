@@ -19,7 +19,7 @@ interface Props {
 export default function VerniceFormModal({ vernice, onClose, onSalvato }: Props) {
   const isEdit = !!vernice;
   const [coloreCodice, setColoreCodice] = useState(vernice?.coloreCodice ?? "");
-  const [coloreNome, setColoreNome] = useState(vernice?.coloreNome ?? "");
+  const [descrizioneColore, setDescrizioneColore] = useState(vernice?.descrizioneColore ?? "");
   const [fornitore, setFornitore] = useState(vernice?.fornitore ?? "");
   const [codiceTintometro, setCodiceTintometro] = useState(vernice?.codiceTintometro ?? "");
   const [codiceVendita, setCodiceVendita] = useState(vernice?.codiceVendita ?? "");
@@ -57,7 +57,7 @@ export default function VerniceFormModal({ vernice, onClose, onSalvato }: Props)
     try {
       const payload = {
         coloreCodice: coloreCodice.trim() || null,
-        coloreNome: coloreNome.trim() || null,
+        descrizioneColore: descrizioneColore.trim() || null,
         fornitore: fornitore.trim() || null,
         codiceTintometro: codiceTintometro.trim() || null,
         codiceVendita: codiceVendita.trim() || null,
@@ -120,8 +120,8 @@ export default function VerniceFormModal({ vernice, onClose, onSalvato }: Props)
               <input type="text" className={inputCls} value={coloreCodice} onChange={(e) => setColoreCodice(e.target.value)} placeholder="es. RAL 7016, NCS S1002-Y50R…" />
             </div>
             <div>
-              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Colore nome</label>
-              <input type="text" className={inputCls} value={coloreNome} onChange={(e) => setColoreNome(e.target.value)} />
+              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Descrizione colore</label>
+              <input type="text" className={inputCls} value={descrizioneColore} onChange={(e) => setDescrizioneColore(e.target.value)} />
             </div>
           </div>
 
@@ -211,10 +211,18 @@ export default function VerniceFormModal({ vernice, onClose, onSalvato }: Props)
           </div>
 
           {isEdit && (
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={attivo} onChange={(e) => setAttivo(e.target.checked)} className="w-4 h-4 accent-orange-500" />
-              Attiva
-            </label>
+            <div>
+              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Stato</label>
+              <select
+                className={inputCls}
+                style={{ color: attivo ? "#166534" : "#991B1B", fontWeight: 600 }}
+                value={attivo ? "attiva" : "obsoleta"}
+                onChange={(e) => setAttivo(e.target.value === "attiva")}
+              >
+                <option value="attiva">Attiva (In Uso)</option>
+                <option value="obsoleta">Obsoleta</option>
+              </select>
+            </div>
           )}
 
           {isEdit && (

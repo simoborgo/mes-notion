@@ -340,7 +340,7 @@ export const TIPOLOGIE_VERNICIATURA: string[] = [
 export interface Vernice {
   id: string;
   coloreCodice: string | null;
-  coloreNome: string | null;
+  descrizioneColore: string | null;
   // Testo libero: in futuro collegato alla vera tabella Fornitori condivisa (non ancora
   // esistente) — nel frattempo niente registro dedicato, solo un campo informativo.
   fornitore: string | null;
@@ -369,7 +369,7 @@ export interface Vernice {
 
 export interface VerniceUpdate {
   coloreCodice?: string | null;
-  coloreNome?: string | null;
+  descrizioneColore?: string | null;
   fornitore?: string | null;
   codiceTintometro?: string | null;
   codiceVendita?: string | null;

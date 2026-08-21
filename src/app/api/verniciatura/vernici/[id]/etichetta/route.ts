@@ -37,15 +37,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Jost',sans-serif;background:#fff}
 .label{width:76mm;height:51mm;padding:3mm;display:flex;flex-direction:column}
-.top{display:flex;align-items:center;gap:3mm;margin-bottom:2mm}
+.top{display:flex;align-items:center;gap:3mm;margin-bottom:1.5mm}
 .qrbox{line-height:0;flex-shrink:0}
-.qrbox svg{display:block;width:22mm;height:22mm}
+.qrbox svg{display:block;width:20mm;height:20mm}
 .top-info{flex:1;min-width:0}
 .header{font-size:10.5px;font-weight:800;color:#1A1918;letter-spacing:.03em;text-transform:uppercase;margin-bottom:1.2mm}
 .cod-modar-label{font-size:7.5px;font-weight:700;color:#6b6966;letter-spacing:.02em}
 .cod-modar{font-size:15px;font-weight:800;color:#1A1918;line-height:1.15;margin-top:0.3mm}
-.rows{border-top:0.35mm solid #ece9e4;padding-top:1.8mm;display:flex;flex-direction:column;gap:1.6mm}
-.row{font-size:9px;color:#1A1918;line-height:1.25}
+.rows{border-top:0.35mm solid #ece9e4;padding-top:1.2mm;display:flex;flex-direction:column;gap:1mm}
+.row{font-size:8px;color:#1A1918;line-height:1.2}
 .row b{font-weight:700}
 @media print{@page{size:76mm 51mm;margin:0}}
 </style>
@@ -61,6 +61,7 @@ body{font-family:'Jost',sans-serif;background:#fff}
     </div>
   </div>
   <div class="rows">
+    <div class="row"><b>DESCRIZIONE:</b> ${esc(vernice.descrizioneColore || "—")}</div>
     <div class="row"><b>COD. COLORE:</b> ${esc(vernice.coloreCodice || "—")}</div>
     <div class="row"><b>COD. TINTOMETRO:</b> ${esc(vernice.codiceTintometro || "—")} - Fornitore: ${esc(vernice.fornitore || "—")}</div>
     <div class="row"><b>TIPO:</b> ${esc(vernice.tipologia || "—")}</div>

@@ -69,7 +69,7 @@ export default function InventarioConteggioVerniceCard({
     void eseguiConta(q);
   }
 
-  const titolo = vernice.coloreNome || vernice.coloreCodice || vernice.tipologia;
+  const titolo = vernice.descrizioneColore || vernice.coloreCodice || vernice.tipologia;
 
   if (stato === "done") {
     return (

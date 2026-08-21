@@ -154,7 +154,7 @@ async function main() {
       // medio tempore da UI.
       const { rows: risultato } = await client.query(
         `INSERT INTO vernici
-           (colore_codice, colore_nome, codice_tintometro, codice_inventario,
+           (colore_codice, descrizione_colore, codice_tintometro, codice_inventario,
             unita_misura, tipologia, tipo_bilancio_massa, bilancio_massa_raw, gloss, cliente_riferimento)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
          ON CONFLICT (codice_inventario) WHERE codice_inventario IS NOT NULL

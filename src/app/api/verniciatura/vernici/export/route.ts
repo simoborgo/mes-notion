@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     const header = toCsvRow(
       [
         "Codice Inventario",
-        "Nome Colore",
+        "Descrizione Colore",
         "Codice Colore",
         "Tipologia",
         "Bilancio Massa",
@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
       toCsvRow(
         [
           v.codiceInventario ?? "",
-          v.coloreNome ?? "",
+          v.descrizioneColore ?? "",
           v.coloreCodice ?? "",
           v.tipologia,
           v.tipoBilancioMassa ?? "",
