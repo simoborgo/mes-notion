@@ -170,8 +170,34 @@ export default function TabellaVernici({ vernici: initial }: { vernici: Vernice[
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1">
-                      <span className="text-xs px-1.5 py-0.5 rounded font-medium" style={v.tsDriveFileId ? { background: "#D1FAE5", color: "#065F46" } : { background: "#FEE2E2", color: "#991B1B" }}>TS</span>
-                      <span className="text-xs px-1.5 py-0.5 rounded font-medium" style={v.sdsDriveFileId ? { background: "#D1FAE5", color: "#065F46" } : { background: "#FEE2E2", color: "#991B1B" }}>SDS</span>
+                      {v.tsDriveFileId ? (
+                        <a
+                          href={`/api/drive-file/${v.tsDriveFileId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-xs px-1.5 py-0.5 rounded font-medium hover:underline"
+                          style={{ background: "#D1FAE5", color: "#065F46" }}
+                        >
+                          TS
+                        </a>
+                      ) : (
+                        <span className="text-xs px-1.5 py-0.5 rounded font-medium" style={{ background: "#FEE2E2", color: "#991B1B" }}>TS</span>
+                      )}
+                      {v.sdsDriveFileId ? (
+                        <a
+                          href={`/api/drive-file/${v.sdsDriveFileId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-xs px-1.5 py-0.5 rounded font-medium hover:underline"
+                          style={{ background: "#D1FAE5", color: "#065F46" }}
+                        >
+                          SDS
+                        </a>
+                      ) : (
+                        <span className="text-xs px-1.5 py-0.5 rounded font-medium" style={{ background: "#FEE2E2", color: "#991B1B" }}>SDS</span>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3">

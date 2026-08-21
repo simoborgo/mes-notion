@@ -41,8 +41,8 @@ export default function VerniceFormModal({ vernice, onClose, onSalvato }: Props)
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const [tsState, setTsState] = useState<{ uploading: boolean; error: string; presente: boolean }>({ uploading: false, error: "", presente: !!vernice?.tsDriveFileId });
-  const [sdsState, setSdsState] = useState<{ uploading: boolean; error: string; presente: boolean }>({ uploading: false, error: "", presente: !!vernice?.sdsDriveFileId });
+  const [tsState, setTsState] = useState<{ uploading: boolean; error: string; driveFileId: string | null }>({ uploading: false, error: "", driveFileId: vernice?.tsDriveFileId ?? null });
+  const [sdsState, setSdsState] = useState<{ uploading: boolean; error: string; driveFileId: string | null }>({ uploading: false, error: "", driveFileId: vernice?.sdsDriveFileId ?? null });
   const tsInputRef = useRef<HTMLInputElement>(null);
   const sdsInputRef = useRef<HTMLInputElement>(null);
 
@@ -95,7 +95,7 @@ export default function VerniceFormModal({ vernice, onClose, onSalvato }: Props)
       const res = await fetch(`/api/verniciatura/vernici/${vernice!.id}/documenti/${tipo}`, { method: "POST", body: form });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error ?? `Errore ${res.status}`);
-      setState({ uploading: false, error: "", presente: true });
+      setState({ uploading: false, error: "", driveFileId: data.driveFileId ?? null });
     } catch (err) {
       setState((s) => ({ ...s, uploading: false, error: err instanceof Error ? err.message : "Errore upload" }));
     }
@@ -221,22 +221,30 @@ export default function VerniceFormModal({ vernice, onClose, onSalvato }: Props)
             <div className="border-t pt-4 space-y-3" style={{ borderColor: "#E4E0DA" }}>
               <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-grey-mid)" }}>Documentazione (Drive)</p>
               <div className="flex items-center gap-3">
-                <span className="text-xs px-1.5 py-0.5 rounded font-medium" style={tsState.presente ? { background: "#D1FAE5", color: "#065F46" } : { background: "#FEE2E2", color: "#991B1B" }}>
-                  {tsState.presente ? "TS presente" : "TS mancante"}
-                </span>
+                {tsState.driveFileId ? (
+                  <a href={`/api/drive-file/${tsState.driveFileId}`} target="_blank" rel="noopener noreferrer" className="text-xs px-1.5 py-0.5 rounded font-medium hover:underline" style={{ background: "#D1FAE5", color: "#065F46" }}>
+                    TS presente — apri
+                  </a>
+                ) : (
+                  <span className="text-xs px-1.5 py-0.5 rounded font-medium" style={{ background: "#FEE2E2", color: "#991B1B" }}>TS mancante</span>
+                )}
                 <input ref={tsInputRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadDocumento("ts", f); }} />
                 <button type="button" onClick={() => tsInputRef.current?.click()} disabled={tsState.uploading} className="text-xs underline disabled:opacity-50" style={{ color: "var(--color-primary)" }}>
-                  {tsState.uploading ? "Carico…" : "Carica scheda tecnica"}
+                  {tsState.uploading ? "Carico…" : tsState.driveFileId ? "Sostituisci" : "Carica scheda tecnica"}
                 </button>
                 {tsState.error && <span className="text-xs" style={{ color: "#991B1B" }}>{tsState.error}</span>}
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-xs px-1.5 py-0.5 rounded font-medium" style={sdsState.presente ? { background: "#D1FAE5", color: "#065F46" } : { background: "#FEE2E2", color: "#991B1B" }}>
-                  {sdsState.presente ? "SDS presente" : "SDS mancante"}
-                </span>
+                {sdsState.driveFileId ? (
+                  <a href={`/api/drive-file/${sdsState.driveFileId}`} target="_blank" rel="noopener noreferrer" className="text-xs px-1.5 py-0.5 rounded font-medium hover:underline" style={{ background: "#D1FAE5", color: "#065F46" }}>
+                    SDS presente — apri
+                  </a>
+                ) : (
+                  <span className="text-xs px-1.5 py-0.5 rounded font-medium" style={{ background: "#FEE2E2", color: "#991B1B" }}>SDS mancante</span>
+                )}
                 <input ref={sdsInputRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadDocumento("sds", f); }} />
                 <button type="button" onClick={() => sdsInputRef.current?.click()} disabled={sdsState.uploading} className="text-xs underline disabled:opacity-50" style={{ color: "var(--color-primary)" }}>
-                  {sdsState.uploading ? "Carico…" : "Carica scheda sicurezza"}
+                  {sdsState.uploading ? "Carico…" : sdsState.driveFileId ? "Sostituisci" : "Carica scheda sicurezza"}
                 </button>
                 {sdsState.error && <span className="text-xs" style={{ color: "#991B1B" }}>{sdsState.error}</span>}
               </div>
