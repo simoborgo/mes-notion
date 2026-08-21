@@ -235,7 +235,7 @@ export default function CicloModal({ cicloId, onClose, onSaved }: Props) {
         <div className="px-6 py-4 border-b flex items-start justify-between sticky top-0 bg-white z-10" style={{ background: "linear-gradient(135deg, rgba(124,58,237,0.06), rgba(219,39,119,0.06))" }}>
           <div>
             <h2 className="font-semibold text-base flex items-center gap-2">
-              {cicloId ? "Scheda di verniciatura" : "Nuova scheda di verniciatura"}
+              {cicloId ? "Scheda Ciclo (o Scheda di Verniciatura)" : "Nuova Scheda Ciclo (o Scheda di Verniciatura)"}
               {ciclo && <BadgeStato stato={ciclo.stato === "bozza" ? "Bozza" : "Validato"} />}
             </h2>
             <p className="text-xs mt-0.5" style={{ color: "var(--color-grey-mid)" }}>
@@ -343,7 +343,18 @@ export default function CicloModal({ cicloId, onClose, onSaved }: Props) {
                         return (
                           <div key={p.id} className="flex items-center gap-2 text-sm">
                             <RuoloInFaseBadge ruolo={p.ruoloInFase} />
-                            <span className="flex-1">{v ? (v.coloreCodice || v.descrizioneColore || v.tipologia) : p.verniceId}</span>
+                            <span className="flex-1">
+                              {v ? (
+                                <>
+                                  {v.descrizioneColore || v.coloreCodice || v.tipologia}
+                                  {(v.codiceInventario || v.codiceTintometro) && (
+                                    <span className="text-xs ml-1.5" style={{ color: "var(--color-grey-mid)" }}>
+                                      {[v.codiceInventario && `Cod. Inv. ${v.codiceInventario}`, v.codiceTintometro && `Tintometro ${v.codiceTintometro}`].filter(Boolean).join(" · ")}
+                                    </span>
+                                  )}
+                                </>
+                              ) : p.verniceId}
+                            </span>
                             {p.quantita != null && <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>{p.quantita} {p.unita}</span>}
                             {bozza && (
                               <button onClick={() => rimuoviProdottoRemoto(f.id, p.id)} disabled={azioneInCorso === `rm-prodotto-${p.id}`} className="text-gray-400 hover:text-gray-600 text-lg leading-none px-1">×</button>

@@ -7,9 +7,10 @@ import InventarioConteggioVerniceCard from "@/components/InventarioConteggioVern
 
 export const dynamic = "force-dynamic";
 
-// Target del QR stampato sull'etichetta vernice (vedi /api/verniciatura/vernici/[id]/etichetta) —
-// stesso branching di src/app/(app)/ferramenta/scarico/[id]/page.tsx: se c'è un inventario
-// Vernici aperto che include questa vernice, mostra il conteggio invece di carico/scarico normale.
+// Target del QR stampato su entrambe le etichette Vernici (Scaffale ed Vernice, vedi
+// /api/verniciatura/vernici/[id]/etichetta-scaffale e .../etichetta-vernice) — stesso branching
+// di src/app/(app)/ferramenta/scarico/[id]/page.tsx: se c'è un inventario Vernici aperto che
+// include questa vernice, mostra il conteggio invece di carico/scarico normale.
 export default async function ScanVernicePage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
   if (!session) redirect("/login");

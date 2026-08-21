@@ -72,6 +72,11 @@ export default function CampionaturaDetailModal({
           <div>
             <h2 className="font-semibold text-base font-mono">{campionatura.codicePubblico}</h2>
             <p className="text-xs mt-0.5" style={{ color: "var(--color-grey-mid)" }}>{campionatura.cliente} · {new Date(campionatura.dataCampionatura).toLocaleDateString("it-IT")}</p>
+            {campionatura.codiceCampioneMaterialista && (
+              <p className="text-sm mt-0.5" style={{ color: "var(--color-grey-mid)" }}>
+                Cod. Material List: <span className="text-base font-bold" style={{ color: "var(--color-black)" }}>{campionatura.codiceCampioneMaterialista}</span>
+              </p>
+            )}
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
         </div>
@@ -128,9 +133,6 @@ export default function CampionaturaDetailModal({
             </button>
           </div>
 
-          {campionatura.codiceCampioneMaterialista && (
-            <p className="text-xs" style={{ color: "var(--color-grey-mid)" }}>Cod. Material List: {campionatura.codiceCampioneMaterialista}</p>
-          )}
           {campionatura.note && <p className="text-sm">{campionatura.note}</p>}
 
           {error && <p className="text-sm text-red-600">{error}</p>}

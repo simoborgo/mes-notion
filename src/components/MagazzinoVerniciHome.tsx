@@ -67,7 +67,7 @@ export default function MagazzinoVerniciHome({ vernici }: { vernici: Vernice[] }
     const q = search.toLowerCase().trim();
     const base = q
       ? vernici.filter(v =>
-          `${v.descrizioneColore ?? ""} ${v.coloreCodice ?? ""} ${v.tipologia} ${v.fornitore ?? ""} ${v.codiceInventario ?? ""} ${v.codiceTintometro ?? ""}`
+          `${v.descrizioneColore ?? ""} ${v.coloreCodice ?? ""} ${v.tipologia} ${v.fornitore ?? ""} ${v.codiceInventario ?? ""} ${v.codiceTintometro ?? ""} ${v.clienteRiferimento ?? ""}`
             .toLowerCase().includes(q)
         )
       : vernici;
@@ -79,7 +79,7 @@ export default function MagazzinoVerniciHome({ vernici }: { vernici: Vernice[] }
       <div className="flex items-center gap-3 flex-wrap">
         <input
           className="border rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300 min-w-52"
-          placeholder="Cerca colore, tipologia, fornitore, codici…"
+          placeholder="Cerca colore, tipologia, fornitore, cliente, codici…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -98,7 +98,7 @@ export default function MagazzinoVerniciHome({ vernici }: { vernici: Vernice[] }
               <Th label="Codice Tintometro" sortKey="codiceTintometro" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Finitura" sortKey="finitura" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Gloss" sortKey="gloss" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-              <Th label="Cliente Riferimento" sortKey="clienteRiferimento" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              <Th label="Cliente" sortKey="clienteRiferimento" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Giacenza" sortKey="giacenzaAttuale" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <th className="px-4 py-3"></th>
             </tr>
@@ -127,13 +127,22 @@ export default function MagazzinoVerniciHome({ vernici }: { vernici: Vernice[] }
                   <td className="px-4 py-3">
                     <div className="flex gap-2 justify-end items-center">
                       <a
-                        href={`/api/verniciatura/vernici/${v.id}/etichetta`}
+                        href={`/api/verniciatura/vernici/${v.id}/etichetta-scaffale`}
                         target="_blank"
                         rel="noreferrer"
                         className="text-xs underline whitespace-nowrap"
                         style={{ color: "var(--color-primary)" }}
                       >
-                        Etichetta
+                        Etich. Scaffale
+                      </a>
+                      <a
+                        href={`/api/verniciatura/vernici/${v.id}/etichetta-vernice`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs underline whitespace-nowrap"
+                        style={{ color: "var(--color-primary)" }}
+                      >
+                        Etich. Vernice
                       </a>
                       <button
                         onClick={() => setModale({ vernice: v, tipo: "carico" })}

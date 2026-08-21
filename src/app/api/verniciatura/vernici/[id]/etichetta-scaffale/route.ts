@@ -9,10 +9,12 @@ function esc(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-// Stesso motore (Puppeteer + QR) dell'etichetta Ferramenta (src/app/api/ferramenta/articoli/[id]/etichetta),
-// ma formato più grande (76x51mm invece di 76x25mm, richiesto esplicitamente dall'utente) — il QR
-// punta alla pagina di scan Vernici, che sceglie da sola cosa mostrare (carico/scarico normale o
-// conteggio, se c'è un inventario aperto che include questa vernice).
+// "Etichetta Scaffale" — formato grande 76x51mm, pensata per lo scaffale/ripiano di magazzino
+// (più dati, testo più leggibile a distanza). Sorella piccola: "Etichetta Vernice" (76x25mm,
+// src/app/api/verniciatura/vernici/[id]/etichetta-vernice), da attaccare sul contenitore stesso.
+// Stesso motore (Puppeteer + QR) dell'etichetta Ferramenta (src/app/api/ferramenta/articoli/[id]/etichetta) —
+// il QR punta alla pagina di scan Vernici, che sceglie da sola cosa mostrare (carico/scarico
+// normale o conteggio, se c'è un inventario aperto che include questa vernice).
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getSessionFromRequest(req);
@@ -88,7 +90,7 @@ body{font-family:'Jost',sans-serif;background:#fff}
       return new NextResponse(Buffer.from(pdfBuffer), {
         headers: {
           "Content-Type": "application/pdf",
-          "Content-Disposition": `inline; filename="etichetta-vernice-${(vernice.codiceInventario || id).replace(/\//g, "-")}.pdf"`,
+          "Content-Disposition": `inline; filename="etichetta-scaffale-${(vernice.codiceInventario || id).replace(/\//g, "-")}.pdf"`,
           "Cache-Control": "no-store",
         },
       });
@@ -96,7 +98,7 @@ body{font-family:'Jost',sans-serif;background:#fff}
       await browser.close();
     }
   } catch (e) {
-    console.error("[verniciatura/vernici/etichetta]", e);
+    console.error("[verniciatura/vernici/etichetta-scaffale]", e);
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }
