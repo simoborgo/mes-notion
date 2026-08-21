@@ -3,6 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect, ReactNode } from "react";
+import {
+  type Role,
+  ALL_ROLES,
+  CARICO_ROLES,
+  SPEDIZIONI_ROLES,
+  RILEVAMENTO_ORE_ROLES,
+  KIT_COMMESSA_CREA_ROLES,
+  SCARICO_MATERIALE_ROLES,
+  VERNICIATURA_ROLES,
+  MAGAZZINO_VERNICI_ROLES,
+} from "@/lib/roles";
 
 function NavTab({
   href,
@@ -123,16 +134,6 @@ const GUIDA_ICON = (
   </svg>
 );
 
-const ALL_ROLES = ["admin", "operatore", "logistica", "spedizioni", "produzione", "responsabile_produzione", "magazziniere", "magazziniere_vernici", "ufficio_tecnico"];
-const CARICO_ROLES = ["admin", "produzione"];
-const SPEDIZIONI_ROLES = ["admin", "spedizioni"];
-const RILEVAMENTO_ORE_ROLES = ["admin", "responsabile_produzione"];
-const FERRAMENTA_ROLES = ["admin", "magazziniere", "produzione"];
-const KIT_COMMESSA_CREA_ROLES = [...FERRAMENTA_ROLES, "ufficio_tecnico"];
-const SCARICO_MATERIALE_ROLES = ["admin", "logistica"];
-const VERNICIATURA_ROLES = ["admin", "produzione"];
-const MAGAZZINO_VERNICI_ROLES = ["admin", "magazziniere_vernici", "produzione"];
-
 const links = [
   {
     href: "/commesse",
@@ -238,7 +239,7 @@ const links = [
 
 interface NavbarProps {
   userName?: string;
-  userRole?: string;
+  userRole?: Role;
 }
 
 export default function Navbar({ userName, userRole }: NavbarProps) {

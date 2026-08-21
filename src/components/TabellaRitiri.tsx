@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import type { Ritiro, Scheda, Commessa } from "@/lib/types";
+import { WRITE_ROLES, RITIRI_CREATE_ROLES, type Role } from "@/lib/roles";
 import BadgeStato from "./BadgeStato";
 import FormModificaRitiro from "./FormModificaRitiro";
 import FormNuovoRitiro from "./FormNuovoRitiro";
@@ -129,14 +130,13 @@ export default function TabellaRitiri({
   schede?: Scheda[];
   fornitori?: { id: string; nome: string }[];
   commesse?: Commessa[];
-  userRole?: string;
+  userRole?: Role;
 }) {
   const canWrite = userRole === "admin" || userRole === "operatore" || userRole === "logistica";
-  const canDelete = userRole === "admin" || userRole === "logistica";
-  // Creazione di un nuovo Ritiro/Consegna — RITIRI_CREATE_ROLES (src/lib/auth.ts), NON canWrite:
-  // operatore può correggere/aggiornare un Ritiro esistente ma non crearne uno nuovo (deciso con
-  // l'utente 2026-08-13).
-  const canCreate = userRole === "admin" || userRole === "logistica" || userRole === "produzione";
+  const canDelete = !!userRole && WRITE_ROLES.includes(userRole);
+  // Creazione di un nuovo Ritiro/Consegna — RITIRI_CREATE_ROLES, NON canWrite: operatore può
+  // correggere/aggiornare un Ritiro esistente ma non crearne uno nuovo (deciso con l'utente 2026-08-13).
+  const canCreate = !!userRole && RITIRI_CREATE_ROLES.includes(userRole);
   const [ritiri, setRitiri] = useState(initial);
   const [search, setSearch] = useState("");
   const [filtroStato, setFiltroStato] = useState("");

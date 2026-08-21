@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef, useEffect, useTransition, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import type { Scheda, Commessa } from "@/lib/types";
+import type { Role } from "@/lib/roles";
 import BadgeStato from "./BadgeStato";
 import DettaglioSchedaModal from "./DettaglioSchedaModal";
 import FormNuovaScheda from "./FormNuovaScheda";
@@ -183,7 +184,7 @@ function RitardoBtn({ label, count, active, onToggle }: { label: string; count: 
   );
 }
 
-export default function TabellaSchede({ schede: initial, sottoschede = [], commesse = [], revalidate, userRole }: { schede: Scheda[]; sottoschede?: Scheda[]; commesse?: Commessa[]; revalidate?: () => Promise<void>; userRole?: string }) {
+export default function TabellaSchede({ schede: initial, sottoschede = [], commesse = [], revalidate, userRole }: { schede: Scheda[]; sottoschede?: Scheda[]; commesse?: Commessa[]; revalidate?: () => Promise<void>; userRole?: Role }) {
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const router = useRouter();
   const [pending, startTransition] = useTransition();

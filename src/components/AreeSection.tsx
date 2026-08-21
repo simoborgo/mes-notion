@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Area, Scheda } from "@/lib/types";
+import { COMMESSE_ROLES, type Role } from "@/lib/roles";
 import BadgeStato from "./BadgeStato";
 import FormArea from "./FormArea";
 
@@ -12,13 +13,12 @@ export default function AreeSection({
   commessaId: string;
   areeIniziali: Area[];
   schede: Scheda[];
-  userRole?: string;
+  userRole?: Role;
 }) {
   const router = useRouter();
   const [aree, setAree] = useState(areeIniziali);
   const [formAperto, setFormAperto] = useState<"nuova" | Area | null>(null);
-  // COMMESSE_ROLES (src/lib/auth.ts) — tenuto in sync a mano, stesso pattern di TabellaCommesse.
-  const canWrite = userRole === "admin" || userRole === "produzione";
+  const canWrite = !!userRole && COMMESSE_ROLES.includes(userRole);
 
   function handleSaved(aggiornata: Area) {
     setAree(prev => {

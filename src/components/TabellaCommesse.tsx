@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import type { Commessa, Scheda } from "@/lib/types";
+import { COMMESSE_ROLES, type Role } from "@/lib/roles";
 import BadgeStato from "./BadgeStato";
 import DettaglioCommessaModal from "./DettaglioCommessaModal";
 import FormCommessa from "./FormCommessa";
@@ -33,11 +34,9 @@ function MiniBar({ pct }: { pct: number }) {
   );
 }
 
-export default function TabellaCommesse({ commesse: commesseIniziali, schede = [], userRole }: { commesse: Commessa[]; schede?: Scheda[]; userRole?: string }) {
+export default function TabellaCommesse({ commesse: commesseIniziali, schede = [], userRole }: { commesse: Commessa[]; schede?: Scheda[]; userRole?: Role }) {
   const router = useRouter();
-  // COMMESSE_ROLES (src/lib/auth.ts) — tenuto in sync a mano qui, stesso pattern già in uso
-  // altrove per i controlli di sola visibilità lato client.
-  const canWrite = userRole === "admin" || userRole === "produzione";
+  const canWrite = !!userRole && COMMESSE_ROLES.includes(userRole);
   const [commesse, setCommesse] = useState(commesseIniziali);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [formAperto, setFormAperto] = useState<"nuova" | Commessa | null>(null);

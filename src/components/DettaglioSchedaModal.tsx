@@ -2,15 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Scheda } from "@/lib/types";
+import { FERRAMENTA_ROLES, type Role } from "@/lib/roles";
 import BadgeStato from "./BadgeStato";
 import PdfAnnotatoreModal, { type AnnotazioneData } from "./PdfAnnotatoreModal";
 import FormModificaScheda from "./FormModificaScheda";
 import FormNuovaSottoscheda from "./FormNuovaSottoscheda";
 import KitFerramentaTab from "./KitFerramentaTab";
-
-// Duplicato locale di FERRAMENTA_ROLES: auth.ts importa next/headers (server-only), non
-// bundlabile in un componente "use client" — stesso pattern già usato in Navbar.tsx.
-const FERRAMENTA_ROLES = ["admin", "magazziniere", "produzione"];
 
 interface Props {
   scheda: Scheda;
@@ -18,7 +15,7 @@ interface Props {
   onClose: () => void;
   onRilavorazioneCreata?: () => void;
   onViewScheda?: (s: Scheda) => void;
-  userRole?: string;
+  userRole?: Role;
   onSchedaAggiornata?: (updated: Scheda) => void;
 }
 
@@ -658,7 +655,7 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
                       )}
                       <BadgeStato stato={f.statoProduzione} />
                       {f.pdfAllegato.length > 0 && (
-                        <a href={`/api/files/${f.id}?prop=${encodeURIComponent("PDF Allegato")}&index=0`}
+                        <a href={f.pdfAllegato[0].url}
                           target="_blank" rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 text-[13.2px] font-medium hover:underline"
                           style={{ color: "#DC2626" }}>
