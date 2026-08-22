@@ -1,33 +1,36 @@
 import { notFound, redirect } from "next/navigation";
 import { getSession, MAGAZZINO_VERNICI_ROLES } from "@/lib/auth";
-import { getVerniceById } from "@/lib/verniciRepository";
+import { getVerniceByCodiceInventario } from "@/lib/verniciRepository";
 import { getInventarioAperto, getRigaInventario } from "@/lib/inventarioMagazzinoRepository";
 import VerniceCaricoScaricoCard from "@/components/VerniceCaricoScaricoCard";
 import InventarioConteggioVerniceCard from "@/components/InventarioConteggioVerniceCard";
 
 export const dynamic = "force-dynamic";
 
-// Target del QR stampato su entrambe le etichette Vernici (Scaffale ed Vernice, vedi
-// /api/verniciatura/vernici/[id]/etichetta-scaffale e .../etichetta-vernice) — stesso branching
-// di src/app/(app)/ferramenta/scarico/[id]/page.tsx: se c'è un inventario Vernici aperto che
-// include questa vernice, mostra il conteggio invece di carico/scarico normale.
-export default async function ScanVernicePage({ params }: { params: Promise<{ id: string }> }) {
+// Target del QR stampato su entrambe le etichette Vernici (Scaffale e Vernice, vedi
+// /api/verniciatura/vernici/[id]/etichetta-scaffale e .../etichetta-vernice) — il QR codifica il
+// Codice Inventario (non l'id Postgres), scelta esplicita dell'utente per poter generare le
+// etichette in batch dal software Zebra senza passare dall'app. Stesso branching di
+// src/app/(app)/ferramenta/scarico/[id]/page.tsx: se c'è un inventario Vernici aperto che include
+// questa vernice, mostra il conteggio invece di carico/scarico normale. Cutover netto: le vecchie
+// etichette stampate con l'UUID nel QR non sono più valide, vanno ristampate.
+export default async function ScanVernicePage({ params }: { params: Promise<{ codiceInventario: string }> }) {
   const session = await getSession();
   if (!session) redirect("/login");
   if (!MAGAZZINO_VERNICI_ROLES.includes(session.role)) redirect("/");
 
-  const { id } = await params;
+  const { codiceInventario } = await params;
 
   let vernice;
   try {
-    vernice = await getVerniceById(id);
+    vernice = await getVerniceByCodiceInventario(codiceInventario);
   } catch {
     notFound();
   }
   if (!vernice.attivo) notFound();
 
   const sessione = await getInventarioAperto("vernici");
-  const rigaInventario = sessione ? await getRigaInventario(sessione.id, id) : null;
+  const rigaInventario = sessione ? await getRigaInventario(sessione.id, vernice.id) : null;
 
   return (
     <div className="max-w-md mx-auto space-y-5">

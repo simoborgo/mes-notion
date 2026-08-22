@@ -12,7 +12,9 @@ function esc(s: string) {
 // "Etichetta Vernice" — formato piccolo 76x25mm, da attaccare sul contenitore stesso. Sorella
 // grande: "Etichetta Scaffale" (76x51mm, src/app/api/verniciatura/vernici/[id]/etichetta-scaffale),
 // pensata per lo scaffale/ripiano di magazzino. Stesso motore (Puppeteer + QR) dell'etichetta
-// Ferramenta (src/app/api/ferramenta/articoli/[id]/etichetta) — il QR punta alla pagina di scan
+// Ferramenta (src/app/api/ferramenta/articoli/[id]/etichetta) — il QR codifica il Codice
+// Inventario (non l'id Postgres, scelta esplicita dell'utente 2026-08-22 per poter generare le
+// etichette in batch dal software Zebra senza passare dall'app) e punta alla pagina di scan
 // Vernici, che sceglie da sola cosa mostrare (carico/scarico normale o conteggio, se c'è un
 // inventario aperto che include questa vernice).
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -22,8 +24,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const { id } = await params;
     const vernice = await getVerniceById(id);
+    if (!vernice.codiceInventario) {
+      return NextResponse.json({ error: "Vernice senza Codice Inventario: impossibile generare l'etichetta (il QR ha bisogno di un codice univoco stampabile)." }, { status: 400 });
+    }
 
-    const qrTarget = `${getPublicBaseUrl(req)}/verniciatura/magazzino/vernici/${id}`;
+    const qrTarget = `${getPublicBaseUrl(req)}/verniciatura/magazzino/vernici/${encodeURIComponent(vernice.codiceInventario)}`;
     const qrSvg = await QRCode.toString(qrTarget, {
       type: "svg", width: 200, margin: 1,
       color: { dark: "#1A1918", light: "#ffffff" },

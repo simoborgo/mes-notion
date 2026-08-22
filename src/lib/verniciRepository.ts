@@ -64,6 +64,15 @@ export async function getVerniceById(id: string): Promise<Vernice> {
   return mapRow(rows[0]);
 }
 
+// Usato dalla pagina di scan QR (il QR stampato codifica il Codice Inventario, non l'id
+// Postgres — scelta esplicita dell'utente per la stampa in batch da Zebra, 2026-08-22).
+// Univoco per vincolo DB (uq_vernici_codice_inventario), quindi al massimo una riga.
+export async function getVerniceByCodiceInventario(codiceInventario: string): Promise<Vernice> {
+  const { rows } = await pool.query(`SELECT * FROM vernici WHERE codice_inventario = $1`, [codiceInventario]);
+  if (rows.length === 0) throw new Error(`Vernice non trovata per Codice Inventario: ${codiceInventario}`);
+  return mapRow(rows[0]);
+}
+
 export async function createVernice(data: {
   coloreCodice?: string | null;
   descrizioneColore?: string | null;
