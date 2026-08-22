@@ -79,6 +79,43 @@ creata una voce di nav "Magazzino ▾" a dropdown (pattern di "Amministrazione �
 "merci") — `vernici.codice_inventario` è già pronto come chiave di aggancio; il formato OS1
 unificato non è stato specificato, si progetterà quando tutte le categorie saranno pronte.
 
+### ~~Etichette QR su Codice Inventario, segnalazione movimento leggero, inventario libero~~ — fatto (2026-08-22)
+
+**Stato:** fatto. Batch di richieste della stessa sessione, tutte su Vernici/Magazzino.
+
+- **Due formati etichetta**: "Etichetta Scaffale" (76x51mm, più dati, per lo scaffale) ed
+  "Etichetta Vernice" (76x25mm, per il contenitore) — route separate
+  `[id]/etichetta-scaffale` e `[id]/etichetta-vernice`.
+- **QR sul Codice Inventario, non più sull'UUID**: scelta esplicita dell'utente per generare le
+  etichette in batch dal software Zebra senza passare dall'app. Cutover netto — le vecchie
+  etichette con l'UUID nel QR non funzionano più, vanno ristampate. Nuova
+  `getVerniceByCodiceInventario()`, pagina di scan rinominata da `[id]` a `[codiceInventario]`.
+- **Segnalazione movimento leggero** (`vernici.segnalata_uso_il`, `schema_verniciatura_fase10`):
+  un operatore può dichiarare "ho usato questa vernice" senza ripesarla — bottone dedicato nella
+  card di scan, nessuna quantità richiesta, registra comunque un movimento tipo `segnalazione`
+  (quantità 0) per tracciare chi/quando. **Decisione chiave**: il flag lo mette QUALSIASI
+  movimento (segnalazione leggera O un vero carico/scarico, anche preciso), e si azzera SOLO con
+  una conta fisica al prossimo inventario — mai da un movimento successivo. Badge "Da
+  inventariare" in tabella Magazzino + filtro dedicato.
+- **Ambiti di apertura inventario semplificati**: rimossi "Per tipologia"/"Per colore-codice"
+  (troppe opzioni per l'uso pratico), restano "Tutto il catalogo", "Solo vernici segnalate come
+  movimentate" e il nuovo **"Inventario libero"** (`schema_verniciatura_fase11`) — lista costruita
+  a mano aggiungendo vernici una alla volta (via ricerca Codice Modar/Tintometro, da scan o da
+  desktop), pensato per cose come i diluenti che non vengono mai "segnalate" (usate al volo) ma
+  vanno ricontate ogni tanto. Nuova `aggiungiRigaInventario()` per aggiungere righe a una sessione
+  già aperta (prima le righe si decidevano tutte insieme all'apertura).
+- **Riconteggio con conferma**: ricontare una riga già contata in quella sessione ora mostra un
+  avviso esplicito "Già contata da X il ___: valore Y" con bottone "Riconta comunque" prima di
+  sovrascrivere — prima sovrascriveva silenziosamente.
+- **"Cerca vernice (senza QR)"** (`/verniciatura/magazzino/cerca`): punto di ingresso alternativo
+  alla scansione — cerchi per Codice Modar o Tintometro, redirect diretto alla stessa pagina di
+  scan (stessa logica carico/scarico/segnalazione/conteggio, zero duplicazione). Pensato per un
+  tablet tenuto sempre aperto in magazzino.
+- **Toggle "Solo Attive (nascondi obsolete)"** in Magazzino Vernici (prima le obsolete non
+  arrivavano nemmeno dal server) + colonne Bilancio Massa/Finitura/Gloss rimosse da entrambe le
+  tabelle Vernici/Magazzino per ridurre la larghezza; Codice Tintometro spostato come seconda
+  colonna in Vernici; filtro select "Tutti i clienti" rimosso (già coperto dalla ricerca testuale).
+
 ---
 
 ## Ferramenta
