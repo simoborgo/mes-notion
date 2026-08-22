@@ -12,7 +12,9 @@ export default async function MagazzinoVerniciPage() {
   if (!session) redirect("/login");
   if (!MAGAZZINO_VERNICI_ROLES.includes(session.role)) redirect("/");
 
-  const vernici = await getVernici({ soloAttivi: true });
+  // Attive e obsolete: il filtro "Solo Attive" (default nascoste) è ora client-side in
+  // MagazzinoVerniciHome, per poterle mostrare su richiesta senza un secondo giro di query.
+  const vernici = await getVernici({ soloAttivi: false });
 
   return (
     <div className="space-y-4">
@@ -32,6 +34,13 @@ export default async function MagazzinoVerniciPage() {
           >
             Esporta CSV
           </a>
+          <Link
+            href="/verniciatura/magazzino/cerca"
+            className="text-sm px-4 py-2 rounded-lg font-medium whitespace-nowrap border transition-colors hover:opacity-90"
+            style={{ borderColor: "#d1d5db", color: "var(--color-grey-mid)" }}
+          >
+            Cerca vernice (senza QR)
+          </Link>
           <Link
             href="/verniciatura/magazzino/inventario"
             className="text-sm px-4 py-2 rounded-lg font-semibold whitespace-nowrap border"

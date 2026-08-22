@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { Vernice } from "@/lib/types";
 
 // Versione "pagina intera" (non modale) della stessa logica di
@@ -15,6 +16,9 @@ export default function VerniceCaricoScaricoCard({ vernice }: { vernice: Vernice
   const [stato, setStato] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState("");
   const [giacenzaRisultante, setGiacenzaRisultante] = useState<number | null>(null);
+  const [segnalando, setSegnalando] = useState(false);
+  const [segnalata, setSegnalata] = useState(false);
+  const [erroreSegnalazione, setErroreSegnalazione] = useState("");
 
   async function salva() {
     const q = Number(quantita);
@@ -35,6 +39,24 @@ export default function VerniceCaricoScaricoCard({ vernice }: { vernice: Vernice
     } catch (e) {
       setStato("error");
       setError(e instanceof Error ? e.message : "Errore salvataggio");
+    }
+  }
+
+  // Movimento "leggero": l'operatore ha usato la vernice senza ripesarla — niente quantità,
+  // segna solo la vernice come "da verificare" al prossimo inventario.
+  async function segnalaUso() {
+    setSegnalando(true);
+    setErroreSegnalazione("");
+    try {
+      const res = await fetch(`/api/verniciatura/vernici/${vernice.id}/segnalazione`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error ?? `Errore ${res.status}`);
+      setSegnalata(true);
+      router.refresh();
+    } catch (e) {
+      setErroreSegnalazione(e instanceof Error ? e.message : "Errore segnalazione");
+    } finally {
+      setSegnalando(false);
     }
   }
 
@@ -64,18 +86,43 @@ export default function VerniceCaricoScaricoCard({ vernice }: { vernice: Vernice
         >
           Registra un altro movimento
         </button>
+        <Link href="/verniciatura/magazzino/cerca" className="block text-center text-sm underline" style={{ color: "#166534" }}>
+          ← Cerca un&apos;altra vernice
+        </Link>
       </div>
     );
   }
 
   return (
     <div className="rounded-xl border-2 p-4 space-y-3" style={{ borderColor: "#e5e4e0", background: "white" }}>
+      <Link href="/verniciatura/magazzino/cerca" className="inline-flex items-center gap-1 text-xs underline" style={{ color: "var(--color-primary)" }}>
+        ← Cerca un&apos;altra vernice
+      </Link>
       <div>
         <p className="font-bold text-lg" style={{ color: "var(--color-black)" }}>{titolo}</p>
         <p className="text-sm" style={{ color: "var(--color-grey-mid)" }}>{vernice.tipologia}{vernice.codiceInventario ? ` · ${vernice.codiceInventario}` : ""}</p>
         <p className="text-sm mt-1" style={{ color: "var(--color-black)" }}>
           Giacenza attuale: <strong>{vernice.giacenzaAttuale} {vernice.unitaMisura ?? ""}</strong>
         </p>
+      </div>
+
+      {(vernice.segnalataUsoIl || segnalata) && (
+        <div className="rounded-lg px-3 py-2 text-xs font-medium" style={{ background: "#FEF3C7", color: "#92400E" }}>
+          ⚠ Segnalata come movimentata{vernice.segnalataUsoIl && !segnalata ? ` il ${new Date(vernice.segnalataUsoIl).toLocaleString("it-IT")}` : ""} — da verificare al prossimo inventario.
+        </div>
+      )}
+
+      <div>
+        <button
+          type="button"
+          onClick={segnalaUso}
+          disabled={segnalando}
+          className="w-full py-2.5 rounded-lg text-xs font-semibold border disabled:opacity-50"
+          style={{ color: "#92400E", background: "#FEF3C7", borderColor: "#FCD34D" }}
+        >
+          {segnalando ? "Segnalazione…" : "Ho usato questa vernice (senza pesare)"}
+        </button>
+        {erroreSegnalazione && <p className="text-xs mt-1" style={{ color: "#991B1B" }}>{erroreSegnalazione}</p>}
       </div>
 
       <div className="flex gap-2">

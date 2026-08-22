@@ -7,6 +7,9 @@ import AvvisoIncoerenzaModal from "./AvvisoIncoerenzaModal";
 
 interface RigaInfo {
   giacenzaTeorica: number;
+  giacenzaContata: number | null;
+  contatoDa: string | null;
+  contatoIl: string | null;
 }
 
 // Stessa soglia/spirito di InventarioConteggioCard.tsx (Ferramenta) — non blocca, solo un
@@ -21,11 +24,15 @@ export default function InventarioConteggioVerniceCard({
   sessioneId: string;
 }) {
   const router = useRouter();
-  const [quantita, setQuantita] = useState(String(riga.giacenzaTeorica));
+  const giaContata = riga.giacenzaContata != null;
+  const [quantita, setQuantita] = useState(String(giaContata ? riga.giacenzaContata : riga.giacenzaTeorica));
   const [stato, setStato] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState("");
   const [delta, setDelta] = useState<number | null>(null);
   const [avviso, setAvviso] = useState<string[] | null>(null);
+  // Se questa riga è già stata contata in questa sessione, non far ripartire subito il form —
+  // conferma esplicita prima di permettere un secondo conteggio che sovrascrive il primo.
+  const [confermaRiconteggio, setConfermaRiconteggio] = useState(!giaContata);
 
   const tornaAllInventario = () => router.push(`/verniciatura/magazzino/inventario/${sessioneId}`);
 
@@ -112,39 +119,59 @@ export default function InventarioConteggioVerniceCard({
         Giacenza teorica: <strong>{riga.giacenzaTeorica} {vernice.unitaMisura ?? ""}</strong>
       </p>
 
-      <div>
-        <label className="text-xs font-medium block mb-1" style={{ color: "var(--color-grey-mid)" }}>
-          Quantità contata ({vernice.unitaMisura || "unità"})
-        </label>
-        <input
-          type="number"
-          min="0"
-          step="any"
-          value={quantita}
-          onChange={(e) => setQuantita(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleConta(); } }}
-          className="w-full rounded-lg border px-3 text-lg font-semibold"
-          style={{ height: 52, borderColor: "#d1d5db" }}
-        />
-      </div>
+      {!confermaRiconteggio ? (
+        <>
+          <div className="rounded-md border px-3 py-2.5" style={{ background: "#FEF3C7", borderColor: "#FCD34D" }}>
+            <p className="text-sm font-medium" style={{ color: "#92400E" }}>
+              Già contata{riga.contatoDa ? ` da ${riga.contatoDa}` : ""}{riga.contatoIl ? ` il ${new Date(riga.contatoIl).toLocaleString("it-IT")}` : ""}: <strong>{riga.giacenzaContata} {vernice.unitaMisura ?? ""}</strong>.
+            </p>
+          </div>
+          <button
+            onClick={() => setConfermaRiconteggio(true)}
+            className="w-full py-2.5 rounded-lg text-sm font-semibold border"
+            style={{ color: "#92400E", background: "white", borderColor: "#FCD34D" }}
+          >
+            Riconta comunque
+          </button>
+        </>
+      ) : (
+        <>
+          <div>
+            <label className="text-xs font-medium block mb-1" style={{ color: "var(--color-grey-mid)" }}>
+              Quantità contata ({vernice.unitaMisura || "unità"})
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="any"
+              autoFocus
+              value={quantita}
+              onChange={(e) => setQuantita(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleConta(); } }}
+              className="w-full rounded-lg border px-3 text-lg font-semibold"
+              style={{ height: 52, borderColor: "#d1d5db" }}
+            />
+          </div>
 
-      {error && (
-        <div className="rounded-md border px-3 py-2" style={{ background: "#FEF2F2", borderColor: "#FECACA" }}>
-          <p className="text-xs font-medium" style={{ color: "#991B1B" }}>{error}</p>
-        </div>
+          {error && (
+            <div className="rounded-md border px-3 py-2" style={{ background: "#FEF2F2", borderColor: "#FECACA" }}>
+              <p className="text-xs font-medium" style={{ color: "#991B1B" }}>{error}</p>
+            </div>
+          )}
+
+          <button
+            onClick={handleConta}
+            disabled={stato === "loading"}
+            className="w-full py-3 rounded-xl text-sm font-bold text-white transition-opacity disabled:opacity-60 flex items-center justify-center gap-2"
+            style={{ background: "#92400E" }}
+          >
+            {stato === "loading" && (
+              <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            )}
+            {stato === "loading" ? "Registrazione in corso…" : giaContata ? "Conferma riconteggio" : "Conferma conteggio"}
+          </button>
+        </>
       )}
-
-      <button
-        onClick={handleConta}
-        disabled={stato === "loading"}
-        className="w-full py-3 rounded-xl text-sm font-bold text-white transition-opacity disabled:opacity-60 flex items-center justify-center gap-2"
-        style={{ background: "#92400E" }}
-      >
-        {stato === "loading" && (
-          <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-        )}
-        {stato === "loading" ? "Registrazione in corso…" : "Conferma conteggio"}
-      </button>
 
       {avviso && (
         <AvvisoIncoerenzaModal

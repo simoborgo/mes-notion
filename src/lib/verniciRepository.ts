@@ -24,6 +24,7 @@ function mapRow(r: any): Vernice {
     tsDriveFileId: r.ts_drive_file_id,
     sdsDriveFileId: r.sds_drive_file_id,
     attivo: r.attivo,
+    segnalataUsoIl: r.segnalata_uso_il ? new Date(r.segnalata_uso_il).toISOString() : null,
     createdAt: new Date(r.created_at).toISOString(),
     updatedAt: new Date(r.updated_at).toISOString(),
   };
@@ -173,4 +174,17 @@ export async function setVerniceSdsDocumento(id: string, driveFileId: string): P
 // tramite carico/scarico/rettifica (movimenti_magazzino), mai via update generico anagrafica.
 export async function aggiornaGiacenzaVernice(id: string, giacenzaAttuale: number, executor: Pool | PoolClient = pool): Promise<void> {
   await executor.query(`UPDATE vernici SET giacenza_attuale = $1, updated_at = now() WHERE id = $2`, [giacenzaAttuale, id]);
+}
+
+// Marca la vernice come "movimentata, da verificare al prossimo inventario" — chiamata da
+// QUALSIASI movimento (segnalazione leggera senza peso, o un vero carico/scarico anche preciso:
+// è comunque un segnale che si è mossa). Si azzera solo con risolviSegnalazioneVernice, mai da
+// un movimento successivo.
+export async function segnalaMovimentoVernice(id: string, executor: Pool | PoolClient = pool): Promise<void> {
+  await executor.query(`UPDATE vernici SET segnalata_uso_il = now() WHERE id = $1`, [id]);
+}
+
+// Chiamata solo dal conteggio in un inventario (unica verifica fisica che risolve il dubbio).
+export async function risolviSegnalazioneVernice(id: string, executor: Pool | PoolClient = pool): Promise<void> {
+  await executor.query(`UPDATE vernici SET segnalata_uso_il = NULL WHERE id = $1`, [id]);
 }

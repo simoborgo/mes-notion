@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { getVerniceById, aggiornaGiacenzaVernice } from "@/lib/verniciRepository";
+import { getVerniceById, aggiornaGiacenzaVernice, risolviSegnalazioneVernice } from "@/lib/verniciRepository";
 import { registraMovimento } from "@/lib/magazzinoRepository";
 import { getInventarioById, getRigaInventario, registraConteggio } from "@/lib/inventarioMagazzinoRepository";
 import { getSessionFromRequest, MAGAZZINO_VERNICI_ROLES } from "@/lib/auth";
@@ -59,6 +59,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     operatore: session.name,
     movimentoId,
   });
+  // Unica verifica fisica che risolve il flag "da verificare" — un carico/scarico successivo
+  // non lo azzera più (2026-08-22).
+  await risolviSegnalazioneVernice(entitaId);
 
   void logOperation(session.name, "UPDATE", "inventario_magazzino", id, { categoria: "vernici", entitaId, giacenzaContata: body.giacenzaContata, delta });
   revalidatePath(`/verniciatura/magazzino/inventario/${id}`);

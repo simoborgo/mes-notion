@@ -4,6 +4,7 @@ import { getVerniceByCodiceInventario } from "@/lib/verniciRepository";
 import { getInventarioAperto, getRigaInventario } from "@/lib/inventarioMagazzinoRepository";
 import VerniceCaricoScaricoCard from "@/components/VerniceCaricoScaricoCard";
 import InventarioConteggioVerniceCard from "@/components/InventarioConteggioVerniceCard";
+import AggiungiInventarioLiberoCard from "@/components/AggiungiInventarioLiberoCard";
 
 export const dynamic = "force-dynamic";
 
@@ -31,20 +32,27 @@ export default async function ScanVernicePage({ params }: { params: Promise<{ co
 
   const sessione = await getInventarioAperto("vernici");
   const rigaInventario = sessione ? await getRigaInventario(sessione.id, vernice.id) : null;
+  const daAggiungereALibero = !!sessione && sessione.ambito === "libero" && !rigaInventario;
 
   return (
     <div className="max-w-md mx-auto space-y-5">
       <div>
         <h1 className="text-xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
-          {rigaInventario ? "Conteggio Inventario" : "Magazzino Vernici"}
+          {rigaInventario ? "Conteggio Inventario" : daAggiungereALibero ? "Inventario Libero" : "Magazzino Vernici"}
         </h1>
         <p className="text-sm mt-1" style={{ color: "var(--color-grey-mid)" }}>
-          {rigaInventario ? "Inserisci la quantità reale contata per questa vernice." : "Carico o scarico per questa vernice."}
+          {rigaInventario
+            ? "Inserisci la quantità reale contata per questa vernice."
+            : daAggiungereALibero
+              ? "Conferma per aggiungerla alla lista in corso."
+              : "Carico o scarico per questa vernice."}
         </p>
       </div>
 
       {rigaInventario && sessione ? (
         <InventarioConteggioVerniceCard vernice={vernice} riga={rigaInventario} sessioneId={sessione.id} />
+      ) : daAggiungereALibero && sessione ? (
+        <AggiungiInventarioLiberoCard vernice={vernice} sessioneId={sessione.id} />
       ) : (
         <VerniceCaricoScaricoCard vernice={vernice} />
       )}

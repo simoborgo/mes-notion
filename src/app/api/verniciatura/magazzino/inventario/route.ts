@@ -5,7 +5,10 @@ import { apriInventario, type AmbitoMagazzinoVernici } from "@/lib/inventarioMag
 import { getSessionFromRequest, MAGAZZINO_VERNICI_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
-const AMBITI: AmbitoMagazzinoVernici[] = ["tutto", "tipologia", "colore_codice"];
+// "tipologia"/"colore_codice" rimossi dall'apertura (2026-08-22, su richiesta dell'utente —
+// troppe opzioni per un uso pratico): restano "tutto", "movimentate" e "libero". Il vincolo DB
+// resta permissivo per compatibilità storica con inventari chiusi già salvati con quegli ambiti.
+const AMBITI: AmbitoMagazzinoVernici[] = ["tutto", "movimentate", "libero"];
 
 export async function POST(req: NextRequest) {
   const session = await getSessionFromRequest(req);
@@ -13,7 +16,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
   }
 
-  let body: { ambito?: string; ambitoValore?: string };
+  let body: { ambito?: string };
   try {
     body = await req.json();
   } catch {
@@ -23,27 +26,25 @@ export async function POST(req: NextRequest) {
   if (!AMBITI.includes(ambito)) {
     return NextResponse.json({ error: "Ambito non valido" }, { status: 400 });
   }
-  if (ambito !== "tutto" && !body.ambitoValore) {
-    return NextResponse.json({ error: "Valore ambito obbligatorio" }, { status: 400 });
-  }
 
-  const tutte = await getVernici({ soloAttivi: true });
-  let inScope = tutte;
-  if (ambito === "tipologia") inScope = tutte.filter(v => v.tipologia === body.ambitoValore);
-  else if (ambito === "colore_codice") {
-    const q = body.ambitoValore!.toLowerCase();
-    inScope = tutte.filter(v => v.coloreCodice?.toLowerCase().includes(q));
-  }
+  // "libero" parte sempre vuoto: le righe si aggiungono una a una dopo l'apertura
+  // (POST .../righe), non tutte insieme come per gli altri ambiti.
+  let inScope: Awaited<ReturnType<typeof getVernici>> = [];
+  if (ambito !== "libero") {
+    const tutte = await getVernici({ soloAttivi: true });
+    inScope = ambito === "movimentate" ? tutte.filter(v => v.segnalataUsoIl != null) : tutte;
 
-  if (inScope.length === 0) {
-    return NextResponse.json({ error: "Nessuna vernice nell'ambito selezionato" }, { status: 400 });
+    if (inScope.length === 0) {
+      const msg = ambito === "movimentate" ? "Nessuna vernice segnalata come movimentata — niente da verificare" : "Nessuna vernice nell'ambito selezionato";
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
   }
 
   try {
     const sessione = await apriInventario({
       categoria: "vernici",
       ambito,
-      ambitoValore: ambito === "tutto" ? null : body.ambitoValore,
+      ambitoValore: null,
       operatore: session.name,
       righe: inScope.map(v => ({
         entitaId: v.id,
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
         giacenzaTeorica: v.giacenzaAttuale,
       })),
     });
-    void logOperation(session.name, "CREATE", "inventario_magazzino", sessione.id, { categoria: "vernici", ambito, ambitoValore: body.ambitoValore, articoli: inScope.length });
+    void logOperation(session.name, "CREATE", "inventario_magazzino", sessione.id, { categoria: "vernici", ambito, articoli: inScope.length });
     revalidatePath("/verniciatura/magazzino/inventario");
     return NextResponse.json(sessione);
   } catch (e) {

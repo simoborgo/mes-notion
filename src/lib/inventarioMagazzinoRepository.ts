@@ -5,12 +5,14 @@ export type InventarioMagazzinoStato = "aperto" | "chiuso";
 
 // Vocabolario di ambito specifico di Vernici — una categoria futura con esigenze diverse
 // estenderà questa union con i propri valori.
-export type AmbitoMagazzinoVernici = "tutto" | "tipologia" | "colore_codice";
+export type AmbitoMagazzinoVernici = "tutto" | "tipologia" | "colore_codice" | "movimentate" | "libero";
 
 export const AMBITO_VERNICI_LABEL: Record<AmbitoMagazzinoVernici, string> = {
   tutto: "Tutto il catalogo",
   tipologia: "Tipologia",
   colore_codice: "Colore/codice",
+  movimentate: "Solo vernici segnalate",
+  libero: "Inventario libero",
 };
 
 export interface InventarioMagazzinoSessione {
@@ -117,6 +119,24 @@ export async function apriInventario({
   } finally {
     client.release();
   }
+}
+
+// Aggiunge una riga a una sessione GIÀ aperta — usato dall'ambito "libero" (schema_verniciatura_
+// fase11), dove le righe si costruiscono una alla volta invece che tutte insieme all'apertura.
+// Idempotente sulla UNIQUE (inventario_id, entita_id): se la vernice è già in lista, ritorna la
+// riga esistente invece di duplicare/fallire.
+export async function aggiungiRigaInventario(
+  inventarioId: string,
+  r: { entitaId: string; codice: string | null; descrizione: string | null; giacenzaTeorica: number }
+): Promise<InventarioMagazzinoRiga> {
+  const { rows } = await pool.query(
+    `INSERT INTO inventario_righe_magazzino (inventario_id, entita_id, codice, descrizione, giacenza_teorica)
+     VALUES ($1,$2,$3,$4,$5)
+     ON CONFLICT (inventario_id, entita_id) DO UPDATE SET codice = EXCLUDED.codice
+     RETURNING *`,
+    [inventarioId, r.entitaId, r.codice, r.descrizione, r.giacenzaTeorica]
+  );
+  return mapRiga(rows[0]);
 }
 
 export async function getInventarioAperto(categoria: CategoriaMagazzino): Promise<InventarioMagazzinoSessione | null> {

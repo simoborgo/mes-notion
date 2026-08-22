@@ -5,9 +5,8 @@ import type { Vernice } from "@/lib/types";
 import MagazzinoVerniceCaricoScaricoModal from "./MagazzinoVerniceCaricoScaricoModal";
 
 type SortKey =
-  | "codiceInventario" | "descrizioneColore" | "tipologia" | "fornitore" | "tipoBilancioMassa" | "unitaMisura"
-  | "codiceTintometro" | "finitura" | "gloss"
-  | "clienteRiferimento" | "giacenzaAttuale";
+  | "codiceInventario" | "descrizioneColore" | "tipologia" | "fornitore" | "unitaMisura"
+  | "codiceTintometro" | "clienteRiferimento" | "segnalataUsoIl" | "giacenzaAttuale";
 type SortDir = "asc" | "desc";
 
 function valoreOrdinamento(v: Vernice, key: SortKey): string | number {
@@ -54,6 +53,8 @@ function Th({
 
 export default function MagazzinoVerniciHome({ vernici }: { vernici: Vernice[] }) {
   const [search, setSearch] = useState("");
+  const [soloMovimentate, setSoloMovimentate] = useState(false);
+  const [soloAttive, setSoloAttive] = useState(true);
   const [modale, setModale] = useState<{ vernice: Vernice; tipo: "carico" | "scarico" } | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("codiceInventario");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -65,14 +66,18 @@ export default function MagazzinoVerniciHome({ vernici }: { vernici: Vernice[] }
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
-    const base = q
-      ? vernici.filter(v =>
-          `${v.descrizioneColore ?? ""} ${v.coloreCodice ?? ""} ${v.tipologia} ${v.fornitore ?? ""} ${v.codiceInventario ?? ""} ${v.codiceTintometro ?? ""} ${v.clienteRiferimento ?? ""}`
-            .toLowerCase().includes(q)
-        )
-      : vernici;
+    const base = vernici
+      .filter(v => !soloAttive || v.attivo)
+      .filter(v => !soloMovimentate || v.segnalataUsoIl != null)
+      .filter(v => !q || `${v.descrizioneColore ?? ""} ${v.coloreCodice ?? ""} ${v.tipologia} ${v.fornitore ?? ""} ${v.codiceInventario ?? ""} ${v.codiceTintometro ?? ""} ${v.clienteRiferimento ?? ""}`
+        .toLowerCase().includes(q));
     return [...base].sort((a, b) => cmp(a, b, sortKey, sortDir));
-  }, [vernici, search, sortKey, sortDir]);
+  }, [vernici, search, soloAttive, soloMovimentate, sortKey, sortDir]);
+
+  const numMovimentate = useMemo(
+    () => vernici.filter(v => (!soloAttive || v.attivo) && v.segnalataUsoIl != null).length,
+    [vernici, soloAttive]
+  );
 
   return (
     <div className="space-y-3">
@@ -83,6 +88,32 @@ export default function MagazzinoVerniciHome({ vernici }: { vernici: Vernice[] }
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+        <button
+          onClick={() => setSoloAttive(v => !v)}
+          className="flex items-center gap-1.5 px-3 py-2 rounded border text-sm font-medium transition-colors"
+          style={soloAttive
+            ? { background: "#DCFCE7", color: "#166534", borderColor: "#86EFAC" }
+            : { background: "white", color: "var(--color-grey-mid)", borderColor: "#d1d5db" }}
+        >
+          Solo Attive (nascondi obsolete)
+        </button>
+        <button
+          onClick={() => setSoloMovimentate(v => !v)}
+          className="flex items-center gap-1.5 px-3 py-2 rounded border text-sm font-medium transition-colors"
+          style={soloMovimentate
+            ? { background: "#FEF3C7", color: "#92400E", borderColor: "#FCD34D" }
+            : { background: "white", color: "var(--color-grey-mid)", borderColor: "#d1d5db" }}
+        >
+          Movimentati / Da Inventariare
+          {numMovimentate > 0 && (
+            <span
+              className="inline-flex items-center justify-center rounded-full text-xs font-bold w-5 h-5"
+              style={soloMovimentate ? { background: "#92400E", color: "white" } : { background: "#FEF3C7", color: "#92400E" }}
+            >
+              {numMovimentate}
+            </span>
+          )}
+        </button>
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
@@ -93,12 +124,10 @@ export default function MagazzinoVerniciHome({ vernici }: { vernici: Vernice[] }
               <Th label="Descrizione Colore" sortKey="descrizioneColore" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="min-w-[140px]" />
               <Th label="Tipologia" sortKey="tipologia" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Fornitore" sortKey="fornitore" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-              <Th label="Bilancio Massa" sortKey="tipoBilancioMassa" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Unità Misura" sortKey="unitaMisura" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Codice Tintometro" sortKey="codiceTintometro" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-              <Th label="Finitura" sortKey="finitura" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-              <Th label="Gloss" sortKey="gloss" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Cliente" sortKey="clienteRiferimento" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              <Th label="Movimentato" sortKey="segnalataUsoIl" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="Giacenza" sortKey="giacenzaAttuale" currentSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <th className="px-4 py-3"></th>
             </tr>
@@ -106,23 +135,36 @@ export default function MagazzinoVerniciHome({ vernici }: { vernici: Vernice[] }
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={12} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
+                <td colSpan={10} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
                   Nessuna vernice trovata
                 </td>
               </tr>
             ) : (
               filtered.map(v => (
-                <tr key={v.id} className="border-b last:border-0">
+                <tr key={v.id} className="border-b last:border-0" style={v.attivo ? undefined : { opacity: 0.55 }}>
                   <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">{v.codiceInventario || "—"}</td>
-                  <td className="px-4 py-3 font-medium">{v.descrizioneColore || "—"}</td>
+                  <td className="px-4 py-3 font-medium">
+                    {v.descrizioneColore || "—"}
+                    {!v.attivo && <span className="ml-1.5 text-xs font-normal" style={{ color: "#991B1B" }}>(Obsoleta)</span>}
+                  </td>
                   <td className="px-4 py-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>{v.tipologia}</td>
                   <td className="px-4 py-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>{v.fornitore || "—"}</td>
-                  <td className="px-4 py-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>{v.tipoBilancioMassa || "—"}</td>
                   <td className="px-4 py-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>{v.unitaMisura || "—"}</td>
                   <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">{v.codiceTintometro || "—"}</td>
-                  <td className="px-4 py-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>{v.finitura || "—"}</td>
-                  <td className="px-4 py-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>{v.gloss || "—"}</td>
                   <td className="px-4 py-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>{v.clienteRiferimento || "—"}</td>
+                  <td className="px-4 py-3">
+                    {v.segnalataUsoIl ? (
+                      <span
+                        className="text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap"
+                        style={{ background: "#FEF3C7", color: "#92400E" }}
+                        title={new Date(v.segnalataUsoIl).toLocaleString("it-IT")}
+                      >
+                        Da inventariare
+                      </span>
+                    ) : (
+                      <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>—</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 tabular-nums">{v.giacenzaAttuale}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2 justify-end items-center">

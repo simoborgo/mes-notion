@@ -364,6 +364,11 @@ export interface Vernice {
   tsDriveFileId: string | null;
   sdsDriveFileId: string | null;
   attivo: boolean;
+  // Timestamp dell'ultimo movimento (segnalazione leggera o vero carico/scarico) non ancora
+  // verificato da una conta fisica — null se non ci sono movimenti da verificare. Si azzera SOLO
+  // al conteggio in un inventario, mai da un carico/scarico successivo (vedi
+  // schema_verniciatura_fase10_segnalazione_movimento.sql).
+  segnalataUsoIl: string | null;
   createdAt: string;
   updatedAt: string;
 }

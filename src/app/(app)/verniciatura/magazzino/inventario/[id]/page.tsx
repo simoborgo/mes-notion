@@ -1,7 +1,9 @@
 import { notFound, redirect } from "next/navigation";
 import { getSession, MAGAZZINO_VERNICI_ROLES } from "@/lib/auth";
 import { getInventarioById, getRigheByInventario, AMBITO_VERNICI_LABEL } from "@/lib/inventarioMagazzinoRepository";
+import { getVernici } from "@/lib/verniciRepository";
 import InventarioVerniciDettaglio from "@/components/InventarioVerniciDettaglio";
+import AggiungiVerniceLiberoForm from "@/components/AggiungiVerniceLiberoForm";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +22,8 @@ export default async function InventarioVerniciDettaglioPage({ params }: { param
 
   const righe = await getRigheByInventario(id);
   const contate = righe.filter(r => r.giacenzaContata != null).length;
+  const mostraAggiungi = sessione.ambito === "libero" && sessione.stato === "aperto";
+  const vernici = mostraAggiungi ? await getVernici({ soloAttivi: true }) : [];
 
   return (
     <div className="space-y-4">
@@ -33,6 +37,7 @@ export default async function InventarioVerniciDettaglioPage({ params }: { param
           {" · "}{contate} / {righe.length} contati
         </p>
       </div>
+      {mostraAggiungi && <AggiungiVerniceLiberoForm inventarioId={id} vernici={vernici} />}
       <InventarioVerniciDettaglio inventarioId={id} stato={sessione.stato} righe={righe} puoChiudere={MAGAZZINO_VERNICI_ROLES.includes(session.role)} />
     </div>
   );

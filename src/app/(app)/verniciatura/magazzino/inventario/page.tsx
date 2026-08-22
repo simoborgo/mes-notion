@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession, VERNICIATURA_ROLES, MAGAZZINO_VERNICI_ROLES } from "@/lib/auth";
 import { getInventarioAperto, getRigheByInventario, AMBITO_VERNICI_LABEL } from "@/lib/inventarioMagazzinoRepository";
-import { getVernici } from "@/lib/verniciRepository";
 import NuovoInventarioVerniciForm from "@/components/NuovoInventarioVerniciForm";
 import VerniciaturaSubNav from "@/components/VerniciaturaSubNav";
 
@@ -36,17 +35,11 @@ export default async function InventarioVerniciPage() {
         {sessione ? (
           <InventarioAttivoCard inventarioId={sessione.id} ambitoLabel={`${AMBITO_VERNICI_LABEL[sessione.ambito]}${sessione.ambitoValore ? `: ${sessione.ambitoValore}` : ""}`} apertoDa={sessione.apertoDa} />
         ) : (
-          <NuovoForm />
+          <NuovoInventarioVerniciForm />
         )}
       </div>
     </div>
   );
-}
-
-async function NuovoForm() {
-  const vernici = await getVernici({ soloAttivi: true });
-  const tipologie = Array.from(new Set(vernici.map(v => v.tipologia))).sort((a, b) => a.localeCompare(b, "it"));
-  return <NuovoInventarioVerniciForm tipologie={tipologie} />;
 }
 
 async function InventarioAttivoCard({ inventarioId, ambitoLabel, apertoDa }: { inventarioId: string; ambitoLabel: string; apertoDa: string }) {

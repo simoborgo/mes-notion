@@ -5,15 +5,13 @@ import { useRouter } from "next/navigation";
 
 const AMBITI: { value: string; label: string }[] = [
   { value: "tutto", label: "Tutto il catalogo" },
-  { value: "tipologia", label: "Per tipologia" },
-  { value: "colore_codice", label: "Per colore/codice (ricerca testuale)" },
+  { value: "movimentate", label: "Solo vernici segnalate come movimentate" },
+  { value: "libero", label: "Inventario libero — scegli tu i codici" },
 ];
 
-export default function NuovoInventarioVerniciForm({ tipologie }: { tipologie: string[] }) {
+export default function NuovoInventarioVerniciForm() {
   const router = useRouter();
   const [ambito, setAmbito] = useState("tutto");
-  const [tipologia, setTipologia] = useState(tipologie[0] ?? "");
-  const [coloreCodice, setColoreCodice] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -21,11 +19,10 @@ export default function NuovoInventarioVerniciForm({ tipologie }: { tipologie: s
     setSaving(true);
     setError("");
     try {
-      const ambitoValore = ambito === "tipologia" ? tipologia : ambito === "colore_codice" ? coloreCodice : undefined;
       const res = await fetch("/api/verniciatura/magazzino/inventario", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ambito, ambitoValore }),
+        body: JSON.stringify({ ambito }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? `Errore ${res.status}`);
@@ -37,9 +34,6 @@ export default function NuovoInventarioVerniciForm({ tipologie }: { tipologie: s
       setSaving(false);
     }
   }
-
-  const inputCls = "border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300";
-  const valoreMancante = (ambito === "tipologia" && !tipologia) || (ambito === "colore_codice" && !coloreCodice.trim());
 
   return (
     <div className="rounded-xl border-2 p-4 space-y-4" style={{ borderColor: "#e5e4e0", background: "white" }}>
@@ -54,26 +48,6 @@ export default function NuovoInventarioVerniciForm({ tipologie }: { tipologie: s
         ))}
       </div>
 
-      {ambito === "tipologia" && (
-        tipologie.length > 0 ? (
-          <select className={inputCls} value={tipologia} onChange={(e) => setTipologia(e.target.value)}>
-            {tipologie.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-        ) : (
-          <p className="text-xs" style={{ color: "var(--color-grey-mid)" }}>Nessuna tipologia disponibile.</p>
-        )
-      )}
-
-      {ambito === "colore_codice" && (
-        <input
-          type="text"
-          className={inputCls}
-          placeholder="Cerca colore/codice…"
-          value={coloreCodice}
-          onChange={(e) => setColoreCodice(e.target.value)}
-        />
-      )}
-
       {error && (
         <div className="rounded-md border px-3 py-2" style={{ background: "#FEF2F2", borderColor: "#FECACA" }}>
           <p className="text-xs font-medium" style={{ color: "#991B1B" }}>{error}</p>
@@ -82,7 +56,7 @@ export default function NuovoInventarioVerniciForm({ tipologie }: { tipologie: s
 
       <button
         onClick={apri}
-        disabled={saving || valoreMancante}
+        disabled={saving}
         className="w-full py-3 rounded-xl text-sm font-bold text-white disabled:opacity-60"
         style={{ background: "var(--color-primary)" }}
       >

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { getVerniceById, aggiornaGiacenzaVernice } from "@/lib/verniciRepository";
+import { getVerniceById, aggiornaGiacenzaVernice, segnalaMovimentoVernice } from "@/lib/verniciRepository";
 import { registraMovimento } from "@/lib/magazzinoRepository";
 import { getSessionFromRequest, MAGAZZINO_VERNICI_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
@@ -46,6 +46,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     operatore: session.name,
     note,
   });
+  // Anche un carico preciso è comunque un segnale che la vernice si è mossa — resta "da
+  // verificare" finché non arriva una conta fisica al prossimo inventario (2026-08-22).
+  await segnalaMovimentoVernice(id);
 
   void logOperation(session.name, "UPDATE", "movimento_magazzino", id, { categoria: "vernici", tipo: "carico", quantita, giacenzaRisultante });
 

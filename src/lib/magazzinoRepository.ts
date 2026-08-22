@@ -5,7 +5,9 @@ import { pool } from "./db";
 // Legname/Tranciato/Bordi/Metalli in futuro). Non conosce mai la tabella anagrafica specifica:
 // lavora solo con entitaId (UUID della riga anagrafica di quella categoria) + numeri.
 export type CategoriaMagazzino = "vernici"; // estendere qui quando arrivano le altre categorie
-export type MovimentoMagazzinoTipo = "carico" | "scarico" | "rettifica";
+// "segnalazione": movimento "leggero" senza quantità/giacenza (quantita = 0) — l'operatore
+// dichiara di aver usato l'entità senza pesarla/contarla, solo per tenere traccia di chi/quando.
+export type MovimentoMagazzinoTipo = "carico" | "scarico" | "rettifica" | "segnalazione";
 
 export interface MovimentoMagazzino {
   id: string;
