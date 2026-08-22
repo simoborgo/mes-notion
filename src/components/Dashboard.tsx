@@ -283,6 +283,7 @@ function GanttChart({ rows }: { rows: GanttRow[] }) {
 interface DashboardProps { schede: Scheda[]; ritiri: Ritiro[]; commesse: Commessa[]; carichi: Carico[]; }
 
 export default function Dashboard({ schede, ritiri, commesse, carichi }: DashboardProps) {
+  const [ordinamentoGantt, setOrdinamentoGantt] = useState<"carichi" | "montaggio">("carichi");
   const oggi = new Date(); oggi.setHours(0, 0, 0, 0);
   const oggiStr = oggi.toISOString().slice(0, 10);
 
@@ -330,19 +331,34 @@ export default function Dashboard({ schede, ritiri, commesse, carichi }: Dashboa
     return m;
   }, [carichi]);
 
+  // Prossimo carico non ancora passato (>= oggi) per la commessa — un carico preliminare fatto
+  // due mesi fa non deve far salire in cima una commessa il cui carico vero è stato spostato tra
+  // quattro mesi: si ignorano i carichi passati, si guarda solo cosa deve ancora succedere.
+  function prossimoCarico(commessa: Commessa): Date | null {
+    const lista = carichiPerCommessa.get(commessa.id) ?? []; // già ordinata ascendente
+    const futuro = lista.find((c) => c.date.getTime() >= oggi.getTime());
+    if (futuro) return futuro.date;
+    const dc = parseDate(commessa.dataCarico);
+    return dc && dc.getTime() >= oggi.getTime() ? dc : null;
+  }
+
+  // Chiave di ordinamento: prossimo carico futuro per "carichi", inizio montaggio per
+  // "montaggio" — le commesse senza quella data vanno sempre in fondo (Infinity).
   const ganttRows: GanttRow[] = commesse
     .filter((c) => c.stato === "In produzione")
-    .sort((a, b) => {
-      const aC = carichiPerCommessa.get(a.id)?.[0]?.date?.toISOString() ?? a.dataCarico ?? "";
-      const bC = carichiPerCommessa.get(b.id)?.[0]?.date?.toISOString() ?? b.dataCarico ?? "";
-      return aC < bC ? -1 : 1;
-    })
     .map((c) => ({
       commessa: c,
       carichi: carichiPerCommessa.get(c.id) ?? [],
       montaggioStart: parseDate(c.inizioMontaggio),
       montaggioEnd: parseDate(c.fineMontaggio),
-    }));
+    }))
+    .sort((a, b) => {
+      const keyOf = (r: GanttRow): number => {
+        if (ordinamentoGantt === "montaggio") return r.montaggioStart?.getTime() ?? Infinity;
+        return prossimoCarico(r.commessa)?.getTime() ?? Infinity;
+      };
+      return keyOf(a) - keyOf(b);
+    });
 
   return (
     <div className="space-y-8">
@@ -386,14 +402,32 @@ export default function Dashboard({ schede, ritiri, commesse, carichi }: Dashboa
       {/* Gantt */}
       {ganttRows.length > 0 && (
         <div className="space-y-3">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <h2 className="text-base font-semibold" style={{ fontFamily: "var(--font-display)" }}>
               Pianificazione commesse
             </h2>
             <span className="text-xs px-2 py-0.5 rounded font-bold tracking-widest uppercase" style={{ background: "#F08F25", color: "#fff" }}>
               In produzione
             </span>
-            <span className="text-xs ml-1" style={{ color: "var(--color-grey-mid)" }}>{ganttRows.length} commesse</span>
+            <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>{ganttRows.length} commesse</span>
+            <div className="flex items-center gap-1.5 ml-auto">
+              <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>Ordina per:</span>
+              {([["carichi", "Carichi"], ["montaggio", "Montaggio"]] as const).map(([value, label]) => {
+                const active = ordinamentoGantt === value;
+                return (
+                  <button
+                    key={value}
+                    onClick={() => setOrdinamentoGantt(value)}
+                    className="text-xs px-2.5 py-1 rounded-full font-medium border transition-colors"
+                    style={active
+                      ? { background: "rgba(240,143,37,0.12)", color: "var(--color-primary)", borderColor: "rgba(240,143,37,0.35)" }
+                      : { background: "white", color: "var(--color-grey-mid)", borderColor: "#d1d5db" }}
+                  >
+                    {label} ↑
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <div className="overflow-x-auto">
             <GanttChart rows={ganttRows} />
