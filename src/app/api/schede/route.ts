@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
       dataSchedaRicevuta: body.dataSchedaRicevuta || null,
       produzioneEsterna: body.produzioneEsterna ?? undefined,
       note: body.note || null,
+      areaId: typeof body.areaId === "string" && body.areaId ? body.areaId : null,
     });
 
     revalidatePath("/schede");

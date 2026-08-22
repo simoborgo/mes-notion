@@ -231,7 +231,7 @@ export async function getNextRilavorazioneOdp(_parentId: string, parentOdp: stri
 export async function createSchedaPage({
   numeroScheda, commessaId, odp, tipologia = "Scheda", stato, codiceArticolo, posizione,
   fornitoreId, quantita, dataProduzionePrevista, dataSchedaRicevuta, produzioneEsterna,
-  dataRientroPrevista, note, parentId,
+  dataRientroPrevista, note, parentId, areaId,
   pdfBuffer, pdfFilename, thumbnailBuffer, thumbnailFilename,
 }: {
   numeroScheda: string;
@@ -250,6 +250,7 @@ export async function createSchedaPage({
   dataRientroPrevista?: string | null;
   note?: string | null;
   parentId?: string | null;
+  areaId?: string | null;
   pdfBuffer?: Buffer;
   pdfFilename?: string;
   thumbnailBuffer?: Buffer;
@@ -258,13 +259,13 @@ export async function createSchedaPage({
   const { rows } = await pool.query(
     `INSERT INTO schede (id, numero_scheda, commessa_id, odp, tipologia, stato, codice_articolo, posizione,
        fornitore_id, quantita, data_produzione_prevista, data_scheda_ricevuta, produzione_esterna,
-       data_rientro_prevista, descrizione_fasi, parent_id)
-     VALUES (gen_random_uuid(), $1,$2,$3,$4,COALESCE($5,'Da Iniziare'),$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+       data_rientro_prevista, descrizione_fasi, parent_id, area_id)
+     VALUES (gen_random_uuid(), $1,$2,$3,$4,COALESCE($5,'Da Iniziare'),$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
      RETURNING id`,
     [
       numeroScheda, commessaId, odp, tipologia, stato || null, codiceArticolo || "", posizione || "",
       fornitoreId || null, quantita ?? null, dataProduzionePrevista || null, dataSchedaRicevuta || null,
-      produzioneEsterna ?? false, dataRientroPrevista || null, note || "", parentId || null,
+      produzioneEsterna ?? false, dataRientroPrevista || null, note || "", parentId || null, areaId || null,
     ],
   );
   const id = rows[0].id as string;
@@ -305,6 +306,7 @@ export async function updateScheda(id: string, data: SchedaUpdate): Promise<Sche
   if (data.quantita !== undefined) { sets.push(`quantita = $${i++}`); values.push(data.quantita); }
   if (data.dataSchedaRicevuta !== undefined) { sets.push(`data_scheda_ricevuta = $${i++}`); values.push(data.dataSchedaRicevuta); }
   if (data.noteStato !== undefined) { sets.push(`note_stato = $${i++}`); values.push(data.noteStato); }
+  if (data.areaId !== undefined) { sets.push(`area_id = $${i++}`); values.push(data.areaId); }
   // fornitore (testo) ignorato: "Nome Fornitore" non era mai scrivibile nemmeno su Notion (rollup),
   // l'unico modo reale è la FK fornitoreId sotto.
   if (data.fornitoreId !== undefined) { sets.push(`fornitore_id = $${i++}`); values.push(data.fornitoreId); }

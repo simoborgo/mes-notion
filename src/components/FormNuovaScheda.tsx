@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import type { Scheda, Commessa } from "@/lib/types";
+import { useEffect, useState } from "react";
+import type { Scheda, Commessa, Area } from "@/lib/types";
+import FormArea from "./FormArea";
 
 interface Props {
   commesse: Commessa[];
@@ -22,6 +23,32 @@ export default function FormNuovaScheda({ commesse, onClose, onCreated }: Props)
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const [aree, setAree] = useState<Area[]>([]);
+  const [areaId, setAreaId] = useState("");
+  const [showFormArea, setShowFormArea] = useState(false);
+
+  useEffect(() => {
+    if (!commessaId) return;
+    let cancelled = false;
+    fetch(`/api/aree?commessaId=${commessaId}`)
+      .then((r) => r.json())
+      .then((data) => { if (!cancelled) setAree(Array.isArray(data) ? data : []); })
+      .catch(() => { if (!cancelled) setAree([]); });
+    return () => { cancelled = true; };
+  }, [commessaId]);
+
+  function handleCommessaChange(id: string) {
+    setCommessaId(id);
+    setAreaId("");
+    if (!id) setAree([]);
+  }
+
+  function handleAreaCreata(area: Area) {
+    setAree((prev) => [...prev, area]);
+    setAreaId(area.id);
+    setShowFormArea(false);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!numeroScheda.trim()) {
@@ -37,6 +64,7 @@ export default function FormNuovaScheda({ commesse, onClose, onCreated }: Props)
         body: JSON.stringify({
           numeroScheda: numeroScheda.trim(),
           commessaId: commessaId || null,
+          areaId: areaId || null,
           codiceArticolo: codiceArticolo || null,
           posizione: posizione || null,
           quantita: quantita === "" ? null : Number(quantita),
@@ -72,14 +100,36 @@ export default function FormNuovaScheda({ commesse, onClose, onCreated }: Props)
         </div>
 
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
-          <div>
-            <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Commessa</label>
-            <select className={inputCls} value={commessaId} onChange={(e) => setCommessaId(e.target.value)}>
-              <option value="">— nessuna —</option>
-              {commesse.map((c) => (
-                <option key={c.id} value={c.id}>{c.numeroCommessa} — {c.cliente}</option>
-              ))}
-            </select>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Commessa</label>
+              <select className={inputCls} value={commessaId} onChange={(e) => handleCommessaChange(e.target.value)}>
+                <option value="">— nessuna —</option>
+                {commesse.map((c) => (
+                  <option key={c.id} value={c.id}>{c.numeroCommessa} — {c.cliente}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Area / Cartella</label>
+              <div className="flex gap-2">
+                <select className={inputCls} value={areaId} onChange={(e) => setAreaId(e.target.value)} disabled={!commessaId}>
+                  <option value="">— nessuna —</option>
+                  {aree.map((a) => (
+                    <option key={a.id} value={a.id}>{a.nomeArredo || "—"}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setShowFormArea(true)}
+                  disabled={!commessaId}
+                  className="px-3 py-2 text-sm rounded border font-medium whitespace-nowrap hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  style={{ color: "var(--color-primary)", borderColor: "rgba(240,143,37,0.3)" }}
+                >
+                  + Nuova
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -142,6 +192,13 @@ export default function FormNuovaScheda({ commesse, onClose, onCreated }: Props)
           </div>
         </form>
       </div>
+      {showFormArea && commessaId && (
+        <FormArea
+          commessaId={commessaId}
+          onClose={() => setShowFormArea(false)}
+          onSaved={handleAreaCreata}
+        />
+      )}
     </div>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Scheda, SchedaUpdate } from "@/lib/types";
+import type { Scheda, SchedaUpdate, Area } from "@/lib/types";
+import FormArea from "./FormArea";
 
 interface Fornitore { id: string; nome: string }
 
@@ -79,6 +80,7 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
     posizione: scheda.posizione,
     quantita: scheda.quantita,
     noteStato: scheda.noteStato,
+    areaId: scheda.areaId,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -87,6 +89,19 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
   useEffect(() => {
     fetch("/api/fornitori").then(r => r.json()).then(setFornitori).catch(() => {});
   }, []);
+
+  const [aree, setAree] = useState<Area[]>([]);
+  const [showFormArea, setShowFormArea] = useState(false);
+  useEffect(() => {
+    if (!scheda.commessaId) return;
+    fetch(`/api/aree?commessaId=${scheda.commessaId}`).then(r => r.json()).then((data) => setAree(Array.isArray(data) ? data : [])).catch(() => {});
+  }, [scheda.commessaId]);
+
+  function handleAreaCreata(area: Area) {
+    setAree((prev) => [...prev, area]);
+    set("areaId", area.id);
+    setShowFormArea(false);
+  }
 
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [uploadingFoto, setUploadingFoto] = useState(false);
@@ -259,6 +274,30 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
             </div>
           </div>
 
+          <div>
+            <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Area / Cartella</label>
+            <div className="flex gap-2">
+              <select className={inputCls} value={form.areaId ?? ""} onChange={(e) => set("areaId", e.target.value || null)} disabled={!scheda.commessaId}>
+                <option value="">— nessuna —</option>
+                {aree.map((a) => (
+                  <option key={a.id} value={a.id}>{a.nomeArredo || "—"}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setShowFormArea(true)}
+                disabled={!scheda.commessaId}
+                className="px-3 py-2 text-sm rounded border font-medium whitespace-nowrap hover:bg-gray-50 transition-colors disabled:opacity-50"
+                style={{ color: "var(--color-primary)", borderColor: "rgba(240,143,37,0.3)" }}
+              >
+                + Nuova
+              </button>
+            </div>
+            {!scheda.commessaId && (
+              <p className="text-xs mt-1" style={{ color: "var(--color-grey-mid)" }}>Assegna prima una Commessa per poter collegare un&apos;Area.</p>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Stato Produzione</label>
@@ -398,6 +437,13 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
           </div>
         </form>
       </div>
+      {showFormArea && scheda.commessaId && (
+        <FormArea
+          commessaId={scheda.commessaId}
+          onClose={() => setShowFormArea(false)}
+          onSaved={handleAreaCreata}
+        />
+      )}
     </div>
   );
 }

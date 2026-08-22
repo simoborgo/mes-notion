@@ -54,6 +54,7 @@ export interface SchedaUpdate {
   quantita?: number | null;
   dataSchedaRicevuta?: string | null;
   noteStato?: string;
+  areaId?: string | null;
 }
 
 export interface Ritiro {
