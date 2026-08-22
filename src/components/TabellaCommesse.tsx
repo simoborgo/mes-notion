@@ -211,7 +211,7 @@ export default function TabellaCommesse({ commesse: commesseIniziali, schede = [
           </tbody>
         </table>
       </div>
-      <DettaglioCommessaModal commessaId={selectedId} onClose={() => setSelectedId(null)} />
+      <DettaglioCommessaModal commessaId={selectedId} onClose={() => setSelectedId(null)} userRole={userRole} />
       {formAperto && (
         <FormCommessa
           commessa={formAperto === "nuova" ? undefined : formAperto}

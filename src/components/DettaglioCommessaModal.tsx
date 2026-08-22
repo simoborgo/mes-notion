@@ -2,11 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Commessa, Area, Scheda, Carico } from "@/lib/types";
+import { COMMESSE_ROLES, type Role } from "@/lib/roles";
 import BadgeStato from "./BadgeStato";
+import FormArea from "./FormArea";
 
 interface Props {
   commessaId: string | null;
   onClose: () => void;
+  userRole?: Role;
 }
 
 interface DettaglioData {
@@ -167,11 +170,18 @@ function AreaAccordion({ area, schede }: { area: Area; schede: Scheda[] }) {
   );
 }
 
-export default function DettaglioCommessaModal({ commessaId, onClose }: Props) {
+export default function DettaglioCommessaModal({ commessaId, onClose, userRole }: Props) {
   const [data, setData] = useState<DettaglioData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showFormArea, setShowFormArea] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const canWrite = !!userRole && COMMESSE_ROLES.includes(userRole);
+
+  function handleAreaCreata(area: Area) {
+    setData((prev) => (prev ? { ...prev, aree: [...prev.aree, area] } : prev));
+    setShowFormArea(false);
+  }
 
   useEffect(() => {
     if (!commessaId) {
@@ -192,13 +202,19 @@ export default function DettaglioCommessaModal({ commessaId, onClose }: Props) {
       .finally(() => setLoading(false));
   }, [commessaId]);
 
+  function handleClose() {
+    setShowFormArea(false);
+    onClose();
+  }
+
   useEffect(() => {
     if (!commessaId) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") handleClose();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [commessaId, onClose]);
 
   if (!commessaId) return null;
@@ -210,7 +226,7 @@ export default function DettaglioCommessaModal({ commessaId, onClose }: Props) {
       ref={overlayRef}
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: "rgba(26,23,20,0.55)" }}
-      onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
+      onClick={(e) => { if (e.target === overlayRef.current) handleClose(); }}
     >
       <div
         className="relative w-full max-w-4xl rounded-xl shadow-2xl flex flex-col"
@@ -232,7 +248,7 @@ export default function DettaglioCommessaModal({ commessaId, onClose }: Props) {
             <span className="flex-1 text-base font-medium" style={{ color: "var(--color-grey-mid)" }}>Dettaglio commessa</span>
           )}
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="ml-2 w-7 h-7 flex items-center justify-center rounded-full text-sm transition-colors hover:bg-gray-100"
             style={{ color: "var(--color-grey-icon)" }}
             aria-label="Chiudi"
@@ -358,20 +374,35 @@ export default function DettaglioCommessaModal({ commessaId, onClose }: Props) {
               )}
 
               {/* Aree */}
-              {data.aree.length > 0 && (
+              {(data.aree.length > 0 || canWrite) && (
                 <section>
-                  <h3 className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--color-grey-mid)" }}>
-                    Aree / Cartelle ({data.aree.length})
-                  </h3>
-                  <div className="space-y-2">
-                    {data.aree.map((a) => (
-                      <AreaAccordion key={a.id} area={a} schede={data.schede} />
-                    ))}
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-grey-mid)" }}>
+                      Aree / Cartelle ({data.aree.length})
+                    </h3>
+                    {canWrite && (
+                      <button
+                        onClick={() => setShowFormArea(true)}
+                        className="text-xs px-2.5 py-1 rounded-lg font-semibold text-white whitespace-nowrap"
+                        style={{ background: "var(--color-primary)" }}
+                      >
+                        + Nuova Area
+                      </button>
+                    )}
                   </div>
+                  {data.aree.length > 0 ? (
+                    <div className="space-y-2">
+                      {data.aree.map((a) => (
+                        <AreaAccordion key={a.id} area={a} schede={data.schede} />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm" style={{ color: "var(--color-grey-mid)" }}>Nessuna area collegata.</p>
+                  )}
                 </section>
               )}
 
-              {data.aree.length === 0 && data.schede.length === 0 && (
+              {!canWrite && data.aree.length === 0 && data.schede.length === 0 && (
                 <div className="py-6 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
                   Nessuna area o scheda collegata
                 </div>
@@ -380,6 +411,13 @@ export default function DettaglioCommessaModal({ commessaId, onClose }: Props) {
           )}
         </div>
       </div>
+      {showFormArea && (
+        <FormArea
+          commessaId={commessaId}
+          onClose={() => setShowFormArea(false)}
+          onSaved={handleAreaCreata}
+        />
+      )}
     </div>
   );
 }
