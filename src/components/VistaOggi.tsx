@@ -68,8 +68,16 @@ interface SezioneDerivata {
   residuo: number;
 }
 
-// Giornata standard attuale — in futuro spostabile in una pagina di configurazioni
-const DEFAULT_TOTALE_GIORNATA = 9.5;
+// Ore totali di default per la giornata selezionata, in base al giorno della settimana: il
+// sabato ha un turno più corto e senza pausa pranzo (configurabile in Admin → Orari Turno),
+// la domenica non è un giorno lavorativo standard. Restano comunque modificabili a mano.
+function defaultTotaleGiornata(dateStr: string, oreFeriale: number, oreSabato: number): number {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const weekday = new Date(y, m - 1, d).getDay(); // 0 = domenica, 6 = sabato
+  if (weekday === 0) return 0;
+  if (weekday === 6) return oreSabato;
+  return oreFeriale;
+}
 
 function oggiStr(): string {
   const d = new Date();
@@ -114,7 +122,7 @@ function badgeResiduo(residuo: number): { label: string; bg: string; color: stri
 
 const inputCls = "rounded-lg border px-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300";
 
-export default function VistaOggi() {
+export default function VistaOggi({ oreFeriale, oreSabato }: { oreFeriale: number; oreSabato: number }) {
   const [data, setData] = useState(oggiStr());
   const [presenti, setPresenti] = useState<PresenteRow[]>([]);
   const [odpList, setOdpList] = useState<OdpAttivo[]>([]);
@@ -122,7 +130,7 @@ export default function VistaOggi() {
   const [warning, setWarning] = useState<string | null>(null);
   const [errore, setErrore] = useState<string | null>(null);
   const [selezionati, setSelezionati] = useState<Set<string>>(new Set());
-  const [totaleGiornata, setTotaleGiornata] = useState(DEFAULT_TOTALE_GIORNATA);
+  const [totaleGiornata, setTotaleGiornata] = useState(() => defaultTotaleGiornata(oggiStr(), oreFeriale, oreSabato));
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [preselezionaUltimoOdp, setPreselezionaUltimoOdp] = useState(true);
 
@@ -146,7 +154,7 @@ export default function VistaOggi() {
     }
   }, []);
 
-  useEffect(() => { caricaPresenti(data); setSelezionati(new Set()); setTotaleGiornata(DEFAULT_TOTALE_GIORNATA); }, [data, caricaPresenti]);
+  useEffect(() => { caricaPresenti(data); setSelezionati(new Set()); setTotaleGiornata(defaultTotaleGiornata(data, oreFeriale, oreSabato)); }, [data, caricaPresenti, oreFeriale, oreSabato]);
 
   useEffect(() => {
     fetch("/api/ore/odp-list")

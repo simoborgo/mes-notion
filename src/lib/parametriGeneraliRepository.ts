@@ -46,6 +46,21 @@ export async function getOrariTurno(): Promise<OrariTurno> {
   return riga(rows[0]);
 }
 
+function minutiDa(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+}
+
+// Durata standard del turno (ore decimali) per giorno feriale e per sabato, derivata dagli
+// orari configurati — usata per il default di "ore totali giornata" in Rilevamento Ore, che
+// prima era fisso a 9.5 anche di sabato (turno più corto e senza pausa pranzo).
+export function calcolaOreStandard(orari: OrariTurno): { oreFeriale: number; oreSabato: number } {
+  const pausaMin = minutiDa(orari.turnoFerialePausaFine) - minutiDa(orari.turnoFerialePausaInizio);
+  const oreFeriale = (minutiDa(orari.turnoFerialeFine) - minutiDa(orari.turnoFerialeInizio) - pausaMin) / 60;
+  const oreSabato = (minutiDa(orari.turnoSabatoFine) - minutiDa(orari.turnoSabatoInizio)) / 60;
+  return { oreFeriale, oreSabato };
+}
+
 export async function aggiornaOrariTurno(valori: OrariTurno): Promise<OrariTurno> {
   const { rows } = await pool.query(
     `UPDATE parametri_generali SET

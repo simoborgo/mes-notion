@@ -2,6 +2,7 @@ import { getSession, RILEVAMENTO_ORE_ROLES } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import OreSubNav from "@/components/OreSubNav";
 import VistaOggi from "@/components/VistaOggi";
+import { getOrariTurno, calcolaOreStandard } from "@/lib/parametriGeneraliRepository";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,9 @@ export default async function RilevamentoOrePage() {
   const session = await getSession();
   if (!session) redirect("/login");
   if (!RILEVAMENTO_ORE_ROLES.includes(session.role)) redirect("/");
+
+  const orariTurno = await getOrariTurno();
+  const { oreFeriale, oreSabato } = calcolaOreStandard(orariTurno);
 
   return (
     <div className="max-w-5xl mx-auto py-6 px-4">
@@ -19,7 +23,7 @@ export default async function RilevamentoOrePage() {
         Registrazione ore operatori a fine turno
       </p>
       <OreSubNav active="oggi" />
-      <VistaOggi />
+      <VistaOggi oreFeriale={oreFeriale} oreSabato={oreSabato} />
     </div>
   );
 }
