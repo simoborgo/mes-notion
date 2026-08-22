@@ -8,7 +8,6 @@ import BadgeStato from "./BadgeStato";
 import DettaglioSchedaModal from "./DettaglioSchedaModal";
 import FormNuovaScheda from "./FormNuovaScheda";
 
-const PAGE_SIZE = 100;
 const STATI_COMPLETATI = new Set(["Completato", "Annullata"]);
 const STATI_RILAVORAZIONE_APERTA = new Set(["In lavorazione Esterna", "In lavorazione", "In Attesa Rilavorazione"]);
 
@@ -30,7 +29,6 @@ interface FiltriSchedeSalvati {
   dateField: "dataProduzionePrevista" | "dataRientroPrevista";
   sortKey: SortKey;
   sortDir: SortDir;
-  page: number;
   nascondiChiuse: boolean;
 }
 
@@ -240,7 +238,6 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
   const [dateField, setDateField] = useState<"dataProduzionePrevista" | "dataRientroPrevista">("dataProduzionePrevista");
   const [sortKey, setSortKey] = useState<SortKey>("odp");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
-  const [page, setPage] = useState(0);
   const [viewing, setViewing] = useState<Scheda | null>(null);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
 
@@ -280,7 +277,6 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
       if (saved.dateField !== undefined) setDateField(saved.dateField);
       if (saved.sortKey !== undefined) setSortKey(saved.sortKey);
       if (saved.sortDir !== undefined) setSortDir(saved.sortDir);
-      if (saved.page !== undefined) setPage(saved.page);
       if (saved.nascondiChiuse !== undefined) setNascondiChiuse(saved.nascondiChiuse);
     } catch {
       // sessionStorage non disponibile o JSON corrotto — si parte con i filtri di default
@@ -291,14 +287,14 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
     const data: FiltriSchedeSalvati = {
       search, filtroFornitore, filtroCommessa, filtroStati: Array.from(filtroStati),
       filtroEsterna, filtroRitardoProd, filtroRitardoRientro, dateFrom, dateTo, dateField,
-      sortKey, sortDir, page, nascondiChiuse,
+      sortKey, sortDir, nascondiChiuse,
     };
     try {
       sessionStorage.setItem(FILTRI_SCHEDE_STORAGE_KEY, JSON.stringify(data));
     } catch {
       // storage pieno o non disponibile — non blocca l'interazione
     }
-  }, [search, filtroFornitore, filtroCommessa, filtroStati, filtroEsterna, filtroRitardoProd, filtroRitardoRientro, dateFrom, dateTo, dateField, sortKey, sortDir, page, nascondiChiuse]);
+  }, [search, filtroFornitore, filtroCommessa, filtroStati, filtroEsterna, filtroRitardoProd, filtroRitardoRientro, dateFrom, dateTo, dateField, sortKey, sortDir, nascondiChiuse]);
 
   const commesseChiuseNr = useMemo(
     () => new Set(commesse.filter((c) => c.stato === "Chiusa").map((c) => c.numeroCommessa)),
@@ -382,17 +378,12 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
     return parts.length > 0 ? parts.join(" · ") : "Nessun filtro attivo";
   }, [search, filtroStati, filtroEsterna, filtroFornitore, filtroCommessa, commesseOptions, dateFrom, dateTo, dateField, filtroRitardoProd, filtroRitardoRientro, nascondiChiuse]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages - 1);
-  const pageSlice = filtered.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
-
   function handleSort(key: SortKey) {
     if (key === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else { setSortKey(key); setSortDir(key.startsWith("data") ? "asc" : "desc"); }
-    setPage(0);
   }
 
-  function handleFilter(fn: () => void) { fn(); setPage(0); }
+  function handleFilter(fn: () => void) { fn(); }
 
 
   const inputCls = "border rounded px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300";
@@ -510,7 +501,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
         </div>
         {(dateFrom || dateTo) && (
           <button
-            onClick={() => { setDateFrom(""); setDateTo(""); setPage(0); }}
+            onClick={() => { setDateFrom(""); setDateTo(""); }}
             className="text-xs px-2 py-1.5 rounded border font-medium hover:bg-gray-50 transition-colors"
             style={{ color: "var(--color-grey-mid)" }}
           >
@@ -556,14 +547,14 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
             </tr>
           </thead>
           <tbody>
-            {pageSlice.length === 0 ? (
+            {filtered.length === 0 ? (
               <tr>
                 <td colSpan={12} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
                   Nessuna scheda trovata
                 </td>
               </tr>
             ) : (
-              pageSlice.map((s) => {
+              filtered.map((s) => {
                 const ritardo = isInRitardo(s, today);
                 const rowInRitardo = ritardo.produzione || ritardo.rientro;
                 const figlie = sottoschedeByParent.get(s.id) ?? [];
@@ -747,25 +738,6 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
           </tbody>
         </table>
       </div>
-
-      {/* Paginazione */}
-      {totalPages > 1 && (
-        <div className="no-print flex items-center justify-between text-sm">
-          <span style={{ color: "var(--color-grey-mid)" }}>
-            Pagina {currentPage + 1} di {totalPages} · record {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, filtered.length)} di {filtered.length}
-          </span>
-          <div className="flex gap-2">
-            <button disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}
-              className="px-3 py-1.5 rounded border text-xs font-medium disabled:opacity-40 hover:bg-gray-50 transition-colors">
-              ← Precedente
-            </button>
-            <button disabled={currentPage >= totalPages - 1} onClick={() => setPage(currentPage + 1)}
-              className="px-3 py-1.5 rounded border text-xs font-medium disabled:opacity-40 hover:bg-gray-50 transition-colors">
-              Successiva →
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Intestazione di stampa — logo + titolo + filtri attivi */}
       <div className="print-header hidden">
