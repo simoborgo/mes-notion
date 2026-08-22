@@ -546,6 +546,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
               <Th label="Cod. Articolo" sortable="codiceArticolo" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="N° Scheda" sortable="numeroScheda" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <th className="px-4 py-3 min-w-[180px]">Descrizione</th>
+              <th className="px-4 py-3 whitespace-nowrap text-right">Quantità</th>
               <Th label="Stato" sortable="statoProduzione" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="min-w-[120px]" />
               <Th label="Data Prod. Prev." sortable="dataProduzionePrevista" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <th className="px-4 py-3 whitespace-nowrap min-w-[100px]">Fornitore</th>
@@ -557,7 +558,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
           <tbody>
             {pageSlice.length === 0 ? (
               <tr>
-                <td colSpan={11} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
+                <td colSpan={12} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
                   Nessuna scheda trovata
                 </td>
               </tr>
@@ -625,6 +626,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                       ) : "—"}
                     </td>
                     <td className="px-4 py-3 text-xs">{s.descrizioneFasi || "—"}</td>
+                    <td className="px-4 py-3 text-xs text-right tabular-nums">{s.quantita ?? "—"}</td>
                     <td className="px-4 py-3">
                       <BadgeStato stato={s.statoProduzione} />
                       {s.faseCorrente && (
@@ -678,6 +680,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                           ) : "—"}
                         </td>
                         <td className="px-4 py-2 text-xs">{f.descrizioneFasi || "—"}</td>
+                        <td className="px-4 py-2 text-xs text-right tabular-nums">{f.quantita ?? "—"}</td>
                         <td className="px-4 py-2">
                           <BadgeStato stato={f.statoProduzione} />
                           {f.faseCorrente && (
@@ -718,6 +721,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                               ) : "—"}
                             </td>
                             <td className="px-4 py-2 text-xs">{n.descrizioneFasi || "—"}</td>
+                            <td className="px-4 py-2 text-xs text-right tabular-nums">{n.quantita ?? "—"}</td>
                             <td className="px-4 py-2"><BadgeStato stato={n.statoProduzione} /></td>
                             <td className="px-4 py-2"><DataCell date={n.dataProduzionePrevista} inRitardo={nRitardo.produzione} /></td>
                             <td className="px-4 py-2 text-xs max-w-[180px] truncate" title={n.fornitore || ""}>{n.fornitore || "—"}</td>
@@ -796,6 +800,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
             <th>Cod. Articolo</th>
             <th>N° Scheda</th>
             <th>Descrizione</th>
+            <th>Quantità</th>
             <th>Stato</th>
             <th>Fase</th>
             <th>Data Prod. Prev.</th>
@@ -811,6 +816,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
               <td>{s.codiceArticolo || "—"}</td>
               <td>{s.numeroScheda || "—"}</td>
               <td>{s.descrizioneFasi || "—"}</td>
+              <td>{s.quantita ?? "—"}</td>
               <td>{s.statoProduzione || "—"}</td>
               <td>{s.faseCorrente || "—"}</td>
               <td>{fmt(s.dataProduzionePrevista)}</td>
