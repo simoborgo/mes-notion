@@ -1,8 +1,9 @@
 import type { PoolClient } from "pg";
 import { pool } from "./db";
-import { giornoLavorativo } from "./calendarioLavorativo";
+import { giornoLavorativoAps as giornoLavorativo } from "./calendarioLavorativo";
 import { STATI_CHIUSI_ODP } from "./types";
 import { logOperation } from "./audit";
+import { getOrariTurno, calcolaOreStandard, type OrariTurno } from "./parametriGeneraliRepository";
 
 // ---------------------------------------------------------------------------
 // Date locali (mai new Date(isoString)/toISOString — stesso accorgimento già
@@ -58,6 +59,32 @@ function aggiungiGiorniLavorativi(d: Date, n: number): Date {
 
 const PESO_PRIORITA: Record<string, number> = { critica: 4, alta: 3, media: 2, bassa: 1 };
 export const BUFFER_CAPACITA = 0.85; // "Capacità pianificabile" spec sez. 4b — 15% di buffer
+
+// Capacità giornaliera reale (feriale vs sabato, dal 2026-08-23) — sostituisce l'assunzione
+// "capacitaSett/5" (5 giorni uguali). Ridistribuisce la capacità settimanale pesando sulle ore
+// vere di ciascun tipo di giorno (calcolaOreStandard, parametriGeneraliRepository.ts), non su un
+// conteggio grezzo di giorni.
+type OreStandard = { oreFeriale: number; oreSabato: number };
+
+// Capacità di un giorno specifico — 0 se non lavorativo per l'APS (domenica/festivo). Usata da
+// pianificaMonteOre (già simula giorno per giorno) e da caricoMonteOre (apsGanttRepository.ts).
+export function capacitaGiornoReparto(capacitaSett: number, giorno: Date, ore: OreStandard): number {
+  if (!giornoLavorativo(giorno)) return 0;
+  const pesoSettimana = ore.oreFeriale * 5 + ore.oreSabato;
+  if (pesoSettimana <= 0) return 0;
+  const oreDelGiorno = giorno.getDay() === 6 ? ore.oreSabato : ore.oreFeriale;
+  return capacitaSett * (oreDelGiorno / pesoSettimana) * BUFFER_CAPACITA;
+}
+
+// Tasso feriale piatto — usato solo da pianificaCorsie (CNC/Pressa/Sezionatura) per stimare lo
+// *span* in giorni di una fase, non una simulazione giorno-per-giorno: stessa semplificazione già
+// presente con "/5", solo pesata sulle ore vere invece che su una media grezza che ignorava il
+// sabato.
+export function capacitaGiornoFeriale(capacitaSett: number, ore: OreStandard): number {
+  const pesoSettimana = ore.oreFeriale * 5 + ore.oreSabato;
+  if (pesoSettimana <= 0) return 0;
+  return capacitaSett * (ore.oreFeriale / pesoSettimana) * BUFFER_CAPACITA;
+}
 
 interface Fase {
   id: string;
@@ -115,11 +142,11 @@ function confrontaCoda(a: Fase, b: Fase): number {
 // Reparti a corsie — stessa logica di corsia-packing del prototipo mes-aps-simulatore.jsx
 // (assegnaCorsie/pianificaFase), riscritta su dati reali. `occupazione` viene mutata in posto:
 // ogni fase appena piazzata occupa la sua corsia per i piazzamenti successivi nella stessa coda.
-function pianificaCorsie(reparto: Reparto, coda: Fase[], occupazione: Occupazione[], oggi: Date): Map<string, Risultato> {
+function pianificaCorsie(reparto: Reparto, coda: Fase[], occupazione: Occupazione[], oggi: Date, ore: OreStandard): Map<string, Risultato> {
   const risultati = new Map<string, Risultato>();
   const nCorsie = Math.max(reparto.nRisorseParallele ?? 1, 1);
   const capacitaSett = reparto.capacitaSett;
-  const rateGiorno = capacitaSett != null ? (capacitaSett / 5) * BUFFER_CAPACITA / nCorsie : null;
+  const rateGiorno = capacitaSett != null ? capacitaGiornoFeriale(capacitaSett, ore) / nCorsie : null;
 
   for (const fase of coda) {
     const disponibileDal = nonPrimaDi(primoGiornoLavorativoDa(toDate(fase.dataDisponibilita!)), oggi);
@@ -155,7 +182,7 @@ function pianificaCorsie(reparto: Reparto, coda: Fase[], occupazione: Occupazion
 
 // Reparti a monte ore — spec sez. 4c: simulazione giorno per giorno, insieme attivo = i primi
 // wip_max ODP in coda con disponibilità raggiunta, quota giornaliera pesata per priorità.
-function pianificaMonteOre(reparto: Reparto, coda: Fase[], oggi: Date): Map<string, Risultato> {
+function pianificaMonteOre(reparto: Reparto, coda: Fase[], oggi: Date, ore: OreStandard): Map<string, Risultato> {
   const risultati = new Map<string, Risultato>();
   if (coda.length === 0) return risultati;
 
@@ -171,7 +198,6 @@ function pianificaMonteOre(reparto: Reparto, coda: Fase[], oggi: Date): Map<stri
     return risultati;
   }
 
-  const capacitaGiorno = (capacitaSett / 5) * BUFFER_CAPACITA;
   const wipMax = reparto.wipMax ?? Infinity;
 
   // Stato di lavorazione residua per fase (in ore) — le fasi con ore_stimate NULL si
@@ -217,6 +243,7 @@ function pianificaMonteOre(reparto: Reparto, coda: Fase[], oggi: Date): Map<stri
       continue;
     }
 
+    const capacitaGiorno = capacitaGiornoReparto(capacitaSett, giorno, ore);
     const sommaPesi = attivi.reduce((s, f) => s + (PESO_PRIORITA[f.priorita] ?? 2), 0);
     for (const f of [...attivi]) {
       const quota = capacitaGiorno * ((PESO_PRIORITA[f.priorita] ?? 2) / sommaPesi);
@@ -249,6 +276,10 @@ export interface RisultatoRicalcolo {
 // (4d). Mai tocca le fasi già 'In lavorazione'/'Completato'. Vedi il piano Fase 3+4 per i
 // dettagli e le decisioni sui dati mancanti (capacità/ore_stimate NULL -> fase istantanea).
 export async function ricalcolaPiano(): Promise<RisultatoRicalcolo> {
+  // Orari turno (feriale/sabato) — una sola lettura per tutto il ricalcolo, non per fase.
+  const orariTurno: OrariTurno = await getOrariTurno();
+  const oreStandard: OreStandard = calcolaOreStandard(orariTurno);
+
   const client: PoolClient = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -374,8 +405,8 @@ export async function ricalcolaPiano(): Promise<RisultatoRicalcolo> {
         progredito = true;
 
         const risultatiReparto = reparto.tipoCapacita === "corsie"
-          ? pianificaCorsie(reparto, coda, occupazionePerReparto.get(reparto.id)!, oggi)
-          : pianificaMonteOre(reparto, coda, oggi);
+          ? pianificaCorsie(reparto, coda, occupazionePerReparto.get(reparto.id)!, oggi, oreStandard)
+          : pianificaMonteOre(reparto, coda, oggi, oreStandard);
 
         for (const [faseId, res] of risultatiReparto) {
           risultatiTotali.set(faseId, res);

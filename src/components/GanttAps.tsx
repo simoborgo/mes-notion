@@ -35,6 +35,11 @@ function addDays(iso: string, n: number): string {
   const p = (x: number) => String(x).padStart(2, "0");
   return `${nuovo.getFullYear()}-${p(nuovo.getMonth() + 1)}-${p(nuovo.getDate())}`;
 }
+function oggiIsoLocale(): string {
+  const d = new Date();
+  const p = (x: number) => String(x).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
 function isWeekend(d: Date): boolean {
   const w = d.getDay();
   return w === 0 || w === 6;
@@ -88,8 +93,13 @@ export default function GanttAps({ dati }: { dati: DatiGantt }) {
   const primoGiorno = dati.giorni[0];
   const ultimoGiorno = dati.giorni[dati.giorni.length - 1];
   // Filtro data: solo una vista ristretta lato client su dati già tutti caricati per l'intera
-  // finestra — default = intera finestra, comportamento identico a prima finché non si tocca.
-  const [filtroDa, setFiltroDa] = useState(primoGiorno);
+  // finestra. "Dal" parte sempre da oggi-3gg (non dall'inizio dell'intera finestra, che può
+  // arrivare a 14+ giorni indietro) — clamp a primoGiorno per sicurezza, mai fuori dai dati
+  // realmente caricati. "Al" resta l'intera finestra finché non si tocca.
+  const [filtroDa, setFiltroDa] = useState(() => {
+    const treGiorniFa = addDays(oggiIsoLocale(), -3);
+    return treGiorniFa < primoGiorno ? primoGiorno : treGiorniFa;
+  });
   const [filtroA, setFiltroA] = useState(ultimoGiorno);
 
   // Toast d'errore per il drag&drop (Fase 9) — stesso pattern già usato altrove (TabellaCarichi.tsx).

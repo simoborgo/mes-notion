@@ -56,6 +56,16 @@ export function giornoLavorativo(d: Date): boolean {
   return !festivi(d.getFullYear()).has(fmtData(d));
 }
 
+// Variante solo per l'APS (apsSchedulerRepository.ts/apsGanttRepository.ts) — il sabato è
+// lavorativo (turno configurato in Admin → Orari Turno, sempre presente, colonne NOT NULL).
+// Deliberatamente SEPARATA da giornoLavorativo(): quest'ultima alimenta anche il Previsionale
+// (giorniLavorativiMese, capacityPlannerRepository.ts) che non deve cambiare capacità includendo
+// il sabato senza che sia stato richiesto.
+export function giornoLavorativoAps(d: Date): boolean {
+  if (d.getDay() === 0) return false; // solo la domenica esclusa
+  return !festivi(d.getFullYear()).has(fmtData(d));
+}
+
 // Conta i giorni lavorativi nell'intervallo [dataInizio, dataFine], estremi inclusi.
 // Date in formato "YYYY-MM-DD" — calcolo esplicito su anno/mese/giorno (non new Date(str) +
 // aritmetica su ISO string) per evitare spostamenti di fuso orario, stessa tecnica già usata

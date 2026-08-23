@@ -1,6 +1,7 @@
 import { pool, dateToStr } from "./db";
-import { giornoLavorativo } from "./calendarioLavorativo";
-import { BUFFER_CAPACITA } from "./apsSchedulerRepository";
+import { giornoLavorativoAps as giornoLavorativo } from "./calendarioLavorativo";
+import { capacitaGiornoReparto } from "./apsSchedulerRepository";
+import { getOrariTurno, calcolaOreStandard, type OrariTurno } from "./parametriGeneraliRepository";
 
 function toDate(iso: string): Date {
   const [y, m, d] = iso.split("-").map(Number);
@@ -94,9 +95,8 @@ function caricoCorsie(fasi: FaseGantt[], nRisorseParallele: number, giorni: Date
 // usa una quota pesata per priorità giorno per giorno, molto più fine: rifarla identica solo
 // per un indicatore visivo non vale lo sforzo. Fasi con ore_stimate NULL non contribuiscono
 // (nessun dato da spalmare — restano comunque visibili come barra nel Modulo Sequenza).
-function caricoMonteOre(fasi: FaseGantt[], capacitaSett: number | null, giorni: Date[]): { data: string; percentuale: number | null }[] {
+function caricoMonteOre(fasi: FaseGantt[], capacitaSett: number | null, giorni: Date[], ore: { oreFeriale: number; oreSabato: number }): { data: string; percentuale: number | null }[] {
   if (capacitaSett == null) return giorni.map((g) => ({ data: dateToStr(g), percentuale: null }));
-  const capacitaGiorno = (capacitaSett / 5) * BUFFER_CAPACITA;
 
   const orePerGiorno = new Map<string, number>();
   for (const f of fasi) {
@@ -116,12 +116,17 @@ function caricoMonteOre(fasi: FaseGantt[], capacitaSett: number | null, giorni: 
 
   return giorni.map((g) => {
     const key = dateToStr(g);
-    const ore = orePerGiorno.get(key) ?? 0;
-    return { data: key, percentuale: Math.round((ore / capacitaGiorno) * 100) };
+    const oreGiorno = orePerGiorno.get(key) ?? 0;
+    const capacitaGiorno = capacitaGiornoReparto(capacitaSett, g, ore);
+    if (capacitaGiorno <= 0) return { data: key, percentuale: oreGiorno > 0 ? 100 : 0 };
+    return { data: key, percentuale: Math.round((oreGiorno / capacitaGiorno) * 100) };
   });
 }
 
 export async function getDatiGantt(): Promise<DatiGantt> {
+  const orariTurno: OrariTurno = await getOrariTurno();
+  const oreStandard = calcolaOreStandard(orariTurno);
+
   const { rows: repartiRows } = await pool.query(
     `SELECT id, nome, tipo_capacita, capacita_sett, n_risorse_parallele, wip_max, tamburo, tbd, ordine_pipeline
      FROM reparti ORDER BY ordine_pipeline`
@@ -168,7 +173,7 @@ export async function getDatiGantt(): Promise<DatiGantt> {
     const nRisorseParallele = r.n_risorse_parallele != null ? Number(r.n_risorse_parallele) : null;
     const caricoGiornaliero = r.tipo_capacita === "corsie"
       ? caricoCorsie(fasiReparto, nRisorseParallele ?? 1, giorni)
-      : caricoMonteOre(fasiReparto, capacitaSett, giorni);
+      : caricoMonteOre(fasiReparto, capacitaSett, giorni, oreStandard);
     return {
       id: r.id,
       nome: r.nome,
