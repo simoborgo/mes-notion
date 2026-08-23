@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCarichi } from "@/lib/carichiRepository";
 import { getCommesse } from "@/lib/commesseRepository";
 import { getSessionFromRequest } from "@/lib/auth";
-import { buildCommesseConCarichi } from "@/lib/reportCommesse";
+import { buildCommesseConCarichi, type OrdinamentoCommesse } from "@/lib/reportCommesse";
 import { buildGanttWorkbook } from "@/lib/excel/gantt";
 
 export async function GET(req: NextRequest) {
@@ -10,8 +10,11 @@ export async function GET(req: NextRequest) {
     const session = await getSessionFromRequest(req);
     if (!session) return NextResponse.json({ error: "Non autorizzato" }, { status: 401 });
 
+    // Riflette lo stesso toggle "Carichi/Montaggio" della Dashboard da cui si stampa.
+    const ordinamento: OrdinamentoCommesse = req.nextUrl.searchParams.get("ordinamento") === "montaggio" ? "montaggio" : "carichi";
+
     const [commesse, carichi] = await Promise.all([getCommesse(), getCarichi()]);
-    const righe = buildCommesseConCarichi(commesse, carichi);
+    const righe = buildCommesseConCarichi(commesse, carichi, ordinamento);
     const buffer = await buildGanttWorkbook(righe);
 
     const filename = `Gantt_Commesse_Aperte_${new Date().toISOString().slice(0, 10)}.xlsx`;

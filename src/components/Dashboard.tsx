@@ -372,7 +372,7 @@ export default function Dashboard({ schede, ritiri, commesse, carichi }: Dashboa
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
           <a
-            href="/api/commesse/programma-riunione"
+            href={`/api/commesse/programma-riunione?ordinamento=${ordinamentoGantt}`}
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
             style={{ background: "var(--color-primary)" }}
           >
@@ -382,7 +382,7 @@ export default function Dashboard({ schede, ritiri, commesse, carichi }: Dashboa
             Stampa Programma
           </a>
           <a
-            href="/api/commesse/gantt"
+            href={`/api/commesse/gantt?ordinamento=${ordinamentoGantt}`}
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
             style={{ background: "var(--color-primary)" }}
           >

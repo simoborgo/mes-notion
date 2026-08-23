@@ -43,8 +43,6 @@ function labelRiga(commessa: { numeroCommessa: string; cliente: string; localita
 }
 
 export async function buildGanttWorkbook(righe: CommessaConCarichi[]): Promise<Buffer> {
-  // Range complessivo del Gantt: dalla prima data rilevante (carico o inizio montaggio più
-  // vecchio) all'ultima (carico o fine montaggio più recente), arrotondato a settimane intere.
   const tutteLeDate: Date[] = [];
   for (const r of righe) {
     tutteLeDate.push(...r.caricoDates);
@@ -61,8 +59,14 @@ export async function buildGanttWorkbook(righe: CommessaConCarichi[]): Promise<B
     return Buffer.from(buffer);
   }
 
-  const inizioRange = weekMonday(new Date(Math.min(...tutteLeDate.map((d) => d.getTime()))));
-  const fineRange = new Date(Math.max(...tutteLeDate.map((d) => d.getTime())));
+  // Range del Gantt: parte sempre da una settimana prima di oggi, mai dalla data più vecchia tra
+  // i dati — un carico preliminare passato da mesi non deve allungare tutta la vista all'indietro
+  // (stessa scelta già fatta per il Gantt della Dashboard il 2026-08-13). Arriva fino all'ultima
+  // data rilevante (carico o montaggio più recente), con un minimo di 90 giorni di vista.
+  const oggi = new Date(); oggi.setHours(0, 0, 0, 0);
+  const inizioRange = weekMonday(addDays(oggi, -7));
+  const fineRangeDati = new Date(Math.max(...tutteLeDate.map((d) => d.getTime())));
+  const fineRange = fineRangeDati > addDays(inizioRange, 90) ? fineRangeDati : addDays(inizioRange, 90);
 
   const settimane: Date[] = [];
   for (let w = inizioRange; w <= fineRange; w = addDays(w, 7)) {

@@ -1,7 +1,7 @@
 import ExcelJS from "exceljs";
 import fs from "fs";
 import path from "path";
-import type { CommessaConCarichi } from "../reportCommesse";
+import type { CommessaConCarichi, OrdinamentoCommesse } from "../reportCommesse";
 import { fmtDateIt, fmtDateEsteso, MESI_IT } from "./date";
 
 const ARANCIO = "FFE87722";
@@ -39,7 +39,7 @@ const thinGrigio = { style: "thin" as const, color: { argb: GRIGIO_BORDO } };
 const mediumNero = { style: "medium" as const, color: { argb: NERO } };
 const thickArancio = { style: "thick" as const, color: { argb: ARANCIO } };
 
-export async function buildProgrammaRiunioneWorkbook(righe: CommessaConCarichi[]): Promise<Buffer> {
+export async function buildProgrammaRiunioneWorkbook(righe: CommessaConCarichi[], ordinamento: OrdinamentoCommesse = "carichi"): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Programma");
   ws.views = [{ showGridLines: false }];
@@ -95,13 +95,16 @@ export async function buildProgrammaRiunioneWorkbook(righe: CommessaConCarichi[]
     cell.border = { top: thinGrigio, bottom: mediumNero };
   });
 
-  // Raggruppamento per mese del primo carico — le commesse senza alcun carico finiscono
-  // in un gruppo a parte in fondo (la skill non prevede un'etichetta per questo caso, dato
-  // che il file sorgente da cui parte non lo gestisce esplicitamente: usiamo un'etichetta
-  // di comodo invece di ometterle).
+  // Raggruppamento per mese in base all'ordinamento richiesto (stesso toggle Carichi/Montaggio
+  // della Dashboard): per "carichi" si usa il prossimo carico non ancora passato, non il primo
+  // in assoluto — un carico preliminare fatto due mesi fa non deve ancorare la commessa in un
+  // gruppo del passato se il carico vero è più avanti. Le commesse senza quella data finiscono
+  // comunque in un gruppo a parte in fondo, mai escluse dal programma.
+  const SENZA_DATA_LABEL = ordinamento === "montaggio" ? "Senza montaggio programmato" : "Senza carico programmato";
   const gruppi = new Map<string, CommessaConCarichi[]>();
   for (const r of righe) {
-    const key = r.primoCarico ? `${r.primoCarico.getFullYear()}-${String(r.primoCarico.getMonth() + 1).padStart(2, "0")}` : "senza-carico";
+    const d = r.dataOrdinamento;
+    const key = d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}` : "senza-data";
     const arr = gruppi.get(key);
     if (arr) arr.push(r);
     else gruppi.set(key, [r]);
@@ -111,8 +114,8 @@ export async function buildProgrammaRiunioneWorkbook(righe: CommessaConCarichi[]
   let indiceAlternanza = 0;
 
   for (const [key, gruppo] of gruppi) {
-    const titoloGruppo = key === "senza-carico"
-      ? "Senza carico programmato"
+    const titoloGruppo = key === "senza-data"
+      ? SENZA_DATA_LABEL
       : `${MESI_IT[Number(key.split("-")[1]) - 1]}  ${key.split("-")[0]}`;
 
     const sepRow = ws.getRow(rowIdx);
