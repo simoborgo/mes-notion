@@ -629,3 +629,28 @@ reale se quell'env var trapela (log, backup, accesso non previsto). Proposta abb
 `users` su Postgres, password con bcrypt/argon2, pagina admin `/admin/utenti`, script di migrazione
 una tantum da `USERS_JSON`. Se richiesta: testare a fondo in locale prima del deploy, un errore
 qui blocca l'accesso di tutti al MES.
+
+---
+
+## Modulo APS (Advanced Planning & Scheduling)
+
+### Tabella Schede di Produzione: filtri "Archiviate" e "Fasi APS da pianificare"
+
+**Stato:** idea proposta dall'utente (sessione 2026-08-22), da riprendere — non ancora pianificata
+
+Durante lo sviluppo del motore di scheduling APS (Fase 3+4: `apsSchedulerRepository.ts`) sono
+emersi due filtri applicati nel motore che oggi non hanno equivalente visibile nella Tabella
+Schede di Produzione (`TabellaSchede.tsx` / `getSchede()`):
+
+- **Archiviate**: `getSchede()` esclude sempre `archiviata = true` in modo rigido — dalla UI non
+  si vede mai una scheda archiviata, nemmeno volendo (bisogna interrogare il DB a mano per
+  verificarlo, come fatto per debug in questa sessione).
+- **Fasi APS "Da iniziare"**: la tabella non sa nulla di `schede_fasi` — nessun modo di vedere a
+  colpo d'occhio quali schede hanno ancora fasi APS non pianificate (le uniche che il motore
+  tocca), utile finché non esiste la UI Gantt (Fase 7).
+
+**Come affrontarla, se richiesto**: un toggle "Mostra archiviate" (richiede una variante o un
+parametro di `getSchede()` che non filtri `archiviata`), più un conteggio/badge per scheda delle
+`schede_fasi` con `stato_fase = 'Da iniziare'` (richiede una query aggiuntiva o una JOIN in
+`getSchede()`) con relativo filtro. Pensato esplicitamente come aiuto di debug/verifica, non come
+sostituto della futura UI Gantt.

@@ -4,6 +4,14 @@ import { useEffect, useState } from "react";
 import type { Scheda, Commessa, Area } from "@/lib/types";
 import FormArea from "./FormArea";
 
+// Locale (mai toISOString/UTC-shift) — precompila "Data Scheda Ricevuta" a oggi, coerente con
+// l'import automatico (import-scheda/route.ts) che la imposta sempre a "oggi" senza chiederla.
+function oggiLocale(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 interface Props {
   commesse: Commessa[];
   onClose: () => void;
@@ -16,7 +24,7 @@ export default function FormNuovaScheda({ commesse, onClose, onCreated }: Props)
   const [codiceArticolo, setCodiceArticolo] = useState("");
   const [posizione, setPosizione] = useState("");
   const [quantita, setQuantita] = useState<string>("");
-  const [dataSchedaRicevuta, setDataSchedaRicevuta] = useState("");
+  const [dataSchedaRicevuta, setDataSchedaRicevuta] = useState(oggiLocale());
   const [dataProduzionePrevista, setDataProduzionePrevista] = useState("");
   const [note, setNote] = useState("");
   const [produzioneEsterna, setProduzioneEsterna] = useState(false);
@@ -53,6 +61,10 @@ export default function FormNuovaScheda({ commesse, onClose, onCreated }: Props)
     e.preventDefault();
     if (!numeroScheda.trim()) {
       setError("Numero Scheda obbligatorio");
+      return;
+    }
+    if (!dataSchedaRicevuta) {
+      setError("Data Scheda Ricevuta obbligatoria");
       return;
     }
     setSaving(true);
@@ -150,8 +162,8 @@ export default function FormNuovaScheda({ commesse, onClose, onCreated }: Props)
               <input type="number" min="0" className={inputCls} value={quantita} onChange={(e) => setQuantita(e.target.value)} />
             </div>
             <div>
-              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Data Scheda Ricevuta</label>
-              <input type="date" className={inputCls} value={dataSchedaRicevuta} onChange={(e) => setDataSchedaRicevuta(e.target.value)} />
+              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Data Scheda Ricevuta *</label>
+              <input type="date" required className={inputCls} value={dataSchedaRicevuta} onChange={(e) => setDataSchedaRicevuta(e.target.value)} />
             </div>
             <div>
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Data Produzione Prevista</label>

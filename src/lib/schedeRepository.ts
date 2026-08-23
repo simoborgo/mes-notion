@@ -3,6 +3,8 @@ import type { Scheda, SchedaUpdate, OdpAttivo } from "./types";
 import { STATI_CHIUSI_ODP } from "./types";
 import { codiciSpecialiPerCommessa, ODP_SPECIALI } from "./attivitaSpecialiCommessa";
 import { getCommesse, getCommessaFolderId, setCommessaFolderId } from "./commesseRepository";
+import { generaFasiPerScheda } from "./schedeFasiRepository";
+import { ricalcolaPiano } from "./apsSchedulerRepository";
 import {
   getOrCreateCommessaFolder, getOrCreateSchedaFolder,
   uploadPdfAllegato as driveUploadPdfAllegato,
@@ -109,6 +111,7 @@ function mapRow(r: any, allegati: Awaited<ReturnType<typeof caricaAllegati>>): S
     notionUrl: "",
     kitFerramenta: r.kit_ferramenta,
     noteStato: r.note_stato,
+    priorita: r.priorita,
   };
 }
 
@@ -285,7 +288,25 @@ export async function createSchedaPage({
     await pool.query(`UPDATE schede SET copertina_drive_id = $1 WHERE id = $2`, [uploaded.id, id]);
   }
 
-  return getSchedaById(id);
+  const scheda = await getSchedaById(id);
+  generaFasiSeApplicabile(scheda);
+  return scheda;
+}
+
+// Fire-and-forget, non deve mai far fallire la creazione/modifica della Scheda: la
+// generazione fasi APS è idempotente (generaFasiPerScheda no-op se già presenti) e può
+// essere ritentata via il selettore manuale in UI se qualcosa va storto qui. Se la generazione
+// produce fasi nuove, il piano si ricalcola da solo (Fase 5, trigger "nuovo ODP").
+function generaFasiSeApplicabile(scheda: Scheda): void {
+  if (scheda.tipologia === "Scheda" && scheda.codiceArticolo) {
+    generaFasiPerScheda(scheda.id)
+      .then((risultato) => {
+        if (risultato.generato) void ricalcolaPiano();
+      })
+      .catch((e) => {
+        console.error("[schede] generazione fasi APS fallita:", e instanceof Error ? e.message : String(e));
+      });
+  }
 }
 
 export async function updateScheda(id: string, data: SchedaUpdate): Promise<Scheda> {
@@ -307,6 +328,7 @@ export async function updateScheda(id: string, data: SchedaUpdate): Promise<Sche
   if (data.dataSchedaRicevuta !== undefined) { sets.push(`data_scheda_ricevuta = $${i++}`); values.push(data.dataSchedaRicevuta); }
   if (data.noteStato !== undefined) { sets.push(`note_stato = $${i++}`); values.push(data.noteStato); }
   if (data.areaId !== undefined) { sets.push(`area_id = $${i++}`); values.push(data.areaId); }
+  if (data.priorita !== undefined) { sets.push(`priorita = $${i++}`); values.push(data.priorita); }
   // fornitore (testo) ignorato: "Nome Fornitore" non era mai scrivibile nemmeno su Notion (rollup),
   // l'unico modo reale è la FK fornitoreId sotto.
   if (data.fornitoreId !== undefined) { sets.push(`fornitore_id = $${i++}`); values.push(data.fornitoreId); }
@@ -315,7 +337,14 @@ export async function updateScheda(id: string, data: SchedaUpdate): Promise<Sche
   values.push(id);
   const { rows } = await pool.query(`UPDATE schede SET ${sets.join(", ")} WHERE id = $${i} RETURNING id`, values);
   if (rows.length === 0) throw new Error(`Scheda non trovata: ${id}`);
-  return getSchedaById(id);
+  const scheda = await getSchedaById(id);
+  // Solo se questa chiamata ha toccato codice_articolo — non ha senso riverificare a ogni
+  // modifica (es. una nota), generaFasiPerScheda è comunque idempotente da sola.
+  if (data.codiceArticolo !== undefined) generaFasiSeApplicabile(scheda);
+  // Cambio priorità (Fase 5, trigger "cambio priorità"): la coda dei reparti dipende
+  // dall'ordinamento 4a, quindi il piano si ricalcola da solo.
+  if (data.priorita !== undefined) void ricalcolaPiano();
+  return scheda;
 }
 
 export async function updateSchedaStato(id: string, stato: string): Promise<void> {

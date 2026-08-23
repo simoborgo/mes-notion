@@ -8,6 +8,7 @@ import PdfAnnotatoreModal, { type AnnotazioneData } from "./PdfAnnotatoreModal";
 import FormModificaScheda from "./FormModificaScheda";
 import FormNuovaSottoscheda from "./FormNuovaSottoscheda";
 import KitFerramentaTab from "./KitFerramentaTab";
+import SchedaFasiApsTab from "./SchedaFasiApsTab";
 
 interface Props {
   scheda: Scheda;
@@ -86,8 +87,6 @@ function RilavorazioneWizard({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fotoInputRef = useRef<HTMLInputElement>(null);
-
-  const totalSteps = hasPdf ? 3 : 1;
 
   useEffect(() => {
     fetch("/api/fornitori").then(r => r.json()).then(setFornitori).catch(() => {});
@@ -305,11 +304,11 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
   const [showNuovaSottoscheda, setShowNuovaSottoscheda] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const [eliminaError, setEliminaError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"info" | "fornitore" | "kit">("info");
+  const [activeTab, setActiveTab] = useState<"info" | "fornitore" | "kit" | "aps">("info");
   const [showNoteStato, setShowNoteStato] = useState(false);
   const canFerramenta = !!userRole && FERRAMENTA_ROLES.includes(userRole);
 
-  const tabs: { key: "info" | "fornitore" | "kit"; label: string; icon: React.ReactNode }[] = [
+  const tabs: { key: "info" | "fornitore" | "kit" | "aps"; label: string; icon: React.ReactNode }[] = [
     {
       key: "info", label: "Info",
       icon: (
@@ -331,6 +330,14 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
       icon: (
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
+        </svg>
+      ),
+    }] : []),
+    ...(s.tipologia === "Scheda" ? [{
+      key: "aps" as const, label: "Fasi APS",
+      icon: (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="4" width="18" height="4" rx="1" /><rect x="3" y="10" width="12" height="4" rx="1" /><rect x="3" y="16" width="15" height="4" rx="1" />
         </svg>
       ),
     }] : []),
@@ -552,6 +559,8 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
 
           {activeTab === "kit" && canFerramenta && <KitFerramentaTab scheda={s} />}
+
+          {activeTab === "aps" && s.tipologia === "Scheda" && <SchedaFasiApsTab scheda={s} />}
 
           {activeTab === "fornitore" && (
             <section className="space-y-2">

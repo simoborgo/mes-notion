@@ -17,6 +17,42 @@ function mapRow(r: any): Articolo {
   };
 }
 
+export interface ArticoloConPattern extends Articolo {
+  patternId: string | null;
+  patternNome: string | null;
+  programmaCncDisponibile: boolean;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapRowConPattern(r: any): ArticoloConPattern {
+  return {
+    ...mapRow(r),
+    patternId: r.pattern_id,
+    patternNome: r.pattern_nome,
+    programmaCncDisponibile: r.programma_cnc_disponibile,
+  };
+}
+
+// Per la pagina admin di assegnazione Pattern_Ciclo (Fase 2 APS) — elenco completo, non solo
+// gli articoli già apparsi in una Scheda/Offerta.
+export async function getArticoliConPattern(): Promise<ArticoloConPattern[]> {
+  const { rows } = await pool.query(
+    `SELECT a.*, pc.nome AS pattern_nome
+     FROM articoli a LEFT JOIN pattern_ciclo pc ON pc.id = a.pattern_id
+     ORDER BY a.descrizione`
+  );
+  return rows.map(mapRowConPattern);
+}
+
+export async function aggiornaPatternArticolo(codiceArticolo: string, patternId: string | null): Promise<ArticoloConPattern | null> {
+  const { rows } = await pool.query(
+    `UPDATE articoli SET pattern_id = $2 WHERE codice_articolo = $1
+     RETURNING *, (SELECT nome FROM pattern_ciclo WHERE id = $2) AS pattern_nome`,
+    [codiceArticolo, patternId]
+  );
+  return rows[0] ? mapRowConPattern(rows[0]) : null;
+}
+
 export async function getArticoli(): Promise<Articolo[]> {
   const { rows } = await pool.query(`SELECT * FROM articoli ORDER BY descrizione`);
   return rows.map(mapRow);

@@ -37,6 +37,10 @@ export const RITIRI_PICKUP_RILAVORAZIONE_ROLES: Role[] = RIENTRO_QUALITA_ROLES.f
 // Nessun ruolo "commerciale" esiste oggi — solo admin per ora, facile da ampliare su richiesta.
 export const OFFERTE_ROLES: Role[] = ["admin"];
 export const PARAMETRI_REPARTO_ROLES: Role[] = ["admin"];
+// APS (Advanced Planning & Scheduling) — anagrafica Reparti/Pattern_Ciclo, solo admin per ora.
+export const REPARTI_ROLES: Role[] = ["admin"];
+// Vista Gantt APS (sola lettura) — chi già lavora con Schede/Rilevamento Ore, non solo admin.
+export const APS_GANTT_ROLES: Role[] = ["admin", "produzione", "responsabile_produzione"];
 export const PREVISIONALE_ROLES: Role[] = ["admin"];
 export const ORARI_TURNO_ROLES: Role[] = ["admin"];
 export const IMPOSTAZIONI_ROLES: Role[] = ["admin"];

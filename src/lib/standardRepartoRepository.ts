@@ -3,6 +3,7 @@ import { ensureArticoloEsiste } from "./articoliRepository";
 import { getCodiceArticoloPerOdp } from "./schedeRepository";
 import { REPARTI_PRODUZIONE } from "./types";
 import { logOperation } from "./audit";
+import { iniziaFasePerOdpReparto, NOME_STORICO_A_REPARTO_ID } from "./schedeFasiRepository";
 
 // Media/varianza online (Welford) per (codice_articolo, reparto). Le formule di
 // aggiunta/rimozione sono esatte e simmetriche: rimuovere un valore precedentemente
@@ -74,6 +75,9 @@ export async function registraChiusuraOdp(odp: string, codiceArticolo: string | 
   await ensureArticoloEsiste(codiceArticolo);
 
   const client = await pool.connect();
+  // Dichiarata fuori dal try (assegnata dentro) — serve anche dopo COMMIT/finally, per
+  // l'apertura automatica delle fasi (Fase 8a), che deliberatamente sta fuori dalla transazione.
+  let oreAttualiPerReparto = new Map<string, number>();
   try {
     await client.query("BEGIN");
 
@@ -83,7 +87,7 @@ export async function registraChiusuraOdp(odp: string, codiceArticolo: string | 
        GROUP BY reparto`,
       [odp, REPARTI_PRODUZIONE]
     );
-    const oreAttualiPerReparto = new Map(oreRepartoRows.map(r => [r.reparto as string, Number(r.ore)]));
+    oreAttualiPerReparto = new Map(oreRepartoRows.map(r => [r.reparto as string, Number(r.ore)]));
 
     // Reparti già tracciati per QUESTO odp in una chiamata precedente — necessario per
     // accorgersi se ore che c'erano prima sono state spostate/cancellate (es. correggiReparto
@@ -177,6 +181,22 @@ export async function registraChiusuraOdp(odp: string, codiceArticolo: string | 
   } finally {
     client.release();
   }
+
+  // Apertura automatica (Fase 8a) — fuori dalla transazione sopra (side-effect best-effort, non
+  // deve mai bloccare/fallire la scrittura di ore appena avvenuta): per ogni reparto con ore
+  // reali su questo odp, prova ad aprire la fase APS corrispondente se è ancora "Da iniziare".
+  // No-op silenzioso se il reparto non ha un id APS mappato (es. reparti Notion di supporto,
+  // mai stati nel pattern di nessun articolo) o se la fase non esiste/è già avviata.
+  for (const [reparto, oreNuove] of oreAttualiPerReparto) {
+    if (oreNuove <= 0) continue;
+    const repartoId = NOME_STORICO_A_REPARTO_ID[reparto];
+    if (!repartoId) continue;
+    try {
+      await iniziaFasePerOdpReparto(odp, repartoId);
+    } catch (e) {
+      console.error(`[standardReparto] errore apertura automatica fase ODP ${odp} reparto ${reparto}`, e);
+    }
+  }
 }
 
 // Punto d'ingresso da chiamare (fire-and-forget, `void aggiornaStandardRepartoPerOdp(odp)`) da
@@ -192,6 +212,21 @@ export async function aggiornaStandardRepartoPerOdp(odp: string): Promise<void> 
   } catch (e) {
     console.error(`[standardReparto] errore risolvendo Codice Art. per ODP ${odp}`, e);
   }
+}
+
+// Inserimento manuale di una stima da UI (Fasi APS) — stesso upsert idempotente già usato
+// dall'import storico una tantum (scripts/importa-standard-altri-reparti.mjs): la WHERE sulla
+// DO UPDATE impedisce di sovrascrivere mai un origine='consuntivo' reale, un secondo tentativo
+// su un reparto già a consuntivo diventa semplicemente un no-op silenzioso e sicuro.
+export async function impostaStimaManuale(codiceArticolo: string, reparto: string, mediaOre: number): Promise<void> {
+  await ensureArticoloEsiste(codiceArticolo);
+  await pool.query(
+    `INSERT INTO standard_reparto (codice_articolo, reparto, media_ore, somma_scarti_quadrati, n_osservazioni, origine)
+     VALUES ($1, $2, $3, 0, 0, 'stimato')
+     ON CONFLICT (codice_articolo, reparto) DO UPDATE SET media_ore = EXCLUDED.media_ore, aggiornato_il = now()
+     WHERE standard_reparto.origine = 'stimato'`,
+    [codiceArticolo, reparto, mediaOre]
+  );
 }
 
 export interface CellaStandard {

@@ -35,9 +35,13 @@ export interface Scheda {
   notionUrl: string;
   kitFerramenta: string;
   noteStato: string;
+  priorita: PrioritaOdp;
 }
 
+export type PrioritaOdp = "critica" | "alta" | "media" | "bassa";
+
 export interface SchedaUpdate {
+  priorita?: PrioritaOdp;
   statoProduzione?: string;
   dataProduzionePrevista?: string | null;
   produzioneEsterna?: boolean;
@@ -285,6 +289,10 @@ export const UBICAZIONI_FERRAMENTA: string[] = [
 // di supporto (Logistica, Spedizioni, Ferramenta, Produzione) non rilevanti per il calcolo
 // ore-articolo. Assemblaggio/Imballaggio/Sezionatura aggiunti come opzioni Notion apposta
 // per questo modulo — nessun operatore ancora classificato lì, riclassificazione manuale.
+// Distinte e Sviluppo/Pressa/Levigatura aggiunti il 2026-08-23 per allineare il tracciamento
+// ore reali ai 3 reparti APS introdotti dopo i 7 storici (decisione utente: nessun operatore
+// ancora classificato lì in Notion, stesso trattamento "0 finché non riclassificato" degli
+// altri — vedi capacityPlannerRepository.ts, che già gestisce un reparto senza parametri).
 export const REPARTI_PRODUZIONE: string[] = [
   "CNC",
   "Falegnameria",
@@ -293,6 +301,9 @@ export const REPARTI_PRODUZIONE: string[] = [
   "Imballaggio",
   "Cablaggi",
   "Sezionatura",
+  "Distinte e Sviluppo",
+  "Pressa",
+  "Levigatura",
 ];
 
 // --- Modulo Verniciatura -----------------------------------------------------------------

@@ -81,6 +81,7 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
     quantita: scheda.quantita,
     noteStato: scheda.noteStato,
     areaId: scheda.areaId,
+    priorita: scheda.priorita,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -271,6 +272,15 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
             <div>
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Quantità</label>
               <input type="number" min="0" className={inputCls} value={form.quantita ?? ""} onChange={(e) => set("quantita", e.target.value === "" ? null : Number(e.target.value))} />
+            </div>
+            <div>
+              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Priorità (APS)</label>
+              <select className={inputCls} value={form.priorita ?? "media"} onChange={(e) => set("priorita", e.target.value as SchedaUpdate["priorita"])}>
+                <option value="critica">Critica</option>
+                <option value="alta">Alta</option>
+                <option value="media">Media</option>
+                <option value="bassa">Bassa</option>
+              </select>
             </div>
           </div>
 

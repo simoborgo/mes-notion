@@ -13,6 +13,7 @@ import {
   SCARICO_MATERIALE_ROLES,
   VERNICIATURA_ROLES,
   MAGAZZINO_VERNICI_ROLES,
+  APS_GANTT_ROLES,
 } from "@/lib/roles";
 
 function NavTab({
@@ -156,6 +157,16 @@ const links = [
     ),
   },
   {
+    href: "/aps",
+    label: "Pianificazione (APS)",
+    roles: APS_GANTT_ROLES,
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="4" width="18" height="4" rx="1" /><rect x="3" y="10" width="12" height="4" rx="1" /><rect x="3" y="16" width="15" height="4" rx="1" />
+      </svg>
+    ),
+  },
+  {
     href: "/ritiri",
     label: "Ritiri e Consegne",
     roles: ALL_ROLES,
@@ -286,7 +297,8 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
               active={
                 pathname === "/previsionale" || pathname.startsWith("/offerte") ||
                 pathname === "/admin/import" || pathname.startsWith("/admin/ferramenta/kit") ||
-                pathname.startsWith("/admin/impostazioni")
+                pathname.startsWith("/admin/impostazioni") || pathname.startsWith("/admin/reparti") ||
+                pathname.startsWith("/admin/articoli") || pathname.startsWith("/admin/pattern-ciclo")
               }
               icon={
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -304,6 +316,39 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
                 }
               >
                 Previsionale
+              </NavDropdownItem>
+              <NavDropdownItem
+                href="/admin/reparti"
+                active={pathname.startsWith("/admin/reparti")}
+                icon={
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="7" height="18" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
+                  </svg>
+                }
+              >
+                Reparti (APS)
+              </NavDropdownItem>
+              <NavDropdownItem
+                href="/admin/articoli"
+                active={pathname.startsWith("/admin/articoli")}
+                icon={
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 7h-3a2 2 0 0 1-2-2V2" /><path d="M9 18a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8l4 4v10a2 2 0 0 1-2 2z" /><path d="M3 8v12a2 2 0 0 0 2 2h10" />
+                  </svg>
+                }
+              >
+                Articoli (APS)
+              </NavDropdownItem>
+              <NavDropdownItem
+                href="/admin/pattern-ciclo"
+                active={pathname.startsWith("/admin/pattern-ciclo")}
+                icon={
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="6" cy="6" r="2" /><circle cx="6" cy="18" r="2" /><circle cx="18" cy="12" r="2" /><path d="M6 8v8" /><path d="M8 6h4a4 4 0 0 1 4 4" /><path d="M8 18h4a4 4 0 0 0 4-4" />
+                  </svg>
+                }
+              >
+                Pattern Ciclo (APS)
               </NavDropdownItem>
               <NavDropdownItem
                 href="/admin/import"
@@ -401,6 +446,42 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
                 }
               >
                 Previsionale
+              </NavTab>
+              <NavTab
+                href="/admin/reparti"
+                active={pathname.startsWith("/admin/reparti")}
+                onClick={() => setMenuOpen(false)}
+                icon={
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="7" height="18" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
+                  </svg>
+                }
+              >
+                Reparti (APS)
+              </NavTab>
+              <NavTab
+                href="/admin/articoli"
+                active={pathname.startsWith("/admin/articoli")}
+                onClick={() => setMenuOpen(false)}
+                icon={
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 7h-3a2 2 0 0 1-2-2V2" /><path d="M9 18a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8l4 4v10a2 2 0 0 1-2 2z" /><path d="M3 8v12a2 2 0 0 0 2 2h10" />
+                  </svg>
+                }
+              >
+                Articoli (APS)
+              </NavTab>
+              <NavTab
+                href="/admin/pattern-ciclo"
+                active={pathname.startsWith("/admin/pattern-ciclo")}
+                onClick={() => setMenuOpen(false)}
+                icon={
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="6" cy="6" r="2" /><circle cx="6" cy="18" r="2" /><circle cx="18" cy="12" r="2" /><path d="M6 8v8" /><path d="M8 6h4a4 4 0 0 1 4 4" /><path d="M8 18h4a4 4 0 0 0 4-4" />
+                  </svg>
+                }
+              >
+                Pattern Ciclo (APS)
               </NavTab>
               <NavTab
                 href="/admin/import"

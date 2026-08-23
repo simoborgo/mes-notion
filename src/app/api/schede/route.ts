@@ -24,6 +24,10 @@ export async function POST(req: NextRequest) {
   if (!numeroScheda) {
     return NextResponse.json({ error: "Numero Scheda obbligatorio" }, { status: 400 });
   }
+  const dataSchedaRicevuta = typeof body.dataSchedaRicevuta === "string" ? body.dataSchedaRicevuta : "";
+  if (!dataSchedaRicevuta) {
+    return NextResponse.json({ error: "Data Scheda Ricevuta obbligatoria" }, { status: 400 });
+  }
 
   try {
     const odp = await getNextOdp();
@@ -37,7 +41,7 @@ export async function POST(req: NextRequest) {
       posizione: body.posizione || null,
       quantita: body.quantita != null && body.quantita !== "" ? Number(body.quantita) : null,
       dataProduzionePrevista: body.dataProduzionePrevista || null,
-      dataSchedaRicevuta: body.dataSchedaRicevuta || null,
+      dataSchedaRicevuta,
       produzioneEsterna: body.produzioneEsterna ?? undefined,
       note: body.note || null,
       areaId: typeof body.areaId === "string" && body.areaId ? body.areaId : null,
