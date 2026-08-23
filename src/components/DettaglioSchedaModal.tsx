@@ -18,6 +18,7 @@ interface Props {
   onViewScheda?: (s: Scheda) => void;
   userRole?: Role;
   onSchedaAggiornata?: (updated: Scheda) => void;
+  tabIniziale?: "info" | "fornitore" | "kit" | "aps";
 }
 
 function fmt(d: string | null) {
@@ -293,7 +294,7 @@ function RilavorazioneWizard({
   );
 }
 
-export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, onRilavorazioneCreata, onViewScheda, userRole, onSchedaAggiornata }: Props) {
+export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, onRilavorazioneCreata, onViewScheda, userRole, onSchedaAggiornata, tabIniziale }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const [showWizard, setShowWizard] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
@@ -304,7 +305,7 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
   const [showNuovaSottoscheda, setShowNuovaSottoscheda] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const [eliminaError, setEliminaError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"info" | "fornitore" | "kit" | "aps">("info");
+  const [activeTab, setActiveTab] = useState<"info" | "fornitore" | "kit" | "aps">(tabIniziale ?? "info");
   const [showNoteStato, setShowNoteStato] = useState(false);
   const canFerramenta = !!userRole && FERRAMENTA_ROLES.includes(userRole);
 

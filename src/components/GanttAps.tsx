@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DatiGantt, FaseGantt, RepartoGantt } from "@/lib/apsGanttRepository";
+import type { Scheda } from "@/lib/types";
+import type { Role } from "@/lib/roles";
+import DettaglioSchedaModal from "./DettaglioSchedaModal";
 
 const DAY_W = 62; // largo abbastanza da mostrare il numero ODP anche su una barra di un solo giorno
 const LABEL_W = 210;
@@ -88,7 +91,7 @@ function KpiCard({ label, value, accent }: { label: string; value: string | numb
   );
 }
 
-export default function GanttAps({ dati }: { dati: DatiGantt }) {
+export default function GanttAps({ dati, userRole }: { dati: DatiGantt; userRole?: Role }) {
   const router = useRouter();
   const primoGiorno = dati.giorni[0];
   const ultimoGiorno = dati.giorni[dati.giorni.length - 1];
@@ -110,6 +113,18 @@ export default function GanttAps({ dati }: { dati: DatiGantt }) {
     return () => clearTimeout(t);
   }, [toast]);
   function onCambiato() { router.refresh(); }
+
+  // Apertura Scheda dal Gantt — modal già esistente in Schede di Produzione, aperto già sulla
+  // tab "Fasi APS": evita di duplicare la logica di visualizzazione/modifica in un modal nuovo.
+  const [schedaAperta, setSchedaAperta] = useState<Scheda | null>(null);
+  async function apriScheda(schedaId: string) {
+    try {
+      const res = await fetch(`/api/schede/${schedaId}`);
+      if (res.ok) setSchedaAperta(await res.json());
+    } catch {
+      setToast("Errore nell'apertura della Scheda");
+    }
+  }
 
   const giorniIso = useMemo(
     () => dati.giorni.filter((g) => g >= filtroDa && g <= filtroA),
@@ -217,17 +232,29 @@ export default function GanttAps({ dati }: { dati: DatiGantt }) {
             <RepartoSezione
               key={reparto.id} reparto={reparto} colonna={colonna} gridWidth={gridWidth}
               filtroDa={filtroDa} filtroA={filtroA} onCambiato={onCambiato} onErrore={setToast}
+              onApriScheda={apriScheda}
             />
           ))}
         </div>
       </div>
+
+      {schedaAperta && (
+        <DettaglioSchedaModal
+          scheda={schedaAperta}
+          tabIniziale="aps"
+          userRole={userRole}
+          onClose={() => setSchedaAperta(null)}
+          onSchedaAggiornata={() => { setSchedaAperta(null); router.refresh(); }}
+        />
+      )}
     </div>
   );
 }
 
-function RepartoSezione({ reparto, colonna, gridWidth, filtroDa, filtroA, onCambiato, onErrore }: {
+function RepartoSezione({ reparto, colonna, gridWidth, filtroDa, filtroA, onCambiato, onErrore, onApriScheda }: {
   reparto: RepartoGantt; colonna: (iso: string) => number; gridWidth: number;
   filtroDa: string; filtroA: string; onCambiato: () => void; onErrore: (msg: string) => void;
+  onApriScheda: (schedaId: string) => void;
 }) {
   const rigaMonteOre = useMemo(() => reparto.tipoCapacita === "monte_ore" ? impacchetta(reparto.fasi) : null, [reparto]);
   const caricoVisibile = useMemo(
@@ -305,7 +332,7 @@ function RepartoSezione({ reparto, colonna, gridWidth, filtroDa, filtroA, onCamb
                 .map((f) => (
                   <BarraFase
                     key={f.id} fase={f} colonna={colonna} filtroDa={filtroDa} filtroA={filtroA}
-                    onCambiato={onCambiato} onErrore={onErrore}
+                    onCambiato={onCambiato} onErrore={onErrore} onApriScheda={onApriScheda}
                   />
                 ))}
             </div>
@@ -317,13 +344,17 @@ function RepartoSezione({ reparto, colonna, gridWidth, filtroDa, filtroA, onCamb
   );
 }
 
-function BarraFase({ fase, colonna, filtroDa, filtroA, onCambiato, onErrore }: {
+function BarraFase({ fase, colonna, filtroDa, filtroA, onCambiato, onErrore, onApriScheda }: {
   fase: FaseGantt; colonna: (iso: string) => number; filtroDa: string; filtroA: string;
-  onCambiato: () => void; onErrore: (msg: string) => void;
+  onCambiato: () => void; onErrore: (msg: string) => void; onApriScheda: (schedaId: string) => void;
 }) {
   const [dragDeltaGiorni, setDragDeltaGiorni] = useState(0);
   const [trascinando, setTrascinando] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  // Un click che segue un vero trascinamento non deve anche aprire la Scheda — ref, non state:
+  // deve essere già aggiornato in modo sincrono quando arriva l'evento "click" nativo dopo il
+  // pointerup, non dopo un giro di render.
+  const justDraggedRef = useRef(false);
 
   const date = dateEffettive(fase);
   if (!date) return null;
@@ -390,11 +421,23 @@ function BarraFase({ fase, colonna, filtroDa, filtroA, onCambiato, onErrore }: {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       setTrascinando(false);
-      if (ultimoDelta !== 0) void commitSpostamento(ultimoDelta);
-      else setDragDeltaGiorni(0);
+      if (ultimoDelta !== 0) {
+        justDraggedRef.current = true;
+        void commitSpostamento(ultimoDelta);
+      } else {
+        setDragDeltaGiorni(0);
+      }
     }
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
+  }
+
+  // Click sulla barra apre la Scheda — sempre, anche su fasi non trascinabili (Completato/In
+  // lavorazione); l'unica eccezione è il click "fantasma" che il browser genera dopo un vero
+  // trascinamento (pointerup con scostamento diverso da zero).
+  function onClickBarra() {
+    if (justDraggedRef.current) { justDraggedRef.current = false; return; }
+    onApriScheda(fase.schedaId);
   }
 
   async function sblocca() {
@@ -416,13 +459,14 @@ function BarraFase({ fase, colonna, filtroDa, filtroA, onCambiato, onErrore }: {
 
   return (
     <div
-      title={`${fase.odp} · ${fase.clienteInfo}${fase.sottoFase ? " · " + fase.sottoFase : ""}${fase.oreStimate != null ? ` · ${fase.oreStimate}h` : ""} · ${fase.statoFase}${pinnata ? " · pianificazione manuale" : ""}`}
+      title={`${fase.odp} · ${fase.clienteInfo}${fase.sottoFase ? " · " + fase.sottoFase : ""}${fase.oreStimate != null ? ` · ${fase.oreStimate}h` : ""} · ${fase.statoFase}${pinnata ? " · pianificazione manuale" : ""} — clicca per aprire la Scheda`}
       onPointerDown={(e) => { if (!trascinabile) return; e.preventDefault(); iniziaTrascinamento(e.clientX); }}
+      onClick={onClickBarra}
       style={{
         position: "absolute", left, top: 3, width: Math.max(width, 10), height: 40,
         background: completata ? VERDE_COMPLETATA : p.colore,
         opacity: salvando ? 0.6 : 1,
-        cursor: trascinabile ? (trascinando ? "grabbing" : "grab") : "default",
+        cursor: trascinabile ? (trascinando ? "grabbing" : "grab") : "pointer",
         borderTop: `4px solid ${coloreOdp(fase.schedaId)}`,
         borderRight: `${bordoSpessore}px ${bordoStile} ${bordoColore}`,
         borderBottom: `${bordoSpessore}px ${bordoStile} ${bordoColore}`,

@@ -21,7 +21,7 @@ export default async function ApsPage() {
           Piano di produzione per reparto — sola lettura, calcolato dal motore APS.
         </p>
       </div>
-      <GanttAps dati={dati} />
+      <GanttAps dati={dati} userRole={session.role} />
     </div>
   );
 }

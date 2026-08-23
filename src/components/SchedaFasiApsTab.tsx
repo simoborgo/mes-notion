@@ -8,6 +8,21 @@ import type { PatternCiclo } from "@/lib/patternCicloRepository";
 const selectCls = "rounded-lg border px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300";
 const inputCls = "rounded-lg border px-2 py-1 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300";
 
+// Locali (mai new Date(isoString)/toISOString) — stesso accorgimento già usato in GanttAps.tsx.
+function toDate(iso: string): Date {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+function addDays(iso: string, n: number): string {
+  const d = toDate(iso);
+  const nuovo = new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+  const p = (x: number) => String(x).padStart(2, "0");
+  return `${nuovo.getFullYear()}-${p(nuovo.getMonth() + 1)}-${p(nuovo.getDate())}`;
+}
+function diffGiorni(iniIso: string, fineIso: string): number {
+  return Math.round((toDate(fineIso).getTime() - toDate(iniIso).getTime()) / 86_400_000);
+}
+
 // Traduzione leggibile di MotivoNonGenerato (src/lib/schedeFasiRepository.ts) — senza questa
 // mappa l'utente vedeva solo "Impossibile generare le fasi", senza sapere perché.
 const MOTIVI_ERRORE: Record<string, string> = {
@@ -28,6 +43,9 @@ export default function SchedaFasiApsTab({ scheda }: { scheda: Scheda }) {
   const [escludendoId, setEscludendoId] = useState<string | null>(null);
   const [oreInput, setOreInput] = useState<Record<string, string>>({});
   const [salvandoOreId, setSalvandoOreId] = useState<string | null>(null);
+  const [inizioInput, setInizioInput] = useState<Record<string, string>>({});
+  const [pianificandoId, setPianificandoId] = useState<string | null>(null);
+  const [sbloccandoId, setSbloccandoId] = useState<string | null>(null);
 
   function carica() {
     return fetch(`/api/schede/${scheda.id}/fasi`)
@@ -121,6 +139,52 @@ export default function SchedaFasiApsTab({ scheda }: { scheda: Scheda }) {
       setErrore(e instanceof Error ? e.message : "Errore impostazione stima ore");
     } finally {
       setSalvandoOreId(null);
+    }
+  }
+
+  function valoreInizio(f: SchedaFase): string {
+    return inizioInput[f.id] ?? f.dataInizioPianificata ?? "";
+  }
+
+  // Pianificazione manuale (Fase 9) da tastiera — stessa API del drag&drop sul Gantt: preserva
+  // la durata attuale (dataFine - dataInizio, o 1 giorno se la fase non è ancora pianificata),
+  // trasla entrambe le date del delta scelto.
+  async function pianificaData(f: SchedaFase) {
+    const nuovaInizio = valoreInizio(f);
+    if (!nuovaInizio) return;
+    const durata = f.dataInizioPianificata && f.dataFinePianificata
+      ? diffGiorni(f.dataInizioPianificata, f.dataFinePianificata)
+      : 0;
+    setPianificandoId(f.id);
+    setErrore(null);
+    try {
+      const res = await fetch(`/api/schede/${scheda.id}/fasi/${f.id}/pianifica-manuale`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dataInizio: nuovaInizio, dataFine: addDays(nuovaInizio, durata) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? `Errore ${res.status}`);
+      if (Array.isArray(data)) setFasi(data);
+    } catch (e) {
+      setErrore(e instanceof Error ? e.message : "Errore pianificazione manuale");
+    } finally {
+      setPianificandoId(null);
+    }
+  }
+
+  async function sbloccaFase(faseId: string) {
+    setSbloccandoId(faseId);
+    setErrore(null);
+    try {
+      const res = await fetch(`/api/schede/${scheda.id}/fasi/${faseId}/sblocca-pianificazione`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? `Errore ${res.status}`);
+      if (Array.isArray(data)) setFasi(data);
+    } catch (e) {
+      setErrore(e instanceof Error ? e.message : "Errore sblocco pianificazione");
+    } finally {
+      setSbloccandoId(null);
     }
   }
 
@@ -240,7 +304,38 @@ export default function SchedaFasiApsTab({ scheda }: { scheda: Scheda }) {
               </td>
               <td className="px-2 py-2" style={{ color: "var(--color-grey-mid)" }}>{f.oreConsuntivate != null ? `${f.oreConsuntivate} h` : "—"}</td>
               <td className="px-2 py-2">{f.corsia != null ? f.corsia + 1 : "—"}</td>
-              <td className="px-2 py-2">{f.dataInizioPianificata ? new Date(f.dataInizioPianificata).toLocaleDateString("it-IT") : "—"}</td>
+              <td className="px-2 py-2">
+                {f.esclusa || f.statoFase !== "Da iniziare" ? (
+                  f.dataInizioPianificata ? new Date(f.dataInizioPianificata).toLocaleDateString("it-IT") : "—"
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="date" className={inputCls} style={{ width: 140 }}
+                      value={valoreInizio(f)}
+                      onChange={e => setInizioInput(prev => ({ ...prev, [f.id]: e.target.value }))}
+                    />
+                    <button
+                      onClick={() => pianificaData(f)}
+                      disabled={pianificandoId === f.id || !valoreInizio(f)}
+                      className="px-2 py-1 text-xs font-semibold rounded-lg disabled:opacity-60"
+                      style={{ border: "1px solid #e5e4e0", color: "var(--color-black)" }}
+                    >
+                      {pianificandoId === f.id ? "…" : "Pianifica"}
+                    </button>
+                    {f.pianificazioneManuale && (
+                      <button
+                        onClick={() => sbloccaFase(f.id)}
+                        disabled={sbloccandoId === f.id}
+                        title="Sblocca — torna a essere pianificata dal motore"
+                        className="px-2 py-1 text-xs font-semibold rounded-lg disabled:opacity-60"
+                        style={{ border: "1px solid #DDD6FE", color: "#6D28D9" }}
+                      >
+                        {sbloccandoId === f.id ? "…" : "Sblocca"}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </td>
               <td className="px-2 py-2">{f.dataFinePianificata ? new Date(f.dataFinePianificata).toLocaleDateString("it-IT") : "—"}</td>
               <td className="px-2 py-2">{f.statoFase}</td>
               <td className="px-2 py-2 text-right whitespace-nowrap">

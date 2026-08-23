@@ -20,6 +20,7 @@ export interface SchedaFase {
   aRischio: boolean;
   esclusa: boolean;
   oreConsuntivate: number | null;
+  pianificazioneManuale: boolean;
 }
 
 // Il tracciamento ore storico (Rilevamento Ore / standard_reparto) usa i nomi dell'elenco
@@ -68,6 +69,7 @@ function mapRow(r: any, oreConsuntivate: number | null): SchedaFase {
     aRischio: r.a_rischio,
     esclusa: r.esclusa,
     oreConsuntivate,
+    pianificazioneManuale: r.pianificazione_manuale,
   };
 }
 
