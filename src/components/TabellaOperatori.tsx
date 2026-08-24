@@ -83,7 +83,7 @@ export default function TabellaOperatori({ operatoriIniziali }: { operatoriInizi
     <div className="rounded-xl border p-4 space-y-4" style={{ borderColor: "#e5e4e0" }}>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-base font-semibold" style={{ color: "var(--color-black)" }}>Personale (da Notion)</h2>
+          <h2 className="text-base font-semibold" style={{ color: "var(--color-black)" }}>Personale</h2>
           <p className="text-sm mt-0.5" style={{ color: "var(--color-grey-mid)" }}>
             Attivazione/disattivazione, anagrafica e nuovi operatori — mai una cancellazione, &quot;rimuovere&quot; significa disattivare (In Forza → No).
           </p>
