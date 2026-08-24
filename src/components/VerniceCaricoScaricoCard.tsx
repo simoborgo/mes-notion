@@ -12,6 +12,7 @@ export default function VerniceCaricoScaricoCard({ vernice }: { vernice: Vernice
   const router = useRouter();
   const [tipo, setTipo] = useState<"carico" | "scarico">("scarico");
   const [quantita, setQuantita] = useState("");
+  const [nuovaGiacenza, setNuovaGiacenza] = useState("");
   const [note, setNote] = useState("");
   const [stato, setStato] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState("");
@@ -19,6 +20,34 @@ export default function VerniceCaricoScaricoCard({ vernice }: { vernice: Vernice
   const [segnalando, setSegnalando] = useState(false);
   const [segnalata, setSegnalata] = useState(false);
   const [erroreSegnalazione, setErroreSegnalazione] = useState("");
+
+  // Le due caselle Nuova Giacenza / Carico-Scarico sono la stessa informazione vista da due lati:
+  // giacenza attuale ∓ quantità = nuova giacenza. Chi scrive in una ricalcola subito l'altra,
+  // così l'operatore può inserire indifferentemente "quanto ho tolto" o "quanto mi è rimasto
+  // dopo averlo ripesato" (2026-08-24).
+  function round2(n: number) { return Math.round(n * 100) / 100; }
+
+  function onChangeQuantita(v: string) {
+    setQuantita(v);
+    const q = Number(v);
+    if (v.trim() === "" || isNaN(q)) { setNuovaGiacenza(""); return; }
+    const nuova = tipo === "scarico" ? vernice.giacenzaAttuale - q : vernice.giacenzaAttuale + q;
+    setNuovaGiacenza(String(round2(nuova)));
+  }
+
+  function onChangeNuovaGiacenza(v: string) {
+    setNuovaGiacenza(v);
+    const g = Number(v);
+    if (v.trim() === "" || isNaN(g)) { setQuantita(""); return; }
+    const q = tipo === "scarico" ? vernice.giacenzaAttuale - g : g - vernice.giacenzaAttuale;
+    setQuantita(String(round2(q)));
+  }
+
+  function selezionaTipo(nuovoTipo: "carico" | "scarico") {
+    setTipo(nuovoTipo);
+    setQuantita("");
+    setNuovaGiacenza("");
+  }
 
   async function salva() {
     const q = Number(quantita);
@@ -80,7 +109,7 @@ export default function VerniceCaricoScaricoCard({ vernice }: { vernice: Vernice
           </div>
         </div>
         <button
-          onClick={() => { setStato("idle"); setQuantita(""); setNote(""); setGiacenzaRisultante(null); }}
+          onClick={() => { setStato("idle"); setQuantita(""); setNuovaGiacenza(""); setNote(""); setGiacenzaRisultante(null); }}
           className="w-full py-2.5 rounded-lg text-sm font-semibold text-white"
           style={{ background: "#166534" }}
         >
@@ -128,7 +157,7 @@ export default function VerniceCaricoScaricoCard({ vernice }: { vernice: Vernice
       <div className="flex gap-2">
         <button
           type="button"
-          onClick={() => setTipo("carico")}
+          onClick={() => selezionaTipo("carico")}
           className="flex-1 py-2.5 rounded-lg text-sm font-bold border"
           style={{
             color: tipo === "carico" ? "white" : "#166534",
@@ -140,7 +169,7 @@ export default function VerniceCaricoScaricoCard({ vernice }: { vernice: Vernice
         </button>
         <button
           type="button"
-          onClick={() => setTipo("scarico")}
+          onClick={() => selezionaTipo("scarico")}
           className="flex-1 py-2.5 rounded-lg text-sm font-bold border"
           style={{
             color: tipo === "scarico" ? "white" : "var(--color-primary)",
@@ -152,20 +181,37 @@ export default function VerniceCaricoScaricoCard({ vernice }: { vernice: Vernice
         </button>
       </div>
 
-      <div>
-        <label className="text-xs font-medium block mb-1" style={{ color: "var(--color-grey-mid)" }}>
-          Quantità ({vernice.unitaMisura || "unità"})
-        </label>
-        <input
-          type="number"
-          min="0"
-          step="any"
-          value={quantita}
-          onChange={(e) => setQuantita(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void salva(); } }}
-          className="w-full rounded-lg border px-3 text-lg font-semibold"
-          style={{ height: 52, borderColor: "#d1d5db" }}
-        />
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="text-xs font-medium block mb-1" style={{ color: "var(--color-grey-mid)" }}>
+            Nuova giacenza ({vernice.unitaMisura || "unità"})
+          </label>
+          <input
+            type="number"
+            min="0"
+            step="any"
+            value={nuovaGiacenza}
+            onChange={(e) => onChangeNuovaGiacenza(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void salva(); } }}
+            className="w-full rounded-lg border px-3 text-lg font-semibold"
+            style={{ height: 52, borderColor: "#d1d5db" }}
+          />
+        </div>
+        <div>
+          <label className="text-xs font-medium block mb-1" style={{ color: "var(--color-grey-mid)" }}>
+            {tipo === "carico" ? "Carico" : "Scarico"} ({vernice.unitaMisura || "unità"})
+          </label>
+          <input
+            type="number"
+            min="0"
+            step="any"
+            value={quantita}
+            onChange={(e) => onChangeQuantita(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void salva(); } }}
+            className="w-full rounded-lg border px-3 text-lg font-semibold"
+            style={{ height: 52, borderColor: "#d1d5db" }}
+          />
+        </div>
       </div>
 
       <div>
