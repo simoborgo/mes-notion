@@ -14,14 +14,14 @@ export interface Scheda {
   faseCorrente: string;
   dataSchedaRicevuta: string | null;
   dataProduzionePrevista: string | null;
-  pdfAllegato: { name: string; url: string }[];
-  foto: { name: string; url: string }[];
+  pdfAllegato: { id: string | null; name: string; url: string }[];
+  foto: { id: string | null; name: string; url: string }[];
   produzioneEsterna: boolean;
   statoProdEsterna: string;
   fornitore: string;
   fornitoreId: string | null;
   ordineFornitore: string;
-  pdfOrdineFornitore: { name: string; url: string }[];
+  pdfOrdineFornitore: { id: string | null; name: string; url: string }[];
   dataRientroPrevista: string | null;
   dataUscitaMateriale: string | null;
   dataRientroEffettiva: string | null;

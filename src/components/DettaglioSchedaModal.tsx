@@ -9,6 +9,7 @@ import FormModificaScheda from "./FormModificaScheda";
 import FormNuovaSottoscheda from "./FormNuovaSottoscheda";
 import KitFerramentaTab from "./KitFerramentaTab";
 import SchedaFasiApsTab from "./SchedaFasiApsTab";
+import FornitoreEsternoTab from "./FornitoreEsternoTab";
 
 interface Props {
   scheda: Scheda;
@@ -186,7 +187,7 @@ function RilavorazioneWizard({
               placeholder="Es. Cornice sx rovinata durante assemblaggio"
               className={inputCls} style={inputStyle} required autoFocus />
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="text-[13.2px] font-semibold block mb-1" style={{ color: "#92400E" }}>Quantità</label>
               <input type="number" min="1" value={quantita} onChange={e => setQuantita(e.target.value)}
@@ -309,6 +310,18 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
   const [showNoteStato, setShowNoteStato] = useState(false);
   const canFerramenta = !!userRole && FERRAMENTA_ROLES.includes(userRole);
 
+  // Sottoschede e Rilavorazioni sono record a sé: senza questo la loro scheda dettaglio è
+  // visivamente identica a quella di una Scheda madre, e non si capisce di cosa si tratta né da
+  // chi discende — risolto autonomamente qui (fetch diretta del padre) così funziona indipendente
+  // da quale pagina apre il modal, non solo da quelle che già hanno l'intera lista schede a mano.
+  const [schedaPadre, setSchedaPadre] = useState<Scheda | null>(null);
+  useEffect(() => {
+    if (!s.parentId) return;
+    let cancelled = false;
+    fetch(`/api/schede/${s.parentId}`).then(r => r.ok ? r.json() : null).then((data) => { if (!cancelled) setSchedaPadre(data); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [s.parentId]);
+
   const tabs: { key: "info" | "fornitore" | "kit" | "aps"; label: string; icon: React.ReactNode }[] = [
     {
       key: "info", label: "Info",
@@ -368,6 +381,12 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
   const isInAttesaRilavorazione = s.statoProduzione === "In Attesa Rilavorazione";
   const hasPdf = s.pdfAllegato.length > 0;
 
+  const bandTheme = s.tipologia === "Rilavorazione"
+    ? { bg: "#FEF3C7", border: "#FDE68A", accent: "#92400E" }
+    : s.tipologia === "Sottoscheda"
+    ? { bg: "#EEF2FF", border: "#C7D2FE", accent: "#4338CA" }
+    : { bg: "#FFE8CC", border: "#FDBA74", accent: "#9A3412" };
+
   function handleRilavorazioneSuccess(result: { pageId: string; odp: string; ritiroCreato: boolean }) {
     setShowWizard(false);
     setRilavorazioneCreata(result);
@@ -425,65 +444,93 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
     >
       <div
         className="relative flex flex-col rounded-2xl shadow-2xl overflow-hidden"
-        style={{ width: "min(680px, 100%)", maxHeight: "92vh", background: "white" }}
+        style={{ width: "min(920px, 100%)", maxHeight: "92vh", background: "white" }}
       >
         {/* ── Header ── */}
-        <div className="shrink-0 px-6 pt-5 pb-4 border-b" style={{ background: "#f3f2ef", borderColor: "#e5e4e0" }}>
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="font-mono font-bold text-[26.4px] tracking-tight truncate" style={{ color: "var(--color-black)" }}>
-                {s.odp || "—"}{s.numeroScheda ? ` - ${s.numeroScheda}` : ""}
-              </div>
-              {(s.commessaNr || s.clienteInfo) && (
-                <div className="text-[17.6px] font-medium mt-0.5 truncate" style={{ color: "var(--color-grey-mid)" }}>
-                  {s.commessaNr}{s.commessaNr && s.clienteInfo ? " - " : ""}{s.clienteInfo}
+        <div className="shrink-0">
+          {/* ── Banda titolo — colorata per tipologia: arancio per le Schede, gli stessi colori
+               usati altrove per i badge di Sottoscheda/Rilavorazione, per riconoscerle a colpo
+               d'occhio anche aprendole direttamente (non solo dall'elenco delle schede figlie). ── */}
+          <div className="px-6 pt-5 pb-4 border-b" style={{ background: bandTheme.bg, borderColor: bandTheme.border }}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                {s.tipologia !== "Scheda" && (
+                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                    <span className="inline-flex items-center gap-1 text-[12.1px] font-bold uppercase tracking-widest" style={{ color: bandTheme.accent }}>
+                      {s.tipologia === "Rilavorazione" ? "⚙" : "↳"} {s.tipologia}
+                    </span>
+                    {schedaPadre && (
+                      onViewScheda ? (
+                        <button type="button" onClick={() => onViewScheda(schedaPadre)}
+                          className="text-[13.2px] font-medium underline decoration-dotted"
+                          style={{ color: bandTheme.accent }}>
+                          di {schedaPadre.odp || schedaPadre.numeroScheda}
+                        </button>
+                      ) : (
+                        <span className="text-[13.2px] font-medium" style={{ color: bandTheme.accent }}>
+                          di {schedaPadre.odp || schedaPadre.numeroScheda}
+                        </span>
+                      )
+                    )}
+                  </div>
+                )}
+                <div className="font-mono font-bold text-[26.4px] tracking-tight truncate" style={{ color: "var(--color-black)" }}>
+                  {s.odp || "—"}{s.numeroScheda ? ` - ${s.numeroScheda}` : ""}
                 </div>
-              )}
-              {giorniWip != null && (
-                <div className="text-[13.2px] mt-2" style={{ color: "var(--color-grey-mid)" }}>
-                  In produzione da {fmt(s.dataSchedaRicevuta)} · Giorni in produzione (WIP): <strong style={{ color: "var(--color-black)" }}>{giorniWip}</strong>
-                </div>
-              )}
-              <div className="flex items-center gap-2 mt-3 flex-wrap">
-                <span className="text-[12.1px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>Stato di produzione</span>
-                <BadgeStato stato={s.statoProduzione} className="text-[15.4px] px-3 py-1" />
-                {s.faseCorrente && <span className="text-[13.2px]" style={{ color: "var(--color-grey-mid)" }}>· {s.faseCorrente}</span>}
-                {s.noteStato && (
-                  <button
-                    type="button"
-                    onClick={() => setShowNoteStato(v => !v)}
-                    title={s.noteStato}
-                    className="text-[13.2px] underline decoration-dotted"
-                    style={{ color: "var(--color-primary)" }}
-                  >
-                    note ⓘ
-                  </button>
+                {(s.commessaNr || s.clienteInfo) && (
+                  <div className="text-[17.6px] font-medium mt-0.5 truncate" style={{ color: "var(--color-grey-mid)" }}>
+                    {s.commessaNr}{s.commessaNr && s.clienteInfo ? " - " : ""}{s.clienteInfo}
+                  </div>
                 )}
               </div>
-              {showNoteStato && s.noteStato && (
-                <div className="mt-2 text-[13.2px] rounded-lg px-3 py-2" style={{ background: "white", border: "1px solid #e5e4e0", color: "var(--color-black)", maxWidth: 420 }}>
-                  {s.noteStato}
-                </div>
-              )}
-              <div className="flex items-center gap-2 mt-2 flex-wrap">
-                <span className="text-[12.1px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>Produzione Prevista</span>
-                <span
-                  className="text-[15.4px] font-semibold"
-                  style={{ color: !s.dataProduzionePrevista ? "var(--color-grey-mid)" : inRitardoProd ? "#DC2626" : "#16A34A" }}
-                >
-                  {fmt(s.dataProduzionePrevista)}
-                </span>
-              </div>
+              <button onClick={onClose}
+                className="flex items-center justify-center w-8 h-8 rounded-full transition-colors hover:bg-black/10 shrink-0"
+                style={{ color: bandTheme.accent }} aria-label="Chiudi">
+                ✕
+              </button>
             </div>
-            <button onClick={onClose}
-              className="flex items-center justify-center w-8 h-8 rounded-full transition-colors hover:bg-gray-200 shrink-0"
-              style={{ color: "var(--color-grey-mid)" }} aria-label="Chiudi">
-              ✕
-            </button>
           </div>
 
-          {/* ── Riga comandi (spostata qui per lasciare libero il testo del titolo sopra) ── */}
-          <div className="flex items-center gap-2 flex-wrap mt-4">
+          {/* ── Info secondarie + comandi ── */}
+          <div className="px-6 pt-4 pb-4 border-b" style={{ background: "#f3f2ef", borderColor: "#e5e4e0" }}>
+            {giorniWip != null && (
+              <div className="text-[13.2px]" style={{ color: "var(--color-grey-mid)" }}>
+                In produzione da {fmt(s.dataSchedaRicevuta)} · Giorni in produzione (WIP): <strong style={{ color: "var(--color-black)" }}>{giorniWip}</strong>
+              </div>
+            )}
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <span className="text-[12.1px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>Stato di produzione</span>
+              <BadgeStato stato={s.statoProduzione} className="text-[15.4px] px-3 py-1" />
+              {s.faseCorrente && <span className="text-[13.2px]" style={{ color: "var(--color-grey-mid)" }}>· {s.faseCorrente}</span>}
+              {s.noteStato && (
+                <button
+                  type="button"
+                  onClick={() => setShowNoteStato(v => !v)}
+                  title={s.noteStato}
+                  className="text-[13.2px] underline decoration-dotted"
+                  style={{ color: "var(--color-primary)" }}
+                >
+                  note ⓘ
+                </button>
+              )}
+            </div>
+            {showNoteStato && s.noteStato && (
+              <div className="mt-2 text-[13.2px] rounded-lg px-3 py-2" style={{ background: "white", border: "1px solid #e5e4e0", color: "var(--color-black)", maxWidth: 420 }}>
+                {s.noteStato}
+              </div>
+            )}
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <span className="text-[12.1px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>Produzione Prevista</span>
+              <span
+                className="text-[15.4px] font-semibold"
+                style={{ color: !s.dataProduzionePrevista ? "var(--color-grey-mid)" : inRitardoProd ? "#DC2626" : "#16A34A" }}
+              >
+                {fmt(s.dataProduzionePrevista)}
+              </span>
+            </div>
+
+            {/* ── Riga comandi ── */}
+            <div className="flex items-center gap-2 flex-wrap mt-4">
             {(userRole === "admin" || userRole === "produzione") && (
               <button onClick={() => setShowEditForm(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13.2px] font-medium transition-colors hover:bg-gray-100"
@@ -532,8 +579,9 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
                 ✓ {rilavorazioneCreata.odp} creata
               </span>
             )}
+            </div>
+            {eliminaError && <p className="text-[13.2px] mt-2" style={{ color: "#DC2626" }}>{eliminaError}</p>}
           </div>
-          {eliminaError && <p className="text-[13.2px] mt-2" style={{ color: "#DC2626" }}>{eliminaError}</p>}
         </div>
 
         {/* ── Tab "a cartellina" stile Impostazioni (striscia grigia + tab attiva che "sale" e si
@@ -564,38 +612,7 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
           {activeTab === "aps" && s.tipologia === "Scheda" && <SchedaFasiApsTab scheda={s} />}
 
           {activeTab === "fornitore" && (
-            <section className="space-y-2">
-              <div className="grid grid-cols-2 gap-2">
-                <InfoItem label="Fornitore" value={s.fornitore || <Mancante />} />
-                <InfoItem label="Stato Produzione Esterna" value={s.statoProdEsterna ? <BadgeStato stato={s.statoProdEsterna} /> : <Mancante />} />
-                <InfoItem label="Uscita materiale" value={fmt(s.dataUscitaMateriale)} />
-                <InfoItem label="Rientro previsto" value={
-                  s.dataRientroPrevista ? (
-                    <span style={inRitardoRientro ? { color: "#991B1B", fontWeight: 700 } : undefined}>
-                      {fmt(s.dataRientroPrevista)}
-                    </span>
-                  ) : <Mancante />
-                } />
-                <InfoItem label="Rientro effettivo" value={fmt(s.dataRientroEffettiva)} />
-              </div>
-              <div className="rounded-lg px-3 py-2.5" style={{ background: "#f8f7f5", border: "1px solid #ebe9e5" }}>
-                <div className="text-[12.1px] font-bold uppercase tracking-widest mb-1" style={{ color: "#9c9894" }}>Ordine Fornitore</div>
-                {s.pdfOrdineFornitore.length > 0 ? (
-                  <div className="flex flex-col gap-1.5">
-                    {s.pdfOrdineFornitore.map((pdf, i) => (
-                      <a key={i} href={pdf.url} target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-[15.4px] font-medium transition-colors hover:opacity-80 w-fit"
-                        style={{ borderColor: "#c7d2fe", color: "#4338ca", background: "#eef2ff" }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/>
-                        </svg>
-                        {pdf.name || `Ordine Fornitore ${i > 0 ? i + 1 : ""}`}
-                      </a>
-                    ))}
-                  </div>
-                ) : <Mancante />}
-              </div>
-            </section>
+            <FornitoreEsternoTab key={s.id} scheda={s} userRole={userRole} onSchedaAggiornata={onSchedaAggiornata} />
           )}
 
           {activeTab === "info" && <>
@@ -702,7 +719,7 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
 
           <section className="space-y-2">
             <h3 className="text-[12.1px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>Dati scheda</h3>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <InfoItem label="Codice Articolo" value={s.codiceArticolo || <Mancante />} />
               <InfoItem label="Tipologia" value={s.tipologia} />
               {s.quantita != null && <InfoItem label="Quantità" value={String(s.quantita)} />}

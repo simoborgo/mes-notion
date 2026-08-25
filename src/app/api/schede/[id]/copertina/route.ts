@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { updateCopertinaScheda, getSchedaById } from "@/lib/schedeRepository";
-import { getSessionFromRequest } from "@/lib/auth";
+import { updateCopertinaScheda, removeCopertinaScheda, getSchedaById } from "@/lib/schedeRepository";
+import { getSessionFromRequest, MODIFICA_SCHEDA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSessionFromRequest(req);
-  if (!session || session.role !== "admin") {
+  if (!session || !MODIFICA_SCHEDA_ROLES.includes(session.role)) {
     return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
   }
 
@@ -24,6 +24,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     await updateCopertinaScheda(id, body.imageBase64, body.filename);
     void logOperation(session.name, "UPDATE", "scheda", id, { azione: "upload_copertina", filename: body.filename });
+    revalidatePath("/schede");
+    const updated = await getSchedaById(id);
+    return NextResponse.json(updated);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getSessionFromRequest(req);
+  if (!session || !MODIFICA_SCHEDA_ROLES.includes(session.role)) {
+    return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
+  }
+
+  const { id } = await params;
+  try {
+    await removeCopertinaScheda(id);
+    void logOperation(session.name, "UPDATE", "scheda", id, { azione: "elimina_copertina" });
     revalidatePath("/schede");
     const updated = await getSchedaById(id);
     return NextResponse.json(updated);

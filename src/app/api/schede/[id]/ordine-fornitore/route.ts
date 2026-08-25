@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { appendOrdineFornitoreToScheda, getSchedaById } from "@/lib/schedeRepository";
-import { getSessionFromRequest } from "@/lib/auth";
+import { getSessionFromRequest, MODIFICA_SCHEDA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSessionFromRequest(req);
-  if (!session || session.role !== "admin") {
+  if (!session || !MODIFICA_SCHEDA_ROLES.includes(session.role)) {
     return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
   }
 

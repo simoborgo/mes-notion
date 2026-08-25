@@ -11,6 +11,7 @@ import {
   uploadOrdineFornitore as driveUploadOrdineFornitore,
   uploadCopertina as driveUploadCopertina,
   uploadFoto as driveUploadFoto,
+  deleteDriveFile,
 } from "./googleDriveSchede";
 
 const SELECT = `
@@ -61,16 +62,16 @@ function mapRow(r: any, allegati: Awaited<ReturnType<typeof caricaAllegati>>): S
   const fotoRows = allegati.fotoMap.get(r.id) ?? [];
 
   const pdfAllegato = pdfRows.length > 0
-    ? pdfRows.map((f: { drive_file_id: string; nome: string }) => ({ name: f.nome || "PDF Allegato", url: driveFileUrl(f.drive_file_id) }))
-    : Array.from({ length: r.legacy_pdf_allegato_count ?? 0 }, (_, i) => ({ name: "PDF Allegato", url: legacyFileUrl(r.id, "PDF Allegato", i) }));
+    ? pdfRows.map((f: { id: string; drive_file_id: string; nome: string }) => ({ id: f.id, name: f.nome || "PDF Allegato", url: driveFileUrl(f.drive_file_id) }))
+    : Array.from({ length: r.legacy_pdf_allegato_count ?? 0 }, (_, i) => ({ id: null, name: "PDF Allegato", url: legacyFileUrl(r.id, "PDF Allegato", i) }));
 
   const pdfOrdineFornitore = ofRows.length > 0
-    ? ofRows.map((f: { drive_file_id: string; nome: string }) => ({ name: f.nome || "Ordine Fornitore", url: driveFileUrl(f.drive_file_id) }))
-    : Array.from({ length: r.legacy_ordine_fornitore_count ?? 0 }, (_, i) => ({ name: "Ordine Fornitore", url: legacyFileUrl(r.id, "Ordine Fornitore", i) }));
+    ? ofRows.map((f: { id: string; drive_file_id: string; nome: string }) => ({ id: f.id, name: f.nome || "Ordine Fornitore", url: driveFileUrl(f.drive_file_id) }))
+    : Array.from({ length: r.legacy_ordine_fornitore_count ?? 0 }, (_, i) => ({ id: null, name: "Ordine Fornitore", url: legacyFileUrl(r.id, "Ordine Fornitore", i) }));
 
   const foto = fotoRows.length > 0
-    ? fotoRows.map((f: { drive_file_id: string }) => ({ name: "Foto", url: driveFileUrl(f.drive_file_id) }))
-    : Array.from({ length: r.legacy_foto_count ?? 0 }, (_, i) => ({ name: "Foto", url: legacyFileUrl(r.id, "Foto", i) }));
+    ? fotoRows.map((f: { id: string; drive_file_id: string }) => ({ id: f.id, name: "Foto", url: driveFileUrl(f.drive_file_id) }))
+    : Array.from({ length: r.legacy_foto_count ?? 0 }, (_, i) => ({ id: null, name: "Foto", url: legacyFileUrl(r.id, "Foto", i) }));
 
   const copertina = r.copertina_drive_id
     ? driveFileUrl(r.copertina_drive_id)
@@ -316,7 +317,14 @@ export async function updateScheda(id: string, data: SchedaUpdate): Promise<Sche
 
   if (data.statoProduzione !== undefined) { sets.push(`stato = $${i++}`); values.push(data.statoProduzione); }
   if (data.dataProduzionePrevista !== undefined) { sets.push(`data_produzione_prevista = $${i++}`); values.push(data.dataProduzionePrevista); }
-  if (data.produzioneEsterna !== undefined) { sets.push(`produzione_esterna = $${i++}`); values.push(data.produzioneEsterna); }
+  // Il flag produzione_esterna non è più un campo editabile a sé: segue lo Stato Produzione.
+  // Se questa chiamata porta lo stato a "In lavorazione Esterna" e nessuno ha già specificato
+  // esplicitamente produzioneEsterna, lo forziamo a true — così la tab Fornitore Esterno si
+  // sblocca automaticamente qualunque sia il form da cui è partito il cambio di stato.
+  const produzioneEsterna = data.produzioneEsterna !== undefined
+    ? data.produzioneEsterna
+    : data.statoProduzione === "In lavorazione Esterna" ? true : undefined;
+  if (produzioneEsterna !== undefined) { sets.push(`produzione_esterna = $${i++}`); values.push(produzioneEsterna); }
   if (data.statoProdEsterna !== undefined) { sets.push(`stato_prod_esterna = $${i++}`); values.push(data.statoProdEsterna || ""); }
   if (data.dataRientroPrevista !== undefined) { sets.push(`data_rientro_prevista = $${i++}`); values.push(data.dataRientroPrevista); }
   if (data.dataUscitaMateriale !== undefined) { sets.push(`data_uscita_materiale = $${i++}`); values.push(data.dataUscitaMateriale); }
@@ -466,4 +474,59 @@ export async function updateCopertinaScheda(schedaId: string, imageBase64: strin
   const folderId = await resolveSchedaFolder(schedaId);
   const uploaded = await driveUploadCopertina(folderId, buffer, mimeType);
   await pool.query(`UPDATE schede SET copertina_drive_id = $1, aggiornato_il = now() WHERE id = $2`, [uploaded.id, schedaId]);
+}
+
+// ── Rimozione file: elimina la riga e il file su Drive. Sui file legacy (mai migrati su Drive,
+// riconoscibili dall'assenza di riga in queste tabelle) non c'è nulla da eliminare qui: restano
+// raggiungibili solo tramite il proxy /api/files finché non vengono ricaricati.
+export async function removePdfAllegatoFromScheda(schedaId: string, rowId: string): Promise<void> {
+  const { rows } = await pool.query(
+    `DELETE FROM scheda_pdf_allegato WHERE id = $1 AND scheda_id = $2 RETURNING drive_file_id`,
+    [rowId, schedaId],
+  );
+  if (rows.length === 0) throw new Error("Allegato non trovato");
+  try {
+    await deleteDriveFile(rows[0].drive_file_id);
+  } catch (e) {
+    console.error("[removePdfAllegatoFromScheda] pulizia Drive fallita:", (e as Error).message);
+  }
+}
+
+export async function removeOrdineFornitoreFromScheda(schedaId: string, rowId: string): Promise<void> {
+  const { rows } = await pool.query(
+    `DELETE FROM scheda_ordine_fornitore WHERE id = $1 AND scheda_id = $2 RETURNING drive_file_id`,
+    [rowId, schedaId],
+  );
+  if (rows.length === 0) throw new Error("Allegato non trovato");
+  try {
+    await deleteDriveFile(rows[0].drive_file_id);
+  } catch (e) {
+    console.error("[removeOrdineFornitoreFromScheda] pulizia Drive fallita:", (e as Error).message);
+  }
+}
+
+export async function removeFotoFromScheda(schedaId: string, rowId: string): Promise<void> {
+  const { rows } = await pool.query(
+    `DELETE FROM scheda_foto WHERE id = $1 AND scheda_id = $2 RETURNING drive_file_id`,
+    [rowId, schedaId],
+  );
+  if (rows.length === 0) throw new Error("Foto non trovata");
+  try {
+    await deleteDriveFile(rows[0].drive_file_id);
+  } catch (e) {
+    console.error("[removeFotoFromScheda] pulizia Drive fallita:", (e as Error).message);
+  }
+}
+
+export async function removeCopertinaScheda(schedaId: string): Promise<void> {
+  const { rows } = await pool.query(`SELECT copertina_drive_id FROM schede WHERE id = $1`, [schedaId]);
+  const driveFileId = rows[0]?.copertina_drive_id as string | null | undefined;
+  await pool.query(`UPDATE schede SET copertina_drive_id = NULL, aggiornato_il = now() WHERE id = $1`, [schedaId]);
+  if (driveFileId) {
+    try {
+      await deleteDriveFile(driveFileId);
+    } catch (e) {
+      console.error("[removeCopertinaScheda] pulizia Drive fallita:", (e as Error).message);
+    }
+  }
 }

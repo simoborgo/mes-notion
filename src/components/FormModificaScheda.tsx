@@ -4,8 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import type { Scheda, SchedaUpdate, Area } from "@/lib/types";
 import FormArea from "./FormArea";
 
-interface Fornitore { id: string; nome: string }
-
 const STATI = [
   "Da Iniziare",
   "In lavorazione",
@@ -19,8 +17,6 @@ const STATI = [
   "Annullata",
   "Revisione UTT",
 ];
-
-const STATI_ESTERNI = ["Da Ordinare", "Da Inviare", "In Lavorazione", "Rientrato", "In attesa Preventivo", "Fornitore in attesa materiale"];
 
 interface Props {
   scheda: Scheda;
@@ -69,12 +65,6 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
   const [form, setForm] = useState<SchedaUpdate>({
     statoProduzione: scheda.statoProduzione,
     dataProduzionePrevista: scheda.dataProduzionePrevista ?? "",
-    produzioneEsterna: scheda.produzioneEsterna,
-    statoProdEsterna: scheda.statoProdEsterna,
-    fornitoreId: scheda.fornitoreId,
-    dataRientroPrevista: scheda.dataRientroPrevista ?? "",
-    dataUscitaMateriale: scheda.dataUscitaMateriale ?? "",
-    dataRientroEffettiva: scheda.dataRientroEffettiva ?? "",
     note: scheda.note,
     codiceArticolo: scheda.codiceArticolo,
     posizione: scheda.posizione,
@@ -83,13 +73,11 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
     areaId: scheda.areaId,
     priorita: scheda.priorita,
   });
+  const [initialForm] = useState(form);
+  const isDirty = JSON.stringify(form) !== JSON.stringify(initialForm);
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-
-  const [fornitori, setFornitori] = useState<Fornitore[]>([]);
-  useEffect(() => {
-    fetch("/api/fornitori").then(r => r.json()).then(setFornitori).catch(() => {});
-  }, []);
 
   const [aree, setAree] = useState<Area[]>([]);
   const [showFormArea, setShowFormArea] = useState(false);
@@ -107,15 +95,18 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [uploadingFoto, setUploadingFoto] = useState(false);
   const [uploadingCopertina, setUploadingCopertina] = useState(false);
-  const [uploadingOrdineFornitore, setUploadingOrdineFornitore] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const fotoInputRef = useRef<HTMLInputElement>(null);
   const copertinaInputRef = useRef<HTMLInputElement>(null);
-  const ordineFornitoreInputRef = useRef<HTMLInputElement>(null);
 
   function set<K extends keyof SchedaUpdate>(k: K, v: SchedaUpdate[K]) {
     setForm((prev) => ({ ...prev, [k]: v }));
+  }
+
+  function handleClose() {
+    if (isDirty && !confirm("Ci sono modifiche non salvate. Chiudere comunque senza salvare?")) return;
+    onClose();
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -126,9 +117,6 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
       const payload: SchedaUpdate = {
         ...form,
         dataProduzionePrevista: form.dataProduzionePrevista || null,
-        dataRientroPrevista: form.dataRientroPrevista || null,
-        dataUscitaMateriale: form.dataUscitaMateriale || null,
-        dataRientroEffettiva: form.dataRientroEffettiva || null,
       };
       const res = await fetch(`/api/schede/${scheda.id}`, {
         method: "PATCH",
@@ -214,26 +202,53 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
     }
   }
 
-  async function handleOrdineFornitoreUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    setUploadingOrdineFornitore(true);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  async function handleRemovePdf(fileId: string) {
+    if (!confirm("Eliminare questo PDF?")) return;
+    setRemovingId(fileId);
     setUploadError("");
     try {
-      const pdfBase64 = await readAsBase64(file);
-      const res = await fetch(`/api/schede/${scheda.id}/ordine-fornitore`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pdfBase64, filename: file.name }),
-      });
+      const res = await fetch(`/api/schede/${scheda.id}/pdf-allegato/${fileId}`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error ?? "Errore caricamento Ordine Fornitore");
+      if (!res.ok) throw new Error(data?.error ?? "Errore eliminazione PDF");
       setSchedaLive(data as Scheda);
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : "Errore caricamento Ordine Fornitore");
+      setUploadError(err instanceof Error ? err.message : "Errore eliminazione PDF");
     } finally {
-      setUploadingOrdineFornitore(false);
+      setRemovingId(null);
+    }
+  }
+
+  async function handleRemoveFoto(fileId: string) {
+    if (!confirm("Eliminare questa foto?")) return;
+    setRemovingId(fileId);
+    setUploadError("");
+    try {
+      const res = await fetch(`/api/schede/${scheda.id}/foto/${fileId}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error ?? "Errore eliminazione foto");
+      setSchedaLive(data as Scheda);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Errore eliminazione foto");
+    } finally {
+      setRemovingId(null);
+    }
+  }
+
+  async function handleRemoveCopertina() {
+    if (!confirm("Eliminare la copertina?")) return;
+    setRemovingId("copertina");
+    setUploadError("");
+    try {
+      const res = await fetch(`/api/schede/${scheda.id}/copertina`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error ?? "Errore eliminazione copertina");
+      setSchedaLive(data as Scheda);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Errore eliminazione copertina");
+    } finally {
+      setRemovingId(null);
     }
   }
 
@@ -243,9 +258,9 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
   const uploadBtnStyle = { color: "var(--color-primary)", borderColor: "rgba(240,143,37,0.3)", background: "rgba(240,143,37,0.06)" };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40" onClick={handleClose}>
       <div
-        className="w-full max-w-2xl bg-white rounded-lg shadow-2xl overflow-y-auto max-h-[90vh]"
+        className="w-full max-w-4xl bg-white rounded-lg shadow-2xl overflow-y-auto max-h-[90vh]"
         style={{ borderRadius: "var(--radius-modal)" }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -256,11 +271,11 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
               {scheda.odp} — {scheda.numeroScheda}
             </p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+          <button onClick={handleClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
         </div>
 
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Codice Articolo</label>
               <input type="text" className={inputCls} value={form.codiceArticolo ?? ""} onChange={(e) => set("codiceArticolo", e.target.value)} />
@@ -308,7 +323,7 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Stato Produzione</label>
               <select className={inputCls} value={form.statoProduzione} onChange={(e) => set("statoProduzione", e.target.value)}>
@@ -322,62 +337,9 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <input
-              id="esterna"
-              type="checkbox"
-              checked={form.produzioneEsterna}
-              onChange={(e) => set("produzioneEsterna", e.target.checked)}
-              className="w-4 h-4 accent-orange-500"
-            />
-            <label htmlFor="esterna" className="text-sm font-medium">Produzione Esterna</label>
-          </div>
-
-          {form.produzioneEsterna && (
-            <div className="grid grid-cols-2 gap-4 p-4 rounded-lg border" style={{ background: "#faf9f7" }}>
-              <div>
-                <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Fornitore</label>
-                <select className={inputCls} value={form.fornitoreId ?? ""} onChange={(e) => set("fornitoreId", e.target.value || null)}>
-                  <option value="">— nessuno —</option>
-                  {fornitori.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Stato Produzione Esterna</label>
-                <select className={inputCls} value={form.statoProdEsterna} onChange={(e) => set("statoProdEsterna", e.target.value)}>
-                  <option value="">— nessuno —</option>
-                  {STATI_ESTERNI.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Data Uscita Materiale</label>
-                <input type="date" className={inputCls} value={form.dataUscitaMateriale ?? ""} onChange={(e) => set("dataUscitaMateriale", e.target.value)} />
-              </div>
-              <div>
-                <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Data Rientro Prevista</label>
-                <input type="date" className={inputCls} value={form.dataRientroPrevista ?? ""} onChange={(e) => set("dataRientroPrevista", e.target.value)} />
-              </div>
-              <div>
-                <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Data Rientro Effettiva</label>
-                <input type="date" className={inputCls} value={form.dataRientroEffettiva ?? ""} onChange={(e) => set("dataRientroEffettiva", e.target.value)} />
-              </div>
-              <div className="col-span-2">
-                <AllegatoSection titolo={`Ordine Fornitore (${schedaLive.pdfOrdineFornitore.length})`}>
-                  <div className="flex flex-col gap-1">
-                    {schedaLive.pdfOrdineFornitore.map((pdf, i) => (
-                      <a key={i} href={pdf.url} target="_blank" rel="noreferrer" className="text-xs underline truncate" style={{ color: "#DC2626" }}>
-                        {pdf.name || `Ordine Fornitore ${i + 1}`}
-                      </a>
-                    ))}
-                  </div>
-                  <input ref={ordineFornitoreInputRef} type="file" accept="application/pdf" className="hidden" onChange={handleOrdineFornitoreUpload} />
-                  <button type="button" onClick={() => ordineFornitoreInputRef.current?.click()} disabled={uploadingOrdineFornitore} className={uploadBtnCls} style={uploadBtnStyle}>
-                    {uploadingOrdineFornitore ? "Carico…" : "+ Aggiungi Ordine Fornitore"}
-                  </button>
-                </AllegatoSection>
-              </div>
-            </div>
-          )}
+          <p className="text-xs" style={{ color: "var(--color-grey-mid)" }}>
+            Fornitore, stato produzione esterna, date di uscita/rientro e Ordine Fornitore si gestiscono dalla tab &quot;Fornitore Esterno&quot;.
+          </p>
 
           <div>
             <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Note Stato</label>
@@ -393,9 +355,17 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
             <AllegatoSection titolo={`PDF Allegato (${schedaLive.pdfAllegato.length})`}>
               <div className="flex flex-col gap-1">
                 {schedaLive.pdfAllegato.map((pdf, i) => (
-                  <a key={i} href={pdf.url} target="_blank" rel="noreferrer" className="text-xs underline truncate" style={{ color: "#DC2626" }}>
-                    {pdf.name || `PDF ${i + 1}`}
-                  </a>
+                  <div key={pdf.id ?? i} className="flex items-center gap-1.5">
+                    <a href={pdf.url} target="_blank" rel="noreferrer" className="text-xs underline truncate flex-1" style={{ color: "#DC2626" }}>
+                      {pdf.name || `PDF ${i + 1}`}
+                    </a>
+                    {pdf.id && (
+                      <button type="button" onClick={() => handleRemovePdf(pdf.id!)} disabled={removingId === pdf.id}
+                        title="Elimina" className="shrink-0 text-xs leading-none disabled:opacity-50" style={{ color: "var(--color-grey-mid)" }}>
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
               <input ref={pdfInputRef} type="file" accept="application/pdf" className="hidden" onChange={handlePdfUpload} />
@@ -407,8 +377,17 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
             <AllegatoSection titolo={`Foto (${schedaLive.foto.length})`}>
               <div className="flex flex-wrap gap-1.5">
                 {schedaLive.foto.map((f, i) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img key={i} src={f.url} alt="" className="w-12 h-12 object-cover rounded border" style={{ borderColor: "#e5e4e0" }} />
+                  <div key={f.id ?? i} className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={f.url} alt="" className="w-12 h-12 object-cover rounded border" style={{ borderColor: "#e5e4e0" }} />
+                    {f.id && (
+                      <button type="button" onClick={() => handleRemoveFoto(f.id!)} disabled={removingId === f.id}
+                        title="Elimina" className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full text-[10px] flex items-center justify-center disabled:opacity-50"
+                        style={{ background: "#991B1B", color: "white" }}>
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
               <input ref={fotoInputRef} type="file" accept="image/*" multiple capture="environment" className="hidden" onChange={handleFotoUpload} />
@@ -422,10 +401,19 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={schedaLive.copertina} alt="Copertina" className="w-full h-16 object-cover rounded border" style={{ borderColor: "#e5e4e0" }} />
               )}
-              <input ref={copertinaInputRef} type="file" accept="image/*" className="hidden" onChange={handleCopertinaUpload} />
-              <button type="button" onClick={() => copertinaInputRef.current?.click()} disabled={uploadingCopertina} className={uploadBtnCls} style={uploadBtnStyle}>
-                {uploadingCopertina ? "Carico…" : schedaLive.copertina ? "Sostituisci" : "+ Carica copertina"}
-              </button>
+              <div className="flex gap-2">
+                <input ref={copertinaInputRef} type="file" accept="image/*" className="hidden" onChange={handleCopertinaUpload} />
+                <button type="button" onClick={() => copertinaInputRef.current?.click()} disabled={uploadingCopertina} className={uploadBtnCls} style={uploadBtnStyle}>
+                  {uploadingCopertina ? "Carico…" : schedaLive.copertina ? "Sostituisci" : "+ Carica copertina"}
+                </button>
+                {schedaLive.copertina && (
+                  <button type="button" onClick={handleRemoveCopertina} disabled={removingId === "copertina"}
+                    className="text-xs px-3 py-1.5 rounded-lg font-semibold border transition-colors disabled:opacity-50"
+                    style={{ color: "#DC2626", borderColor: "#fecaca", background: "#FFF5F5" }}>
+                    {removingId === "copertina" ? "Elimino…" : "Elimina"}
+                  </button>
+                )}
+              </div>
             </AllegatoSection>
           </div>
           {uploadError && <p className="text-sm text-red-600">{uploadError}</p>}
@@ -433,7 +421,7 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
           {error && <p className="text-sm text-red-600">{error}</p>}
 
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm rounded border font-medium hover:bg-gray-50 transition-colors">
+            <button type="button" onClick={handleClose} className="px-4 py-2 text-sm rounded border font-medium hover:bg-gray-50 transition-colors">
               Annulla
             </button>
             <button
