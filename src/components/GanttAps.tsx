@@ -511,7 +511,7 @@ function BarraFase({ fase, repartoNome, colonna, filtroDa, filtroA, onCambiato, 
 function TooltipFase({ fase, repartoNome, pinnata, rect }: {
   fase: FaseGantt; repartoNome: string; pinnata: boolean; rect: { x: number; y: number; width: number; height: number };
 }) {
-  const LARGHEZZA = fase.copertina ? 320 : 250;
+  const LARGHEZZA = fase.copertina ? 410 : 250;
   const sopra = rect.y > 200; // spazio sufficiente sopra la barra, altrimenti si apre sotto
   const left = Math.min(Math.max(rect.x, 8), (typeof window !== "undefined" ? window.innerWidth : 1200) - LARGHEZZA - 8);
   const top = sopra ? rect.y - 8 : rect.y + rect.height + 8;
@@ -527,12 +527,6 @@ function TooltipFase({ fase, repartoNome, pinnata, rect }: {
         display: "flex", gap: 10,
       }}
     >
-      {fase.copertina && (
-        <img
-          src={fase.copertina} alt=""
-          style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8, flexShrink: 0, border: "1px solid #e5e4e0" }}
-        />
-      )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 700 }}>{fase.odp}</div>
         <div style={{ color: "var(--color-grey-mid)", marginBottom: 6 }}>{fase.clienteInfo || "—"}</div>
@@ -578,6 +572,12 @@ function TooltipFase({ fase, repartoNome, pinnata, rect }: {
 
         <div style={{ marginTop: 6, color: "var(--color-grey-icon)", fontSize: 10.5 }}>Clicca per aprire la Scheda</div>
       </div>
+      {fase.copertina && (
+        <img
+          src={fase.copertina} alt=""
+          style={{ width: 150, height: 150, objectFit: "cover", borderRadius: 8, flexShrink: 0, border: "1px solid #e5e4e0" }}
+        />
+      )}
     </div>
   );
 }
