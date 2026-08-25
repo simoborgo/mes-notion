@@ -12,6 +12,7 @@ interface ParsedItem {
   fornitore?: string | null;
   quantita?: number | null;
   stato?: string;
+  dataRientroPrevista?: string | null;
   includeAsSubitem?: boolean;
   gruppo?: number | null;
   otherFields?: Record<string, string>;
@@ -445,6 +446,14 @@ export default function ImportSchedaPdf() {
                       <option value="In lavorazione Esterna">In lavorazione Esterna</option>
                     </select>
                   </div>
+
+                  {item.stato === "In lavorazione Esterna" &&
+                    fieldRow(
+                      "Data Rientro Prevista",
+                      item.dataRientroPrevista ?? "",
+                      (v) => updateItem(idx, "dataRientroPrevista", v || null),
+                      "date",
+                    )}
 
                   {item.otherFields && Object.keys(item.otherFields).length > 0 && (
                     <details className="mt-2">

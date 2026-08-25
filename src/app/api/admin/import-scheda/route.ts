@@ -16,6 +16,7 @@ interface ParsedItem {
   fornitore?: string | null;
   quantita?: number | null;
   stato?: string;
+  dataRientroPrevista?: string | null;
   pageIndex: number;
   gruppo?: number | null;
   otherFields?: Record<string, string>;
@@ -87,6 +88,8 @@ export async function POST(req: NextRequest) {
     quantita: parent.quantita,
     dataProduzionePrevista: parent.termineDiConsegna ?? oggi,
     dataSchedaRicevuta: oggi,
+    produzioneEsterna: parent.stato === "In lavorazione Esterna",
+    dataRientroPrevista: parent.dataRientroPrevista ?? null,
     pdfBuffer,
     pdfFilename,
     thumbnailBuffer,
@@ -145,6 +148,8 @@ export async function POST(req: NextRequest) {
       quantita: sub.quantita,
       dataProduzionePrevista: sub.termineDiConsegna ?? oggi,
       dataSchedaRicevuta: oggi,
+      produzioneEsterna: subStato === "In lavorazione Esterna",
+      dataRientroPrevista: sub.dataRientroPrevista ?? null,
       parentId: parentPage.id,
       pdfBuffer: subPdfBuffer,
       pdfFilename: subPdfFilename,
