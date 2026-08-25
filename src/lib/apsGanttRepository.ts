@@ -3,6 +3,15 @@ import { giornoLavorativoAps as giornoLavorativo } from "./calendarioLavorativo"
 import { capacitaGiornoReparto } from "./apsSchedulerRepository";
 import { getOrariTurno, calcolaOreStandard, type OrariTurno } from "./parametriGeneraliRepository";
 
+// Stesso pattern di schedeRepository.ts/ritiriRepository.ts — duplicato invece di importato,
+// convenzione già seguita altrove nel progetto per questi due helper.
+function driveFileUrl(fileId: string): string {
+  return `/api/drive-file/${fileId}`;
+}
+function legacyFileUrl(schedaId: string, prop: string, index: number): string {
+  return `/api/files/${schedaId}?prop=${encodeURIComponent(prop)}&index=${index}`;
+}
+
 function toDate(iso: string): Date {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(y, m - 1, d);
@@ -25,6 +34,7 @@ export interface FaseGantt {
   corsia: number | null;
   aRischio: boolean;
   pianificazioneManuale: boolean;
+  copertina: string | null;
 }
 
 export interface RepartoGantt {
@@ -72,6 +82,9 @@ function mapFase(r: any): FaseGantt {
     corsia: r.corsia != null ? Number(r.corsia) : null,
     aRischio: r.a_rischio,
     pianificazioneManuale: r.pianificazione_manuale,
+    copertina: r.copertina_drive_id
+      ? driveFileUrl(r.copertina_drive_id)
+      : (r.legacy_copertina ? legacyFileUrl(r.scheda_id, "Copertina", 0) : null),
   };
 }
 
@@ -136,7 +149,7 @@ export async function getDatiGantt(): Promise<DatiGantt> {
     `SELECT sf.id, sf.scheda_id, sf.reparto_id, sf.sotto_fase, sf.ore_stimate, sf.stato_fase,
             sf.data_inizio_pianificata, sf.data_fine_pianificata, sf.corsia, sf.a_rischio,
             sf.pianificazione_manuale,
-            s.odp, s.priorita,
+            s.odp, s.priorita, s.copertina_drive_id, s.legacy_copertina,
             CASE WHEN c.id IS NOT NULL THEN c.numero_commessa || ' ' || c.cliente ELSE '' END AS cliente_info
      FROM schede_fasi sf
      JOIN schede s ON s.id = sf.scheda_id

@@ -511,7 +511,7 @@ function BarraFase({ fase, repartoNome, colonna, filtroDa, filtroA, onCambiato, 
 function TooltipFase({ fase, repartoNome, pinnata, rect }: {
   fase: FaseGantt; repartoNome: string; pinnata: boolean; rect: { x: number; y: number; width: number; height: number };
 }) {
-  const LARGHEZZA = 250;
+  const LARGHEZZA = fase.copertina ? 320 : 250;
   const sopra = rect.y > 200; // spazio sufficiente sopra la barra, altrimenti si apre sotto
   const left = Math.min(Math.max(rect.x, 8), (typeof window !== "undefined" ? window.innerWidth : 1200) - LARGHEZZA - 8);
   const top = sopra ? rect.y - 8 : rect.y + rect.height + 8;
@@ -524,51 +524,60 @@ function TooltipFase({ fase, repartoNome, pinnata, rect }: {
         transform: sopra ? "translateY(-100%)" : undefined,
         background: "white", border: "1px solid #e5e4e0", borderRadius: 10, padding: "10px 12px",
         boxShadow: "0 8px 24px rgba(26,25,24,0.22)", fontSize: 12, color: "var(--color-black)",
+        display: "flex", gap: 10,
       }}
     >
-      <div style={{ fontSize: 13, fontWeight: 700 }}>{fase.odp}</div>
-      <div style={{ color: "var(--color-grey-mid)", marginBottom: 6 }}>{fase.clienteInfo || "—"}</div>
-
-      <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
-        <span style={{ color: "var(--color-grey-mid)" }}>Reparto</span>
-        <span style={{ fontWeight: 600, textAlign: "right" }}>{repartoNome}{fase.sottoFase ? ` · ${fase.sottoFase}` : ""}</span>
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
-        <span style={{ color: "var(--color-grey-mid)" }}>Stato</span>
-        <span style={{ fontWeight: 600 }}>{fase.statoFase}</span>
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
-        <span style={{ color: "var(--color-grey-mid)" }}>Priorità</span>
-        <span style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ width: 7, height: 7, borderRadius: "50%", background: p.colore, display: "inline-block" }} />
-          {p.label}
-        </span>
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
-        <span style={{ color: "var(--color-grey-mid)" }}>Ore stimate</span>
-        <span style={{ fontWeight: 600 }}>{fase.oreStimate != null ? `${fase.oreStimate} h` : "da stimare"}</span>
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
-        <span style={{ color: "var(--color-grey-mid)" }}>Periodo</span>
-        <span style={{ fontWeight: 600 }}>
-          {fase.dataInizioPianificata ? new Date(fase.dataInizioPianificata).toLocaleDateString("it-IT") : "—"}
-          {" → "}
-          {fase.dataFinePianificata ? new Date(fase.dataFinePianificata).toLocaleDateString("it-IT") : "—"}
-        </span>
-      </div>
-
-      {fase.aRischio && (
-        <div style={{ marginTop: 6, padding: "3px 6px", borderRadius: 6, background: "#FEE2E2", color: "#991B1B", fontWeight: 600 }}>
-          ⚠ A rischio consegna
-        </div>
+      {fase.copertina && (
+        <img
+          src={fase.copertina} alt=""
+          style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8, flexShrink: 0, border: "1px solid #e5e4e0" }}
+        />
       )}
-      {pinnata && (
-        <div style={{ marginTop: 6, padding: "3px 6px", borderRadius: 6, background: "#EDE9FE", color: "#6D28D9", fontWeight: 600 }}>
-          Pianificazione manuale
-        </div>
-      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 700 }}>{fase.odp}</div>
+        <div style={{ color: "var(--color-grey-mid)", marginBottom: 6 }}>{fase.clienteInfo || "—"}</div>
 
-      <div style={{ marginTop: 6, color: "var(--color-grey-icon)", fontSize: 10.5 }}>Clicca per aprire la Scheda</div>
+        <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
+          <span style={{ color: "var(--color-grey-mid)" }}>Reparto</span>
+          <span style={{ fontWeight: 600, textAlign: "right" }}>{repartoNome}{fase.sottoFase ? ` · ${fase.sottoFase}` : ""}</span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
+          <span style={{ color: "var(--color-grey-mid)" }}>Stato</span>
+          <span style={{ fontWeight: 600 }}>{fase.statoFase}</span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
+          <span style={{ color: "var(--color-grey-mid)" }}>Priorità</span>
+          <span style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: p.colore, display: "inline-block" }} />
+            {p.label}
+          </span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
+          <span style={{ color: "var(--color-grey-mid)" }}>Ore stimate</span>
+          <span style={{ fontWeight: 600 }}>{fase.oreStimate != null ? `${fase.oreStimate} h` : "da stimare"}</span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
+          <span style={{ color: "var(--color-grey-mid)" }}>Periodo</span>
+          <span style={{ fontWeight: 600 }}>
+            {fase.dataInizioPianificata ? new Date(fase.dataInizioPianificata).toLocaleDateString("it-IT") : "—"}
+            {" → "}
+            {fase.dataFinePianificata ? new Date(fase.dataFinePianificata).toLocaleDateString("it-IT") : "—"}
+          </span>
+        </div>
+
+        {fase.aRischio && (
+          <div style={{ marginTop: 6, padding: "3px 6px", borderRadius: 6, background: "#FEE2E2", color: "#991B1B", fontWeight: 600 }}>
+            ⚠ A rischio consegna
+          </div>
+        )}
+        {pinnata && (
+          <div style={{ marginTop: 6, padding: "3px 6px", borderRadius: 6, background: "#EDE9FE", color: "#6D28D9", fontWeight: 600 }}>
+            Pianificazione manuale
+          </div>
+        )}
+
+        <div style={{ marginTop: 6, color: "var(--color-grey-icon)", fontSize: 10.5 }}>Clicca per aprire la Scheda</div>
+      </div>
     </div>
   );
 }
