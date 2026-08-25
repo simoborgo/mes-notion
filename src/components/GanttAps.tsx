@@ -19,15 +19,6 @@ const PRIORITA: Record<string, { label: string; colore: string; peso: number }> 
   bassa:   { label: "Bassa",   colore: "#8B8680", peso: 1 },
 };
 
-// Colore-traccia per ODP: coerente su tutte le fasi/reparti dello stesso ODP, per seguirlo
-// mentre attraversa la pipeline (stesso pattern del prototipo di riferimento).
-const ODP_TRACCIA = ["#6B8FA3", "#8B6BA3", "#5C9E8F", "#A38B5C", "#5C7EA3", "#9E5C8F"];
-function coloreOdp(schedaId: string): string {
-  let hash = 0;
-  for (let i = 0; i < schedaId.length; i++) hash = (hash * 31 + schedaId.charCodeAt(i)) >>> 0;
-  return ODP_TRACCIA[hash % ODP_TRACCIA.length];
-}
-
 function toDate(iso: string): Date {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(y, m - 1, d);
@@ -467,10 +458,7 @@ function BarraFase({ fase, colonna, filtroDa, filtroA, onCambiato, onErrore, onA
         background: completata ? VERDE_COMPLETATA : p.colore,
         opacity: salvando ? 0.6 : 1,
         cursor: trascinabile ? (trascinando ? "grabbing" : "grab") : "pointer",
-        borderTop: `4px solid ${coloreOdp(fase.schedaId)}`,
-        borderRight: `${bordoSpessore}px ${bordoStile} ${bordoColore}`,
-        borderBottom: `${bordoSpessore}px ${bordoStile} ${bordoColore}`,
-        borderLeft: `${bordoSpessore}px ${bordoStile} ${bordoColore}`,
+        border: `${bordoSpessore}px ${bordoStile} ${bordoColore}`,
         borderRadius: 4, display: "flex", alignItems: "center", paddingLeft: 4,
         boxShadow: "0 1px 2px rgba(26,25,24,0.15)", overflow: "hidden", userSelect: "none",
       }}
