@@ -36,13 +36,20 @@ async function getPdfjsLib() {
   return pdfjsLib;
 }
 
-async function extractPdfData(file: File): Promise<{ pageTexts: string[]; thumbnailBase64: string }> {
+async function extractPdfData(file: File): Promise<{ pageTexts: string[]; thumbnailBase64: string; pageThumbnails: string[] }> {
   const pdfjs = await getPdfjsLib();
   const buf = await file.arrayBuffer();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pdf = await pdfjs.getDocument({ data: new Uint8Array(buf) }).promise as any;
 
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d")!;
+
   const pageTexts: string[] = [];
+  // Piccola anteprima per pagina — così in preview si vede subito a quale pagina del PDF
+  // corrisponde ogni scheda/sottoscheda estratta, senza dover riaprire il PDF originale per
+  // controllare (l'estrazione automatica a volte sbaglia la pagina di provenienza).
+  const pageThumbnails: string[] = [];
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -50,23 +57,31 @@ async function extractPdfData(file: File): Promise<{ pageTexts: string[]; thumbn
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const pageText = content.items.map((it: any) => it.str).join(" ");
     pageTexts.push(pageText);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const vpSmall0 = page.getViewport({ scale: 1 }) as any;
+    const smallScale = 320 / vpSmall0.width;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const vpSmall = page.getViewport({ scale: smallScale }) as any;
+    canvas.width = vpSmall.width;
+    canvas.height = vpSmall.height;
+    await page.render({ canvasContext: ctx, viewport: vpSmall }).promise;
+    pageThumbnails.push(canvas.toDataURL("image/jpeg", 0.82));
   }
 
-  // Render first page as thumbnail
+  // Render first page as (bigger) cover thumbnail
   const page1 = await pdf.getPage(1);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const vp0 = page1.getViewport({ scale: 1 }) as any;
   const scale = 1200 / vp0.width;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const vp = page1.getViewport({ scale }) as any;
-  const canvas = document.createElement("canvas");
   canvas.width = vp.width;
   canvas.height = vp.height;
-  const ctx = canvas.getContext("2d")!;
   await page1.render({ canvasContext: ctx, viewport: vp }).promise;
   const thumbnailBase64 = canvas.toDataURL("image/jpeg", 0.92);
 
-  return { pageTexts, thumbnailBase64 };
+  return { pageTexts, thumbnailBase64, pageThumbnails };
 }
 
 function fieldRow(
@@ -100,6 +115,7 @@ export default function ImportSchedaPdf() {
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [thumbnailBase64, setThumbnailBase64] = useState<string | null>(null);
+  const [pageThumbnails, setPageThumbnails] = useState<string[]>([]);
   const [pdfBase64, setPdfBase64] = useState<string | null>(null);
   const [items, setItems] = useState<ParsedItem[]>([]);
   const [result, setResult] = useState<ImportResult | null>(null);
@@ -126,9 +142,10 @@ export default function ImportSchedaPdf() {
       });
       setPdfBase64(base64);
 
-      // Extract text + thumbnail via pdfjs
-      const { pageTexts, thumbnailBase64: thumb } = await extractPdfData(file);
+      // Extract text + thumbnails via pdfjs
+      const { pageTexts, thumbnailBase64: thumb, pageThumbnails: pageThumbs } = await extractPdfData(file);
       setThumbnailBase64(thumb);
+      setPageThumbnails(pageThumbs);
 
       setStatus("parsing");
 
@@ -213,6 +230,7 @@ export default function ImportSchedaPdf() {
     setStatus("idle");
     setError(null);
     setThumbnailBase64(null);
+    setPageThumbnails([]);
     setPdfBase64(null);
     setItems([]);
     setResult(null);
@@ -370,7 +388,7 @@ export default function ImportSchedaPdf() {
                   opacity: excluded ? 0.55 : 1,
                 }}
               >
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 mb-3 flex-wrap">
                   {idx === 0 ? (
                     <span
                       className="text-xs px-2 py-0.5 rounded font-medium"
@@ -393,10 +411,17 @@ export default function ImportSchedaPdf() {
                           color: item.includeAsSubitem ? "#854d0e" : "#9ca3af",
                         }}
                       >
-                        {item.includeAsSubitem ? `Sottoscheda ${idx}` : `Pagina ${idx} — inclusa nella scheda principale`}
+                        {item.includeAsSubitem ? "Sottoscheda" : "Non inclusa nell'import"}
                       </span>
                     </label>
                   )}
+                  <span
+                    className="text-xs px-2 py-0.5 rounded font-medium"
+                    style={{ background: "#f3f4f6", color: "#4b5563" }}
+                    title="Pagina del PDF da cui sono stati estratti questi dati"
+                  >
+                    Pagina {idx + 1} di {items.length}
+                  </span>
                   {idx > 0 && item.includeAsSubitem === true && (
                     <label className="flex items-center gap-1.5 text-xs" style={{ color: "#6b6966" }}>
                       Gruppo
@@ -412,7 +437,19 @@ export default function ImportSchedaPdf() {
                   )}
                 </div>
 
-                <div className="space-y-2">
+                <div className="flex gap-3">
+                {pageThumbnails[idx] && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={pageThumbnails[idx]}
+                    alt={`Anteprima pagina ${idx + 1}`}
+                    onClick={() => window.open(pageThumbnails[idx], "_blank")}
+                    className="shrink-0 cursor-zoom-in hover:opacity-80 transition-opacity"
+                    style={{ width: 84, border: "1px solid #e5e4e0", borderRadius: 6, objectFit: "contain", background: "white", alignSelf: "flex-start" }}
+                    title="Clicca per ingrandire"
+                  />
+                )}
+                <div className="flex-1 min-w-0 space-y-2">
                   {fieldRow("Numero Scheda *", item.numeroScheda, (v) => updateItem(idx, "numeroScheda", v))}
                   {fieldRow("Commessa Nr *", item.commessaNr, (v) => updateItem(idx, "commessaNr", v))}
                   {fieldRow("Posizione", item.posizione ?? "", (v) => updateItem(idx, "posizione", v || null))}
@@ -470,6 +507,7 @@ export default function ImportSchedaPdf() {
                       </div>
                     </details>
                   )}
+                </div>
                 </div>
               </div>
               );

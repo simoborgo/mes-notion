@@ -123,7 +123,10 @@ export async function POST(req: NextRequest) {
     const rappresentante = group[0];
     const sub = rappresentante.item;
 
-    const pageIndices = group.map((s) => s.item.pageIndex - 1);
+    // pageIndex arriva già 0-based dal client (posizione nell'array items, che coincide con
+    // l'ordine delle pagine PDF) — NON va decrementato di nuovo, altrimenti ogni sottoscheda
+    // finisce con il PDF della pagina precedente alla propria (bug corretto qui il 2026-08-26).
+    const pageIndices = group.map((s) => s.item.pageIndex);
     const groupPdf = await PDFDocument.create();
     const copiedPages = await groupPdf.copyPages(originalPdf, pageIndices);
     copiedPages.forEach((p) => groupPdf.addPage(p));
