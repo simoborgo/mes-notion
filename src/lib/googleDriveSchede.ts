@@ -109,6 +109,14 @@ export async function deleteDriveFile(fileId: string): Promise<void> {
   await drive().files.delete({ fileId });
 }
 
+// Stessa chiamata già usata dal proxy /api/drive-file/[fileId] — fattorizzata qui perché serve
+// anche server-side (non solo per lo streaming al browser), es. per unire la copertina di una
+// Scheda al PDF di un'altra stampa (kit ferramenta/pdf route).
+export async function downloadDriveFile(fileId: string): Promise<Buffer> {
+  const res = await drive().files.get({ fileId, alt: "media" }, { responseType: "arraybuffer" });
+  return Buffer.from(res.data as ArrayBuffer);
+}
+
 export function driveFileLink(fileId: string): string {
   return `https://drive.google.com/file/d/${fileId}/view`;
 }

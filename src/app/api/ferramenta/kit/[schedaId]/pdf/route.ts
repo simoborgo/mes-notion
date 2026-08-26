@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import puppeteer from "puppeteer";
-import { getSchedaById } from "@/lib/schedeRepository";
+import { PDFDocument } from "pdf-lib";
+import { getSchedaById, getPrimoPdfAllegatoDriveFileId } from "@/lib/schedeRepository";
 import { getDistintaKitByOdp } from "@/lib/kitFerramentaRepository";
+import { downloadDriveFile } from "@/lib/googleDriveSchede";
 import { getSessionFromRequest, FERRAMENTA_ROLES } from "@/lib/auth";
 
 function esc(s: string) {
@@ -79,7 +81,29 @@ td{padding:4mm 3mm;border-bottom:1px solid #E4E0DA;font-size:14px}
         printBackground: true,
         margin: { top: "15mm", right: "15mm", bottom: "15mm", left: "15mm" },
       });
-      return new NextResponse(Buffer.from(pdfBuffer), {
+
+      // Seconda pagina: la prima pagina (copertina/disegno) del PDF Allegato della Scheda, se
+      // presente — così chi prepara il kit ha subito sotto mano anche il riferimento visivo del
+      // pezzo, senza dover aprire la Scheda a parte. Best-effort: se manca o il download fallisce,
+      // si stampa comunque solo la distinta, mai un errore che blocca la stampa.
+      let outputBuffer = Buffer.from(pdfBuffer);
+      try {
+        const driveFileId = await getPrimoPdfAllegatoDriveFileId(schedaId);
+        if (driveFileId) {
+          const schedaPdfBuffer = await downloadDriveFile(driveFileId);
+          const schedaPdfDoc = await PDFDocument.load(schedaPdfBuffer);
+          if (schedaPdfDoc.getPageCount() > 0) {
+            const distintaDoc = await PDFDocument.load(outputBuffer);
+            const [copertina] = await distintaDoc.copyPages(schedaPdfDoc, [0]);
+            distintaDoc.addPage(copertina);
+            outputBuffer = Buffer.from(await distintaDoc.save());
+          }
+        }
+      } catch (e) {
+        console.error("[kit/pdf] copertina Scheda non allegata:", e instanceof Error ? e.message : String(e));
+      }
+
+      return new NextResponse(outputBuffer, {
         headers: {
           "Content-Type": "application/pdf",
           "Content-Disposition": `inline; filename="kit-ferramenta-${(scheda.odp || schedaId).replace(/\//g, "-")}.pdf"`,

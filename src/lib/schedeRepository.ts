@@ -426,6 +426,17 @@ function decodeBase64File(base64: string): { buffer: Buffer; mimeType: string } 
   return { mimeType: match[1], buffer: Buffer.from(match[2], "base64") };
 }
 
+// drive_file_id del primo PDF Allegato di una Scheda (ordine più basso) — usato per allegare la
+// prima pagina del disegno tecnico ad altre stampe (es. distinta Kit Ferramenta). null se la
+// Scheda non ha alcun PDF Allegato su Drive (mai caricato, o ancora solo su storage legacy).
+export async function getPrimoPdfAllegatoDriveFileId(schedaId: string): Promise<string | null> {
+  const { rows } = await pool.query(
+    `SELECT drive_file_id FROM scheda_pdf_allegato WHERE scheda_id = $1 ORDER BY ordine LIMIT 1`,
+    [schedaId],
+  );
+  return rows[0]?.drive_file_id ?? null;
+}
+
 // ── File: PDF Allegato / Ordine Fornitore / Foto (liste additive) / Copertina (sostituisce) ────
 export async function appendPdfAllegatoToScheda(schedaId: string, pdfBase64: string, filename: string): Promise<void> {
   const { buffer } = decodeBase64File(pdfBase64);
