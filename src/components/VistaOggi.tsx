@@ -334,49 +334,53 @@ export default function VistaOggi({ oreFeriale, oreSabato }: { oreFeriale: numbe
         </div>
       </div>
 
-      {/* Day navigator */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <button
-          onClick={() => setData(d => addDays(d, -1))}
-          className="flex items-center justify-center rounded-lg border hover:bg-gray-50"
-          style={{ width: 44, height: 44, borderColor: "#d1d5db" }}
-        >‹</button>
-        <input
-          type="date"
-          className={inputCls}
-          style={{ height: 44 }}
-          value={data}
-          onChange={e => setData(e.target.value)}
-        />
-        <button
-          onClick={() => setData(d => addDays(d, 1))}
-          className="flex items-center justify-center rounded-lg border hover:bg-gray-50"
-          style={{ width: 44, height: 44, borderColor: "#d1d5db" }}
-        >›</button>
-        <button
-          onClick={() => setData(oggiStr())}
-          className="px-3 rounded-lg border text-sm font-semibold hover:bg-gray-50"
-          style={{ height: 44, borderColor: "#d1d5db", color: "var(--color-grey-mid)" }}
-        >Oggi</button>
-        <div className="flex-1" />
-        <label className="flex items-center gap-2 text-sm cursor-pointer">
-          <span style={{ color: "var(--color-grey-mid)" }}>Totale giornata</span>
+      {/* Day navigator — sticky sotto la navbar: con reparti/operatori lunghi da scorrere, la
+          data a cui si riferisce quello che si sta guardando/modificando deve restare sempre
+          visibile, altrimenti si perde il contesto scrollando verso il basso. */}
+      <div className="sticky z-30 pt-2 pb-3 border-b" style={{ top: 64, background: "var(--color-offwhite)", borderColor: "#e5e4e0" }}>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setData(d => addDays(d, -1))}
+            className="flex items-center justify-center rounded-lg border hover:bg-gray-50"
+            style={{ width: 44, height: 44, borderColor: "#d1d5db", background: "white" }}
+          >‹</button>
           <input
-            type="number" step={0.5} min={0}
+            type="date"
             className={inputCls}
-            style={{ width: 68, height: 36 }}
-            value={totaleGiornata}
-            onChange={e => setTotaleGiornata(Number(e.target.value))}
+            style={{ height: 44 }}
+            value={data}
+            onChange={e => setData(e.target.value)}
           />
-          <span style={{ color: "var(--color-grey-mid)" }}>h</span>
-        </label>
-        <label className="flex items-center gap-2 text-sm cursor-pointer">
-          <input type="checkbox" checked={preselezionaUltimoOdp} onChange={e => setPreselezionaUltimoOdp(e.target.checked)} className="accent-orange-500" />
-          Preseleziona ODP in lavorazione dal giorno precedente
-        </label>
-      </div>
+          <button
+            onClick={() => setData(d => addDays(d, 1))}
+            className="flex items-center justify-center rounded-lg border hover:bg-gray-50"
+            style={{ width: 44, height: 44, borderColor: "#d1d5db", background: "white" }}
+          >›</button>
+          <button
+            onClick={() => setData(oggiStr())}
+            className="px-3 rounded-lg border text-sm font-semibold hover:bg-gray-50"
+            style={{ height: 44, borderColor: "#d1d5db", color: "var(--color-grey-mid)", background: "white" }}
+          >Oggi</button>
+          <div className="flex-1" />
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <span style={{ color: "var(--color-grey-mid)" }}>Totale giornata</span>
+            <input
+              type="number" step={0.5} min={0}
+              className={inputCls}
+              style={{ width: 68, height: 36 }}
+              value={totaleGiornata}
+              onChange={e => setTotaleGiornata(Number(e.target.value))}
+            />
+            <span style={{ color: "var(--color-grey-mid)" }}>h</span>
+          </label>
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" checked={preselezionaUltimoOdp} onChange={e => setPreselezionaUltimoOdp(e.target.checked)} className="accent-orange-500" />
+            Preseleziona ODP in lavorazione dal giorno precedente
+          </label>
+        </div>
 
-      <h2 className="text-lg font-semibold" style={{ color: "var(--color-black)" }}>{fmtDataLunga(data)}</h2>
+        <h2 className="text-lg font-semibold mt-2" style={{ color: "var(--color-black)" }}>{fmtDataLunga(data)}</h2>
+      </div>
 
       {!loading && presenti.length > 0 && (
         <div

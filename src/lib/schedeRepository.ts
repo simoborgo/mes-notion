@@ -188,6 +188,7 @@ export async function getOdpAttivi(): Promise<OdpAttivo[]> {
       commessaNr: s.commessaNr || undefined,
       copertina: s.copertina,
       isSpeciale: false,
+      completato: s.statoProduzione === "Completato",
     });
   }
 

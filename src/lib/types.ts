@@ -214,6 +214,7 @@ export interface OdpAttivo {
   commessaNr?: string;
   copertina?: string | null;
   isSpeciale: boolean;
+  completato?: boolean;
 }
 
 // Etichette per le categorie ore_registrate non-COMMESSA (ODP_SPECIALI in src/lib/notion.ts),

@@ -17,6 +17,9 @@ export function OdpLabel({ o }: { o: OdpAttivo }) {
   return (
     <span className="inline-flex items-baseline gap-1.5 min-w-0">
       <span className="font-semibold truncate">{o.odp} - {o.numeroScheda}</span>
+      {o.completato && (
+        <span className="text-xs font-semibold shrink-0" style={{ color: "#16A34A" }}>(Completato)</span>
+      )}
       {o.clienteInfo && (
         <span className="text-xs truncate" style={{ color: "#9ca3af" }}>{o.clienteInfo}</span>
       )}

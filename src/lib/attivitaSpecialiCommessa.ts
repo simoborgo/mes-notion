@@ -11,6 +11,7 @@ export const ATTIVITA_SPECIALI_COMMESSA = [
   { suffix: "GESTIONE", label: "Gestione Commessa" },
   { suffix: "SEMILAVORATI", label: "Preparazione Semilavorati" },
   { suffix: "CAMPIONATURA", label: "Campionatura" },
+  { suffix: "VERNICIATURA", label: "Verniciatura" },
 ] as const;
 
 // Codici speciali fissi a livello stabilimento (non legati a nessuna commessa) — usati da

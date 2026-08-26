@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Operatore, OdpAttivo } from "@/lib/types";
+import { ATTIVITA_SPECIALI_COMMESSA } from "@/lib/attivitaSpecialiCommessa";
 import OdpSelettore from "./OdpSelettore";
 
 interface OperatoreLoggato {
@@ -33,6 +34,15 @@ const STORAGE_KEY = "mes_operatore_tablet";
 function fmtOra(iso: string): string {
   return new Date(iso).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
 }
+
+// Elenco leggibile ("A, B o C") generato dall'array invece che scritto a mano nel testo — così
+// un domani un'aggiunta ad ATTIVITA_SPECIALI_COMMESSA non lascia questo hint disallineato (come
+// era già successo: mancava "Campionatura" prima di questa modifica).
+function elencoItaliano(items: string[]): string {
+  if (items.length <= 1) return items.join("");
+  return `${items.slice(0, -1).join(", ")} o ${items[items.length - 1]}`;
+}
+const HINT_ATTIVITA_SPECIALI = `Per ${elencoItaliano(ATTIVITA_SPECIALI_COMMESSA.map(a => a.label))} di una commessa, cercali per numero commessa qui sotto.`;
 
 export default function OperatoreTablet() {
   const [operatore, setOperatore] = useState<OperatoreLoggato | null>(null);
@@ -408,7 +418,7 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
                   </div>
                 )}
                 <p className="text-xs" style={{ color: "#9A3412", opacity: 0.8 }}>
-                  Per Cablaggio, Ferramenta, Gestione o Semilavorati di una commessa, cercali per numero commessa qui sotto.
+                  {HINT_ATTIVITA_SPECIALI}
                 </p>
                 <OdpSelettore odpList={odpList} value={gapOdp} onChange={setGapOdp} placeholder="Cerca ODP…" />
                 {errore && <p className="text-sm font-medium" style={{ color: "#991B1B" }}>{errore}</p>}
@@ -448,7 +458,7 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
                 </div>
               )}
               <p className="text-xs" style={{ color: "var(--color-grey-mid)" }}>
-                Per Cablaggio, Ferramenta, Gestione o Semilavorati di una commessa, cercali per numero commessa qui sotto.
+                {HINT_ATTIVITA_SPECIALI}
               </p>
               <OdpSelettore odpList={odpList} value={odp} onChange={setOdp} placeholder="Cerca ODP…" />
               <label className="flex items-center gap-2 text-sm cursor-pointer">
