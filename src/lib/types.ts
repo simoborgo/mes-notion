@@ -271,10 +271,12 @@ export interface ArticoloFerramentaUpdate {
 export interface DistintaKitRiga {
   id: string;
   odpId: string;
-  articoloId: string;
+  articoloId: string | null;
   articoloDescrizione: string;
   articoloCodiceOs1: string;
   quantita: number;
+  preparataDa: string | null;
+  preparataIl: string | null;
   notionUrl: string;
 }
 

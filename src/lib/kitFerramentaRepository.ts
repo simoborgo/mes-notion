@@ -14,12 +14,15 @@ function mapRow(r: any): DistintaKitRiga {
     articoloDescrizione: r.articolo_descrizione_live ?? r.descrizione,
     articoloCodiceOs1: r.articolo_codice_os1_live ?? r.codice_os1 ?? "",
     quantita: Number(r.quantita),
+    preparataDa: r.preparata_da,
+    preparataIl: r.preparata_il ? new Date(r.preparata_il).toISOString() : null,
     notionUrl: "", // nessuna pagina Notion per la riga: la distinta vive su Postgres
   };
 }
 
 const SELECT_JOIN = `
   SELECT r.id, r.odp_id, r.articolo_id, r.descrizione, r.codice_os1, r.quantita,
+         r.preparata_da, r.preparata_il,
          a.descrizione AS articolo_descrizione_live, a.codice_os1 AS articolo_codice_os1_live
   FROM kit_ferramenta_righe r
   LEFT JOIN articoli_ferramenta a ON a.id = r.articolo_id
@@ -73,6 +76,26 @@ export async function updateDistintaRigaQuantita(id: string, quantita: number): 
     [quantita, id],
   );
   if (rows[0]) await aggiornaDescrizioneKitSuNotion(rows[0].odp_id);
+}
+
+// Righe a testo libero (articolo_id NULL) non hanno giacenza da scaricare — "Scarica" punterebbe
+// a un articolo inesistente (bug segnalato dall'utente 2026-08-26: /ferramenta/scarico/null).
+// Al suo posto una conferma manuale "preparato", senza alcun movimento di magazzino — stesso
+// principio già in uso in kit_commessa_righe per il caso testo libero. Toggle (non one-way): un
+// segno messo per sbaglio si può togliere, non c'è nessuna giacenza da disfare.
+export async function setPreparataRiga(id: string, preparata: boolean, operatore: string): Promise<DistintaKitRiga> {
+  const { rows: rigaRows } = await pool.query(`SELECT odp_id, articolo_id FROM kit_ferramenta_righe WHERE id = $1`, [id]);
+  if (rigaRows.length === 0) throw new Error("Riga non trovata");
+  if (rigaRows[0].articolo_id) throw new Error("Riga collegata a un articolo: usa lo scarico, non 'Preparato'");
+
+  await pool.query(
+    preparata
+      ? `UPDATE kit_ferramenta_righe SET preparata_da = $2, preparata_il = now(), aggiornato_il = now() WHERE id = $1`
+      : `UPDATE kit_ferramenta_righe SET preparata_da = NULL, preparata_il = NULL, aggiornato_il = now() WHERE id = $1`,
+    preparata ? [id, operatore] : [id],
+  );
+  const { rows: joined } = await pool.query(`${SELECT_JOIN} WHERE r.id = $1`, [id]);
+  return mapRow(joined[0]);
 }
 
 export async function deleteDistintaRiga(id: string): Promise<void> {

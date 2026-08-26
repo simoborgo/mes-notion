@@ -6,6 +6,7 @@ import { getMovimentiByOdp } from "@/lib/ferramentaRepository";
 import { getDistintaKitByOdp } from "@/lib/kitFerramentaRepository";
 import { getArticoliFerramenta } from "@/lib/articoliFerramentaRepository";
 import AggiungiArticoloKit from "@/components/AggiungiArticoloKit";
+import PreparataToggle from "@/components/PreparataToggle";
 
 export const dynamic = "force-dynamic";
 
@@ -54,10 +55,17 @@ export default async function FoglioScaricoDettaglioPage({ params }: { params: P
     }
   }
 
+  // Righe a testo libero (articoloId null) non hanno una giacenza da scaricare — nessun
+  // movimento in movimenti_ferramenta le riguarderà mai. Il loro stato segue invece la conferma
+  // manuale "preparata" (vedi PreparataToggle), non un conteggio di quantità.
   const righeDistinta = distinta.map(r => {
+    if (!r.articoloId) {
+      const stato = r.preparataIl ? "completo" : "mancante";
+      return { ...r, scaricato: null as number | null, stato };
+    }
     const scaricato = scaricatoPerArticolo.get(r.articoloId) ?? 0;
     const stato = scaricato >= r.quantita ? "completo" : scaricato > 0 ? "parziale" : "mancante";
-    return { ...r, scaricato, stato };
+    return { ...r, scaricato: scaricato as number | null, stato };
   });
 
   return (
@@ -101,19 +109,23 @@ export default async function FoglioScaricoDettaglioPage({ params }: { params: P
                         <div className="text-xs font-mono" style={{ color: "var(--color-grey-mid)" }}>{r.articoloCodiceOs1}</div>
                       </td>
                       <td className="px-4 py-3 tabular-nums">{r.quantita}</td>
-                      <td className="px-4 py-3 tabular-nums">{r.scaricato}</td>
+                      <td className="px-4 py-3 tabular-nums">{r.articoloId ? r.scaricato : "—"}</td>
                       <td className="px-4 py-3">
                         <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: s.bg, color: s.color }}>{s.text}</span>
                       </td>
                       <td className="px-4 py-3">
-                        {r.stato !== "completo" && (
-                          <Link
-                            href={`/ferramenta/scarico/${r.articoloId}?odp=${odpId}&ritorno=${encodeURIComponent(`/ferramenta/fogli-scarico/${odpId}`)}`}
-                            className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors whitespace-nowrap border"
-                            style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)", borderColor: "rgba(240,143,37,0.3)" }}
-                          >
-                            Scarica
-                          </Link>
+                        {r.articoloId ? (
+                          r.stato !== "completo" && (
+                            <Link
+                              href={`/ferramenta/scarico/${r.articoloId}?odp=${odpId}&ritorno=${encodeURIComponent(`/ferramenta/fogli-scarico/${odpId}`)}`}
+                              className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors whitespace-nowrap border"
+                              style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)", borderColor: "rgba(240,143,37,0.3)" }}
+                            >
+                              Scarica
+                            </Link>
+                          )
+                        ) : (
+                          <PreparataToggle schedaId={odpId} rigaId={r.id} preparata={!!r.preparataIl} />
                         )}
                       </td>
                     </tr>
