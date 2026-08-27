@@ -79,6 +79,18 @@ export default function VistaKpi() {
         <input type="date" className={inputCls} style={{ height: 44 }} value={da} onChange={e => setDa(e.target.value)} />
         <span className="text-sm" style={{ color: "var(--color-grey-mid)" }}>→</span>
         <input type="date" className={inputCls} style={{ height: 44 }} value={a} onChange={e => setA(e.target.value)} />
+        <a
+          href={`/api/ore/kpi/pdf?da=${da}&a=${a}`}
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center gap-1.5 px-3 rounded-lg border text-sm font-semibold hover:bg-gray-50"
+          style={{ height: 44, borderColor: "#d1d5db", color: "var(--color-grey-mid)", background: "white" }}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" />
+          </svg>
+          Stampa riepilogo
+        </a>
       </div>
 
       {errore && (

@@ -60,7 +60,7 @@ async function extractPdfData(file: File): Promise<{ pageTexts: string[]; thumbn
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const vpSmall0 = page.getViewport({ scale: 1 }) as any;
-    const smallScale = 320 / vpSmall0.width;
+    const smallScale = 480 / vpSmall0.width;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const vpSmall = page.getViewport({ scale: smallScale }) as any;
     canvas.width = vpSmall.width;
@@ -443,10 +443,8 @@ export default function ImportSchedaPdf() {
                   <img
                     src={pageThumbnails[idx]}
                     alt={`Anteprima pagina ${idx + 1}`}
-                    onClick={() => window.open(pageThumbnails[idx], "_blank")}
-                    className="shrink-0 cursor-zoom-in hover:opacity-80 transition-opacity"
-                    style={{ width: 84, border: "1px solid #e5e4e0", borderRadius: 6, objectFit: "contain", background: "white", alignSelf: "flex-start" }}
-                    title="Clicca per ingrandire"
+                    className="shrink-0"
+                    style={{ width: 168, border: "1px solid #e5e4e0", borderRadius: 6, objectFit: "contain", background: "white", alignSelf: "flex-start" }}
                   />
                 )}
                 <div className="flex-1 min-w-0 space-y-2">

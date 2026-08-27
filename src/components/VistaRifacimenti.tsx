@@ -10,9 +10,14 @@ interface Voce {
   matricola: string;
   cognome: string;
   nome: string;
+  reparto: string;
   odp: string;
   ore: number;
   note: string | null;
+  clienteInfo: string | null;
+  numeroScheda: string | null;
+  codiceArticolo: string | null;
+  commessaNr: string | null;
 }
 
 const CAUSALI: { value: Causale; label: string }[] = [
@@ -84,14 +89,27 @@ export default function VistaRifacimenti() {
       ) : (
         <div className="space-y-2">
           {voci.map(v => (
-            <div key={v.id} className="rounded-xl border p-4" style={{ borderColor: "#e5e4e0" }}>
-              <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-                <div>
-                  <span className="font-semibold" style={{ color: "var(--color-black)" }}>{v.cognome} {v.nome}</span>
-                  <span className="text-sm ml-2" style={{ color: "var(--color-grey-mid)" }}>{fmt(v.data)} · {v.odp} · {v.ore}h</span>
-                </div>
+            <div key={v.id} className="rounded-xl border p-4 space-y-2" style={{ borderColor: "#e5e4e0" }}>
+              <div>
+                <span className="font-semibold" style={{ color: "var(--color-black)" }}>{v.cognome} {v.nome}</span>
+                <span className="text-sm ml-2" style={{ color: "var(--color-grey-mid)" }}>{v.reparto} · {fmt(v.data)} · {v.ore}h</span>
               </div>
-              <div className="flex gap-2 flex-wrap">
+              <div>
+                <span className="font-semibold" style={{ color: "var(--color-black)" }}>
+                  {v.odp}{v.numeroScheda ? ` - ${v.numeroScheda}` : ""}
+                </span>
+                {(v.codiceArticolo || v.commessaNr || v.clienteInfo) && (
+                  <span className="text-sm ml-2" style={{ color: "var(--color-grey-mid)" }}>
+                    {[v.codiceArticolo, v.commessaNr, v.clienteInfo].filter(Boolean).join(" · ")}
+                  </span>
+                )}
+              </div>
+              {v.note && (
+                <p className="text-sm rounded-lg px-2.5 py-1.5" style={{ background: "#FFFBEB", color: "#92400E", border: "1px solid #FDE68A" }}>
+                  {v.note}
+                </p>
+              )}
+              <div className="flex gap-2 flex-wrap pt-1">
                 {CAUSALI.map(c => (
                   <button
                     key={c.value}

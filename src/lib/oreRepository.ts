@@ -1,6 +1,13 @@
 import type { Pool, PoolClient } from "pg";
 import { pool } from "./db";
 import { aggiornaStandardRepartoPerOdp } from "./standardRepartoRepository";
+import { getSchede } from "./schedeRepository";
+import { getOperatori } from "./operatoriRepository";
+import { getAssenzeApprovatePerData, isAssente } from "./permessiRepository";
+import {
+  type AssenzaManuale, getAssenzeManualiPerData, oreDaPermesso, reconciliaAssenzeConPermessi, oreEqual,
+} from "./assenzeRepository";
+import { getRepartiSecondari } from "./articoliRepository";
 
 export type OreCategoria = "COMMESSA" | "SETUP" | "MANUTENZIONE" | "RIUNIONE" | "FORMAZIONE" | "PULIZIE" | "FERMO_MACCHINA";
 export type OreCausale = "P" | "T" | "M" | "C";
@@ -179,11 +186,163 @@ export async function getOdpGiornoPrecedenteMap(matricole: string[], dataPrecede
   return map;
 }
 
-export async function getRifacimentiDaClassificare(): Promise<OreRegistrata[]> {
+export interface PresenteRow {
+  matricola: string;
+  cognome: string;
+  nome: string;
+  azienda: string;
+  reparto: string;
+  tipo: string;
+  assenza: ReturnType<typeof isAssente>;
+  assenzaManuale: {
+    ore: number | null;
+    modificataManualmente: boolean;
+    conflitto: boolean;
+    permessoOreSuggerite: number | null;
+  } | null;
+  odpGiornoPrecedente: string | null;
+  registrazioni: (OreRegistrata & { codiceArticolo: string | null })[];
+  repartoSecondarioSuggerito: string | null;
+}
+
+// Calcolo esplicito su anno/mese/giorno (non new Date(dataStr) + setDate) per evitare
+// spostamenti di fuso orario — stessa tecnica già usata lato client in VistaOggi.tsx.
+function giornoPrecedente(dataStr: string): string {
+  const [y, m, d] = dataStr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d - 1);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())}`;
+}
+
+// Estratto da /api/ore/presenti (route GET) così la stessa identica logica (registrazioni,
+// permessi/assenze riconciliate, ODP del giorno precedente) è riusabile anche server-side, es.
+// dalla stampa PDF di Vista Oggi — nessuna duplicazione, nessun self-fetch interno all'API.
+export async function getPresentiPerData(data: string): Promise<{ presenti: PresenteRow[]; warningPermessi: string | null }> {
+  const operatori = await getOperatori();
+  const matricole = operatori.map(o => o.matricola);
+
+  const [registrazioni, odpGiornoPrecedenteMap, assenzeResult, repartiSecondari, schede] = await Promise.all([
+    getRegistrazioniPerData(data),
+    getOdpGiornoPrecedenteMap(matricole, giornoPrecedente(data)),
+    getAssenzeApprovatePerData(data).then(
+      assenze => ({ ok: true as const, assenze }),
+      e => ({ ok: false as const, error: (e as Error).message })
+    ),
+    getRepartiSecondari(),
+    getSchede(),
+  ]);
+
+  // Codice articolo mai salvato su ore_registrate (vedi commento più sotto), join a runtime con
+  // Notion, così se il codice viene aggiunto sulla Scheda dopo la registrazione delle ore compare
+  // comunque subito, anche per le ore già segnate nei giorni passati.
+  const codiceArticoloPerOdp = new Map<string, string | null>();
+  for (const s of schede) {
+    if (s.odp && !codiceArticoloPerOdp.has(s.odp)) codiceArticoloPerOdp.set(s.odp, s.codiceArticolo || null);
+  }
+  const registrazioniArricchite = registrazioni.map(r => ({
+    ...r,
+    codiceArticolo: codiceArticoloPerOdp.get(r.odp) ?? null,
+  }));
+
+  const registrazioniPerMatricola = new Map<string, typeof registrazioniArricchite>();
+  for (const r of registrazioniArricchite) {
+    const list = registrazioniPerMatricola.get(r.matricola) ?? [];
+    list.push(r);
+    registrazioniPerMatricola.set(r.matricola, list);
+  }
+
+  // Permesso live per operatore (join con Gestione Permessi).
+  const permessoPerMatricola = new Map<string, ReturnType<typeof isAssente>>();
+  if (assenzeResult.ok) {
+    for (const o of operatori) {
+      permessoPerMatricola.set(o.matricola, isAssente(o.cognome, o.nome, assenzeResult.assenze));
+    }
+  }
+
+  // Assenze manuali/riconciliate: se Permessi è raggiungibile, riconcilia (crea/aggiorna le righe
+  // auto-sincronizzate, non tocca quelle modificate a mano) — altrimenti sola lettura di quanto già
+  // salvato. Un errore di scrittura qui non deve impedire il caricamento della pagina.
+  let assenzeManualiMap: Map<string, AssenzaManuale>;
+  if (assenzeResult.ok) {
+    const permessiOreMap = new Map<string, number | null>();
+    for (const [matricola, permesso] of permessoPerMatricola) {
+      if (permesso) permessiOreMap.set(matricola, oreDaPermesso(permesso));
+    }
+    try {
+      assenzeManualiMap = await reconciliaAssenzeConPermessi(data, permessiOreMap);
+    } catch (e) {
+      console.error("[oreRepository] riconciliazione assenze fallita", e);
+      assenzeManualiMap = await getAssenzeManualiPerData(data).catch(() => new Map());
+    }
+  } else {
+    assenzeManualiMap = await getAssenzeManualiPerData(data).catch(() => new Map());
+  }
+
+  const presenti: PresenteRow[] = operatori.map(o => {
+    const permesso = permessoPerMatricola.get(o.matricola) ?? null;
+    const manuale = assenzeManualiMap.get(o.matricola) ?? null;
+    const permessoOre = permesso ? oreDaPermesso(permesso) : null;
+    const assenzaManuale = manuale ? {
+      ore: manuale.ore,
+      modificataManualmente: manuale.modificataManualmente,
+      conflitto: manuale.modificataManualmente && permesso !== null && !oreEqual(manuale.ore, permessoOre),
+      permessoOreSuggerite: permesso ? permessoOre : null,
+    } : null;
+    return {
+      matricola: o.matricola,
+      cognome: o.cognome,
+      nome: o.nome,
+      azienda: o.azienda,
+      reparto: o.reparto,
+      tipo: o.tipo,
+      assenza: permesso,
+      assenzaManuale,
+      odpGiornoPrecedente: odpGiornoPrecedenteMap[o.matricola] ?? null,
+      registrazioni: registrazioniPerMatricola.get(o.matricola) ?? [],
+      repartoSecondarioSuggerito: repartiSecondari.get(o.matricola)?.repartoSecondario ?? null,
+    };
+  });
+
+  return {
+    presenti,
+    warningPermessi: assenzeResult.ok ? null : `Impossibile verificare i permessi/ferie: ${assenzeResult.error}`,
+  };
+}
+
+export interface RifacimentoDaClassificare extends OreRegistrata {
+  clienteInfo: string | null;
+  numeroScheda: string | null;
+  codiceArticolo: string | null;
+  commessaNr: string | null;
+}
+
+// L'ODP da solo non basta a capire di cosa si tratta a distanza di giorni/settimane — stesso
+// arricchimento (join a runtime con le Schede, mai salvato su ore_registrate) già usato in
+// getPresentiPerData per il codice articolo.
+export async function getRifacimentiDaClassificare(): Promise<RifacimentoDaClassificare[]> {
   const { rows } = await pool.query(
     `SELECT * FROM ore_registrate WHERE rif = true AND causale IS NULL ORDER BY data DESC, cognome`
   );
-  return rows.map(mapRow);
+  const voci = rows.map(mapRow);
+  if (voci.length === 0) return [];
+
+  const schede = await getSchede();
+  const schedaPerOdp = new Map<string, { clienteInfo: string | null; numeroScheda: string | null; codiceArticolo: string | null; commessaNr: string | null }>();
+  for (const s of schede) {
+    if (s.odp && !schedaPerOdp.has(s.odp)) {
+      schedaPerOdp.set(s.odp, {
+        clienteInfo: s.clienteInfo || null,
+        numeroScheda: s.numeroScheda || null,
+        codiceArticolo: s.codiceArticolo || null,
+        commessaNr: s.commessaNr || null,
+      });
+    }
+  }
+
+  return voci.map(v => ({
+    ...v,
+    ...(schedaPerOdp.get(v.odp) ?? { clienteInfo: null, numeroScheda: null, codiceArticolo: null, commessaNr: null }),
+  }));
 }
 
 export async function getStoricoOdp(odp: string): Promise<OreRegistrata[]> {
