@@ -13,6 +13,10 @@ import {
   SCARICO_MATERIALE_ROLES,
   VERNICIATURA_ROLES,
   MAGAZZINO_VERNICI_ROLES,
+  MAGAZZINO_BORDI_ROLES,
+  MAGAZZINO_LEGNO_ROLES,
+  MAGAZZINO_TRANCIATI_ROLES,
+  MAGAZZINO_PROFILI_METALLICI_ROLES,
   APS_GANTT_ROLES,
 } from "@/lib/roles";
 
@@ -265,6 +269,17 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
   const isAdmin = userRole === "admin";
   const visibleLinks = links.filter(l => !userRole || l.roles.includes(userRole));
 
+  // Magazzino ▾: dropdown per le categorie sul motore di magazzino generico condiviso (Bordi,
+  // Legname, Tranciati, Profili Metallici — Collanti restano dentro Ferramenta). Una singola voce
+  // finché c'era solo Bordi (vedi PROSSIME_IMPLEMENTAZIONI.md), ora raggruppate come "Amministrazione ▾"
+  // — ogni sottovoce filtrata dal proprio ruolo, così un magazziniere di una sola categoria vede
+  // solo quella.
+  const canMagazzinoBordi = !!userRole && MAGAZZINO_BORDI_ROLES.includes(userRole);
+  const canMagazzinoLegno = !!userRole && MAGAZZINO_LEGNO_ROLES.includes(userRole);
+  const canMagazzinoTranciati = !!userRole && MAGAZZINO_TRANCIATI_ROLES.includes(userRole);
+  const canMagazzinoProfiliMetallici = !!userRole && MAGAZZINO_PROFILI_METALLICI_ROLES.includes(userRole);
+  const canMagazzino = canMagazzinoBordi || canMagazzinoLegno || canMagazzinoTranciati || canMagazzinoProfiliMetallici;
+
   return (
     <header className="sticky top-0 z-50 border-b" style={{ background: "var(--color-black)", borderColor: "#2a2724" }}>
       <div className="w-full px-4 h-16 flex items-center gap-4">
@@ -291,6 +306,70 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
               {label}
             </NavTab>
           ))}
+          {canMagazzino && (
+            <NavDropdown
+              label="Magazzino"
+              active={pathname.startsWith("/magazzino/")}
+              icon={
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M9 21V9" />
+                </svg>
+              }
+            >
+              {canMagazzinoBordi && (
+                <NavDropdownItem
+                  href="/magazzino/bordi"
+                  active={pathname.startsWith("/magazzino/bordi")}
+                  icon={
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" />
+                    </svg>
+                  }
+                >
+                  Bordi
+                </NavDropdownItem>
+              )}
+              {canMagazzinoLegno && (
+                <NavDropdownItem
+                  href="/magazzino/legno"
+                  active={pathname.startsWith("/magazzino/legno")}
+                  icon={
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 2 3 7v10l9 5 9-5V7z" /><path d="M12 22V12" /><path d="m3 7 9 5 9-5" />
+                    </svg>
+                  }
+                >
+                  Legname
+                </NavDropdownItem>
+              )}
+              {canMagazzinoTranciati && (
+                <NavDropdownItem
+                  href="/magazzino/tranciati"
+                  active={pathname.startsWith("/magazzino/tranciati")}
+                  icon={
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="4" width="18" height="4" rx="1" /><rect x="3" y="10" width="18" height="4" rx="1" /><rect x="3" y="16" width="18" height="4" rx="1" />
+                    </svg>
+                  }
+                >
+                  Tranciati
+                </NavDropdownItem>
+              )}
+              {canMagazzinoProfiliMetallici && (
+                <NavDropdownItem
+                  href="/magazzino/profili-metallici"
+                  active={pathname.startsWith("/magazzino/profili-metallici")}
+                  icon={
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="4" y1="6" x2="20" y2="6" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="18" x2="20" y2="18" />
+                    </svg>
+                  }
+                >
+                  Profili Metallici
+                </NavDropdownItem>
+              )}
+            </NavDropdown>
+          )}
           {isAdmin && (
             <NavDropdown
               label="Amministrazione"
@@ -433,6 +512,62 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
               {label}
             </NavTab>
           ))}
+          {canMagazzinoBordi && (
+            <NavTab
+              href="/magazzino/bordi"
+              active={pathname.startsWith("/magazzino/bordi")}
+              onClick={() => setMenuOpen(false)}
+              icon={
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" />
+                </svg>
+              }
+            >
+              Magazzino Bordi
+            </NavTab>
+          )}
+          {canMagazzinoLegno && (
+            <NavTab
+              href="/magazzino/legno"
+              active={pathname.startsWith("/magazzino/legno")}
+              onClick={() => setMenuOpen(false)}
+              icon={
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2 3 7v10l9 5 9-5V7z" /><path d="M12 22V12" /><path d="m3 7 9 5 9-5" />
+                </svg>
+              }
+            >
+              Magazzino Legname
+            </NavTab>
+          )}
+          {canMagazzinoTranciati && (
+            <NavTab
+              href="/magazzino/tranciati"
+              active={pathname.startsWith("/magazzino/tranciati")}
+              onClick={() => setMenuOpen(false)}
+              icon={
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="4" rx="1" /><rect x="3" y="10" width="18" height="4" rx="1" /><rect x="3" y="16" width="18" height="4" rx="1" />
+                </svg>
+              }
+            >
+              Magazzino Tranciati
+            </NavTab>
+          )}
+          {canMagazzinoProfiliMetallici && (
+            <NavTab
+              href="/magazzino/profili-metallici"
+              active={pathname.startsWith("/magazzino/profili-metallici")}
+              onClick={() => setMenuOpen(false)}
+              icon={
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="4" y1="6" x2="20" y2="6" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="18" x2="20" y2="18" />
+                </svg>
+              }
+            >
+              Magazzino Profili Metallici
+            </NavTab>
+          )}
           {isAdmin && (
             <>
               <NavTab

@@ -406,6 +406,169 @@ export interface VerniceUpdate {
   attivo?: boolean;
 }
 
+// Bordi (bordatura pannelli) — prima categoria dopo Vernici a riusare il motore di magazzino
+// generico condiviso (vedi schema_magazzino_bordi.sql). Struttura mirror di Vernice/VerniceUpdate,
+// campi propri della categoria (spessore/altezza/decor/materiale) al posto di
+// tipologia/finitura/gloss/bilancio di massa.
+export type UnitaMisuraBordo = "ML" | "MT" | "NR";
+
+export interface Bordo {
+  id: string;
+  codice: string | null;
+  decorCodice: string | null;
+  decorNome: string | null;
+  materiale: string | null;
+  spessoreMm: number | null;
+  altezzaMm: number | null;
+  finitura: string | null;
+  // Testo libero: stesso motivo di Vernice.fornitore (nessun registro Fornitori condiviso).
+  fornitore: string | null;
+  codiceFornitore: string | null;
+  codiceInventario: string | null;
+  // Scritta solo da carico/scarico/rettifica (movimenti_magazzino) — mai da BordoUpdate.
+  giacenzaAttuale: number;
+  unitaMisura: UnitaMisuraBordo | null;
+  clienteRiferimento: string | null;
+  attivo: boolean;
+  // Stesso pattern "da inventariare" di Vernice.segnalataUsoIl.
+  segnalataUsoIl: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BordoUpdate {
+  codice?: string | null;
+  decorCodice?: string | null;
+  decorNome?: string | null;
+  materiale?: string | null;
+  spessoreMm?: number | null;
+  altezzaMm?: number | null;
+  finitura?: string | null;
+  fornitore?: string | null;
+  codiceFornitore?: string | null;
+  codiceInventario?: string | null;
+  unitaMisura?: UnitaMisuraBordo | null;
+  clienteRiferimento?: string | null;
+  attivo?: boolean;
+}
+
+// Legname, Tranciati, Profili Metallici — stesso motore di magazzino generico di Bordi, campi
+// propri della tipicità di ciascuna categoria. Nessun file Excel disponibile per nessuna delle
+// tre: campi scelti sulla tipicità nota del reparto, da affinare quando arriverà un export reale.
+
+export type UnitaMisuraLegno = "M3" | "MQ" | "ML" | "NR";
+
+export interface Legno {
+  id: string;
+  codice: string | null;
+  essenza: string | null; // specie legno: Rovere, Faggio, Noce Canaletto, Abete...
+  qualita: string | null; // scelta/qualità: Prima scelta, Nodato...
+  spessoreMm: number | null;
+  larghezzaMm: number | null;
+  lunghezzaMm: number | null;
+  fornitore: string | null;
+  codiceFornitore: string | null;
+  codiceInventario: string | null;
+  giacenzaAttuale: number;
+  unitaMisura: UnitaMisuraLegno | null;
+  clienteRiferimento: string | null;
+  attivo: boolean;
+  segnalataUsoIl: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LegnoUpdate {
+  codice?: string | null;
+  essenza?: string | null;
+  qualita?: string | null;
+  spessoreMm?: number | null;
+  larghezzaMm?: number | null;
+  lunghezzaMm?: number | null;
+  fornitore?: string | null;
+  codiceFornitore?: string | null;
+  codiceInventario?: string | null;
+  unitaMisura?: UnitaMisuraLegno | null;
+  clienteRiferimento?: string | null;
+  attivo?: boolean;
+}
+
+export type UnitaMisuraTranciato = "MQ" | "NR" | "KG";
+
+export interface Tranciato {
+  id: string;
+  codice: string | null;
+  essenza: string | null;
+  qualita: string | null;
+  spessoreMm: number | null;
+  larghezzaMm: number | null;
+  lunghezzaMm: number | null;
+  fornitore: string | null;
+  codiceFornitore: string | null;
+  codiceInventario: string | null;
+  giacenzaAttuale: number;
+  unitaMisura: UnitaMisuraTranciato | null;
+  clienteRiferimento: string | null;
+  attivo: boolean;
+  segnalataUsoIl: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TranciatoUpdate {
+  codice?: string | null;
+  essenza?: string | null;
+  qualita?: string | null;
+  spessoreMm?: number | null;
+  larghezzaMm?: number | null;
+  lunghezzaMm?: number | null;
+  fornitore?: string | null;
+  codiceFornitore?: string | null;
+  codiceInventario?: string | null;
+  unitaMisura?: UnitaMisuraTranciato | null;
+  clienteRiferimento?: string | null;
+  attivo?: boolean;
+}
+
+export type UnitaMisuraProfiloMetallico = "ML" | "NR" | "KG";
+
+export interface ProfiloMetallico {
+  id: string;
+  codice: string | null;
+  tipoProfilo: string | null; // es. Maniglia, Profilo strutturale, Guida scorrevole
+  materiale: string | null; // Alluminio, Acciaio, Inox, Ottone...
+  sezione: string | null; // es. "20x20mm", testo libero (non un singolo numero)
+  lunghezzaMm: number | null; // barra standard, es. 6000
+  finitura: string | null; // anodizzato, verniciato, grezzo...
+  colore: string | null;
+  fornitore: string | null;
+  codiceFornitore: string | null;
+  codiceInventario: string | null;
+  giacenzaAttuale: number;
+  unitaMisura: UnitaMisuraProfiloMetallico | null;
+  clienteRiferimento: string | null;
+  attivo: boolean;
+  segnalataUsoIl: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProfiloMetallicoUpdate {
+  codice?: string | null;
+  tipoProfilo?: string | null;
+  materiale?: string | null;
+  sezione?: string | null;
+  lunghezzaMm?: number | null;
+  finitura?: string | null;
+  colore?: string | null;
+  fornitore?: string | null;
+  codiceFornitore?: string | null;
+  codiceInventario?: string | null;
+  unitaMisura?: UnitaMisuraProfiloMetallico | null;
+  clienteRiferimento?: string | null;
+  attivo?: boolean;
+}
+
 export interface CicloFaseProdottoRiga {
   id: string;
   verniceId: string;

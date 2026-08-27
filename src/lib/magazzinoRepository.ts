@@ -4,7 +4,7 @@ import { pool } from "./db";
 // Motore di magazzino generico condiviso tra tutte le categorie di materiale (Vernici oggi;
 // Legname/Tranciato/Bordi/Metalli in futuro). Non conosce mai la tabella anagrafica specifica:
 // lavora solo con entitaId (UUID della riga anagrafica di quella categoria) + numeri.
-export type CategoriaMagazzino = "vernici"; // estendere qui quando arrivano le altre categorie
+export type CategoriaMagazzino = "vernici" | "bordi" | "legno" | "tranciati" | "profili_metallici"; // estendere qui quando arrivano le altre categorie
 // "segnalazione": movimento "leggero" senza quantità/giacenza (quantita = 0) — l'operatore
 // dichiara di aver usato l'entità senza pesarla/contarla, solo per tenere traccia di chi/quando.
 export type MovimentoMagazzinoTipo = "carico" | "scarico" | "rettifica" | "segnalazione";

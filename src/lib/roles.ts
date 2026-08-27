@@ -5,9 +5,9 @@
 // auth.ts ri-esporta tutto da qui (`export * from "./roles"`) per restare l'unico punto
 // d'importazione lato server: questo file è l'unica fonte di verità, auth.ts non la duplica.
 
-export type Role = "admin" | "operatore" | "logistica" | "spedizioni" | "produzione" | "responsabile_produzione" | "magazziniere" | "magazziniere_vernici" | "ufficio_tecnico";
+export type Role = "admin" | "operatore" | "logistica" | "spedizioni" | "produzione" | "responsabile_produzione" | "magazziniere" | "magazziniere_vernici" | "magazziniere_bordi" | "magazziniere_legno" | "magazziniere_tranciati" | "magazziniere_profili_metallici" | "ufficio_tecnico";
 
-export const ALL_ROLES: Role[] = ["admin", "operatore", "logistica", "spedizioni", "produzione", "responsabile_produzione", "magazziniere", "magazziniere_vernici", "ufficio_tecnico"];
+export const ALL_ROLES: Role[] = ["admin", "operatore", "logistica", "spedizioni", "produzione", "responsabile_produzione", "magazziniere", "magazziniere_vernici", "magazziniere_bordi", "magazziniere_legno", "magazziniere_tranciati", "magazziniere_profili_metallici", "ufficio_tecnico"];
 
 export const WRITE_ROLES: Role[] = ["admin", "logistica"];
 // Solo la creazione di un nuovo Ritiro/Consegna — non modifica/eliminazione (restano
@@ -28,6 +28,16 @@ export const VERNICIATURA_ROLES: Role[] = ["admin", "produzione"];
 // produzione incluso (deciso con l'utente 2026-08-14). Assegnare magazziniere_vernici a una
 // persona richiede modificare USERS_JSON sulla VPS (nessuna UI admin).
 export const MAGAZZINO_VERNICI_ROLES: Role[] = ["admin", "magazziniere_vernici", "produzione"];
+// Magazzino Bordi — stesso perimetro/motivazione di MAGAZZINO_VERNICI_ROLES, prima categoria dopo
+// Vernici a riusare il motore di magazzino generico (vedi PROSSIME_IMPLEMENTAZIONI.md). Assegnare
+// magazziniere_bordi a una persona richiede modificare USERS_JSON sulla VPS (nessuna UI admin).
+export const MAGAZZINO_BORDI_ROLES: Role[] = ["admin", "magazziniere_bordi", "produzione"];
+// Stesso perimetro/motivazione di MAGAZZINO_BORDI_ROLES — Legname, Tranciati, Profili Metallici
+// (Collanti restano dentro Ferramenta, non hanno un proprio magazzino separato). Assegnare questi
+// ruoli a una persona richiede modificare USERS_JSON sulla VPS (nessuna UI admin).
+export const MAGAZZINO_LEGNO_ROLES: Role[] = ["admin", "magazziniere_legno", "produzione"];
+export const MAGAZZINO_TRANCIATI_ROLES: Role[] = ["admin", "magazziniere_tranciati", "produzione"];
+export const MAGAZZINO_PROFILI_METALLICI_ROLES: Role[] = ["admin", "magazziniere_profili_metallici", "produzione"];
 export const MODIFICA_SCHEDA_ROLES: Role[] = ["admin", "produzione"];
 export const RIENTRO_QUALITA_ROLES: Role[] = ["admin", "operatore", "logistica", "spedizioni", "produzione", "responsabile_produzione"];
 // Chi, oltre a RITIRI_CREATE_ROLES, può organizzare il ritiro di una Rilavorazione già aperta dal

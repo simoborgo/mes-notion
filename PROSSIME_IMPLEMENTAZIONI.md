@@ -75,6 +75,95 @@ API; (d) nuovo ruolo `magazziniere_<categoria>` stesso pattern di sopra; (e) **q
 hanno un modulo esistente in cui infilarsi come tab** (a differenza di Vernici) — a quel punto va
 creata una voce di nav "Magazzino ▾" a dropdown (pattern di "Amministrazione ▾"), non prima.
 
+#### ~~Bordi — prima categoria dopo Vernici~~ — fatto (2026-08-27)
+
+**Stato:** fatto. Prima applicazione concreta del piano sopra. Nessun file/foglio Excel "Bordi"
+disponibile da OS1 (verificato nella cartella `INVENTARIO 30.06.2026 - ...`, solo Collanti/
+Ferramenta/Materiale vario) — creazione manuale via UI per ora, campi scelti sulla tipicità nota
+della categoria (decor/colore, materiale, spessore/altezza in mm), da affinare quando arriverà un
+export reale.
+
+Nuova tabella `bordi` (`verifiche-backend/schema_magazzino_bordi.sql`) + micro-migrazione delle
+CHECK `categoria` su `movimenti_magazzino`/`inventari_magazzino` per includere `'bordi'`, stesso
+pattern già descritto sopra. Nuovo `src/lib/bordiRepository.ts` (mirror di
+`verniciRepository.ts`, incluso lo stesso flag "da inventariare" `segnalata_uso_il`). Nuovo ruolo
+`magazziniere_bordi` + `MAGAZZINO_BORDI_ROLES` in `src/lib/roles.ts`.
+
+A differenza di Vernici (che ha Cicli/Campionature a monte, da cui lo split in due pagine
+anagrafica/magazzino), Bordi non ha alcun processo produttivo a monte in MES — stesso ruolo di
+Ferramenta, solo anagrafica + giacenza. Scelta quindi una **sola pagina combinata**
+(`MagazzinoBordiHome.tsx`, mirror di `TabellaVernici.tsx` + `MagazzinoVerniciHome.tsx` uniti):
+ricerca, filtro attivi/movimentati, creazione (`BordoFormModal.tsx`) e carico/scarico
+(`BordoCaricoScaricoModal.tsx`) nella stessa tabella. Route API sotto `/api/magazzino/bordi/**`,
+pagine sotto `/magazzino/bordi/**` (non `/bordi/**`): prefisso comune `/magazzino/<categoria>`
+pronto per le categorie future senza dover spostare URL già in uso.
+
+Inventario: solo ambito "Tutto il catalogo" in questa fase (nessun selettore in UI, a differenza
+di Vernici) — stesso motore generico (`apriInventario`/`registraConteggio`/`chiudiInventario`),
+route sotto `/api/magazzino/bordi/inventario/**`.
+
+Nav: voce top-level singola "Magazzino Bordi" in `Navbar.tsx` (non un dropdown "Magazzino ▾" —
+prematuro con una sola categoria, da raggruppare quando arriva la seconda, come già annotato
+sopra).
+
+**Deliberatamente fuori scope in questa fase**: import da Excel/CSV, etichette QR, "cerca senza
+QR", ambiti di inventario avanzati, export CSV — tutti extra di Vernici non richiesti ora,
+aggiungibili dopo con lo stesso pattern se serve.
+
+Testato: `tsc --noEmit`, `eslint`, `next build` puliti. Flusso end-to-end diretto su Postgres
+(stesso approccio già usato per Vernici, nessuna sessione browser autenticata disponibile in
+questo ambiente): crea bordo → carico 10 → scarico 4 → 2 movimenti registrati → apri inventario
+categoria bordi → blocco su doppia apertura stessa categoria (23505) → conta con scostamento -1 →
+verifica movimento rettifica + giacenza aggiornata (5) + `segnalata_uso_il` azzerato → chiudi →
+riapertura successiva senza conflitti. Dati di test rimossi. Non testato via UI/click-through
+browser.
+
+**Assegnare `magazziniere_bordi` a una persona richiede modificare `USERS_JSON` sulla VPS**
+(nessuna UI admin, stessa limitazione nota per tutti i ruoli custom).
+
+#### ~~Legname, Tranciati, Profili Metallici~~ — fatto (2026-08-27)
+
+**Stato:** fatto, stessa sessione di Bordi sopra. Replica meccanica dello stesso pattern per le
+tre categorie rimaste (Collanti restano dentro Ferramenta/`articoli_ferramenta`, non hanno un
+proprio magazzino separato). Nessun file Excel disponibile per nessuna delle tre: campi scelti
+sulla tipicità nota di ciascun reparto (`verifiche-backend/schema_magazzino_legno_tranciati_metalli.sql`):
+
+- **Legname** (tabella `legni`): essenza, qualità/scelta, spessore/larghezza/lunghezza mm, u.m.
+  M3/MQ/ML/NR.
+- **Tranciati** (tabella `tranciati`): stessi campi di Legname (essenza/qualità/dimensioni mm,
+  spessore tipicamente sottile es. 0.6mm) ma u.m. MQ/NR/KG — misurati diversamente dal legno
+  massello.
+- **Profili Metallici** (tabella `profili_metallici`): tipo profilo (Maniglia/Profilo
+  strutturale/Guida...), materiale (Alluminio/Acciaio/Inox...), sezione (testo libero es.
+  "20x20mm", non un numero singolo), lunghezza mm, finitura, colore, u.m. ML/NR/KG.
+
+Stessa micro-migrazione delle CHECK `categoria` su `movimenti_magazzino`/`inventari_magazzino`
+per includere `'legno'`, `'tranciati'`, `'profili_metallici'` in un colpo solo. Tre nuovi
+repository (`legnoRepository.ts`, `tranciatiRepository.ts`, `profiliMetalliciRepository.ts`,
+mirror di `bordiRepository.ts`), tre nuovi ruoli (`magazziniere_legno`, `magazziniere_tranciati`,
+`magazziniere_profili_metallici`) + relative `MAGAZZINO_*_ROLES`, route API sotto
+`/api/magazzino/{legno,tranciati,profili-metallici}/**`, pagine sotto
+`/magazzino/{legno,tranciati,profili-metallici}/**` — stesso impianto di Bordi (pagina combinata
+anagrafica+giacenza, solo ambito inventario "Tutto il catalogo", stesso flag "da inventariare").
+
+**Nav**: su richiesta esplicita dell'utente, la voce singola "Magazzino Bordi" è stata sostituita
+da un dropdown **"Magazzino ▾"** in `Navbar.tsx` (stesso pattern di "Amministrazione ▾"), con una
+sottovoce per categoria filtrata dal proprio ruolo (`canMagazzinoBordi`/`Legno`/`Tranciati`/
+`ProfiliMetallici`) — un magazziniere con un solo ruolo vede solo la propria sottovoce, un admin
+le vede tutte. Aggiornato anche il menu mobile (lista piatta, stesso pattern già in uso per le
+voci solo-admin).
+
+Testato: `tsc --noEmit`, `eslint`, `next build` puliti (build conferma tutte le nuove route
+generate). Flusso end-to-end diretto su Postgres per tutte e tre le categorie (stesso script
+parametrico: crea → carico 10 → scarico 4 → 2 movimenti → apri inventario → blocco doppia
+apertura (23505) → conta con rettifica → giacenza 5 + `segnalata_uso_il` azzerato → chiudi →
+riapertura senza conflitti) — tutti i controlli passati per legno, tranciati, profili_metallici.
+Dati di test rimossi. Non testato via UI/click-through browser (nessuna sessione autenticata
+disponibile in questo ambiente).
+
+**Assegnare questi ruoli a una persona richiede modificare `USERS_JSON` sulla VPS** (nessuna UI
+admin, stessa limitazione nota).
+
 **Fuori scope, non dimenticato**: export/merge unificato verso OS1 (oggi un'unica tabella
 "merci") — `vernici.codice_inventario` è già pronto come chiave di aggancio; il formato OS1
 unificato non è stato specificato, si progetterà quando tutte le categorie saranno pronte.
