@@ -42,7 +42,11 @@ function oreAssenzaEffettiva(a: PresenteRow["assenzaManuale"], totaleGiornata: n
   return Math.min(a.ore ?? totaleGiornata, totaleGiornata);
 }
 
-function statoAssenza(p: PresenteRow, totaleGiornata: number): { label: string; bg: string; color: string } {
+// giornoChiuso: con totaleGiornata forzato a 0h, oreAssenzaEffettiva torna 0 per chiunque
+// (nessuna assenza può "sforare" un totale già a 0) — senza questo controllo esplicito TUTTI
+// gli operatori, presenti o meno, risulterebbero etichettati "Presente".
+function statoAssenza(p: PresenteRow, totaleGiornata: number, giornoChiuso: boolean): { label: string; bg: string; color: string } {
+  if (giornoChiuso) return { label: "Azienda chiusa", bg: "#F3F4F6", color: "#6B7280" };
   const oreAssenza = oreAssenzaEffettiva(p.assenzaManuale, totaleGiornata);
   if (oreAssenza <= 0) return { label: "Presente", bg: "#DCFCE7", color: "#166534" };
   if (p.assenzaManuale?.ore == null) {
@@ -80,10 +84,12 @@ export async function GET(req: NextRequest) {
 
     let nPresenti = 0, nAssentiInteri = 0, nParziali = 0, oreLavorateTotali = 0;
     for (const p of presenti) {
-      const oreAssenza = oreAssenzaEffettiva(p.assenzaManuale, totaleGiornata);
-      if (oreAssenza <= 0) nPresenti++;
-      else if (p.assenzaManuale?.ore == null) nAssentiInteri++;
-      else nParziali++;
+      if (!giornoChiuso) {
+        const oreAssenza = oreAssenzaEffettiva(p.assenzaManuale, totaleGiornata);
+        if (oreAssenza <= 0) nPresenti++;
+        else if (p.assenzaManuale?.ore == null) nAssentiInteri++;
+        else nParziali++;
+      }
       oreLavorateTotali += p.registrazioni.reduce((s, r) => s + r.ore, 0);
     }
     oreLavorateTotali = Math.round(oreLavorateTotali * 2) / 2;
@@ -92,7 +98,7 @@ export async function GET(req: NextRequest) {
       const operatori = (perReparto.get(reparto) ?? []).slice().sort((a, b) => a.cognome.localeCompare(b.cognome));
       const righeHtml = operatori.map(p => {
         const totaleOre = Math.round(p.registrazioni.reduce((s, r) => s + r.ore, 0) * 2) / 2;
-        const stato = statoAssenza(p, totaleGiornata);
+        const stato = statoAssenza(p, totaleGiornata, giornoChiuso);
         const odpHtml = p.registrazioni.length === 0
           ? `<span class="odp-vuoto">—</span>`
           : `<div class="odp-list">${p.registrazioni.map(r =>
