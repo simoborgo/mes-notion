@@ -2,11 +2,28 @@ import { NextRequest, NextResponse } from "next/server";
 import puppeteer from "puppeteer";
 import fs from "fs";
 import path from "path";
-import { getPresentiPerData } from "@/lib/oreRepository";
+import { getPresentiPerData, type PresenteRow } from "@/lib/oreRepository";
+import { getOrariTurno, calcolaOreStandard } from "@/lib/parametriGeneraliRepository";
+import { isGiornoChiuso } from "@/lib/giorniChiusiRepository";
 import { getSessionFromRequest, RILEVAMENTO_ORE_ROLES } from "@/lib/auth";
 
 function esc(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// Stessi helper puri già usati in /api/ore/presenti/pdf/route.ts (a sua volta rispecchiando
+// VistaOggi.tsx) — orario pieno della giornata per giorno settimana, e ore di assenza effettive
+// (null = intera giornata) dalla riga ore_assenze riconciliata con Permessi/checkbox manuale.
+function defaultTotaleGiornata(dateStr: string, oreFeriale: number, oreSabato: number): number {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const weekday = new Date(y, m - 1, d).getDay();
+  if (weekday === 0) return 0;
+  if (weekday === 6) return oreSabato;
+  return oreFeriale;
+}
+function oreAssenzaEffettiva(a: PresenteRow["assenzaManuale"], totaleGiornata: number): number {
+  if (!a) return 0;
+  return Math.min(a.ore ?? totaleGiornata, totaleGiornata);
 }
 
 // Stessa tecnica di ritiri/[id]/etichetta/route.ts — logo incorporato come data URI (non un
@@ -27,9 +44,12 @@ function fmtDataLunga(dateStr: string): string {
 }
 
 // Lista semplice per uso su carta (giro reparti con penna alla mano): niente reparti/ODP/stati,
-// solo il nome, le ore già registrate a sistema per quella giornata, e uno spazio libero per
-// annotare a mano — richiesta esplicita dell'utente 2026-08-26, distinta dalla stampa dettagliata
-// di /api/ore/presenti/pdf.
+// solo il nome, le ore DISPONIBILI di lavoro (orario pieno della giornata meno l'eventuale
+// permesso, "ASSENZA" se le ore disponibili risultano a 0 — giornata intera o permesso che
+// copre tutto l'orario — evidenziata in blu se il permesso è solo parziale, non le ore già
+// lavorate che il capo reparto non può ancora conoscere durante il giro), e uno spazio libero
+// per annotare a mano — richiesta esplicita dell'utente 2026-08-26, distinta dalla stampa
+// dettagliata di /api/ore/presenti/pdf.
 export async function GET(req: NextRequest) {
   try {
     const session = await getSessionFromRequest(req);
@@ -43,7 +63,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Parametro data mancante o non valido (YYYY-MM-DD)" }, { status: 400 });
     }
 
-    const { presenti } = await getPresentiPerData(data);
+    const [{ presenti }, orariTurno, giornoChiuso] = await Promise.all([
+      getPresentiPerData(data), getOrariTurno(), isGiornoChiuso(data),
+    ]);
+    const { oreFeriale, oreSabato } = calcolaOreStandard(orariTurno);
+    const totaleGiornata = giornoChiuso ? 0 : defaultTotaleGiornata(data, oreFeriale, oreSabato);
     const nInterni = presenti.filter(p => p.tipo === "Modar").length;
     const nEsterni = presenti.filter(p => p.tipo === "Esterno").length;
 
@@ -58,11 +82,20 @@ export async function GET(req: NextRequest) {
     const sezioniHtml = reparti.map(reparto => {
       const operatori = (perReparto.get(reparto) ?? []).slice().sort((a, b) => a.cognome.localeCompare(b.cognome));
       const righeHtml = operatori.map(p => {
-        const ore = Math.round(p.registrazioni.reduce((s, r) => s + r.ore, 0) * 2) / 2;
+        const oreAssenza = oreAssenzaEffettiva(p.assenzaManuale, totaleGiornata);
+        const oreDisponibili = Math.round((totaleGiornata - oreAssenza) * 2) / 2;
+        // 0h disponibili = assenza a tutti gli effetti anche quando il permesso non copre
+        // formalmente l'intera giornata (ore != null) ma ne consuma comunque tutte le ore
+        // (es. permesso di 8h in un giorno da 8h) — non solo il caso "ore null" esplicito.
+        const qty = oreDisponibili <= 0
+          ? `<span class="assente">ASSENZA</span>`
+          : oreAssenza > 0
+            ? `<span class="parziale">${oreDisponibili}h</span>`
+            : `${oreDisponibili}h`;
         return `
           <tr>
             <td class="nome">${esc(p.cognome)} ${esc(p.nome)}</td>
-            <td class="qty">${ore}h</td>
+            <td class="qty">${qty}</td>
             <td class="note"></td>
           </tr>`;
       }).join("");
@@ -70,7 +103,7 @@ export async function GET(req: NextRequest) {
         <section class="reparto">
           <h2>${esc(reparto)}</h2>
           <table>
-            <thead><tr><th>Operatore</th><th class="qty">Ore lav.</th><th class="note">Note</th></tr></thead>
+            <thead><tr><th>Operatore</th><th class="qty">Ore disp.</th><th class="note">Note</th></tr></thead>
             <tbody>${righeHtml}</tbody>
           </table>
         </section>`;
@@ -90,6 +123,7 @@ body{font-family:'Jost',sans-serif;color:#1A1918}
 .hd .lbl{font-size:10px;letter-spacing:.15em;color:#A4A4A6;text-transform:uppercase}
 .hd .title{font-size:26px;font-weight:700;margin-top:2mm;text-transform:capitalize}
 .hd .logo{height:24mm;width:auto;object-fit:contain;flex-shrink:0}
+.chiusura{background:#FEF2F2;border:1px solid #FECACA;color:#991B1B;border-radius:2mm;padding:2.5mm 4mm;font-size:12px;font-weight:700;margin-bottom:5mm}
 .riepilogo{display:flex;gap:3mm;margin-bottom:6mm}
 .riepilogo .box{flex:1;border:1px solid #E4E0DA;border-radius:2mm;padding:3mm;text-align:center}
 .riepilogo .box .n{font-size:22px;font-weight:700}
@@ -101,6 +135,8 @@ th{text-align:left;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase
 td{padding:3.5mm 3mm;border-bottom:1px solid #E4E0DA;font-size:13px}
 .nome{font-weight:600}
 .qty{width:22mm;text-align:right;font-weight:700;white-space:nowrap}
+.qty .assente{color:#991B1B}
+.qty .parziale{color:#1E40AF}
 .note{width:100mm}
 .ft{margin-top:8mm;font-size:9px;color:#A4A4A6;display:flex;justify-content:space-between;border-top:1px solid #E4E0DA;padding-top:3mm}
 tr{break-inside:avoid}
@@ -115,6 +151,7 @@ tr{break-inside:avoid}
   </div>
   ${logoUri ? `<img class="logo" src="${logoUri}" alt="Modar">` : ""}
 </div>
+${giornoChiuso ? `<div class="chiusura">⚠ Azienda chiusa — nessuna ora attesa per questa giornata</div>` : ""}
 <div class="riepilogo">
   <div class="box"><div class="n">${presenti.length}</div><div class="l">Operatori in forza oggi</div></div>
   <div class="box"><div class="n">${nInterni}</div><div class="l">Interni</div></div>

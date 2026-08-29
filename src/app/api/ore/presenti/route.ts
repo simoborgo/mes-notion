@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPresentiPerData } from "@/lib/oreRepository";
+import { isGiornoChiuso } from "@/lib/giorniChiusiRepository";
 import { getSessionFromRequest, RILEVAMENTO_ORE_ROLES } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
@@ -15,8 +16,11 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const { presenti, warningPermessi } = await getPresentiPerData(data);
-    return NextResponse.json({ presenti, warningPermessi });
+    const [{ presenti, warningPermessi }, giornoChiuso] = await Promise.all([
+      getPresentiPerData(data),
+      isGiornoChiuso(data),
+    ]);
+    return NextResponse.json({ presenti, warningPermessi, giornoChiuso });
   } catch (e) {
     console.error("[ore/presenti]", e);
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });

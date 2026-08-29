@@ -104,10 +104,14 @@ function arrotondaMezzo(n: number): number {
 }
 
 // Ore da togliere dal conteggio per via dell'assenza — null = intera giornata, risolto sul valore
-// di "totale giornata" corrente (impostabile dall'utente nel navigatore in alto).
+// di "totale giornata" corrente (impostabile dall'utente nel navigatore in alto). Limitata a
+// totaleGiornata: un permesso salvato in un giorno con orario pieno normale (es. 5.5h) non può
+// "sforare" se in seguito l'utente riduce/azzera il totale giornata per quella data (es. azienda
+// chiusa) — altrimenti capacitaNetta va sotto zero e la sezione segnala uno "Straordinario"
+// fantasma pur non avendo registrazioni.
 function oreAssenzaEffettiva(a: AssenzaManuale | null, totaleGiornata: number): number {
   if (!a) return 0;
-  return a.ore ?? totaleGiornata;
+  return Math.min(a.ore ?? totaleGiornata, totaleGiornata);
 }
 
 // 3 livelli di scostamento capacità/ore registrate, condivisi tra header di sezione e
@@ -131,13 +135,19 @@ export default function VistaOggi({ oreFeriale, oreSabato }: { oreFeriale: numbe
   const [errore, setErrore] = useState<string | null>(null);
   const [selezionati, setSelezionati] = useState<Set<string>>(new Set());
   const [totaleGiornata, setTotaleGiornata] = useState(() => defaultTotaleGiornata(oggiStr(), oreFeriale, oreSabato));
+  // Persistito per data (schema_ore_giorni_chiusi.sql) — a differenza di totaleGiornata, che
+  // resta solo client-side e si perde al refresh, questo flag va ricaricato ad ogni cambio data
+  // e forza totaleGiornata a 0h finché non viene tolto, anche riaprendo la pagina.
+  const [giornoChiuso, setGiornoChiuso] = useState(false);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [preselezionaUltimoOdp, setPreselezionaUltimoOdp] = useState(true);
 
   // mostraLoading=false per i ricaricamenti dopo salvataggio/eliminazione: evita che
   // l'intera lista sparisca dietro "Caricamento…" (smontando/rimontando ogni riga) a ogni
   // singolo inserimento — percepito come "refresh della pagina". Solo il cambio data mostra
-  // il loader pieno.
+  // il loader pieno, e solo in quel caso applichiamo il giornoChiuso/totaleGiornata appena
+  // letti dal server: un ricaricamento silenzioso dopo un salvataggio non deve sovrascrivere
+  // un totaleGiornata che l'utente ha eventualmente ritoccato a mano nella sessione corrente.
   const caricaPresenti = useCallback(async (dataStr: string, mostraLoading = true) => {
     if (mostraLoading) setLoading(true);
     setErrore(null);
@@ -147,14 +157,38 @@ export default function VistaOggi({ oreFeriale, oreSabato }: { oreFeriale: numbe
       if (!res.ok) throw new Error(json.error ?? "Errore caricamento");
       setPresenti(json.presenti);
       setWarning(json.warningPermessi);
+      if (mostraLoading) {
+        const chiuso = !!json.giornoChiuso;
+        setGiornoChiuso(chiuso);
+        setTotaleGiornata(chiuso ? 0 : defaultTotaleGiornata(dataStr, oreFeriale, oreSabato));
+      }
     } catch (e) {
       setErrore(e instanceof Error ? e.message : "Errore caricamento");
     } finally {
       if (mostraLoading) setLoading(false);
     }
-  }, []);
+  }, [oreFeriale, oreSabato]);
 
-  useEffect(() => { caricaPresenti(data); setSelezionati(new Set()); setTotaleGiornata(defaultTotaleGiornata(data, oreFeriale, oreSabato)); }, [data, caricaPresenti, oreFeriale, oreSabato]);
+  // Default ottimistico immediato (giorno feriale/sabato) mentre la fetch è in corso — se il
+  // giorno risulta chiuso, caricaPresenti lo corregge a 0h appena arriva la risposta.
+  useEffect(() => { caricaPresenti(data); setSelezionati(new Set()); setTotaleGiornata(defaultTotaleGiornata(data, oreFeriale, oreSabato)); setGiornoChiuso(false); }, [data, caricaPresenti, oreFeriale, oreSabato]);
+
+  async function toggleGiornoChiuso(chiuso: boolean) {
+    setGiornoChiuso(chiuso);
+    setTotaleGiornata(chiuso ? 0 : defaultTotaleGiornata(data, oreFeriale, oreSabato));
+    try {
+      const res = await fetch("/api/ore/giorno-chiuso", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data, chiuso }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error ?? "Errore salvataggio");
+    } catch (e) {
+      setErrore(e instanceof Error ? e.message : "Errore salvataggio chiusura giornata");
+      setGiornoChiuso(!chiuso);
+      setTotaleGiornata(!chiuso ? 0 : defaultTotaleGiornata(data, oreFeriale, oreSabato));
+    }
+  }
 
   useEffect(() => {
     fetch("/api/ore/odp-list")
@@ -386,6 +420,20 @@ export default function VistaOggi({ oreFeriale, oreSabato }: { oreFeriale: numbe
             Stampa Presenze Giornaliere
           </a>
           <div className="flex-1" />
+          <label
+            className="flex items-center gap-2 text-sm cursor-pointer"
+            title="Persistito per questa data: forza il totale giornata a 0h ed evita falsi straordinari dovuti a permessi/ferie registrati"
+          >
+            <input
+              type="checkbox" checked={giornoChiuso}
+              onChange={e => toggleGiornoChiuso(e.target.checked)}
+              className="w-3.5 h-3.5"
+              style={{ accentColor: giornoChiuso ? "#800020" : undefined }}
+            />
+            <span style={giornoChiuso ? { color: "#800020", fontWeight: 700 } : { color: "var(--color-grey-mid)" }}>
+              Azienda chiusa oggi
+            </span>
+          </label>
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <span style={{ color: "var(--color-grey-mid)" }}>Totale giornata</span>
             <input
@@ -405,6 +453,15 @@ export default function VistaOggi({ oreFeriale, oreSabato }: { oreFeriale: numbe
 
         <h2 className="text-lg font-semibold mt-2" style={{ color: "var(--color-black)" }}>{fmtDataLunga(data)}</h2>
       </div>
+
+      {giornoChiuso && (
+        <div
+          className="rounded-lg px-4 py-2.5 text-sm font-semibold flex items-center gap-2"
+          style={{ background: "#FEF2F2", color: "#991B1B", border: "1px solid #FCA5A5" }}
+        >
+          ⚠ Azienda chiusa oggi — nessuna ora attesa, capacità netta a 0h
+        </div>
+      )}
 
       {!loading && presenti.length > 0 && (
         <div

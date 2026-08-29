@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import { getPresentiPerData, type PresenteRow } from "@/lib/oreRepository";
 import { getOrariTurno, calcolaOreStandard } from "@/lib/parametriGeneraliRepository";
+import { isGiornoChiuso } from "@/lib/giorniChiusiRepository";
 import { getSessionFromRequest, RILEVAMENTO_ORE_ROLES } from "@/lib/auth";
 
 function esc(s: string) {
@@ -38,7 +39,7 @@ function defaultTotaleGiornata(dateStr: string, oreFeriale: number, oreSabato: n
 }
 function oreAssenzaEffettiva(a: PresenteRow["assenzaManuale"], totaleGiornata: number): number {
   if (!a) return 0;
-  return a.ore ?? totaleGiornata;
+  return Math.min(a.ore ?? totaleGiornata, totaleGiornata);
 }
 
 function statoAssenza(p: PresenteRow, totaleGiornata: number): { label: string; bg: string; color: string } {
@@ -63,9 +64,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Parametro data mancante o non valido (YYYY-MM-DD)" }, { status: 400 });
     }
 
-    const [{ presenti }, orariTurno] = await Promise.all([getPresentiPerData(data), getOrariTurno()]);
+    const [{ presenti }, orariTurno, giornoChiuso] = await Promise.all([
+      getPresentiPerData(data), getOrariTurno(), isGiornoChiuso(data),
+    ]);
     const { oreFeriale, oreSabato } = calcolaOreStandard(orariTurno);
-    const totaleGiornata = defaultTotaleGiornata(data, oreFeriale, oreSabato);
+    const totaleGiornata = giornoChiuso ? 0 : defaultTotaleGiornata(data, oreFeriale, oreSabato);
 
     const perReparto = new Map<string, PresenteRow[]>();
     for (const p of presenti) {
@@ -130,6 +133,7 @@ body{font-family:'Jost',sans-serif;color:#1A1918}
 .hd .lbl{font-size:10px;letter-spacing:.15em;color:#A4A4A6;text-transform:uppercase}
 .hd .title{font-size:26px;font-weight:700;margin-top:2mm;text-transform:capitalize}
 .hd .logo{height:24mm;width:auto;object-fit:contain;flex-shrink:0}
+.chiusura{background:#FEF2F2;border:1px solid #FECACA;color:#991B1B;border-radius:2mm;padding:2.5mm 4mm;font-size:11px;font-weight:700;margin-bottom:5mm}
 .riepilogo{display:flex;gap:3mm;margin-bottom:6mm}
 .riepilogo .box{flex:1;border:1px solid #E4E0DA;border-radius:2mm;padding:3mm;text-align:center}
 .riepilogo .box .n{font-size:20px;font-weight:700}
@@ -160,6 +164,7 @@ td{padding:2.5mm;border-bottom:1px solid #F0EFEC;font-size:11.5px;vertical-align
   </div>
   ${logoUri ? `<img class="logo" src="${logoUri}" alt="Modar">` : ""}
 </div>
+${giornoChiuso ? `<div class="chiusura">⚠ Azienda chiusa — nessuna ora attesa per questa giornata</div>` : ""}
 <div class="riepilogo">
   <div class="box"><div class="n">${presenti.length}</div><div class="l">Operatori</div></div>
   <div class="box"><div class="n" style="color:#166534">${nPresenti}</div><div class="l">Presenti</div></div>
