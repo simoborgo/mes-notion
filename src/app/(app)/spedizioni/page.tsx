@@ -1,17 +1,26 @@
-import { getSession, SPEDIZIONI_ROLES } from "@/lib/auth";
+import { getSession, SPEDIZIONI_ROLES, WRITE_ROLES } from "@/lib/auth";
 import { getSchede, getSottoschede } from "@/lib/schedeRepository";
+import { getCasse } from "@/lib/casseRepository";
+import { getCommesse } from "@/lib/commesseRepository";
 import { redirect } from "next/navigation";
-import SpedizioneVerifica from "@/components/SpedizioneVerifica";
+import SpedizioniHub from "@/components/SpedizioniHub";
 import type { OdpEntry } from "@/app/api/verifiche/odp-list/route";
 
 export const metadata = { title: "Spedizione Merci — MES Modar" };
 
-export default async function SpedizioniPage() {
+const TAB_VALIDI = ["verifica", "packing"] as const;
+
+export default async function SpedizioniPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const session = await getSession();
   if (!session) redirect("/login");
   if (!SPEDIZIONI_ROLES.includes(session.role)) redirect("/");
 
-  const [schede, sottoschede] = await Promise.all([getSchede(), getSottoschede()]);
+  const { tab } = await searchParams;
+  const tabIniziale = TAB_VALIDI.includes(tab as typeof TAB_VALIDI[number]) ? (tab as typeof TAB_VALIDI[number]) : "verifica";
+
+  const [schede, sottoschede, casse, commesse] = await Promise.all([
+    getSchede(), getSottoschede(), getCasse(), getCommesse(),
+  ]);
 
   const ODP_RE = /^MP\d{2}-\d{3}$/i;
   const toEntries = (list: Awaited<ReturnType<typeof getSchede>>, isChild: boolean): OdpEntry[] =>
@@ -39,5 +48,18 @@ export default async function SpedizioniPage() {
     return a.odp.localeCompare(b.odp);
   });
 
-  return <SpedizioneVerifica userName={session.name} userRole={session.role} odpList={odpList} />;
+  const canWritePacking = WRITE_ROLES.includes(session.role);
+
+  return (
+    <SpedizioniHub
+      userName={session.name}
+      userRole={session.role}
+      odpList={odpList}
+      casse={casse}
+      commesse={commesse}
+      schede={schede}
+      canWritePacking={canWritePacking}
+      tabIniziale={tabIniziale}
+    />
+  );
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { repo, SCHEDA_REGEX } from "@/lib/verificheServices";
 import { getSessionFromRequest, SPEDIZIONI_ROLES } from "@/lib/auth";
+import { updateSchedaStato } from "@/lib/schedeRepository";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ scheda: string }> }) {
   const { scheda } = await params;
@@ -34,7 +35,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ sch
     dettaglio: {},
   });
 
+  // schede.id riusa il notion_page_id (vedi schema_schede.sql) — stesso valore di `scheda` qui,
+  // nessun lookup necessario. Stesso fix di finalize/route.ts (deciso con l'utente 2026-08-29).
+  try {
+    await updateSchedaStato(scheda, "Verificato");
+  } catch (e) {
+    console.error("[force-verify] impossibile aggiornare schede.stato a Verificato:", (e as Error).message);
+  }
+
   revalidatePath("/spedizioni");
+  revalidatePath("/schede");
 
   return NextResponse.json({ ok: true, record });
 }

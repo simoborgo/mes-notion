@@ -712,25 +712,61 @@ richiesta esplicita per ODP o semplice presa visione; (b) se il materiale generi
 struttura articolo+giacenza come Ferramenta o resta descrittivo/libero come Scarico Materiale;
 (c) se sostituisce o affianca la notifica one-shot di Scarico Materiale esistente.
 
-### Vista "Da Imballare" — Operatore Imballo
+### ~~Vista "Da Imballare" → sostituita da bottone diretto + Packing List~~ — fatto (2026-08-29)
 
-**Stato:** pianificato, non iniziato — schema confermato con l'utente (sessione 2026-08-13),
-aggiornato Notion → Postgres (Schede è su Postgres dalla migrazione di questa sessione)
+**Stato:** fatto, con scope semplificato su richiesta esplicita dell'utente rispetto all'idea
+originale (sessione 2026-08-13) di una vista dedicata "Da Imballare".
 
-Sezione per l'operatore di imballo sulle Schede in stato `Verificato`. Oggi `schede.stato` è
-**sempre manuale** (nessun trigger automatico da nessuna parte, nemmeno dalla Verifica Spedizione
-appena corretta in questa sessione — il vecchio codice tentava di scrivere `Completato` su Notion,
-mai su Postgres, ed era comunque rotto). Schema confermato in due passi:
-1. Quando `POST /api/verifiche/[scheda]/finalize` completa con successo (PDF caricato su Drive),
-   impostare automaticamente `schede.stato = "Verificato"` (opzione già presente nel dropdown di
-   `FormModificaScheda.tsx`, mai collegata a nulla finora).
-2. Nuova vista "Da Imballare" — pagina a sé o filtro dentro `/schede`/`/spedizioni` (da decidere
-   quando si parte) — che elenca le Schede con `stato = "Verificato"`. Bottone "Segna Completato"
-   per il magazziniere quando chiude fisicamente la cassa → `updateSchedaStato(id, "Completato")`
-   (già esiste in `schedeRepository.ts`, non richiede nuovo codice lato repository).
+**Passo 1 — automatismo Verificato** (stessa sessione, prima di questo): `POST
+/api/verifiche/[scheda]/finalize` e `.../force-verify` impostano ora `schede.stato = "Verificato"`
+(`updateSchedaStato`, id = notion_page_id riusato da `schede.id`). Backfill eseguito su dati reali:
+8 schede risultavano già verificate in `verifiche_spedizione` ma mai promosse — corrette; lasciate
+intatte quelle già "Completato" o rientrate in "In lavorazione" per rilavorazione. Colore badge
+"Verificato" corretto (era identico a "Completato", ora ciano).
 
-Chiude il ciclo: Materiale Pronto → Verificato (automatico da Verifica Spedizione) → Da Imballare
-(vista, nuova) → Completato (manuale, imballo fisico confermato).
+**Passo 2 — bottone diretto, niente vista "Da Imballare"**: l'utente ha scelto di semplificare —
+bottone **"Completato e messo in cassa"** direttamente in `SpedizioneVerifica.tsx` (pagina
+Spedizioni Merci), al posto dello statico "✓ Verificato", quando la scheda risulta verificata.
+Nuova route `POST /api/schede/[id]/completa` (mirror di `.../rientro/route.ts`, ruolo
+`SPEDIZIONI_ROLES`) → `updateSchedaStato(id, "Completato")`. Nessuna assegnazione a una cassa qui.
+
+**Passo 3 — Packing List** (nuovo, non previsto nel piano originale): tab "Packing List" in
+`CommesseSubNav.tsx` → pagina `/casse` (mirror di `/carichi`), dove per Commessa si organizzano le
+Schede "Completato" in **casse** da preparare e caricare. Schema `verifiche-backend/schema_casse.sql`:
+tabella `casse` (numero progressivo per commessa, stato `Da preparare → Pronta → Caricata`) +
+giunzione N:N `cassa_schede` (**una Scheda può stare su più casse**, deciso con l'utente — un
+arredo smontato può finire in più casse, con una nota libera per riga tipo "solo ante"). Repository
+`casseRepository.ts` (mirror di `carichiRepository.ts`), componenti `TabellaCasse.tsx`/
+`FormCassa.tsx` (mirror di `TabellaCarichi.tsx`/`FormCarico.tsx`). Eliminare una cassa è hard-delete
+(cascata su `cassa_schede`, mai su `schede.stato`) — a differenza di Carichi/Ritiri una cassa non
+ha documenti da conservare come storico.
+
+**Fuori scope, non dimenticato**: stampa/PDF della packing list, peso/dimensioni/etichette cassa,
+collegamento automatico Cassa↔Carico — nessuno richiesto in questa iterazione.
+
+**Correzioni nella stessa sessione**: (a) la Packing List è stata spostata da tab di Commesse
+(`/casse`) a tab dentro Spedizioni Merci (`/spedizioni?tab=packing`, nuovo `SpedizioniHub.tsx`
+mirror di `PrevisionaleHub.tsx`) — pagina/route `/casse` eliminata, resta solo l'API
+`/api/casse/**`; (b) il dropdown di ricerca Scheda in `FormCassa.tsx` finiva tagliato/in secondo
+piano dentro il modal (`overflow-y-auto`) — corretto con lo stesso pattern `position: fixed` +
+`getBoundingClientRect()` già usato in `SchedaVerniciaturaAutocomplete.tsx`/`VerniceSelect.tsx`;
+(c) il bottone "Completato e messo in cassa" ricompariva dopo un refresh perché il flip a
+"Completato" era tracciato solo in uno stato client effimero (`completatiIds`), mai confrontato
+con `schede.statoProduzione` reale — corretto leggendo entrambi; (d) rinominata la colonna "Stato"
+in "Stato Verifica Componenti" in `SpedizioneVerifica.tsx` e distinta visivamente "Completato" da
+"Verificato" (prima la colonna mostrava sempre "Verificato" anche a scheda già Completata,
+contraddittorio) — variabili rinominate `isCompletato`/`cCompletato` → `isVerificato`/`cVerificato`
+per chiarezza nel codice.
+
+Chiude il ciclo: Materiale Pronto → Verificato (automatico) → Completato (bottone Spedizioni) →
+organizzazione in casse (Packing List, manuale).
+
+Testato: `tsc`/`eslint`/`next build` puliti. Flusso end-to-end diretto su Postgres (crea commessa/
+schede di test → 2 casse → stessa Scheda in entrambe (N:N) → cambio stato Da preparare→Pronta→
+Caricata → CHECK/UNIQUE violati correttamente (23514/23505) → elimina cassa → cascata su
+cassa_schede confermata, schede.stato invariato) — tutti i controlli passati, dati di test
+rimossi. Non testato via UI/click-through browser (nessuna sessione autenticata disponibile in
+questo ambiente).
 
 ### Checklist Cod. Articoli da produrre — controllo copertura Schede
 

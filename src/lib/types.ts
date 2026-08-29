@@ -148,6 +148,32 @@ export interface CaricoUpdate {
   stato?: string;
 }
 
+// Packing List: casse di una Commessa, con le Schede assegnate (N:N — una Scheda può stare su più
+// casse se il suo contenuto viene fisicamente diviso, vedi schema_casse.sql).
+export interface CassaSchedaRiga {
+  schedaId: string;
+  note: string;
+}
+
+export interface Cassa {
+  id: string;
+  commessaId: string;
+  numero: number;
+  descrizione: string;
+  stato: string; // "Da preparare" | "Pronta" | "Caricata"
+  note: string;
+  schede: CassaSchedaRiga[];
+  creatoIl: string;
+  aggiornatoIl: string;
+}
+
+export interface CassaUpdate {
+  descrizione?: string;
+  stato?: string;
+  note?: string;
+  schede?: CassaSchedaRiga[];
+}
+
 export interface Area {
   id: string;
   nomeArredo: string;

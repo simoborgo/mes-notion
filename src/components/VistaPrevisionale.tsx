@@ -70,6 +70,7 @@ const FILTRI: { value: Filtro; label: string }[] = [
 // non quelli correnti — altrimenti un aumento di organico oggi farebbe sembrare "coperto" anche
 // un mese passato che a suo tempo era in reale sofferenza.
 const OPZIONI_MESI_INDIETRO = [0, 3, 6, 12];
+const OPZIONI_MESI_AVANTI = [3, 6, 12];
 
 function round(n: number): number {
   return Math.round(n * 10) / 10;
@@ -94,6 +95,7 @@ export default function VistaPrevisionale({
 }) {
   const [filtro, setFiltro] = useState<Filtro>(filtroIniziale);
   const [mesiIndietro, setMesiIndietro] = useState(0);
+  const [mesiAvanti, setMesiAvanti] = useState(mesiOrizzonteIniziale.length);
   const [mesiOrizzonte, setMesiOrizzonte] = useState<string[]>(mesiOrizzonteIniziale);
   const [risultato, setRisultato] = useState<Risultato>(risultatoIniziale);
   const [loading, setLoading] = useState(false);
@@ -110,16 +112,18 @@ export default function VistaPrevisionale({
     setRisultatoInizialePrecedente(risultatoIniziale);
     setRisultato(risultatoIniziale);
     setMesiOrizzonte(mesiOrizzonteIniziale);
+    setMesiIndietro(0);
+    setMesiAvanti(mesiOrizzonteIniziale.length);
   }
 
-  async function ricarica(nuovoFiltro: Filtro, nuovoMesiIndietro: number) {
+  async function ricarica(nuovoFiltro: Filtro, nuovoMesiIndietro: number, nuovoMesiAvanti: number) {
     setFiltro(nuovoFiltro);
     setMesiIndietro(nuovoMesiIndietro);
+    setMesiAvanti(nuovoMesiAvanti);
     setLoading(true);
     setErrore("");
     try {
-      const nAvanti = mesiOrizzonte.length - mesiIndietro; // mesi futuri richiesti finora, invariati dal cambio
-      const res = await fetch(`/api/previsionale?filtro=${nuovoFiltro}&mesi=${nAvanti}&mesiIndietro=${nuovoMesiIndietro}`);
+      const res = await fetch(`/api/previsionale?filtro=${nuovoFiltro}&mesi=${nuovoMesiAvanti}&mesiIndietro=${nuovoMesiIndietro}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? `Errore ${res.status}`);
       setRisultato(data);
@@ -139,9 +143,9 @@ export default function VistaPrevisionale({
   for (const t of risultato.totaliAzienda) totaliMese.set(t.mese, t);
 
   const righeMetriche: { label: string; get: (t: RigaTotaleAzienda) => number | null; unita: "h" | "€" | "persone" | "giorni"; enfasi?: boolean; firmata?: boolean }[] = [
-    { label: "Ore richieste", get: t => t.oreRichieste, unita: "h" },
-    { label: "Capacità ordinaria", get: t => t.capacitaOrdinaria, unita: "h" },
+    { label: "Capacità ordinaria MODAR", get: t => t.capacitaOrdinaria, unita: "h" },
     { label: "Capacità con straordinari", get: t => t.capacitaConStraordinari, unita: "h" },
+    { label: "Ore richieste", get: t => t.oreRichieste, unita: "h" },
     { label: "Capacità residua (ordinaria − richieste)", get: t => t.capacitaResidua, unita: "h", enfasi: true, firmata: true },
     { label: "→ di cui straordinario necessario", get: t => t.oreStraordinarioNecessarie, unita: "h" },
     { label: "→ di cui ore esterne necessarie", get: t => t.oreEsterneNecessarie, unita: "h", enfasi: true },
@@ -156,7 +160,7 @@ export default function VistaPrevisionale({
         {FILTRI.map(f => (
           <button
             key={f.value}
-            onClick={() => ricarica(f.value, mesiIndietro)}
+            onClick={() => ricarica(f.value, mesiIndietro, mesiAvanti)}
             disabled={loading}
             className="px-3 py-1.5 text-sm font-semibold rounded-full border disabled:opacity-60"
             style={filtro === f.value
@@ -171,7 +175,7 @@ export default function VistaPrevisionale({
         {OPZIONI_MESI_INDIETRO.map(n => (
           <button
             key={n}
-            onClick={() => ricarica(filtro, n)}
+            onClick={() => ricarica(filtro, n, mesiAvanti)}
             disabled={loading}
             className="px-3 py-1.5 text-sm font-semibold rounded-full border disabled:opacity-60"
             style={mesiIndietro === n
@@ -179,6 +183,21 @@ export default function VistaPrevisionale({
               : { borderColor: "#d1d5db", color: "var(--color-grey-mid)" }}
           >
             {n === 0 ? "Nessuno" : n}
+          </button>
+        ))}
+        <span className="mx-1 h-5 w-px" style={{ background: "#e5e4e0" }} />
+        <span className="text-sm" style={{ color: "var(--color-grey-mid)" }}>Mesi futuri:</span>
+        {OPZIONI_MESI_AVANTI.map(n => (
+          <button
+            key={n}
+            onClick={() => ricarica(filtro, mesiIndietro, n)}
+            disabled={loading}
+            className="px-3 py-1.5 text-sm font-semibold rounded-full border disabled:opacity-60"
+            style={mesiAvanti === n
+              ? { background: "var(--color-primary)", borderColor: "var(--color-primary)", color: "white" }
+              : { borderColor: "#d1d5db", color: "var(--color-grey-mid)" }}
+          >
+            {n}
           </button>
         ))}
         {loading && <span className="text-sm self-center" style={{ color: "var(--color-grey-mid)" }}>Caricamento…</span>}
@@ -199,23 +218,23 @@ export default function VistaPrevisionale({
       <div>
         <h2 className="text-base font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-black)" }}>Vista generale</h2>
         <div className="rounded-xl border overflow-x-auto" style={{ borderColor: "#e5e4e0" }}>
-          <table className="text-base w-full" style={{ minWidth: mesiOrizzonte.length * 90 + 220 }}>
+          <table className="text-base w-full border-collapse" style={{ minWidth: mesiOrizzonte.length * 90 + 220 }}>
             <thead>
-              <tr className="border-b text-sm font-semibold uppercase" style={{ borderColor: "#e5e4e0", color: "var(--color-grey-mid)" }}>
-                <th className="text-left px-4 py-2 sticky left-0" style={{ background: "white" }}>Totale azienda</th>
+              <tr className="text-sm font-semibold uppercase" style={{ color: "var(--color-grey-mid)" }}>
+                <th className="text-left px-4 py-2 sticky left-0 border" style={{ background: "white", borderColor: "#e5e4e0" }}>Totale azienda</th>
                 {mesiOrizzonte.map(m => (
-                  <th key={m} className="text-center px-2 py-2 whitespace-nowrap" style={m < meseCorrente ? { background: "#F5F2EE" } : undefined} title={m < meseCorrente ? "Mese passato — parametri storici" : undefined}>
+                  <th key={m} className="text-center px-2 py-2 whitespace-nowrap border" style={{ borderColor: "#e5e4e0", ...(m < meseCorrente ? { background: "#F5F2EE" } : {}) }} title={m < meseCorrente ? "Mese passato — parametri storici" : undefined}>
                     {fmtMese(m)}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {righeMetriche.map((rm, i) => {
+              {righeMetriche.map((rm) => {
                 const richiesteRow = rm.label === "Ore richieste";
                 return (
-                  <tr key={rm.label} className={i < righeMetriche.length - 1 ? "border-b" : ""} style={{ borderColor: "#f0ece5" }}>
-                    <td className="px-4 py-2 font-medium sticky left-0 whitespace-nowrap" style={{ background: "white", color: rm.enfasi ? "var(--color-black)" : "var(--color-grey-mid)" }}>
+                  <tr key={rm.label}>
+                    <td className="px-4 py-2 font-medium sticky left-0 whitespace-nowrap border" style={{ background: "white", borderColor: "#e5e4e0", color: rm.enfasi ? "var(--color-black)" : "var(--color-grey-mid)" }}>
                       {rm.label}
                     </td>
                     {mesiOrizzonte.map(m => {
@@ -226,18 +245,18 @@ export default function VistaPrevisionale({
                         const positiva = v != null && v >= 0;
                         const testo = v == null ? "—" : `${v > 0 ? "+" : ""}${round(v)}h`;
                         return (
-                          <td key={m} className="text-center px-2 py-2 whitespace-nowrap tabular-nums" style={{ fontWeight: 600, color: v == null ? "#d1d5db" : positiva ? "#166534" : "#991B1B" }}>
+                          <td key={m} className="text-center px-2 py-2 whitespace-nowrap tabular-nums border" style={{ borderColor: "#e5e4e0", fontWeight: 600, color: v == null ? "#d1d5db" : positiva ? "#166534" : "#991B1B" }}>
                             {testo}
                           </td>
                         );
                       }
 
-                      if (v == null || v <= 0) return <td key={m} className="text-center px-2 py-2 text-sm" style={{ color: "#d1d5db" }}>—</td>;
+                      if (v == null || v <= 0) return <td key={m} className="text-center px-2 py-2 text-sm border" style={{ borderColor: "#e5e4e0", color: "#d1d5db" }}>—</td>;
                       let colore = "var(--color-black)";
                       if (richiesteRow) colore = t.oreRichieste <= t.capacitaConStraordinari ? "#166534" : "#991B1B";
                       else if (rm.enfasi) colore = "#991B1B";
                       return (
-                        <td key={m} className="text-center px-2 py-2 whitespace-nowrap tabular-nums" style={{ fontWeight: rm.enfasi || richiesteRow ? 600 : 400, color: colore }}>
+                        <td key={m} className="text-center px-2 py-2 whitespace-nowrap tabular-nums border" style={{ borderColor: "#e5e4e0", fontWeight: rm.enfasi || richiesteRow ? 600 : 400, color: colore }}>
                           {rm.unita === "€" ? `€${round(v)}` : rm.unita === "persone" ? round(v) : rm.unita === "giorni" ? `${round(v)} gg` : `${round(v)}h`}
                         </td>
                       );
@@ -259,12 +278,12 @@ export default function VistaPrevisionale({
       <div>
         <h2 className="text-base font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-black)" }}>Vista per reparto</h2>
         <div className="rounded-xl border overflow-x-auto" style={{ borderColor: "#e5e4e0" }}>
-          <table className="text-base" style={{ minWidth: mesiOrizzonte.length * 100 + 140 }}>
+          <table className="text-base border-collapse" style={{ minWidth: mesiOrizzonte.length * 100 + 140 }}>
             <thead>
-              <tr className="border-b text-sm font-semibold uppercase" style={{ borderColor: "#e5e4e0", color: "var(--color-grey-mid)" }}>
-                <th className="text-left px-4 py-2 sticky left-0" style={{ background: "white" }}>Reparto</th>
+              <tr className="text-sm font-semibold uppercase" style={{ color: "var(--color-grey-mid)" }}>
+                <th className="text-left px-4 py-2 sticky left-0 border" style={{ background: "white", borderColor: "#e5e4e0" }}>Reparto</th>
                 {mesiOrizzonte.map(m => (
-                  <th key={m} className="text-center px-2 py-2 whitespace-nowrap" style={m < meseCorrente ? { background: "#F5F2EE" } : undefined} title={m < meseCorrente ? "Mese passato — parametri storici" : undefined}>
+                  <th key={m} className="text-center px-2 py-2 whitespace-nowrap border" style={{ borderColor: "#e5e4e0", ...(m < meseCorrente ? { background: "#F5F2EE" } : {}) }} title={m < meseCorrente ? "Mese passato — parametri storici" : undefined}>
                     {fmtMese(m)}
                   </th>
                 ))}
@@ -272,16 +291,16 @@ export default function VistaPrevisionale({
             </thead>
             <tbody>
               {reparti.map(rep => (
-                <tr key={rep} className="border-b last:border-0" style={{ borderColor: "#f0ece5" }}>
-                  <td className="px-4 py-2 font-semibold sticky left-0" style={{ background: "white", color: "var(--color-black)" }}>{rep}</td>
+                <tr key={rep}>
+                  <td className="px-4 py-2 font-semibold sticky left-0 border" style={{ background: "white", borderColor: "#e5e4e0", color: "var(--color-black)" }}>{rep}</td>
                   {mesiOrizzonte.map(m => {
                     const c = perCella.get(`${rep}|${m}`);
                     if (!c || c.oreRichieste === 0) {
-                      return <td key={m} className="text-center px-2 py-2 text-sm" style={{ color: "#d1d5db" }}>—</td>;
+                      return <td key={m} className="text-center px-2 py-2 text-sm border" style={{ borderColor: "#e5e4e0", color: "#d1d5db" }}>—</td>;
                     }
                     const positiva = c.capacitaResidua >= 0;
                     return (
-                      <td key={m} className="text-center px-2 py-2 whitespace-nowrap" style={{ background: positiva ? "#F0FDF4" : "#FEF2F2" }}>
+                      <td key={m} className="text-center px-2 py-2 whitespace-nowrap border" style={{ borderColor: "#e5e4e0", background: positiva ? "#F0FDF4" : "#FEF2F2" }}>
                         <div>
                           <span className="font-semibold">{round(c.oreRichieste)}h</span>
                           {c.basatoSuStima && (

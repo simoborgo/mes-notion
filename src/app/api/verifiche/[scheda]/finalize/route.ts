@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { repo, driveSvc, notionSvc, SCHEDA_REGEX } from "@/lib/verificheServices";
 import { getAuthClient } from "@/lib/googleDriveAuth";
 import { getSessionFromRequest } from "@/lib/auth";
+import { updateSchedaStato } from "@/lib/schedeRepository";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { buildVerificaPdf } = require("../../../../../../verifiche-backend/pdfBuilder");
@@ -92,6 +93,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ sch
       dettaglio: { pdfDriveId: id, dimensioneByte: pdfBuffer.length, fotoCaricate: fotoRows.length },
     });
 
+    // schede.id riusa il notion_page_id (vedi schema_schede.sql) — stesso valore di `scheda` qui,
+    // nessun lookup necessario. Prima mancava questo aggiornamento: verifiche_spedizione passava a
+    // "verificato" ma schede.stato restava fermo a quello precedente, "Verificato" non compariva
+    // mai nella lista Schede di Produzione (deciso con l'utente 2026-08-29).
+    try {
+      await updateSchedaStato(scheda, "Verificato");
+    } catch (e) {
+      console.error("[finalize] impossibile aggiornare schede.stato a Verificato:", (e as Error).message);
+    }
+
     if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
       const msg = `✅ Verifica spedizione completata\nScheda: ${schedaOdp}\nOperatore: ${operatore}\nFoto: ${fotoRows.length}\nPDF: ${webViewLink}`;
       fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
@@ -101,8 +112,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ sch
       }).catch((e) => console.error("[finalize] Telegram:", e.message));
     }
 
-    // Invalida cache SSR così la pagina schede è aggiornata al prossimo router.refresh()
+    // Invalida cache SSR così le pagine schede/spedizioni sono aggiornate al prossimo router.refresh()
     revalidatePath("/spedizioni");
+    revalidatePath("/schede");
 
     // Link tramite il nostro proxy autenticato (/api/drive-file), non l'URL Drive diretto: quello
     // richiederebbe che chi apre il link sia loggato come utente Google "Mes Modar", non solo

@@ -87,6 +87,8 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
   const [lockError, setLockError] = useState<string | null>(null);
   const [deletingScheda, setDeletingScheda] = useState<string | null>(null);
   const [forcingVerify, setForcingVerify] = useState<string | null>(null);
+  const [completatiIds, setCompletatiIds] = useState<Set<string>>(new Set());
+  const [segnandoCompletato, setSegnandoCompletato] = useState<string | null>(null);
 
   const canForceVerify = userRole === "admin" || userRole === "spedizioni";
 
@@ -649,6 +651,20 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
     }
   }
 
+  // Bottone "Completato e messo in cassa" — chiude il ciclo Verificato -> Completato. Solo il
+  // flip di stato: l'organizzazione fisica in casse avviene dopo, nella Packing List (/casse).
+  async function segnaCompletato(pageId: string) {
+    setSegnandoCompletato(pageId);
+    try {
+      const r = await fetch(`/api/schede/${pageId}/completa`, { method: "POST" });
+      if (r.ok) {
+        setCompletatiIds(prev => { const n = new Set(prev); n.add(pageId); return n; });
+      }
+    } finally {
+      setSegnandoCompletato(null);
+    }
+  }
+
   // ── RENDER ────────────────────────────────────────────────────────────────
   if (view === "lista") {
     return (
@@ -692,7 +708,7 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ background: "#FAF9F7" }}>
-                  {(["ODP", "Commessa", "Cliente", "Tipologia", "Stato"] as const).map(h => (
+                  {(["ODP", "Commessa", "Cliente", "Tipologia", "Stato Verifica Componenti"] as const).map(h => (
                     <th key={h} style={{ padding: "8px 14px", textAlign: "left", fontWeight: 600, color: "#6B6560", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #E5E4E0", whiteSpace: "nowrap" }}>{h}</th>
                   ))}
                   <th style={{ padding: "8px 14px", borderBottom: "1px solid #E5E4E0", minWidth: 110 }} />
@@ -712,10 +728,16 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
                     const children = childrenByParent.get(parent.id) ?? [];
                     const expanded = expandedParents.has(parent.id);
                     const isInVerifica = inVerificaSet.has(parent.id);
-                    const isCompletato = finalizedIds.has(parent.id) || verificateSet.has(parent.id);
+                    const isVerificato = finalizedIds.has(parent.id) || verificateSet.has(parent.id);
+                    // Distinto dallo stato di verifica (verifiche_spedizione, sopra): questo è lo
+                    // stato di PRODUZIONE della scheda (schede.stato) — letto da statoProduzione,
+                    // sempre fresco ad ogni caricamento pagina, più l'ottimistico completatiIds per
+                    // il click appena fatto nella stessa sessione (prima si leggeva solo
+                    // completatiIds, che si azzerava al refresh e faceva ricomparire il bottone).
+                    const isCompletatoProd = parent.statoProduzione === "Completato" || completatiIds.has(parent.id);
 
-                    const rowBg = isInVerifica ? "#FFF0F0" : isCompletato ? "#F0FDF4" : "white";
-                    const hoverBg = isInVerifica ? "#FFE4E4" : isCompletato ? "#DCFCE7" : "#FFF7ED";
+                    const rowBg = isInVerifica ? "#FFF0F0" : isVerificato ? "#F0FDF4" : "white";
+                    const hoverBg = isInVerifica ? "#FFE4E4" : isVerificato ? "#DCFCE7" : "#FFF7ED";
 
                     rows.push(
                       <tr key={parent.id} style={{ borderBottom: "1px solid #F0EDE8", background: rowBg }}
@@ -731,7 +753,7 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
                               </button>
                             )}
                             {isInVerifica && <span className="sv-blink" style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "#DC2626" }} />}
-                            {isCompletato && <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "#22C55E" }} />}
+                            {isVerificato && <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "#22C55E" }} />}
                             {parent.odp}
                             {children.length > 0 && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 8, background: "rgba(240,143,37,0.12)", color: "#F08F25", fontFamily: "sans-serif", fontWeight: 700 }}>{children.length}</span>}
                           </span>
@@ -743,7 +765,9 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
                           {parent.tipologia && <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 3, background: "#F3F4F6", color: "#6B7280" }}>{parent.tipologia}</span>}
                         </td>
                         <td style={{ padding: "9px 14px" }}>
-                          {isCompletato ? (
+                          {isCompletatoProd ? (
+                            <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 3, fontWeight: 600, background: "#D1FAE5", color: "#065F46" }}>Completato</span>
+                          ) : isVerificato ? (
                             <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 3, fontWeight: 600, background: "#DCFCE7", color: "#15803D" }}>Verificato</span>
                           ) : isInVerifica ? (
                             <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 3, fontWeight: 600, background: "#FEE2E2", color: "#DC2626" }}>In verifica</span>
@@ -752,8 +776,17 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
                           )}
                         </td>
                         <td style={{ padding: "9px 14px", textAlign: "right" }}>
-                          {isCompletato ? (
-                            <span style={{ fontSize: 12, color: "#15803D", fontWeight: 600 }}>✓ Verificato</span>
+                          {isVerificato ? (
+                            isCompletatoProd ? (
+                              <span style={{ fontSize: 12, color: "#15803D", fontWeight: 600 }}>✓ Completato</span>
+                            ) : canForceVerify ? (
+                              <button onClick={() => segnaCompletato(parent.id)} disabled={segnandoCompletato === parent.id}
+                                style={{ padding: "5px 12px", borderRadius: 4, background: "#EFF6FF", color: "#1D4ED8", fontWeight: 600, fontSize: 12, border: "1px solid #BFDBFE", cursor: "pointer", opacity: segnandoCompletato === parent.id ? 0.6 : 1, whiteSpace: "nowrap" }}>
+                                {segnandoCompletato === parent.id ? "…" : "Completato e messo in cassa"}
+                              </button>
+                            ) : (
+                              <span style={{ fontSize: 12, color: "#15803D", fontWeight: 600 }}>✓ Verificato</span>
+                            )
                           ) : isInVerifica ? (
                             <span style={{ fontSize: 12, color: "#DC2626", fontWeight: 500 }}>In verifica</span>
                           ) : !parent.hasPdfAllegato ? (
@@ -787,18 +820,19 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
                     if (expanded) {
                       for (const child of children) {
                         const cInVerifica = inVerificaSet.has(child.id);
-                        const cCompletato = finalizedIds.has(child.id) || verificateSet.has(child.id);
-                        const cBg = cInVerifica ? "#FFF5F5" : cCompletato ? "#F7FEF9" : "#FAFAF9";
+                        const cVerificato = finalizedIds.has(child.id) || verificateSet.has(child.id);
+                        const cCompletatoProd = child.statoProduzione === "Completato" || completatiIds.has(child.id);
+                        const cBg = cInVerifica ? "#FFF5F5" : cVerificato ? "#F7FEF9" : "#FAFAF9";
                         rows.push(
                           <tr key={child.id} style={{ borderBottom: "1px solid #F0EDE8", background: cBg }}
-                            onMouseEnter={ev => (ev.currentTarget.style.background = cInVerifica ? "#FFE4E4" : cCompletato ? "#DCFCE7" : "#FFF7ED")}
+                            onMouseEnter={ev => (ev.currentTarget.style.background = cInVerifica ? "#FFE4E4" : cVerificato ? "#DCFCE7" : "#FFF7ED")}
                             onMouseLeave={ev => (ev.currentTarget.style.background = cBg)}
                           >
                             <td style={{ padding: "7px 14px 7px 32px", fontFamily: "monospace", fontSize: 12, color: cInVerifica ? "#DC2626" : "#6B6560", whiteSpace: "nowrap" }}>
                               <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
                                 <span style={{ color: "#C4C4C6" }}>↳</span>
                                 {cInVerifica && <span className="sv-blink" style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#DC2626" }} />}
-                                {cCompletato && <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#22C55E" }} />}
+                                {cVerificato && <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#22C55E" }} />}
                                 {child.odp}
                               </span>
                               {child.label && <span style={{ fontSize: 10, color: "#9CA3AF", marginLeft: 5 }}>{child.label}</span>}
@@ -809,7 +843,9 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
                               {child.tipologia && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "#F3F4F6", color: "#9CA3AF" }}>{child.tipologia}</span>}
                             </td>
                             <td style={{ padding: "7px 14px" }}>
-                              {cCompletato ? (
+                              {cCompletatoProd ? (
+                                <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, fontWeight: 600, background: "#D1FAE5", color: "#065F46" }}>Completato</span>
+                              ) : cVerificato ? (
                                 <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, fontWeight: 600, background: "#DCFCE7", color: "#15803D" }}>Verificato</span>
                               ) : cInVerifica ? (
                                 <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, fontWeight: 600, background: "#FEE2E2", color: "#DC2626" }}>In verifica</span>
@@ -818,8 +854,17 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
                               )}
                             </td>
                             <td style={{ padding: "7px 14px", textAlign: "right" }}>
-                              {cCompletato ? (
-                                <span style={{ fontSize: 11, color: "#15803D", fontWeight: 600 }}>✓</span>
+                              {cVerificato ? (
+                                cCompletatoProd ? (
+                                  <span style={{ fontSize: 11, color: "#15803D", fontWeight: 600 }}>✓ Completato</span>
+                                ) : canForceVerify ? (
+                                  <button onClick={() => segnaCompletato(child.id)} disabled={segnandoCompletato === child.id}
+                                    style={{ padding: "4px 10px", borderRadius: 4, background: "#EFF6FF", color: "#1D4ED8", fontWeight: 600, fontSize: 11, border: "1px solid #BFDBFE", cursor: "pointer", opacity: segnandoCompletato === child.id ? 0.6 : 1, whiteSpace: "nowrap" }}>
+                                    {segnandoCompletato === child.id ? "…" : "Completato e messo in cassa"}
+                                  </button>
+                                ) : (
+                                  <span style={{ fontSize: 11, color: "#15803D", fontWeight: 600 }}>✓</span>
+                                )
                               ) : cInVerifica ? (
                                 <span style={{ fontSize: 11, color: "#DC2626" }}>In verifica</span>
                               ) : !child.hasPdfAllegato ? (
