@@ -16,6 +16,7 @@ interface RigaAggregata {
   oreStraordinarioNecessarie: number;
   oreEsterneNecessarie: number;
   numeroEsterniNecessari: number | null;
+  giorniUomoEsterniNecessari: number | null;
   costoStimato: number | null;
   basatoSuStima: boolean;
 }
@@ -30,6 +31,7 @@ interface RigaTotaleAzienda {
   oreStraordinarioNecessarie: number;
   oreEsterneNecessarie: number;
   numeroEsterniNecessari: number | null;
+  giorniUomoEsterniNecessari: number | null;
   costoStimato: number | null;
 }
 
@@ -116,7 +118,7 @@ export default function VistaPrevisionale({
   const totaliMese = new Map<string, RigaTotaleAzienda>();
   for (const t of risultato.totaliAzienda) totaliMese.set(t.mese, t);
 
-  const righeMetriche: { label: string; get: (t: RigaTotaleAzienda) => number | null; unita: "h" | "€" | "persone"; enfasi?: boolean; firmata?: boolean }[] = [
+  const righeMetriche: { label: string; get: (t: RigaTotaleAzienda) => number | null; unita: "h" | "€" | "persone" | "giorni"; enfasi?: boolean; firmata?: boolean }[] = [
     { label: "Ore richieste", get: t => t.oreRichieste, unita: "h" },
     { label: "Capacità ordinaria", get: t => t.capacitaOrdinaria, unita: "h" },
     { label: "Capacità con straordinari", get: t => t.capacitaConStraordinari, unita: "h" },
@@ -124,6 +126,7 @@ export default function VistaPrevisionale({
     { label: "→ di cui straordinario necessario", get: t => t.oreStraordinarioNecessarie, unita: "h" },
     { label: "→ di cui ore esterne necessarie", get: t => t.oreEsterneNecessarie, unita: "h", enfasi: true },
     { label: "Numero esterni necessari", get: t => t.numeroEsterniNecessari, unita: "persone", enfasi: true },
+    { label: "Giorni uomo esterni necessari", get: t => t.giorniUomoEsterniNecessari, unita: "giorni", enfasi: true },
     { label: "Costo esterni stimato", get: t => t.costoStimato, unita: "€", enfasi: true },
   ];
 
@@ -188,7 +191,7 @@ export default function VistaPrevisionale({
                       else if (rm.enfasi) colore = "#991B1B";
                       return (
                         <td key={m} className="text-center px-2 py-2 whitespace-nowrap tabular-nums" style={{ fontWeight: rm.enfasi || richiesteRow ? 600 : 400, color: colore }}>
-                          {rm.unita === "€" ? `€${round(v)}` : rm.unita === "persone" ? round(v) : `${round(v)}h`}
+                          {rm.unita === "€" ? `€${round(v)}` : rm.unita === "persone" ? round(v) : rm.unita === "giorni" ? `${round(v)} gg` : `${round(v)}h`}
                         </td>
                       );
                     })}

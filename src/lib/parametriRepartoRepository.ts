@@ -1,4 +1,5 @@
 import { pool } from "./db";
+import { getAuditLogByRisorsa } from "./audit";
 
 export interface ParametriReparto {
   reparto: string;
@@ -47,4 +48,45 @@ export async function aggiornaParametriReparto(reparto: string, entry: {
      entry.tariffaEsternaEurH, entry.oreGiornoEsterno]
   );
   return rows[0] ? mapRow(rows[0]) : null;
+}
+
+// Storico dei valori nel tempo per un reparto — nessuna tabella di versioning dedicata: riusa
+// audit_log, già popolato ad ogni PATCH da /api/admin/parametri-reparto (che invia sempre TUTTI i
+// campi, mai un diff parziale — quindi ogni riga di audit è già uno snapshot pieno, non serve
+// ricostruire un merge di diff incrementali). Copre "come sono cambiati organico/parametri nel
+// tempo", non un ricalcolo storico dell'intero Previsionale (richiederebbe anche uno storico delle
+// offerte/richieste, che non esiste).
+export interface StoricoParametriRepartoRiga {
+  modificatoIl: string;
+  operatore: string;
+  nPersone: number;
+  oreGiorno: number;
+  pctStraordinariMax: number;
+  margineSicurezzaEsterni: number;
+  tariffaEsternaEurH: number | null;
+  oreGiornoEsterno: number | null;
+}
+
+export async function getStoricoParametriReparto(reparto: string): Promise<StoricoParametriRepartoRiga[]> {
+  const entries = await getAuditLogByRisorsa("UPDATE parametri_reparto", reparto);
+  const righe: StoricoParametriRepartoRiga[] = [];
+  for (const entry of entries) {
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(entry.modifiche);
+    } catch {
+      continue; // riga di audit corrotta/non-JSON, ignorata invece di far fallire tutto lo storico
+    }
+    righe.push({
+      modificatoIl: entry.timestamp ?? "",
+      operatore: entry.operatore,
+      nPersone: Number(body.nPersone),
+      oreGiorno: Number(body.oreGiorno),
+      pctStraordinariMax: Number(body.pctStraordinariMax),
+      margineSicurezzaEsterni: Number(body.margineSicurezzaEsterni),
+      tariffaEsternaEurH: body.tariffaEsternaEurH != null ? Number(body.tariffaEsternaEurH) : null,
+      oreGiornoEsterno: body.oreGiornoEsterno != null ? Number(body.oreGiornoEsterno) : null,
+    });
+  }
+  return righe;
 }

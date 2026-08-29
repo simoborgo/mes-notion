@@ -42,6 +42,32 @@ export async function logOperation(
   }
 }
 
+// Storico di UNA risorsa specifica (es. tutte le modifiche a un reparto in parametri_reparto),
+// più mirata di getAuditLog. Utile quando il valore corrente da solo non basta e serve
+// ricostruire come è cambiato nel tempo — es. Storico Parametri Reparto, che riusa audit_log
+// invece di una tabella di versioning dedicata (ogni PATCH di parametri_reparto scrive già uno
+// snapshot completo dei campi, non un diff parziale, quindi ogni riga è uno stato pieno).
+export async function getAuditLogByRisorsa(azione: string, idRisorsa: string, limit = 50): Promise<AuditEntry[]> {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, operatore, azione, id_risorsa, modifiche, creato_il FROM audit_log
+       WHERE azione = $1 AND id_risorsa = $2 ORDER BY creato_il DESC LIMIT $3`,
+      [azione, idRisorsa, limit],
+    );
+    return rows.map((r) => ({
+      id: r.id as string,
+      operatore: r.operatore as string,
+      azione: r.azione as string,
+      idRisorsa: r.id_risorsa as string,
+      modifiche: r.modifiche as string,
+      timestamp: (r.creato_il as Date).toISOString(),
+    }));
+  } catch (e) {
+    console.error("[audit] getAuditLogByRisorsa failed:", e instanceof Error ? e.message : String(e));
+    return [];
+  }
+}
+
 export async function getAuditLog(limit = 100): Promise<AuditEntry[]> {
   try {
     const { rows } = await pool.query(

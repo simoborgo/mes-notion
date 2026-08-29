@@ -403,32 +403,57 @@ al 100% su Verniciatura. Resta comunque uno split fisso uguale per tutti gli art
 per singolo articolo — `registraChiusuraOdp` lo raffinerà articolo per articolo via via che arrivano
 consuntivi reali, sostituendo di netto lo stimato (mai una media stimato/consuntivo).
 
-### `parametri_reparto` non ha uno storico versionato
+### ~~`parametri_reparto` mancava di 3 reparti~~ — corretto (2026-08-27)
 
-**Stato:** annotata (sessione 2026-08-05), nessuna richiesta esplicita di implementarla
+**Stato:** fatto. L'utente ha notato che la tabella "Parametri Reparto" non elencava tutti i
+reparti. Causa: `REPARTI_PRODUZIONE` (`src/lib/types.ts`) è stato esteso il 2026-08-23 con 3
+reparti APS (Distinte e Sviluppo, Pressa, Levigatura), ma nessuna migrazione aveva mai inserito le
+righe corrispondenti in `parametri_reparto` — restavano seedati solo i 7 storici. Effetto pratico:
+i 3 reparti non comparivano in UI e venivano trattati come "0 persone" nel Previsionale, senza modo
+di correggerlo.
 
-`calcolaPrevisionale` legge sempre i valori **correnti** di `parametri_reparto` — cambiare
-l'organico/parametri oggi ricalcola tutti i mesi dell'orizzonte con i nuovi valori, retroattivamente
-rispetto a quando erano stati impostati. Non c'è modo di rivedere "come appariva il planner con
-l'organico in vigore 3 mesi fa" — ogni apertura della pagina è sempre una fotografia fresca coi
-parametri di adesso, mai uno storico.
+Corretto con `verifiche-backend/schema_parametri_reparto_reparti_aps.sql` (INSERT ... ON CONFLICT
+DO NOTHING, stessi default della riga PRIMARY KEY). Verificato: `parametri_reparto` ora ha 10
+righe. Restano da impostare i valori reali di organico per i 3 nuovi reparti da Amministrazione ▾
+→ Previsionale → Parametri (oggi tutti a 0 persone di default, come gli altri reparti mai
+configurati).
 
-**Come affrontarla, se richiesto**: tabella `parametri_reparto_storico` con validità temporale
-(valido_da/valido_a), o più semplice: uno snapshot JSON salvato ogni volta che si genera un
-export/report del Previsionale, se mai serve un confronto storico "previsto vs poi verificato".
+### ~~`parametri_reparto` non ha uno storico versionato~~ — fatto (2026-08-27)
 
-### `parametri_reparto.ore_giorno_esterno` non è collegato a nessun calcolo
+**Stato:** fatto, con scope volutamente ridotto rispetto all'idea originale. Ricostruire l'intero
+Previsionale "come appariva 3 mesi fa" non è fattibile: richiederebbe anche uno storico delle
+offerte/richieste dell'epoca, che non esiste. Implementato invece **solo lo storico dei parametri**
+(organico/ore/percentuali per reparto nel tempo) — già sufficiente a rispondere alla domanda
+originale "come sono cambiati i parametri", senza inventare un ricalcolo storico che sarebbe
+comunque parziale/fuorviante.
 
-**Stato:** campo esistente in schema/UI, deliberatamente lasciato inutilizzato su richiesta
-esplicita dell'utente (sessione 2026-08-05) — "lo useremo in futuro"
+Nessuna tabella nuova: ogni PATCH di `parametri_reparto` invia sempre TUTTI i campi (mai un diff
+parziale), quindi `audit_log` — già popolato da ogni salvataggio — contiene già uno snapshot pieno
+per riga. Nuova `getAuditLogByRisorsa(azione, idRisorsa)` in `src/lib/audit.ts` (generica, non solo
+per parametri_reparto) + `getStoricoParametriReparto(reparto)` in
+`src/lib/parametriRepartoRepository.ts` (parsa il JSON di `modifiche`). Nuova route
+`GET /api/admin/parametri-reparto/storico?reparto=`. UI: bottone "Storico" per riga in
+`TabellaParametriReparto.tsx` → `StoricoParametriRepartoModal.tsx` (tabella cronologica, più
+recente in cima). Verificato con dati reali: 9 modifiche storiche ricostruite per Verniciatura
+(organico passato da 5 a 3 a 6 persone, `ore_giorno_esterno` valorizzato solo dal 2026-08-08 in poi).
 
-Il campo esiste in `verifiche-backend/schema_parametri_reparto.sql`, nel repository e nella UI admin,
-ma `capacityPlannerRepository.ts` non lo legge mai. L'uso naturale sarebbe convertire le ore esterne
-necessarie in giorni-persona esterni: `giorni_uomo_esterni = ore_esterne_necessarie / ore_giorno_esterno`,
-utile per capire quante giornate di un fornitore esterno servono, non solo le ore totali.
+### ~~`parametri_reparto.ore_giorno_esterno` non è collegato a nessun calcolo~~ — corretto/completato (2026-08-27)
 
-**Come affrontarla**: quando richiesto, aggiungere il calcolo in `calcolaPrevisionale` e il campo
-corrispondente nella UI (`VistaPrevisionale.tsx`), stesso pattern di `oreEsterneNecessarie`/`costoStimato`.
+**Stato:** questa voce era **disallineata**: il campo era già stato collegato al calcolo il
+2026-08-08 (commit `dca2609`, "Numero esterni necessari" in Vista Generale = `ore_esterne_necessarie
+/ (ore_giorno_esterno × giorni lavorativi del mese)`) — la voce non era mai stata aggiornata di
+conseguenza. La formula qui sotto proposta originariamente (`giorni_uomo_esterni =
+ore_esterne_necessarie / ore_giorno_esterno`, SENZA moltiplicare per i giorni del mese) è in realtà
+un **KPI diverso e complementare**, non lo stesso conto: "numero esterni necessari" assume un
+esterno che lavora tutto il mese (persone-FTE equivalenti), "giorni uomo esterni" è invece il totale
+di giornate-persona di lavoro esterno necessarie, utile per dire a un fornitore "mi servono X
+giornate" a prescindere da quanti "esterni FTE" servirebbero.
+
+Aggiunto ora come campo distinto `giorniUomoEsterniNecessari` accanto a `numeroEsterniNecessari` in
+`RigaAggregataPrevisionale`/`RigaTotaleAzienda` (`capacityPlannerRepository.ts`) e come nuova riga
+"Giorni uomo esterni necessari" in Vista Generale (`VistaPrevisionale.tsx`), stesso pattern di
+`oreEsterneNecessarie`/`costoStimato` — null con lo stesso criterio se `ore_giorno_esterno` non è
+impostato.
 
 ---
 

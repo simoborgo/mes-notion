@@ -111,6 +111,11 @@ export interface RigaAggregataPrevisionale {
   oreStraordinarioNecessarie: number; // quota di oreSforate coperta dallo straordinario, fino al tetto pctStraordinariMax
   oreEsterneNecessarie: number; // già comprensivo del margine di sicurezza
   numeroEsterniNecessari: number | null; // oreEsterneNecessarie / (ore_giorno_esterno * giorni lavorativi del mese) — null se ore_giorno_esterno non impostato
+  // oreEsterneNecessarie / ore_giorno_esterno (SENZA moltiplicare per i giorni del mese): giornate-
+  // persona totali di lavoro esterno necessarie, utile per dire a un fornitore "mi servono X
+  // giornate" — complementare a numeroEsterniNecessari (che assume un esterno per tutto il mese),
+  // non lo stesso conto. Null con lo stesso criterio.
+  giorniUomoEsterniNecessari: number | null;
   costoStimato: number | null; // null se tariffa_esterna_eur_h non impostata
   basatoSuStima: boolean; // almeno una delle offerte che contribuiscono a questa cella usa standard_reparto 'stimato'
 }
@@ -152,6 +157,7 @@ export interface RigaTotaleAzienda {
   oreStraordinarioNecessarie: number;
   oreEsterneNecessarie: number;
   numeroEsterniNecessari: number | null;
+  giorniUomoEsterniNecessari: number | null;
   costoStimato: number | null;
 }
 
@@ -265,9 +271,10 @@ export async function calcolaPrevisionale(filtro: FiltroPrevisionale, mesiOrizzo
       const oreEsterneNecessarie = oreEsterneBase * (1 + (par?.margineSicurezzaEsterni ?? 0) / 100);
       const oreMensiliPerEsterno = par?.oreGiornoEsterno != null ? par.oreGiornoEsterno * giorniMese : null;
       const numeroEsterniNecessari = oreMensiliPerEsterno != null && oreMensiliPerEsterno > 0 ? oreEsterneNecessarie / oreMensiliPerEsterno : null;
+      const giorniUomoEsterniNecessari = par?.oreGiornoEsterno != null && par.oreGiornoEsterno > 0 ? oreEsterneNecessarie / par.oreGiornoEsterno : null;
       const costoStimato = par?.tariffaEsternaEurH != null ? oreEsterneNecessarie * par.tariffaEsternaEurH : null;
       const basatoSuStima = stimaPerRepartoMese.get(reparto)?.has(mese) ?? false;
-      righeAggregate.push({ reparto, mese, capacitaOrdinaria, capacitaConStraordinari, oreRichieste, delta, capacitaResidua, oreSforate, oreStraordinarioNecessarie, oreEsterneNecessarie, numeroEsterniNecessari, costoStimato, basatoSuStima });
+      righeAggregate.push({ reparto, mese, capacitaOrdinaria, capacitaConStraordinari, oreRichieste, delta, capacitaResidua, oreSforate, oreStraordinarioNecessarie, oreEsterneNecessarie, numeroEsterniNecessari, giorniUomoEsterniNecessari, costoStimato, basatoSuStima });
 
       let tot = totaliPerMese.get(mese);
       if (!tot) { tot = { capacitaOrdinaria: 0, capacitaConStraordinari: 0, oreRichieste: 0 }; totaliPerMese.set(mese, tot); }
@@ -305,6 +312,7 @@ export async function calcolaPrevisionale(filtro: FiltroPrevisionale, mesiOrizzo
     const oreEsterneNecessarie = oreEsterneBase * (1 + margineMedio / 100);
     const oreMensiliPerEsterno = oreGiornoEsternoMedio != null ? oreGiornoEsternoMedio * giorniMese : null;
     const numeroEsterniNecessari = oreMensiliPerEsterno != null && oreMensiliPerEsterno > 0 ? oreEsterneNecessarie / oreMensiliPerEsterno : null;
+    const giorniUomoEsterniNecessari = oreGiornoEsternoMedio != null && oreGiornoEsternoMedio > 0 ? oreEsterneNecessarie / oreGiornoEsternoMedio : null;
     const costoStimato = tariffaMedia != null ? oreEsterneNecessarie * tariffaMedia : null;
     return {
       mese,
@@ -316,6 +324,7 @@ export async function calcolaPrevisionale(filtro: FiltroPrevisionale, mesiOrizzo
       oreStraordinarioNecessarie,
       oreEsterneNecessarie,
       numeroEsterniNecessari,
+      giorniUomoEsterniNecessari,
       costoStimato,
     };
   });

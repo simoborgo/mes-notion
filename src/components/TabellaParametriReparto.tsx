@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ParametriReparto } from "@/lib/parametriRepartoRepository";
+import StoricoParametriRepartoModal from "./StoricoParametriRepartoModal";
 
 const inputCls = "rounded-lg border px-2 py-1.5 text-base bg-white focus:outline-none focus:ring-2 focus:ring-orange-300 w-full";
 
@@ -34,6 +35,7 @@ export default function TabellaParametriReparto({ parametriIniziali }: { paramet
   const [salvando, setSalvando] = useState<string | null>(null);
   const [errori, setErrori] = useState<Record<string, string>>({});
   const [salvati, setSalvati] = useState<Record<string, boolean>>({});
+  const [storicoReparto, setStoricoReparto] = useState<string | null>(null);
 
   function setCampo(reparto: string, campo: keyof RigaState, valore: string) {
     setRighe(prev => ({ ...prev, [reparto]: { ...prev[reparto], [campo]: valore } }));
@@ -100,14 +102,23 @@ export default function TabellaParametriReparto({ parametriIniziali }: { paramet
                 <td className="px-2 py-2"><input type="number" min="0" step="0.5" className={inputCls} style={{ width: 90 }} value={r.tariffaEsternaEurH} onChange={e => setCampo(p.reparto, "tariffaEsternaEurH", e.target.value)} /></td>
                 <td className="px-2 py-2"><input type="number" min="0" step="0.5" className={inputCls} style={{ width: 90 }} value={r.oreGiornoEsterno} onChange={e => setCampo(p.reparto, "oreGiornoEsterno", e.target.value)} /></td>
                 <td className="px-4 py-2 text-right whitespace-nowrap">
-                  <button
-                    onClick={() => salva(p.reparto)}
-                    disabled={salvando === p.reparto}
-                    className="px-3 py-1.5 text-sm font-semibold text-white rounded-lg disabled:opacity-60"
-                    style={{ background: "var(--color-primary)" }}
-                  >
-                    {salvando === p.reparto ? "…" : salvati[p.reparto] ? "Salvato ✓" : "Salva"}
-                  </button>
+                  <div className="flex gap-2 justify-end items-center">
+                    <button
+                      onClick={() => setStoricoReparto(p.reparto)}
+                      className="px-3 py-1.5 text-sm font-medium rounded-lg border"
+                      style={{ borderColor: "#d1d5db", color: "var(--color-grey-mid)" }}
+                    >
+                      Storico
+                    </button>
+                    <button
+                      onClick={() => salva(p.reparto)}
+                      disabled={salvando === p.reparto}
+                      className="px-3 py-1.5 text-sm font-semibold text-white rounded-lg disabled:opacity-60"
+                      style={{ background: "var(--color-primary)" }}
+                    >
+                      {salvando === p.reparto ? "…" : salvati[p.reparto] ? "Salvato ✓" : "Salva"}
+                    </button>
+                  </div>
                   {errori[p.reparto] && <p className="text-sm font-medium mt-1" style={{ color: "#991B1B" }}>{errori[p.reparto]}</p>}
                 </td>
               </tr>
@@ -115,6 +126,9 @@ export default function TabellaParametriReparto({ parametriIniziali }: { paramet
           })}
         </tbody>
       </table>
+      {storicoReparto && (
+        <StoricoParametriRepartoModal reparto={storicoReparto} onClose={() => setStoricoReparto(null)} />
+      )}
     </div>
   );
 }
