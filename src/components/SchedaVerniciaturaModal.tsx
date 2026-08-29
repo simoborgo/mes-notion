@@ -672,6 +672,17 @@ export default function SchedaVerniciaturaModal({ schedaId, onClose, onSaved, on
                 </div>
               )}
 
+              {scheda && (
+                <div className="flex gap-4 pt-1">
+                  <a href={`/api/verniciatura/schede/${scheda.id}/stampa`} target="_blank" rel="noreferrer" className="text-xs underline" style={{ color: "var(--color-primary)" }}>
+                    Stampa scheda (A4)
+                  </a>
+                  <a href={`/api/verniciatura/schede/${scheda.id}/etichetta`} target="_blank" rel="noreferrer" className="text-xs underline" style={{ color: "var(--color-primary)" }}>
+                    Stampa etichetta QR
+                  </a>
+                </div>
+              )}
+
               {warnings.length > 0 && (
                 <div className="rounded-lg border p-3 space-y-1" style={{ background: "#FEF3C7", borderColor: "#FCD34D" }}>
                   <p className="text-xs font-semibold" style={{ color: "#92400E" }}>Avvisi (non bloccanti):</p>

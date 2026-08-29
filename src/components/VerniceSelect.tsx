@@ -4,7 +4,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Vernice } from "@/lib/types";
 
 function etichetta(v: Vernice): string {
-  const parti = [v.coloreCodice, v.descrizioneColore, v.tipologia, v.codiceInventario ? `#${v.codiceInventario}` : null];
+  const parti = [
+    v.coloreCodice,
+    v.descrizioneColore,
+    v.tipologia,
+    v.codiceInventario ? `#${v.codiceInventario}` : null,
+    v.codiceTintometro ? `Tintometro ${v.codiceTintometro}` : null,
+  ];
   return parti.filter(Boolean).join(" · ");
 }
 
