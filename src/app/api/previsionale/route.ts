@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { calcolaPrevisionale, type FiltroPrevisionale } from "@/lib/capacityPlannerRepository";
-import { mesiOrizzonteDaOggi } from "@/lib/calendarioLavorativo";
+import { mesiOrizzonteConPassato } from "@/lib/calendarioLavorativo";
 import { getSessionFromRequest, PREVISIONALE_ROLES } from "@/lib/auth";
 
 const FILTRI_VALIDI: FiltroPrevisionale[] = ["confermate", "tutte", "pesato"];
+// Valori proposti in UI (VistaPrevisionale.tsx) — qui solo il tetto di sicurezza lato server.
+const MESI_INDIETRO_MAX = 24;
 
 export async function GET(req: NextRequest) {
   const session = await getSessionFromRequest(req);
@@ -17,11 +19,13 @@ export async function GET(req: NextRequest) {
     : "tutte";
   const mesiParam = Number(searchParams.get("mesi"));
   const nMesi = mesiParam > 0 && mesiParam <= 24 ? mesiParam : 12;
-  const mesiOrizzonte = mesiOrizzonteDaOggi(nMesi);
+  const mesiIndietroParam = Number(searchParams.get("mesiIndietro"));
+  const mesiIndietro = mesiIndietroParam >= 0 && mesiIndietroParam <= MESI_INDIETRO_MAX ? mesiIndietroParam : 0;
+  const mesiOrizzonte = mesiOrizzonteConPassato(mesiIndietro, nMesi);
 
   try {
     const risultato = await calcolaPrevisionale(filtro, mesiOrizzonte);
-    return NextResponse.json({ ...risultato, mesiOrizzonte, filtro });
+    return NextResponse.json({ ...risultato, mesiOrizzonte, filtro, mesiIndietro });
   } catch (e) {
     console.error("[previsionale GET]", e);
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });

@@ -1,5 +1,5 @@
 import { pool } from "./db";
-import { getAuditLogByRisorsa } from "./audit";
+import { getAuditLogByRisorsa, getAuditLogByAzione, type AuditEntry } from "./audit";
 
 export interface ParametriReparto {
   reparto: string;
@@ -67,26 +67,49 @@ export interface StoricoParametriRepartoRiga {
   oreGiornoEsterno: number | null;
 }
 
+function parseRigaStorico(entry: AuditEntry): StoricoParametriRepartoRiga | null {
+  let body: Record<string, unknown>;
+  try {
+    body = JSON.parse(entry.modifiche);
+  } catch {
+    return null; // riga di audit corrotta/non-JSON, ignorata invece di far fallire tutto lo storico
+  }
+  return {
+    modificatoIl: entry.timestamp ?? "",
+    operatore: entry.operatore,
+    nPersone: Number(body.nPersone),
+    oreGiorno: Number(body.oreGiorno),
+    pctStraordinariMax: Number(body.pctStraordinariMax),
+    margineSicurezzaEsterni: Number(body.margineSicurezzaEsterni),
+    tariffaEsternaEurH: body.tariffaEsternaEurH != null ? Number(body.tariffaEsternaEurH) : null,
+    oreGiornoEsterno: body.oreGiornoEsterno != null ? Number(body.oreGiornoEsterno) : null,
+  };
+}
+
 export async function getStoricoParametriReparto(reparto: string): Promise<StoricoParametriRepartoRiga[]> {
   const entries = await getAuditLogByRisorsa("UPDATE parametri_reparto", reparto);
   const righe: StoricoParametriRepartoRiga[] = [];
   for (const entry of entries) {
-    let body: Record<string, unknown>;
-    try {
-      body = JSON.parse(entry.modifiche);
-    } catch {
-      continue; // riga di audit corrotta/non-JSON, ignorata invece di far fallire tutto lo storico
-    }
-    righe.push({
-      modificatoIl: entry.timestamp ?? "",
-      operatore: entry.operatore,
-      nPersone: Number(body.nPersone),
-      oreGiorno: Number(body.oreGiorno),
-      pctStraordinariMax: Number(body.pctStraordinariMax),
-      margineSicurezzaEsterni: Number(body.margineSicurezzaEsterni),
-      tariffaEsternaEurH: body.tariffaEsternaEurH != null ? Number(body.tariffaEsternaEurH) : null,
-      oreGiornoEsterno: body.oreGiornoEsterno != null ? Number(body.oreGiornoEsterno) : null,
-    });
+    const riga = parseRigaStorico(entry);
+    if (riga) righe.push(riga);
   }
   return righe;
+}
+
+// Storico di TUTTI i reparti in un colpo solo (una query invece di N) — usato dal Previsionale
+// per risolvere, mese per mese, i parametri effettivamente in vigore in quel mese invece di
+// applicare sempre quelli correnti anche ai mesi passati (vedi risolviParametriAlMese in
+// capacityPlannerRepository.ts). Ogni array è già ordinato dal più recente al più vecchio
+// (stesso ordine di getAuditLogByRisorsa/getAuditLogByAzione, ORDER BY creato_il DESC).
+export async function getStoricoParametriRepartoTutti(): Promise<Map<string, StoricoParametriRepartoRiga[]>> {
+  const entries = await getAuditLogByAzione("UPDATE parametri_reparto");
+  const mappa = new Map<string, StoricoParametriRepartoRiga[]>();
+  for (const entry of entries) {
+    const riga = parseRigaStorico(entry);
+    if (!riga) continue;
+    let righe = mappa.get(entry.idRisorsa);
+    if (!righe) { righe = []; mappa.set(entry.idRisorsa, righe); }
+    righe.push(riga);
+  }
+  return mappa;
 }

@@ -1,6 +1,6 @@
 import { pool } from "./db";
 
-export type ResourceType = "ritiro" | "scheda" | "carico" | "commessa" | "area" | "ore_registrate" | "ore_assenza" | "operatore" | "operatore_pin" | "segmento_operatore" | "scarico_materiale" | "scarico" | "offerta" | "articolo_ferramenta" | "kit_ferramenta" | "inventario_ferramenta" | "wurth_ordine" | "wurth_ordine_riga" | "parametri_reparto" | "parametri_generali" | "laboratorio_verniciatura" | "vernice" | "ciclo_verniciatura" | "campionatura_verniciatura" | "movimento_magazzino" | "inventario_magazzino" | "kit_commessa" | "fornitore" | "reparto" | "articolo" | "pattern_ciclo" | "bordo" | "legno" | "tranciato" | "profilo_metallico";
+export type ResourceType = "ritiro" | "scheda" | "carico" | "commessa" | "area" | "ore_registrate" | "ore_assenza" | "ore_giorno_chiuso" | "operatore" | "operatore_pin" | "segmento_operatore" | "scarico_materiale" | "scarico" | "offerta" | "articolo_ferramenta" | "kit_ferramenta" | "inventario_ferramenta" | "wurth_ordine" | "wurth_ordine_riga" | "parametri_reparto" | "parametri_generali" | "laboratorio_verniciatura" | "vernice" | "ciclo_verniciatura" | "campionatura_verniciatura" | "movimento_magazzino" | "inventario_magazzino" | "kit_commessa" | "fornitore" | "reparto" | "articolo" | "pattern_ciclo" | "bordo" | "legno" | "tranciato" | "profilo_metallico";
 export type ActionType = "CREATE" | "UPDATE" | "DELETE" | "UPLOAD_FOTO";
 
 export interface AuditEntry {
@@ -64,6 +64,30 @@ export async function getAuditLogByRisorsa(azione: string, idRisorsa: string, li
     }));
   } catch (e) {
     console.error("[audit] getAuditLogByRisorsa failed:", e instanceof Error ? e.message : String(e));
+    return [];
+  }
+}
+
+// Tutte le voci di una AZIONE (indipendentemente dalla risorsa) — usata quando serve costruire lo
+// storico di più risorse in un colpo solo (es. tutti i reparti di parametri_reparto per il
+// Previsionale) invece di N query separate via getAuditLogByRisorsa.
+export async function getAuditLogByAzione(azione: string, limit = 1000): Promise<AuditEntry[]> {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, operatore, azione, id_risorsa, modifiche, creato_il FROM audit_log
+       WHERE azione = $1 ORDER BY creato_il DESC LIMIT $2`,
+      [azione, limit],
+    );
+    return rows.map((r) => ({
+      id: r.id as string,
+      operatore: r.operatore as string,
+      azione: r.azione as string,
+      idRisorsa: r.id_risorsa as string,
+      modifiche: r.modifiche as string,
+      timestamp: (r.creato_il as Date).toISOString(),
+    }));
+  } catch (e) {
+    console.error("[audit] getAuditLogByAzione failed:", e instanceof Error ? e.message : String(e));
     return [];
   }
 }

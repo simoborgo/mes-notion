@@ -104,15 +104,35 @@ export function ultimoGiornoMese(meseStr: string): string {
 
 // Orizzonte di default per il Previsionale: il mese corrente + gli n-1 successivi.
 export function mesiOrizzonteDaOggi(n: number): string[] {
+  return mesiOrizzonteConPassato(0, n);
+}
+
+// Come mesiOrizzonteDaOggi, ma permette di includere anche mesiIndietro mesi PRIMA di quello
+// corrente — usato dal Previsionale per rivedere mesi già trascorsi coi parametri storici
+// effettivamente in vigore allora (vedi risolviParametriAlMese in capacityPlannerRepository.ts),
+// non più sempre quelli di oggi. mesiIndietro=0 equivale esattamente a mesiOrizzonteDaOggi(mesiAvanti).
+export function mesiOrizzonteConPassato(mesiIndietro: number, mesiAvanti: number): string[] {
   const oggi = new Date();
-  const mesi: string[] = [];
   let anno = oggi.getFullYear(), mese = oggi.getMonth() + 1;
-  for (let i = 0; i < n; i++) {
+  for (let i = 0; i < mesiIndietro; i++) {
+    mese--;
+    if (mese < 1) { mese = 12; anno--; }
+  }
+  const mesi: string[] = [];
+  const totale = mesiIndietro + mesiAvanti;
+  for (let i = 0; i < totale; i++) {
     mesi.push(`${anno}-${String(mese).padStart(2, "0")}`);
     mese++;
     if (mese > 12) { mese = 1; anno++; }
   }
   return mesi;
+}
+
+// Mese corrente in formato "YYYY-MM" — confrontabile lessicograficamente con le stringhe mese
+// dell'orizzonte per distinguere passato/presente/futuro (usato dal Previsionale).
+export function meseCorrente(): string {
+  const oggi = new Date();
+  return `${oggi.getFullYear()}-${String(oggi.getMonth() + 1).padStart(2, "0")}`;
 }
 
 // Elenco dei mesi "YYYY-MM" toccati dall'intervallo [dataInizio, dataFine], estremi inclusi.

@@ -420,22 +420,37 @@ configurati).
 
 ### ~~`parametri_reparto` non ha uno storico versionato~~ — fatto (2026-08-27)
 
-**Stato:** fatto, con scope volutamente ridotto rispetto all'idea originale. Ricostruire l'intero
-Previsionale "come appariva 3 mesi fa" non è fattibile: richiederebbe anche uno storico delle
-offerte/richieste dell'epoca, che non esiste. Implementato invece **solo lo storico dei parametri**
-(organico/ore/percentuali per reparto nel tempo) — già sufficiente a rispondere alla domanda
-originale "come sono cambiati i parametri", senza inventare un ricalcolo storico che sarebbe
-comunque parziale/fuorviante.
+**Stato:** fatto in due passi nella stessa sessione. Primo passo: bottone "Storico" per riga in
+`TabellaParametriReparto.tsx` → `StoricoParametriRepartoModal.tsx`, una tabella cronologica dei
+valori passati per reparto, riusando `audit_log` (ogni PATCH invia sempre TUTTI i campi, mai un
+diff parziale, quindi ogni riga di audit è già uno snapshot pieno — nessuna tabella di versioning
+dedicata necessaria). Nuova `getAuditLogByRisorsa(azione, idRisorsa)` in `src/lib/audit.ts` +
+`getStoricoParametriReparto(reparto)` in `src/lib/parametriRepartoRepository.ts`, route
+`GET /api/admin/parametri-reparto/storico?reparto=`.
 
-Nessuna tabella nuova: ogni PATCH di `parametri_reparto` invia sempre TUTTI i campi (mai un diff
-parziale), quindi `audit_log` — già popolato da ogni salvataggio — contiene già uno snapshot pieno
-per riga. Nuova `getAuditLogByRisorsa(azione, idRisorsa)` in `src/lib/audit.ts` (generica, non solo
-per parametri_reparto) + `getStoricoParametriReparto(reparto)` in
-`src/lib/parametriRepartoRepository.ts` (parsa il JSON di `modifiche`). Nuova route
-`GET /api/admin/parametri-reparto/storico?reparto=`. UI: bottone "Storico" per riga in
-`TabellaParametriReparto.tsx` → `StoricoParametriRepartoModal.tsx` (tabella cronologica, più
-recente in cima). Verificato con dati reali: 9 modifiche storiche ricostruite per Verniciatura
-(organico passato da 5 a 3 a 6 persone, `ore_giorno_esterno` valorizzato solo dal 2026-08-08 in poi).
+L'utente ha poi chiarito che si aspettava lo storico **integrato nel calcolo del Previsionale**,
+non solo in una tabella separata: il problema reale era che cambiare l'organico oggi ricalcolava
+retroattivamente anche i mesi già passati, facendo sembrare "coperto" un mese che a suo tempo era
+in reale sofferenza ore. Corretto alla radice in `calcolaPrevisionale`
+(`capacityPlannerRepository.ts`): nuova `risolviParametriAlMese()` che, per ogni mese PRIMA di
+quello corrente, cerca in `audit_log` (via nuova `getStoricoParametriRepartoTutti()`, una query
+sola per tutti i reparti) l'ultimo stato in vigore entro la fine di quel mese — invece di applicare
+sempre i parametri correnti. Se nessuno storico risale a prima di quel mese (caso reale oggi: la
+prima scrittura in assoluto su `audit_log` per `parametri_reparto` è del 2026-08-05, quindi ogni
+mese precedente non ha storico), usa la voce più vecchia disponibile come approssimazione,
+segnalata col nuovo flag `parametriStoriciApprossimati` (badge "≈" in Vista per reparto, distinto
+dal "~" di `basatoSuStima` che riguarda invece le richieste/offerte). Il mese corrente e i futuri
+continuano a usare i parametri correnti (comportamento invariato, corretto per la pianificazione in
+avanti). Anche le medie pesate per "Totale azienda" (margine/tariffa/ore-giorno esterno) sono ora
+ricalcolate per mese, non più una volta sola con i valori di oggi.
+
+Orizzonte: `mesiOrizzonteDaOggi()` mostrava solo mese corrente + N futuri, mai mesi passati. Nuova
+`mesiOrizzonteConPassato(mesiIndietro, mesiAvanti)` in `calendarioLavorativo.ts`; nuovo parametro
+`mesiIndietro` in `GET /api/previsionale`. UI: selettore "Mesi passati: Nessuno/3/6/12" in
+`VistaPrevisionale.tsx` (configurabile, scelto dall'utente invece di un default fisso), colonne dei
+mesi passati evidenziate nell'intestazione. Verificato con dati reali: nessun reparto ha storico
+prima del 2026-08-05 (prima scrittura in assoluto), quindi qualunque mese precedente attiva
+correttamente il fallback "approssimato"; il mese corrente usa correttamente i valori live.
 
 ### ~~`parametri_reparto.ore_giorno_esterno` non è collegato a nessun calcolo~~ — corretto/completato (2026-08-27)
 

@@ -19,6 +19,7 @@ interface RigaAggregata {
   giorniUomoEsterniNecessari: number | null;
   costoStimato: number | null;
   basatoSuStima: boolean;
+  parametriStoriciApprossimati: boolean;
 }
 
 interface RigaTotaleAzienda {
@@ -63,6 +64,13 @@ const FILTRI: { value: Filtro; label: string }[] = [
   { value: "confermate", label: "Solo Confermate" },
 ];
 
+// Quanti mesi passati includere oltre al mese corrente e ai futuri (deciso con l'utente
+// 2026-08-27, configurabile invece di un valore fisso): i mesi passati usano i parametri
+// reparto EFFETTIVAMENTE in vigore in quel mese (vedi risolviParametriAlMese nel repository),
+// non quelli correnti — altrimenti un aumento di organico oggi farebbe sembrare "coperto" anche
+// un mese passato che a suo tempo era in reale sofferenza.
+const OPZIONI_MESI_INDIETRO = [0, 3, 6, 12];
+
 function round(n: number): number {
   return Math.round(n * 10) / 10;
 }
@@ -72,17 +80,25 @@ function fmtMese(m: string): string {
   return new Date(anno, mese - 1, 1).toLocaleDateString("it-IT", { month: "short", year: "numeric" });
 }
 
+function meseCorrenteStr(): string {
+  const oggi = new Date();
+  return `${oggi.getFullYear()}-${String(oggi.getMonth() + 1).padStart(2, "0")}`;
+}
+
 export default function VistaPrevisionale({
-  risultatoIniziale, mesiOrizzonte, filtroIniziale,
+  risultatoIniziale, mesiOrizzonte: mesiOrizzonteIniziale, filtroIniziale,
 }: {
   risultatoIniziale: Risultato;
   mesiOrizzonte: string[];
   filtroIniziale: Filtro;
 }) {
   const [filtro, setFiltro] = useState<Filtro>(filtroIniziale);
+  const [mesiIndietro, setMesiIndietro] = useState(0);
+  const [mesiOrizzonte, setMesiOrizzonte] = useState<string[]>(mesiOrizzonteIniziale);
   const [risultato, setRisultato] = useState<Risultato>(risultatoIniziale);
   const [loading, setLoading] = useState(false);
   const [errore, setErrore] = useState("");
+  const meseCorrente = meseCorrenteStr();
 
   // risultatoIniziale cambia quando il Server Component padre rifà il fetch (es. router.refresh()
   // dopo un salvataggio in Parametri Reparto, altra tab dello stesso hub) — senza questo confronto
@@ -93,17 +109,21 @@ export default function VistaPrevisionale({
   if (risultatoIniziale !== risultatoInizialePrecedente) {
     setRisultatoInizialePrecedente(risultatoIniziale);
     setRisultato(risultatoIniziale);
+    setMesiOrizzonte(mesiOrizzonteIniziale);
   }
 
-  async function cambiaFiltro(nuovo: Filtro) {
-    setFiltro(nuovo);
+  async function ricarica(nuovoFiltro: Filtro, nuovoMesiIndietro: number) {
+    setFiltro(nuovoFiltro);
+    setMesiIndietro(nuovoMesiIndietro);
     setLoading(true);
     setErrore("");
     try {
-      const res = await fetch(`/api/previsionale?filtro=${nuovo}&mesi=${mesiOrizzonte.length}`);
+      const nAvanti = mesiOrizzonte.length - mesiIndietro; // mesi futuri richiesti finora, invariati dal cambio
+      const res = await fetch(`/api/previsionale?filtro=${nuovoFiltro}&mesi=${nAvanti}&mesiIndietro=${nuovoMesiIndietro}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? `Errore ${res.status}`);
       setRisultato(data);
+      setMesiOrizzonte(data.mesiOrizzonte);
     } catch (e) {
       setErrore(e instanceof Error ? e.message : "Errore caricamento");
     } finally {
@@ -132,11 +152,11 @@ export default function VistaPrevisionale({
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2 flex-wrap items-center">
         {FILTRI.map(f => (
           <button
             key={f.value}
-            onClick={() => cambiaFiltro(f.value)}
+            onClick={() => ricarica(f.value, mesiIndietro)}
             disabled={loading}
             className="px-3 py-1.5 text-sm font-semibold rounded-full border disabled:opacity-60"
             style={filtro === f.value
@@ -146,8 +166,31 @@ export default function VistaPrevisionale({
             {f.label}
           </button>
         ))}
+        <span className="mx-1 h-5 w-px" style={{ background: "#e5e4e0" }} />
+        <span className="text-sm" style={{ color: "var(--color-grey-mid)" }}>Mesi passati:</span>
+        {OPZIONI_MESI_INDIETRO.map(n => (
+          <button
+            key={n}
+            onClick={() => ricarica(filtro, n)}
+            disabled={loading}
+            className="px-3 py-1.5 text-sm font-semibold rounded-full border disabled:opacity-60"
+            style={mesiIndietro === n
+              ? { background: "var(--color-black)", borderColor: "var(--color-black)", color: "white" }
+              : { borderColor: "#d1d5db", color: "var(--color-grey-mid)" }}
+          >
+            {n === 0 ? "Nessuno" : n}
+          </button>
+        ))}
         {loading && <span className="text-sm self-center" style={{ color: "var(--color-grey-mid)" }}>Caricamento…</span>}
       </div>
+      {mesiIndietro > 0 && (
+        <p className="text-sm -mt-3" style={{ color: "var(--color-grey-mid)" }}>
+          I mesi passati usano i parametri reparto (organico, ore/giorno…) effettivamente in vigore
+          in quel mese, non quelli di oggi — un mese segnato <strong>~</strong> nella tabella per
+          reparto non ha uno storico esatto per quel periodo ed è mostrato con la miglior
+          approssimazione disponibile.
+        </p>
+      )}
 
       {errore && (
         <div className="rounded-lg px-3 py-2 text-sm" style={{ background: "#FEF2F2", border: "1px solid #FECACA", color: "#991B1B" }}>{errore}</div>
@@ -160,7 +203,11 @@ export default function VistaPrevisionale({
             <thead>
               <tr className="border-b text-sm font-semibold uppercase" style={{ borderColor: "#e5e4e0", color: "var(--color-grey-mid)" }}>
                 <th className="text-left px-4 py-2 sticky left-0" style={{ background: "white" }}>Totale azienda</th>
-                {mesiOrizzonte.map(m => <th key={m} className="text-center px-2 py-2 whitespace-nowrap">{fmtMese(m)}</th>)}
+                {mesiOrizzonte.map(m => (
+                  <th key={m} className="text-center px-2 py-2 whitespace-nowrap" style={m < meseCorrente ? { background: "#F5F2EE" } : undefined} title={m < meseCorrente ? "Mese passato — parametri storici" : undefined}>
+                    {fmtMese(m)}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -216,7 +263,11 @@ export default function VistaPrevisionale({
             <thead>
               <tr className="border-b text-sm font-semibold uppercase" style={{ borderColor: "#e5e4e0", color: "var(--color-grey-mid)" }}>
                 <th className="text-left px-4 py-2 sticky left-0" style={{ background: "white" }}>Reparto</th>
-                {mesiOrizzonte.map(m => <th key={m} className="text-center px-2 py-2 whitespace-nowrap">{fmtMese(m)}</th>)}
+                {mesiOrizzonte.map(m => (
+                  <th key={m} className="text-center px-2 py-2 whitespace-nowrap" style={m < meseCorrente ? { background: "#F5F2EE" } : undefined} title={m < meseCorrente ? "Mese passato — parametri storici" : undefined}>
+                    {fmtMese(m)}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -236,6 +287,9 @@ export default function VistaPrevisionale({
                           {c.basatoSuStima && (
                             <span className="ml-1 text-sm font-bold" style={{ color: "#92400E" }} title="Basato su dati stimati, non ancora su consuntivi reali">~</span>
                           )}
+                          {c.parametriStoriciApprossimati && (
+                            <span className="ml-1 text-sm font-bold" style={{ color: "#6366f1" }} title="Nessuno storico parametri risalente a prima di questo mese — mostrata la miglior approssimazione disponibile">≈</span>
+                          )}
                         </div>
                         <div className="text-sm font-semibold" style={{ color: positiva ? "#166534" : "#991B1B" }}>
                           {c.capacitaResidua > 0 ? "+" : ""}{round(c.capacitaResidua)}h
@@ -248,7 +302,7 @@ export default function VistaPrevisionale({
             </tbody>
           </table>
         </div>
-        <p className="text-sm mt-1" style={{ color: "var(--color-grey-mid)" }}>~ = basato su dati stimati (non ancora su chiusure reali)</p>
+        <p className="text-sm mt-1" style={{ color: "var(--color-grey-mid)" }}>~ = basato su dati stimati (non ancora su chiusure reali) · ≈ = parametri storici approssimati (nessuno storico esatto per quel mese)</p>
       </div>
 
       {risultato.richiedonoInputManuale.length > 0 && (

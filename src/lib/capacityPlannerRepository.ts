@@ -1,9 +1,51 @@
 import { pool } from "./db";
 import { REPARTI_PRODUZIONE } from "./types";
-import { getParametriReparto } from "./parametriRepartoRepository";
+import { getParametriReparto, getStoricoParametriRepartoTutti, type ParametriReparto, type StoricoParametriRepartoRiga } from "./parametriRepartoRepository";
 import { getCostoOrarioManodopera } from "./parametriGeneraliRepository";
 import { getOfferteAttiveConRighe, type Offerta } from "./offerteRepository";
-import { giorniLavorativi, giorniLavorativiMese, mesiCoperti, primoGiornoMese, ultimoGiornoMese } from "./calendarioLavorativo";
+import { giorniLavorativi, giorniLavorativiMese, mesiCoperti, primoGiornoMese, ultimoGiornoMese, meseCorrente } from "./calendarioLavorativo";
+
+// Sottoinsieme di ParametriReparto/StoricoParametriRepartoRiga con solo i campi di calcolo
+// (esclude reparto/aggiornatoIl/modificatoIl/operatore) — quello che serve per una singola
+// risoluzione mese per mese.
+interface ParametriValori {
+  nPersone: number;
+  oreGiorno: number;
+  pctStraordinariMax: number;
+  margineSicurezzaEsterni: number;
+  tariffaEsternaEurH: number | null;
+  oreGiornoEsterno: number | null;
+}
+
+// Risolve i parametri EFFETTIVAMENTE in vigore per un reparto in un dato mese, invece di
+// applicare sempre quelli correnti. Per il mese corrente/futuri i parametri correnti sono già la
+// miglior proiezione disponibile (nessuna differenza pratica). Per un mese passato, cerca l'ultima
+// modifica registrata in audit_log avvenuta entro la fine di quel mese — se non ce n'è nessuna
+// (il reparto non è mai stato toccato prima di quel mese, es. i 3 reparti APS aggiunti senza mai
+// passare da un PATCH) usa la voce più vecchia disponibile come migliore approssimazione,
+// segnalata con approssimato=true. Deciso con l'utente (2026-08-27): cambiare l'organico oggi non
+// deve far sembrare "coperto" un mese passato che a suo tempo era in reale sofferenza.
+function risolviParametriAlMese(
+  parCorrente: ParametriReparto | undefined,
+  storico: StoricoParametriRepartoRiga[] | undefined,
+  mese: string,
+  meseCorrenteStr: string
+): { valori: ParametriValori | undefined; approssimato: boolean } {
+  if (mese >= meseCorrenteStr || !storico || storico.length === 0) {
+    return { valori: parCorrente, approssimato: false };
+  }
+  const cutoff = new Date(`${ultimoGiornoMese(mese)}T23:59:59`);
+  const timeline: { data: Date; valori: ParametriValori }[] = [];
+  if (parCorrente) timeline.push({ data: new Date(parCorrente.aggiornatoIl), valori: parCorrente });
+  for (const s of storico) timeline.push({ data: new Date(s.modificatoIl), valori: s });
+  timeline.sort((a, b) => b.data.getTime() - a.data.getTime()); // più recente prima
+
+  const match = timeline.find(t => t.data <= cutoff);
+  if (match) return { valori: match.valori, approssimato: false };
+
+  const piuVecchia = timeline[timeline.length - 1];
+  return { valori: piuVecchia?.valori, approssimato: true };
+}
 
 export interface RigaOreReparto {
   reparto: string;
@@ -118,6 +160,10 @@ export interface RigaAggregataPrevisionale {
   giorniUomoEsterniNecessari: number | null;
   costoStimato: number | null; // null se tariffa_esterna_eur_h non impostata
   basatoSuStima: boolean; // almeno una delle offerte che contribuiscono a questa cella usa standard_reparto 'stimato'
+  // true SOLO per mesi passati privi di uno storico parametri risalente a prima di quel mese:
+  // i valori mostrati sono la migliore approssimazione disponibile (la voce più vecchia nota),
+  // non una certezza storica. Sempre false per il mese corrente/futuri.
+  parametriStoriciApprossimati: boolean;
 }
 
 // Riga di offerta il cui articolo non ha alcuna riga standard_reparto: nessuna proposta di
@@ -172,10 +218,11 @@ export interface RisultatoPrevisionale {
 // mesiOrizzonte: elenco esplicito di mesi "YYYY-MM" da includere nel risultato — la scelta
 // dell'orizzonte (es. prossimi 12 mesi) resta al chiamante (route/UI), non a questa funzione.
 export async function calcolaPrevisionale(filtro: FiltroPrevisionale, mesiOrizzonte: string[]): Promise<RisultatoPrevisionale> {
-  const [parametri, offerteConRighe, costoOrarioManodopera] = await Promise.all([
-    getParametriReparto(), getOfferteAttiveConRighe(), getCostoOrarioManodopera(),
+  const [parametri, storicoPerReparto, offerteConRighe, costoOrarioManodopera] = await Promise.all([
+    getParametriReparto(), getStoricoParametriRepartoTutti(), getOfferteAttiveConRighe(), getCostoOrarioManodopera(),
   ]);
   const parametriPerReparto = new Map(parametri.map(p => [p.reparto, p]));
+  const meseCorrenteStr = meseCorrente();
   const mesiValidi = new Set(mesiOrizzonte);
 
   const richiestePerRepartoMese = new Map<string, Map<string, number>>();
@@ -255,9 +302,17 @@ export async function calcolaPrevisionale(filtro: FiltroPrevisionale, mesiOrizzo
 
   const righeAggregate: RigaAggregataPrevisionale[] = [];
   const totaliPerMese = new Map<string, { capacitaOrdinaria: number; capacitaConStraordinari: number; oreRichieste: number }>();
+  // Media pesata (per n_persone) di margine/tariffa/ore-giorno esterno per mese — questi 3 campi
+  // non hanno un equivalente "azienda" in parametri_reparto (sono per-reparto), e ora vanno
+  // ricalcolati PER MESE (non più una volta sola con i valori correnti) perché un mese passato può
+  // avere organici diversi da quello corrente reparto per reparto.
+  const pesiPerMese = new Map<string, { pesoTot: number; margineP: number; tariffaPesoTot: number; tariffaP: number; oreEsternoPesoTot: number; oreEsternoP: number }>();
+
   for (const reparto of REPARTI_PRODUZIONE) {
-    const par = parametriPerReparto.get(reparto);
+    const parCorrente = parametriPerReparto.get(reparto);
+    const storico = storicoPerReparto.get(reparto);
     for (const mese of mesiOrizzonte) {
+      const { valori: par, approssimato } = risolviParametriAlMese(parCorrente, storico, mese, meseCorrenteStr);
       const [anno, meseNum] = mese.split("-").map(Number);
       const giorniMese = giorniLavorativiMese(anno, meseNum);
       const capacitaOrdinaria = (par?.nPersone ?? 0) * (par?.oreGiorno ?? 8) * giorniMese;
@@ -274,37 +329,34 @@ export async function calcolaPrevisionale(filtro: FiltroPrevisionale, mesiOrizzo
       const giorniUomoEsterniNecessari = par?.oreGiornoEsterno != null && par.oreGiornoEsterno > 0 ? oreEsterneNecessarie / par.oreGiornoEsterno : null;
       const costoStimato = par?.tariffaEsternaEurH != null ? oreEsterneNecessarie * par.tariffaEsternaEurH : null;
       const basatoSuStima = stimaPerRepartoMese.get(reparto)?.has(mese) ?? false;
-      righeAggregate.push({ reparto, mese, capacitaOrdinaria, capacitaConStraordinari, oreRichieste, delta, capacitaResidua, oreSforate, oreStraordinarioNecessarie, oreEsterneNecessarie, numeroEsterniNecessari, giorniUomoEsterniNecessari, costoStimato, basatoSuStima });
+      righeAggregate.push({ reparto, mese, capacitaOrdinaria, capacitaConStraordinari, oreRichieste, delta, capacitaResidua, oreSforate, oreStraordinarioNecessarie, oreEsterneNecessarie, numeroEsterniNecessari, giorniUomoEsterniNecessari, costoStimato, basatoSuStima, parametriStoriciApprossimati: approssimato });
 
       let tot = totaliPerMese.get(mese);
       if (!tot) { tot = { capacitaOrdinaria: 0, capacitaConStraordinari: 0, oreRichieste: 0 }; totaliPerMese.set(mese, tot); }
       tot.capacitaOrdinaria += capacitaOrdinaria;
       tot.capacitaConStraordinari += capacitaConStraordinari;
       tot.oreRichieste += oreRichieste;
+
+      let pesi = pesiPerMese.get(mese);
+      if (!pesi) { pesi = { pesoTot: 0, margineP: 0, tariffaPesoTot: 0, tariffaP: 0, oreEsternoPesoTot: 0, oreEsternoP: 0 }; pesiPerMese.set(mese, pesi); }
+      const peso = par?.nPersone ?? 0;
+      if (peso > 0) {
+        pesi.pesoTot += peso;
+        pesi.margineP += peso * (par?.margineSicurezzaEsterni ?? 0);
+        if (par?.tariffaEsternaEurH != null) { pesi.tariffaPesoTot += peso; pesi.tariffaP += peso * par.tariffaEsternaEurH; }
+        if (par?.oreGiornoEsterno != null) { pesi.oreEsternoPesoTot += peso; pesi.oreEsternoP += peso * par.oreGiornoEsterno; }
+      }
     }
   }
-
-  // Margine/tariffa/ore-giorno esterno non hanno un equivalente "azienda" in parametri_reparto
-  // (sono per-reparto) — media pesata per n_persone, coerente con l'idea di trattare l'azienda
-  // come un unico reparto di dimensione pari alla somma degli organici.
-  let pesoTot = 0, margineP = 0, tariffaPesoTot = 0, tariffaP = 0, oreEsternoPesoTot = 0, oreEsternoP = 0;
-  for (const reparto of REPARTI_PRODUZIONE) {
-    const par = parametriPerReparto.get(reparto);
-    const peso = par?.nPersone ?? 0;
-    if (peso <= 0) continue;
-    pesoTot += peso;
-    margineP += peso * (par?.margineSicurezzaEsterni ?? 0);
-    if (par?.tariffaEsternaEurH != null) { tariffaPesoTot += peso; tariffaP += peso * par.tariffaEsternaEurH; }
-    if (par?.oreGiornoEsterno != null) { oreEsternoPesoTot += peso; oreEsternoP += peso * par.oreGiornoEsterno; }
-  }
-  const margineMedio = pesoTot > 0 ? margineP / pesoTot : 0;
-  const tariffaMedia = tariffaPesoTot > 0 ? tariffaP / tariffaPesoTot : null;
-  const oreGiornoEsternoMedio = oreEsternoPesoTot > 0 ? oreEsternoP / oreEsternoPesoTot : null;
 
   const totaliAzienda: RigaTotaleAzienda[] = mesiOrizzonte.map(mese => {
     const [anno, meseNum] = mese.split("-").map(Number);
     const giorniMese = giorniLavorativiMese(anno, meseNum);
     const tot = totaliPerMese.get(mese) ?? { capacitaOrdinaria: 0, capacitaConStraordinari: 0, oreRichieste: 0 };
+    const pesi = pesiPerMese.get(mese);
+    const margineMedio = pesi && pesi.pesoTot > 0 ? pesi.margineP / pesi.pesoTot : 0;
+    const tariffaMedia = pesi && pesi.tariffaPesoTot > 0 ? pesi.tariffaP / pesi.tariffaPesoTot : null;
+    const oreGiornoEsternoMedio = pesi && pesi.oreEsternoPesoTot > 0 ? pesi.oreEsternoP / pesi.oreEsternoPesoTot : null;
     const capacitaResidua = tot.capacitaOrdinaria - tot.oreRichieste;
     const oreSforate = Math.max(0, tot.oreRichieste - tot.capacitaOrdinaria);
     const oreStraordinarioNecessarie = Math.min(oreSforate, tot.capacitaConStraordinari - tot.capacitaOrdinaria);
