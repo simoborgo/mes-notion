@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSession, FERRAMENTA_ROLES } from "@/lib/auth";
 import { getSchedeOdpAvviate } from "@/lib/schedeRepository";
-import { getOdpConMovimenti } from "@/lib/ferramentaRepository";
+import { getStatoPreparazionePerOdp } from "@/lib/kitFerramentaRepository";
 import FogliScaricoList from "@/components/FogliScaricoList";
 import FerramentaSubNav from "@/components/FerramentaSubNav";
 
@@ -12,16 +12,16 @@ export default async function FogliScaricoPage() {
   if (!session) redirect("/login");
   if (!FERRAMENTA_ROLES.includes(session.role)) redirect("/");
 
-  const [schede, odpConMovimenti] = await Promise.all([getSchedeOdpAvviate(), getOdpConMovimenti()]);
-  const odpConKit = schede
-    .filter(s => s.kitFerramenta === "Si")
-    .map(s => ({
-      id: s.id,
-      odp: s.odp,
-      numeroScheda: s.numeroScheda,
-      clienteInfo: s.clienteInfo,
-      haMovimenti: odpConMovimenti.has(s.id),
-    }));
+  const schede = await getSchedeOdpAvviate();
+  const schedeConKit = schede.filter(s => s.kitFerramenta === "Si");
+  const statoPerOdp = await getStatoPreparazionePerOdp(schedeConKit.map(s => s.id));
+  const odpConKit = schedeConKit.map(s => ({
+    id: s.id,
+    odp: s.odp,
+    numeroScheda: s.numeroScheda,
+    clienteInfo: s.clienteInfo,
+    stato: statoPerOdp.get(s.id) ?? "mancante",
+  }));
 
   return (
     <div className="space-y-4">

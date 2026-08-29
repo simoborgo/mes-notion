@@ -33,6 +33,57 @@ export async function getDistintaKitByOdp(odpId: string): Promise<DistintaKitRig
   return rows.map(mapRow);
 }
 
+export type StatoPreparazione = "mancante" | "parziale" | "completo";
+
+// Stato aggregato di un ODP per la vista kanban del foglio di scarico: replica per ogni riga
+// la stessa logica usata nel dettaglio (quantità scaricata vs pianificata, o toggle "preparato"
+// per le righe a testo libero), poi riduce a un unico stato per l'intero ODP.
+export async function getStatoPreparazionePerOdp(odpIds: string[]): Promise<Map<string, StatoPreparazione>> {
+  const risultato = new Map<string, StatoPreparazione>();
+  if (odpIds.length === 0) return risultato;
+
+  const { rows } = await pool.query(
+    `SELECT r.odp_id, r.articolo_id, r.quantita, r.preparata_il, COALESCE(m.scaricato, 0) AS scaricato
+     FROM kit_ferramenta_righe r
+     LEFT JOIN (
+       SELECT odp_id, articolo_id, SUM(quantita) AS scaricato
+       FROM movimenti_ferramenta
+       WHERE tipo IN ('scarico_kanban', 'scarico_a_pezzo') AND odp_id = ANY($1)
+       GROUP BY odp_id, articolo_id
+     ) m ON m.odp_id = r.odp_id AND m.articolo_id = r.articolo_id::text
+     WHERE r.odp_id = ANY($1)`,
+    [odpIds]
+  );
+
+  const righePerOdp = new Map<string, StatoPreparazione[]>();
+  for (const r of rows) {
+    const odpId = r.odp_id as string;
+    let stato: StatoPreparazione;
+    if (!r.articolo_id) {
+      stato = r.preparata_il ? "completo" : "mancante";
+    } else {
+      const scaricato = Number(r.scaricato);
+      const quantita = Number(r.quantita);
+      stato = scaricato >= quantita ? "completo" : scaricato > 0 ? "parziale" : "mancante";
+    }
+    if (!righePerOdp.has(odpId)) righePerOdp.set(odpId, []);
+    righePerOdp.get(odpId)!.push(stato);
+  }
+
+  for (const odpId of odpIds) {
+    const stati = righePerOdp.get(odpId);
+    if (!stati || stati.length === 0) {
+      risultato.set(odpId, "mancante");
+      continue;
+    }
+    if (stati.every(s => s === "completo")) risultato.set(odpId, "completo");
+    else if (stati.every(s => s === "mancante")) risultato.set(odpId, "mancante");
+    else risultato.set(odpId, "parziale");
+  }
+
+  return risultato;
+}
+
 // Riepilogo testuale su Notion, best-effort: un fallimento qui non deve mai far fallire
 // la mutazione Postgres, che resta l'unica fonte di verità per la distinta.
 async function aggiornaDescrizioneKitSuNotion(odpId: string): Promise<void> {
