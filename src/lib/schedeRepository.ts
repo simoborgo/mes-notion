@@ -113,6 +113,7 @@ function mapRow(r: any, allegati: Awaited<ReturnType<typeof caricaAllegati>>): S
     kitFerramenta: r.kit_ferramenta,
     noteStato: r.note_stato,
     priorita: r.priorita,
+    schedaVerniciaturaId: r.scheda_verniciatura_id,
   };
 }
 
@@ -153,6 +154,14 @@ export async function getSchedeByArea(areaId: string): Promise<Scheda[]> {
 
 export async function getSchedeByCommessa(commessaId: string): Promise<Scheda[]> {
   const { rows } = await pool.query(`${SELECT} WHERE s.commessa_id = $1 AND s.tipologia = 'Scheda' AND s.archiviata = false`, [commessaId]);
+  return mapRows(rows);
+}
+
+// Vista reverse per la tab "Verniciatura" della Scheda di Verniciatura: tutti gli ODP dove quella
+// ricetta è stata effettivamente usata (nessun filtro su tipologia/archiviata — è una lista di
+// audit/tracciabilità, non un elenco di lavoro attivo).
+export async function getSchedeByVerniciaturaId(schedaVerniciaturaId: string): Promise<Scheda[]> {
+  const { rows } = await pool.query(`${SELECT} WHERE s.scheda_verniciatura_id = $1 ORDER BY s.creato_il DESC`, [schedaVerniciaturaId]);
   return mapRows(rows);
 }
 
@@ -341,6 +350,7 @@ export async function updateScheda(id: string, data: SchedaUpdate): Promise<Sche
   // fornitore (testo) ignorato: "Nome Fornitore" non era mai scrivibile nemmeno su Notion (rollup),
   // l'unico modo reale è la FK fornitoreId sotto.
   if (data.fornitoreId !== undefined) { sets.push(`fornitore_id = $${i++}`); values.push(data.fornitoreId); }
+  if (data.schedaVerniciaturaId !== undefined) { sets.push(`scheda_verniciatura_id = $${i++}`); values.push(data.schedaVerniciaturaId); }
   sets.push(`aggiornato_il = now()`);
 
   values.push(id);

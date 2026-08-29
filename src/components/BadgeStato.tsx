@@ -7,10 +7,14 @@ const colorMap: Record<string, { bg: string; text: string }> = {
   "In lavorazione Esterna":   { bg: "#EDE9FE", text: "#5B21B6" },
   "In Lavorazione Esterna":   { bg: "#EDE9FE", text: "#5B21B6" },
   "In Attesa Rilavorazione":  { bg: "#FEF9C3", text: "#92400E" },
-  "Verificato":               { bg: "#D1FAE5", text: "#065F46" },
+  "Verificato":               { bg: "#CFFAFE", text: "#0E7490" },
   "Materiale Pronto":         { bg: "#DBEAFE", text: "#1E40AF" },
   "Completato":               { bg: "#D1FAE5", text: "#065F46" },
   "Annullato":                { bg: "#FEE2E2", text: "#991B1B" },
+  // Casse (Packing List)
+  "Da preparare":             { bg: "#FEF3C7", text: "#92400E" },
+  "Pronta":                   { bg: "#DBEAFE", text: "#1E40AF" },
+  "Caricata":                 { bg: "#D1FAE5", text: "#065F46" },
   // Fase corrente
   "Sviluppo CNC":       { bg: "#EDE9FE", text: "#5B21B6" },
   "Sezionatura":        { bg: "#FEF3C7", text: "#92400E" },
@@ -39,10 +43,8 @@ const colorMap: Record<string, { bg: string; text: string }> = {
   // Legacy
   "Completata":         { bg: "#D1FAE5", text: "#065F46" },
   "Annullata":          { bg: "#FEE2E2", text: "#991B1B" },
-  // Verniciatura — Ciclo (stato)
+  // Verniciatura — Scheda di Verniciatura (stato)
   "Bozza":              { bg: "#FEF3C7", text: "#92400E" },
-  "Validato":           { bg: "#D1FAE5", text: "#065F46" },
-  // Verniciatura — Campionatura (esito)
   "Approvato":          { bg: "#D1FAE5", text: "#065F46" },
   "Rifiutato":          { bg: "#FEE2E2", text: "#991B1B" },
   "In revisione":       { bg: "#FEF9C3", text: "#713F12" },

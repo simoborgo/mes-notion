@@ -10,6 +10,7 @@ import FormNuovaSottoscheda from "./FormNuovaSottoscheda";
 import KitFerramentaTab from "./KitFerramentaTab";
 import SchedaFasiApsTab from "./SchedaFasiApsTab";
 import FornitoreEsternoTab from "./FornitoreEsternoTab";
+import VerniciaturaOdpTab from "./VerniciaturaOdpTab";
 
 interface Props {
   scheda: Scheda;
@@ -19,7 +20,7 @@ interface Props {
   onViewScheda?: (s: Scheda) => void;
   userRole?: Role;
   onSchedaAggiornata?: (updated: Scheda) => void;
-  tabIniziale?: "info" | "fornitore" | "kit" | "aps";
+  tabIniziale?: "info" | "fornitore" | "kit" | "aps" | "verniciatura";
 }
 
 function fmt(d: string | null) {
@@ -306,7 +307,7 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
   const [showNuovaSottoscheda, setShowNuovaSottoscheda] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const [eliminaError, setEliminaError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"info" | "fornitore" | "kit" | "aps">(tabIniziale ?? "info");
+  const [activeTab, setActiveTab] = useState<"info" | "fornitore" | "kit" | "aps" | "verniciatura">(tabIniziale ?? "info");
   const [showNoteStato, setShowNoteStato] = useState(false);
   const canFerramenta = !!userRole && FERRAMENTA_ROLES.includes(userRole);
 
@@ -322,7 +323,7 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
     return () => { cancelled = true; };
   }, [s.parentId]);
 
-  const tabs: { key: "info" | "fornitore" | "kit" | "aps"; label: string; icon: React.ReactNode }[] = [
+  const tabs: { key: "info" | "fornitore" | "kit" | "aps" | "verniciatura"; label: string; icon: React.ReactNode }[] = [
     {
       key: "info", label: "Info",
       icon: (
@@ -336,6 +337,14 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
       icon: (
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="1" y="3" width="15" height="13" /><polygon points="16 8 20 8 23 11 23 16 16 16 16 8" /><circle cx="5.5" cy="18.5" r="2.5" /><circle cx="18.5" cy="18.5" r="2.5" />
+        </svg>
+      ),
+    },
+    {
+      key: "verniciatura", label: "Verniciatura",
+      icon: (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M5 8V4a1 1 0 0 1 1-1h8l5 5v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-2" /><path d="M2 16l4-4 3 3-4 4-3-3z" />
         </svg>
       ),
     },
@@ -613,6 +622,10 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
 
           {activeTab === "fornitore" && (
             <FornitoreEsternoTab key={s.id} scheda={s} userRole={userRole} onSchedaAggiornata={onSchedaAggiornata} />
+          )}
+
+          {activeTab === "verniciatura" && (
+            <VerniciaturaOdpTab key={s.id} scheda={s} userRole={userRole} onSchedaAggiornata={onSchedaAggiornata} />
           )}
 
           {activeTab === "info" && <>

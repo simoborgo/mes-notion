@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Vernice } from "@/lib/types";
 
 function etichetta(v: Vernice): string {
-  const parti = [v.coloreCodice || v.descrizioneColore, v.tipologia, v.codiceInventario ? `#${v.codiceInventario}` : null];
+  const parti = [v.coloreCodice, v.descrizioneColore, v.tipologia, v.codiceInventario ? `#${v.codiceInventario}` : null];
   return parti.filter(Boolean).join(" · ");
 }
 
@@ -14,7 +14,7 @@ function etichetta(v: Vernice): string {
 // ricerca full-text sarebbe scomodo da usare in produzione (colore_codice/tipologia).
 //
 // Il dropdown è position:fixed (non absolute) con coordinate calcolate da getBoundingClientRect():
-// dentro il modal CicloModal l'elemento vive in un contenitore overflow-y-auto, che con
+// dentro il modal SchedaVerniciaturaModal l'elemento vive in un contenitore overflow-y-auto, che con
 // position:absolute tagliava/rimpiccioliva la lista rendendola inutilizzabile — fixed esce dal
 // clipping degli antenati con overflow (non essendoci transform/filter tra l'input e il viewport).
 export default function VerniceSelect({

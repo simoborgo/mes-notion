@@ -3,9 +3,10 @@ import { pool } from "./db";
 import { prefissoBarcodeCliente } from "./verniciNormalizers";
 
 // Genera un nuovo codice_pubblico via upsert atomico sul contatore cliente/anno.
-// Va chiamata DENTRO la transazione dell'insert campionatura, con lo stesso client
+// Va chiamata DENTRO la transazione dell'insert scheda, con lo stesso client
 // (l'UPSERT con ON CONFLICT è atomico in Postgres: nessun rischio di race condition
-// anche con insert concorrenti sullo stesso cliente).
+// anche con insert concorrenti sullo stesso cliente). Il contatore resta indicizzato per nome
+// cliente testo (contatori_barcode_cliente non dipende dalla FK cliente_id).
 export async function generaCodicePubblico(client: PoolClient, cliente: string): Promise<string> {
   const anno = new Date().getFullYear();
   const prefisso = prefissoBarcodeCliente(cliente);
@@ -22,15 +23,15 @@ export async function generaCodicePubblico(client: PoolClient, cliente: string):
   return `${prefisso}-${anno}-${String(contatore).padStart(4, "0")}`;
 }
 
-// Vernici principali (ruolo_in_fase='vernice') usate in un ciclo, su tutte le sue fasi —
-// usato per confrontare "stesse vernici principali" tra due cicli in fase di riuso barcode.
-async function getVerniciPrincipaliDelCiclo(cicloId: string, executor: Pool | PoolClient): Promise<Set<string>> {
+// Vernici principali (ruolo_in_fase='vernice') usate in una scheda, su tutte le sue fasi —
+// usato per confrontare "stesse vernici principali" tra due schede in fase di riuso barcode.
+async function getVerniciPrincipaliDellaScheda(schedaId: string, executor: Pool | PoolClient): Promise<Set<string>> {
   const { rows } = await executor.query(
-    `SELECT DISTINCT cfp.vernice_id
-     FROM cicli_fasi_prodotti cfp
-     JOIN cicli_fasi cf ON cf.id = cfp.fase_id
-     WHERE cf.ciclo_id = $1 AND cfp.ruolo_in_fase = 'vernice'`,
-    [cicloId]
+    `SELECT DISTINCT svfp.vernice_id
+     FROM schede_verniciatura_fasi_prodotti svfp
+     JOIN schede_verniciatura_fasi svf ON svf.id = svfp.fase_id
+     WHERE svf.scheda_id = $1 AND svfp.ruolo_in_fase = 'vernice'`,
+    [schedaId]
   );
   return new Set(rows.map((r) => r.vernice_id as string));
 }
@@ -41,28 +42,27 @@ function setsEqual(a: Set<string>, b: Set<string>): boolean {
   return true;
 }
 
-// Cerca una campionatura approvata esistente per lo stesso cliente e le stesse vernici
-// principali del ciclo indicato — se trovata, il suo codice_pubblico va riusato invece di
-// generarne uno nuovo (continuità del barcode verso il cliente).
+// Cerca una scheda approvata esistente per lo stesso cliente e le stesse vernici principali
+// della scheda indicata — se trovata, il suo codice_pubblico va riusato invece di generarne uno
+// nuovo (continuità del barcode verso il cliente).
 export async function trovaCodicePubblicoRiusabile(
-  cliente: string,
-  cicloId: string,
+  clienteId: number,
+  schedaId: string,
   executor: Pool | PoolClient = pool
 ): Promise<string | null> {
-  const targetSet = await getVerniciPrincipaliDelCiclo(cicloId, executor);
+  const targetSet = await getVerniciPrincipaliDellaScheda(schedaId, executor);
   if (targetSet.size === 0) return null;
 
   const { rows } = await executor.query(
-    `SELECT id, codice_pubblico, ciclo_id
-     FROM campionature
-     WHERE cliente = $1 AND esito = 'approvato' AND attivo = true
+    `SELECT id, codice_pubblico
+     FROM schede_verniciatura
+     WHERE cliente_id = $1 AND stato = 'approvato' AND attivo = true AND id != $2
      ORDER BY created_at DESC`,
-    [cliente]
+    [clienteId, schedaId]
   );
 
   for (const row of rows) {
-    if (row.ciclo_id === cicloId) return row.codice_pubblico as string;
-    const candidateSet = await getVerniciPrincipaliDelCiclo(row.ciclo_id as string, executor);
+    const candidateSet = await getVerniciPrincipaliDellaScheda(row.id as string, executor);
     if (setsEqual(targetSet, candidateSet)) return row.codice_pubblico as string;
   }
   return null;

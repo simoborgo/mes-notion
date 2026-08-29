@@ -36,6 +36,9 @@ export interface Scheda {
   kitFerramenta: string;
   noteStato: string;
   priorita: PrioritaOdp;
+  // Ricetta di verniciatura usata per questo ODP (1 scheda_verniciatura può essere referenziata da
+  // molti ODP nel tempo — cardinalità 1:N, vedi VerniciaturaOdpTab.tsx).
+  schedaVerniciaturaId: string | null;
 }
 
 export type PrioritaOdp = "critica" | "alta" | "media" | "bassa";
@@ -59,6 +62,7 @@ export interface SchedaUpdate {
   dataSchedaRicevuta?: string | null;
   noteStato?: string;
   areaId?: string | null;
+  schedaVerniciaturaId?: string | null;
 }
 
 export interface Ritiro {
@@ -334,8 +338,11 @@ export const TIPI_BILANCIO_MASSA_VERNICIATURA: TipoBilancioMassa[] = [
   "FONDO POLIESTERE", "VERNICE NITRO", "TINTA SOLVENTE",
 ];
 export type RuoloInFase = "vernice" | "catalizzatore" | "diluente" | "indurente" | "additivo" | "altro";
-export type EsitoCampionatura = "approvato" | "rifiutato" | "in_revisione";
-export type StatoCiclo = "bozza" | "validato";
+// Stato unificato della Scheda di Verniciatura (fonde l'ex StatoCiclo/bozza-validato con l'ex
+// EsitoCampionatura/approvato-rifiutato-in_revisione): bozza -> in_revisione -> approvato|rifiutato.
+// "approvato" è l'ex "validato". Se rifiutato, si genera una nuova versione (genera-figlio) che
+// riparte da bozza, invece di sbloccare la stessa riga.
+export type StatoSchedaVerniciatura = "bozza" | "in_revisione" | "approvato" | "rifiutato";
 
 // Valori più frequenti osservati nel catalogo reale (ETICHETTE_VERNICI_estratto.csv,
 // 2026-08-08). Suggerimento in UI, non un vincolo DB: tipologia resta TEXT libero in
@@ -569,7 +576,7 @@ export interface ProfiloMetallicoUpdate {
   attivo?: boolean;
 }
 
-export interface CicloFaseProdottoRiga {
+export interface SchedaFaseProdottoRiga {
   id: string;
   verniceId: string;
   ruoloInFase: RuoloInFase;
@@ -580,52 +587,49 @@ export interface CicloFaseProdottoRiga {
   note: string | null;
 }
 
-export interface CicloFase {
+export interface SchedaFase {
   id: string;
   ordine: number;
   nomeFase: string | null;
   note: string | null;
-  prodotti: CicloFaseProdottoRiga[];
+  prodotti: SchedaFaseProdottoRiga[];
 }
 
-export interface Ciclo {
-  id: string;
-  nome: string | null;
-  cicloPadreId: string | null;
-  stato: StatoCiclo;
-  versione: number;
-  validatoAt: string | null;
-  validatoDaCampionaturaId: string | null;
-  note: string | null;
-  // Sempre presenti nella distinta di verniciatura reale, insieme a Commessa/Negozio.
-  essenza: string | null;
-  ignifuga: boolean | null;
-  attivo: boolean;
-  createdAt: string;
-  updatedAt: string;
-  fasi?: CicloFase[];
-}
-
-export interface CampionaturaFoto {
+export interface SchedaVerniciaturaFoto {
   id: string;
   driveFileId: string;
   nomeFile: string | null;
   ordine: number | null;
 }
 
-export interface Campionatura {
+// Scheda di Verniciatura: unifica l'ex Ciclo (fasi ordinate + vernici) e l'ex Campionatura
+// (cliente, riferimento colore, barcode, foto) in un'unica entità versionata — ogni versione è
+// una prova, fino alla validazione (approvato/rifiutato) del campione. Vedi
+// schedeVerniciaturaRepository.ts e la migration fase12 per il contesto della fusione.
+export interface SchedaVerniciatura {
   id: string;
-  cicloId: string;
-  cliente: string;
-  codiceCampioneMaterialista: string | null;
-  codicePubblico: string;
-  dataCampionatura: string;
-  esito: EsitoCampionatura;
+  nome: string | null;
+  schedaPadreId: string | null;
+  stato: StatoSchedaVerniciatura;
+  versione: number;
+  validatoAt: string | null;
   note: string | null;
+  // Sempre presenti nella distinta di verniciatura reale, insieme a Commessa/Negozio.
+  essenza: string | null;
+  ignifuga: boolean | null;
+  // Cliente, commessa di origine e riferimento colore: impostati alla creazione (v1) ed ereditati
+  // automaticamente in ogni prova successiva generata (genera-figlio) — non editabili per singola
+  // versione. numeroCommessa è denormalizzato (join) solo per comodità di visualizzazione.
+  cliente: string | null;
+  commessaId: string | null;
+  numeroCommessa: string | null;
+  codiceCampioneMaterialista: string | null;
+  codicePubblico: string | null;
+  dataProva: string;
   driveFolderId: string | null;
   attivo: boolean;
-  validatoAt: string | null;
   createdAt: string;
   updatedAt: string;
-  foto?: CampionaturaFoto[];
+  fasi?: SchedaFase[];
+  foto?: SchedaVerniciaturaFoto[];
 }

@@ -12,8 +12,7 @@ interface Tab {
 
 const TABS: Tab[] = [
   { href: "/verniciatura", label: "Vernici", match: (p) => p === "/verniciatura" },
-  { href: "/verniciatura/cicli", label: "Cicli", match: (p) => p.startsWith("/verniciatura/cicli") },
-  { href: "/verniciatura/campionature", label: "Campionature", match: (p) => p.startsWith("/verniciatura/campionature") },
+  { href: "/verniciatura/schede", label: "Schede di Verniciatura", match: (p) => p.startsWith("/verniciatura/schede") },
   { href: "/verniciatura/magazzino", label: "Magazzino", magazzino: true, match: (p) => p.startsWith("/verniciatura/magazzino") },
 ];
 
@@ -21,8 +20,8 @@ const TABS: Tab[] = [
 // pattern flat di FerramentaSubNav), ma con accent colorato invece del solo arancione primary
 // — sezione volutamente "un po' più colorata" del resto del MES, su richiesta esplicita.
 //
-// canProduzione/canMagazzino: chi ha solo il ruolo magazziniere_vernici non vede Vernici/Cicli/
-// Campionature (richiedono VERNICIATURA_ROLES); chi ha solo produzione/admin non vede Magazzino
+// canProduzione/canMagazzino: chi ha solo il ruolo magazziniere_vernici non vede Vernici/Schede
+// (richiedono VERNICIATURA_ROLES); chi ha solo produzione/admin non vede Magazzino
 // se non ha anche MAGAZZINO_VERNICI_ROLES — admin vede sempre entrambi i gruppi.
 export default function VerniciaturaSubNav({ canProduzione, canMagazzino }: { canProduzione: boolean; canMagazzino: boolean }) {
   const pathname = usePathname();

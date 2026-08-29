@@ -46,6 +46,25 @@ export default function VerniceFormModal({ vernice, onClose, onSalvato }: Props)
   const tsInputRef = useRef<HTMLInputElement>(null);
   const sdsInputRef = useRef<HTMLInputElement>(null);
 
+  // Governa se il click sul backdrop può chiudere senza chiedere conferma (stesso pattern di
+  // SchedaVerniciaturaModal): confronta lo stato corrente coi valori di partenza (vernice
+  // esistente, o vuoto in creazione).
+  const dirty =
+    coloreCodice !== (vernice?.coloreCodice ?? "") ||
+    descrizioneColore !== (vernice?.descrizioneColore ?? "") ||
+    fornitore !== (vernice?.fornitore ?? "") ||
+    codiceTintometro !== (vernice?.codiceTintometro ?? "") ||
+    codiceVendita !== (vernice?.codiceVendita ?? "") ||
+    codiceInventario !== (vernice?.codiceInventario ?? "") ||
+    unitaMisura !== (vernice?.unitaMisura ?? "") ||
+    tipologia !== (vernice?.tipologia ?? "") ||
+    finitura !== (vernice?.finitura ?? "") ||
+    gloss !== (vernice?.gloss ?? "") ||
+    tipoBilancioMassa !== (vernice?.tipoBilancioMassa ?? "") ||
+    bilancioMassaRaw !== (vernice?.bilancioMassaRaw ?? "") ||
+    clienteRiferimento !== (vernice?.clienteRiferimento ?? "") ||
+    attivo !== (vernice?.attivo ?? true);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!tipologia.trim()) {
@@ -102,7 +121,7 @@ export default function VerniceFormModal({ vernice, onClose, onSalvato }: Props)
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => { if (!dirty) onClose(); }}>
       <div className="w-full max-w-2xl bg-white rounded-lg shadow-2xl overflow-y-auto max-h-[90vh]" style={{ borderRadius: "var(--radius-modal)" }} onClick={(e) => e.stopPropagation()}>
         <div className="px-6 py-4 border-b flex items-start justify-between" style={{ background: "linear-gradient(135deg, rgba(124,58,237,0.06), rgba(219,39,119,0.06))" }}>
           <div>
