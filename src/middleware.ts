@@ -5,9 +5,11 @@ const PUBLIC_PATHS = ["/login", "/api/auth", "/api/webhooks", "/riordino"];
 const COOKIE_NAME = "mes_session";
 
 function getSecret(): Uint8Array {
-  return new TextEncoder().encode(
-    process.env.JWT_SECRET ?? "dev-fallback-secret-min-32-chars-!!!!"
-  );
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET non configurata: impostare la variabile d'ambiente prima dell'avvio");
+  }
+  return new TextEncoder().encode(secret);
 }
 
 async function verifyToken(token: string) {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { repo, SCHEDA_REGEX } from "@/lib/verificheServices";
-import { getSessionFromRequest } from "@/lib/auth";
+import { getSessionFromRequest, SPEDIZIONI_ROLES } from "@/lib/auth";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ scheda: string }> }) {
   const { scheda } = await params; // scheda = notion_page_id
@@ -8,7 +8,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ sch
     return NextResponse.json({ ok: false, error: `ID scheda non valido: "${scheda}"` }, { status: 400 });
   }
   const session = await getSessionFromRequest(req);
-  if (!session) return NextResponse.json({ ok: false, error: "Non autenticato" }, { status: 401 });
+  if (!session || !SPEDIZIONI_ROLES.includes(session.role)) {
+    return NextResponse.json({ ok: false, error: "Non autorizzato" }, { status: 403 });
+  }
 
   const body = await req.json().catch(() => ({}));
   const operatore = session.name;
@@ -42,7 +44,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ sch
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ scheda: string }> }) {
   const { scheda } = await params;
   const session = await getSessionFromRequest(req);
-  if (!session) return NextResponse.json({ ok: false, error: "Non autenticato" }, { status: 401 });
+  if (!session || !SPEDIZIONI_ROLES.includes(session.role)) {
+    return NextResponse.json({ ok: false, error: "Non autorizzato" }, { status: 403 });
+  }
   const operatore = session.name;
 
   try {

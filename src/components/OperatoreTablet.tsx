@@ -11,6 +11,7 @@ interface OperatoreLoggato {
   nome: string;
   reparto: string;
   azienda: string;
+  token: string;
 }
 
 interface SegmentoChiuso {
@@ -156,7 +157,7 @@ function SelettoreOperatore({ onOk }: { onOk: (op: OperatoreLoggato) => void }) 
           setPin("");
           return;
         }
-        onOk({ matricola: json.matricola, cognome: json.cognome, nome: json.nome, reparto: json.reparto, azienda: json.azienda });
+        onOk({ matricola: json.matricola, cognome: json.cognome, nome: json.nome, reparto: json.reparto, azienda: json.azienda, token: json.token });
       } catch {
         setErrore("Errore di rete");
         setPin("");
@@ -244,8 +245,11 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
   const [gap, setGap] = useState<{ inizioTurno: string; oraAttuale: string } | null>(null);
   const [gapOdp, setGapOdp] = useState<string | null>(null);
 
+  const authHeaders = useMemo(() => ({ Authorization: `Bearer ${operatore.token}` }), [operatore.token]);
+
   const caricaStato = useCallback(async (precompila = false) => {
-    const res = await fetch(`/api/ore/operatore/stato?matricola=${operatore.matricola}`);
+    const res = await fetch("/api/ore/operatore/stato", { headers: authHeaders });
+    if (res.status === 401) { onCambiaOperatore(); return; }
     const json = await res.json();
     if (res.ok) {
       setAperto(json.aperto);
@@ -255,7 +259,7 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
         setOdp(json.odpGiornoPrecedente);
       }
     }
-  }, [operatore.matricola]);
+  }, [authHeaders, onCambiaOperatore]);
 
   useEffect(() => {
     setLoading(true);
@@ -272,9 +276,10 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
     try {
       const res = await fetch("/api/ore/operatore/segmento", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ matricola: operatore.matricola, odp, rif, gapRisposta }),
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify({ odp, rif, gapRisposta }),
       });
+      if (res.status === 401) { onCambiaOperatore(); return; }
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Errore salvataggio");
       if (json.gapRichiesto) {
@@ -304,9 +309,10 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
     try {
       const res = await fetch("/api/ore/operatore/segmento", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ matricola: operatore.matricola, odp: aperto.odp, rif: true }),
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify({ odp: aperto.odp, rif: true }),
       });
+      if (res.status === 401) { onCambiaOperatore(); return; }
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Errore salvataggio");
       await caricaStato();
@@ -323,9 +329,9 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
     try {
       const res = await fetch("/api/ore/operatore/fine-giornata", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ matricola: operatore.matricola }),
+        headers: { "Content-Type": "application/json", ...authHeaders },
       });
+      if (res.status === 401) { onCambiaOperatore(); return; }
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Errore salvataggio");
       await caricaStato();

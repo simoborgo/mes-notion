@@ -154,10 +154,10 @@ async function addFoto({ notionPageId, schedaNumero, driveId, driveUrl, operator
   return rows[0];
 }
 
-async function removeFoto(fotoId) {
+async function removeFoto(fotoId, notionPageId) {
   const { rows } = await pool.query(
-    `DELETE FROM verifiche_foto WHERE id = $1 RETURNING *`,
-    [fotoId]
+    `DELETE FROM verifiche_foto WHERE id = $1 AND notion_page_id = $2 RETURNING *`,
+    [fotoId, notionPageId]
   );
   if (rows[0]) {
     await pool.query(

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSegmentoAperto, getSegmentiOggi } from "@/lib/segmentiOperatoreRepository";
 import { getOdpGiornoPrecedenteMap } from "@/lib/oreRepository";
-import { getSessionFromRequest } from "@/lib/auth";
+import { getSessionFromRequest, getOperatoreMatricolaFromRequest } from "@/lib/auth";
 
 function oggiStr(): string {
   const d = new Date();
@@ -20,9 +20,8 @@ export async function GET(req: NextRequest) {
   const session = await getSessionFromRequest(req);
   if (!session) return NextResponse.json({ error: "Non autorizzato" }, { status: 403 });
 
-  const { searchParams } = new URL(req.url);
-  const matricola = searchParams.get("matricola");
-  if (!matricola) return NextResponse.json({ error: "Parametro matricola mancante" }, { status: 400 });
+  const matricola = await getOperatoreMatricolaFromRequest(req);
+  if (!matricola) return NextResponse.json({ error: "PIN operatore non verificato o scaduto" }, { status: 401 });
 
   try {
     const oggi = oggiStr();

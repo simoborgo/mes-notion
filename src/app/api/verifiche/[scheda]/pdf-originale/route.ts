@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { notionSvc, SCHEDA_REGEX } from "@/lib/verificheServices";
 import { getSessionFromRequest } from "@/lib/auth";
+import { getPdfOriginaleDaDrive } from "@/lib/schedeRepository";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ scheda: string }> }) {
   const { scheda } = await params; // notion_page_id — usato direttamente per fetch Notion
@@ -11,9 +12,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ sche
   if (!session) return NextResponse.json({ ok: false, error: "Non autenticato" }, { status: 401 });
 
   try {
-    const buffer = await notionSvc.getPdfOriginale(scheda);
+    const buffer = await getPdfOriginaleDaDrive(scheda) ?? await notionSvc.getPdfOriginale(scheda);
     if (!buffer) {
-      return NextResponse.json({ ok: false, error: "Nessun PDF nella property 'PDF Allegato' su Notion" }, { status: 404 });
+      return NextResponse.json({ ok: false, error: "Nessun PDF Allegato trovato per questa scheda" }, { status: 404 });
     }
 
     return new NextResponse(new Uint8Array(buffer), {

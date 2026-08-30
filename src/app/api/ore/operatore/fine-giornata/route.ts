@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOperatori } from "@/lib/operatoriRepository";
 import { chiudiSegmentoCorrente } from "@/lib/segmentiOperatoreRepository";
-import { getSessionFromRequest } from "@/lib/auth";
+import { getSessionFromRequest, getOperatoreMatricolaFromRequest } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
   const session = await getSessionFromRequest(req);
   if (!session) return NextResponse.json({ error: "Non autorizzato" }, { status: 403 });
 
-  const body = await req.json().catch(() => ({}));
-  const { matricola } = body;
-  if (!matricola) return NextResponse.json({ error: "matricola obbligatoria" }, { status: 400 });
+  const matricola = await getOperatoreMatricolaFromRequest(req);
+  if (!matricola) return NextResponse.json({ error: "PIN operatore non verificato o scaduto" }, { status: 401 });
 
   try {
     const operatori = await getOperatori();

@@ -12,6 +12,7 @@ import {
   uploadCopertina as driveUploadCopertina,
   uploadFoto as driveUploadFoto,
   deleteDriveFile,
+  downloadDriveFile,
 } from "./googleDriveSchede";
 
 const SELECT = `
@@ -445,6 +446,17 @@ export async function getPrimoPdfAllegatoDriveFileId(schedaId: string): Promise<
     [schedaId],
   );
   return rows[0]?.drive_file_id ?? null;
+}
+
+// PDF originale da annotare/verificare per una Scheda: le Schede create dopo la migrazione a
+// Postgres hanno id = gen_random_uuid() (vedi createSchedaPage), quindi non corrispondono a
+// nessuna pagina Notion reale — il fetch da Notion fallirebbe. Per queste si legge invece il primo
+// PDF Allegato già su Drive. Ritorna null se la Scheda non ha alcun PDF Allegato su Drive: in quel
+// caso il chiamante ricade sul vecchio fetch da Notion (Schede legacy, dove id == notion_page_id —
+// deciso con l'utente 2026-08-30: non serve migrarle, stanno già completando).
+export async function getPdfOriginaleDaDrive(schedaId: string): Promise<Buffer | null> {
+  const driveFileId = await getPrimoPdfAllegatoDriveFileId(schedaId);
+  return driveFileId ? downloadDriveFile(driveFileId) : null;
 }
 
 // ── File: PDF Allegato / Ordine Fornitore / Foto (liste additive) / Copertina (sostituisce) ────

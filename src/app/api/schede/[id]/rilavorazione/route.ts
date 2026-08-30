@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getSessionFromRequest, MODIFICA_SCHEDA_ROLES } from "@/lib/auth";
 import { createRilavorazione } from "@/lib/ritiriRepository";
-import { appendPdfAllegatoToScheda } from "@/lib/schedeRepository";
+import { appendPdfAllegatoToScheda, getPdfOriginaleDaDrive } from "@/lib/schedeRepository";
 import { notionSvc } from "@/lib/verificheServices";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -72,7 +72,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // Build + upload flattened PDF (with optional annotations and photos)
     if (body.sourcePdfPageId) {
       try {
-        const originalBytes = await notionSvc.getPdfOriginale(body.sourcePdfPageId);
+        const originalBytes = await getPdfOriginaleDaDrive(body.sourcePdfPageId)
+          ?? await notionSvc.getPdfOriginale(body.sourcePdfPageId);
         if (originalBytes) {
           const fotoBuffers: Buffer[] = (body.fotoBase64 ?? []).map((b64) => {
             const base64Data = b64.replace(/^data:[^;]+;base64,/, "");

@@ -797,6 +797,38 @@ qui blocca l'accesso di tutti al MES.
 
 ---
 
+## Infrastruttura / Sicurezza
+
+### Database Postgres esposto su internet pubblico senza TLS
+
+**Stato:** diagnosticato durante un audit di sicurezza (sessione 2026-08-30), intervento
+rimandato — richiede accesso SSH/pannello alla VPS del database, non solo modifiche al codice
+
+`src/lib/db.ts:5` ha `ssl: process.env.DATABASE_SSL === "false" ? false : { rejectUnauthorized: false }`.
+Verificato in `.env.local`: `DATABASE_SSL=false`, quindi oggi la connessione a Postgres
+(`DATABASE_URL` → `187.124.165.75:5432`) **non usa TLS per niente** — non è il caso "TLS con
+certificato non verificato" originariamente ipotizzato dall'audit, è proprio traffico in chiaro.
+L'utente ha confermato che il database è raggiungibile da internet pubblico (non solo da una rete
+privata/VPN) e che non sa se Postgres abbia mai avuto TLS configurato lato server.
+
+Rischio concreto: credenziali di connessione e tutti i dati applicativi (compresi username/password
+degli utenti MES in transito nelle query, dati clienti/commesse) viaggiano in chiaro su una
+connessione esposta pubblicamente — intercettabili da chiunque sulla rete di transito.
+
+**Come affrontarla, quando c'è accesso alla VPS**: due interventi separati, in ordine di priorità:
+1. **Restringere il firewall** del server Postgres per accettare connessioni solo dall'IP del
+   server dell'app (non da tutto internet) — riduce drasticamente l'esposizione, non tocca il
+   codice dell'app, è il fix a più alto valore/più basso rischio da fare per primo.
+2. **Abilitare TLS lato Postgres** (certificato anche autofirmato, `postgresql.conf` `ssl = on`,
+   `pg_hba.conf` per richiedere `hostssl`), poi aggiornare `src/lib/db.ts` per usarlo — attenzione:
+   cambiare `src/lib/db.ts` per pretendere TLS PRIMA che Postgres lo supporti lato server rompe
+   subito la connessione e porta giù l'app in produzione; va fatto server-first, poi codice.
+
+Non implementare in autonomia senza accesso diretto alla VPS e senza che l'utente sia presente per
+verificare che l'app resti raggiungibile dopo ogni passo.
+
+---
+
 ## Modulo APS (Advanced Planning & Scheduling)
 
 ### Tabella Schede di Produzione: filtri "Archiviate" e "Fasi APS da pianificare"
@@ -819,3 +851,32 @@ parametro di `getSchede()` che non filtri `archiviata`), più un conteggio/badge
 `schede_fasi` con `stato_fase = 'Da iniziare'` (richiede una query aggiuntiva o una JOIN in
 `getSchede()`) con relativo filtro. Pensato esplicitamente come aiuto di debug/verifica, non come
 sostituto della futura UI Gantt.
+
+---
+
+## Verifiche Spedizioni
+
+### Gestione di più PDF Allegati per una Scheda
+
+**Stato:** annotata dall'utente (sessione 2026-08-30), non ancora specificata nei dettagli — non
+implementare finché non richiesta esplicitamente
+
+Emerso durante il fix "leggi il PDF originale da Drive invece che da Notion per le Schede create
+dopo la migrazione a Postgres" (annota-pdf, rilavorazione, verifiche/pdf-originale,
+verifiche/finalize). Il nuovo helper `getPdfOriginaleDaDrive()`
+(`src/lib/schedeRepository.ts`) — come già il vecchio fetch da Notion, che leggeva una singola
+property "PDF Allegato" — prende sempre e solo il **primo** PDF Allegato di una Scheda
+(`getPrimoPdfAllegatoDriveFileId`, `ORDER BY ordine LIMIT 1`). Quando una Scheda ha più PDF
+allegati (`scheda_pdf_allegato` può contenerne più di uno), tutti gli altri vengono ignorati sia
+in Verifiche Spedizioni (annotazione/verifica) sia nel flusso Rilavorazione.
+
+L'utente ha segnalato il gap esplicitamente ma non ha ancora deciso il comportamento voluto: se
+Verifiche Spedizioni deve permettere di **scegliere quale allegato** verificare/annotare, se deve
+**unirli** in un unico PDF, o qualcos'altro.
+
+**Come affrontarla, quando richiesto**: chiarire con l'utente il caso d'uso reale (perché una
+Scheda finisce con più PDF Allegati — versioni successive? disegni diversi per lo stesso pezzo?) e
+solo dopo scegliere tra selezione esplicita (UI con elenco allegati) o merge automatico. Il punto
+di innesto naturale è `getPdfOriginaleDaDrive()`: oggi ritorna un singolo `Buffer`, andrebbe esteso
+o affiancato da una variante che ritorna tutti i `drive_file_id` di `scheda_pdf_allegato` per quella
+Scheda, lasciando al chiamante (route Verifiche Spedizioni) la logica di scelta/merge.

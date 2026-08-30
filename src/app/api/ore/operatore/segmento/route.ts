@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getOperatori } from "@/lib/operatoriRepository";
 import { apriSegmento, registraSegmentoRetroattivo, getSegmentoAperto, getSegmentiOggi } from "@/lib/segmentiOperatoreRepository";
 import { getOrariTurno, OrariTurno } from "@/lib/parametriGeneraliRepository";
-import { getSessionFromRequest } from "@/lib/auth";
+import { getSessionFromRequest, getOperatoreMatricolaFromRequest } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
 // Oltre questa soglia dall'inizio nominale del turno, la conferma del primo ODP della giornata
@@ -31,10 +31,13 @@ export async function POST(req: NextRequest) {
   const session = await getSessionFromRequest(req);
   if (!session) return NextResponse.json({ error: "Non autorizzato" }, { status: 403 });
 
+  const matricola = await getOperatoreMatricolaFromRequest(req);
+  if (!matricola) return NextResponse.json({ error: "PIN operatore non verificato o scaduto" }, { status: 401 });
+
   const body = await req.json().catch(() => ({}));
-  const { matricola, odp, rif, gapRisposta } = body;
-  if (!matricola || !odp) {
-    return NextResponse.json({ error: "matricola e odp sono obbligatori" }, { status: 400 });
+  const { odp, rif, gapRisposta } = body;
+  if (!odp) {
+    return NextResponse.json({ error: "odp obbligatorio" }, { status: 400 });
   }
 
   try {

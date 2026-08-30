@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOperatori } from "@/lib/operatoriRepository";
 import { verificaPin } from "@/lib/operatoriPinRepository";
-import { getSessionFromRequest } from "@/lib/auth";
+import { getSessionFromRequest, signOperatoreToken } from "@/lib/auth";
 
 const MAX_TENTATIVI = 5;
 const FINESTRA_MS = 60_000;
@@ -49,7 +49,8 @@ export async function POST(req: NextRequest) {
     const operatori = await getOperatori();
     const op = operatori.find(o => o.matricola === matricola);
     if (!op) return NextResponse.json({ error: "Operatore non trovato o non più in forza" }, { status: 404 });
-    return NextResponse.json({ ok: true, matricola: op.matricola, cognome: op.cognome, nome: op.nome, reparto: op.reparto, azienda: op.azienda });
+    const token = await signOperatoreToken(op.matricola);
+    return NextResponse.json({ ok: true, token, matricola: op.matricola, cognome: op.cognome, nome: op.nome, reparto: op.reparto, azienda: op.azienda });
   } catch (e) {
     console.error("[ore/operatore/verifica-pin]", e);
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });

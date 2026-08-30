@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { repo, driveSvc, notionSvc, SCHEDA_REGEX } from "@/lib/verificheServices";
 import { getAuthClient } from "@/lib/googleDriveAuth";
-import { getSessionFromRequest } from "@/lib/auth";
-import { updateSchedaStato } from "@/lib/schedeRepository";
+import { getSessionFromRequest, SPEDIZIONI_ROLES } from "@/lib/auth";
+import { updateSchedaStato, getPdfOriginaleDaDrive } from "@/lib/schedeRepository";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { buildVerificaPdf } = require("../../../../../../verifiche-backend/pdfBuilder");
@@ -14,7 +14,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ sch
     return NextResponse.json({ ok: false, error: "ID scheda non valido" }, { status: 400 });
   }
   const session = await getSessionFromRequest(req);
-  if (!session) return NextResponse.json({ ok: false, error: "Non autenticato" }, { status: 401 });
+  if (!session || !SPEDIZIONI_ROLES.includes(session.role)) {
+    return NextResponse.json({ ok: false, error: "Non autorizzato" }, { status: 403 });
+  }
   const operatore = session.name;
 
   const holdsIt = await repo.holdsLock(scheda, operatore);
@@ -55,8 +57,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ sch
       }
     }
 
-    // Get original PDF from Notion
-    const originalBytes = await notionSvc.getPdfOriginale(scheda);
+    // Get original PDF: prima Drive (Schede post-migrazione), poi Notion (legacy)
+    const originalBytes = await getPdfOriginaleDaDrive(scheda) ?? await notionSvc.getPdfOriginale(scheda);
     if (!originalBytes) {
       return NextResponse.json({ ok: false, error: "PDF originale non trovato su Notion — verifica che la proprietà 'PDF Allegato' sia compilata" }, { status: 404 });
     }

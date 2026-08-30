@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionFromRequest } from "@/lib/auth";
+import { getSessionFromRequest, MODIFICA_SCHEDA_ROLES } from "@/lib/auth";
 import { notionSvc } from "@/lib/verificheServices";
-import { appendPdfAllegatoToScheda } from "@/lib/schedeRepository";
+import { appendPdfAllegatoToScheda, getPdfOriginaleDaDrive } from "@/lib/schedeRepository";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { buildVerificaPdf } = require("../../../../../../verifiche-backend/pdfBuilder");
@@ -11,7 +11,9 @@ type Stamp = { x: number; y: number; tipo: string };
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSessionFromRequest(req);
-  if (!session) return NextResponse.json({ ok: false, error: "Non autorizzato" }, { status: 401 });
+  if (!session || !MODIFICA_SCHEDA_ROLES.includes(session.role)) {
+    return NextResponse.json({ ok: false, error: "Permesso negato" }, { status: 403 });
+  }
 
   const { id: rilavorazionePageId } = await params;
 
@@ -26,7 +28,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ ok: false, error: "sourcePdfPageId mancante" }, { status: 400 });
   }
 
-  const originalBytes = await notionSvc.getPdfOriginale(body.sourcePdfPageId);
+  const originalBytes = await getPdfOriginaleDaDrive(body.sourcePdfPageId)
+    ?? await notionSvc.getPdfOriginale(body.sourcePdfPageId).catch(() => null);
   if (!originalBytes) {
     return NextResponse.json({ ok: false, error: "PDF non trovato nella scheda sorgente" }, { status: 404 });
   }

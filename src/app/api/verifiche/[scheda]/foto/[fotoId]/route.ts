@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { repo, driveSvc, SCHEDA_REGEX } from "@/lib/verificheServices";
 import { getAuthClient } from "@/lib/googleDriveAuth";
-import { getSessionFromRequest } from "@/lib/auth";
+import { getSessionFromRequest, SPEDIZIONI_ROLES } from "@/lib/auth";
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ scheda: string; fotoId: string }> }) {
   const { scheda, fotoId } = await params; // scheda = notion_page_id
@@ -9,7 +9,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ s
     return NextResponse.json({ ok: false, error: "ID scheda non valido" }, { status: 400 });
   }
   const session = await getSessionFromRequest(req);
-  if (!session) return NextResponse.json({ ok: false, error: "Non autenticato" }, { status: 401 });
+  if (!session || !SPEDIZIONI_ROLES.includes(session.role)) {
+    return NextResponse.json({ ok: false, error: "Non autorizzato" }, { status: 403 });
+  }
   const operatore = session.name;
 
   const holdsIt = await repo.holdsLock(scheda, operatore);
@@ -18,7 +20,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ s
   }
 
   try {
-    const removed = await repo.removeFoto(fotoId);
+    const removed = await repo.removeFoto(fotoId, scheda);
     if (!removed) return NextResponse.json({ ok: false, error: "Foto non trovata" }, { status: 404 });
 
     try {
