@@ -371,6 +371,19 @@ export async function updateSchedaStato(id: string, stato: string): Promise<void
   await pool.query(`UPDATE schede SET stato = $1, aggiornato_il = now() WHERE id = $2`, [stato, id]);
 }
 
+// Bottone admin "Completa tutte le sottoschede" — chiude in blocco le sottoschede/rilavorazioni
+// figlie ancora aperte quando la scheda padre risulta già Completato. Ritorna gli id toccati,
+// così il chiamante può loggarli uno per uno nell'audit.
+export async function completaSottoschedeAperte(parentId: string): Promise<string[]> {
+  const { rows } = await pool.query(
+    `UPDATE schede SET stato = 'Completato', aggiornato_il = now()
+     WHERE parent_id = $1 AND stato NOT IN ('Completato', 'Annullata') AND archiviata = false
+     RETURNING id`,
+    [parentId],
+  );
+  return rows.map((r) => r.id);
+}
+
 // Ritiro → Fatto: materiale rientrato dal fornitore
 export async function updateSchedaRientrato(id: string): Promise<void> {
   await pool.query(

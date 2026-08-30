@@ -186,7 +186,18 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  // Espande di default le schede che hanno una sottoscheda in ritardo (produzione o rientro
+  // da fornitore esterno), altrimenti resterebbero nascoste nella riga padre finché l'utente
+  // non le apre manualmente — proprio le sottoschede che servono monitorare.
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
+    const parents = new Set<string>();
+    for (const f of sottoschede) {
+      if (!f.parentId) continue;
+      const r = isInRitardo(f, today);
+      if (r.produzione || r.rientro) parents.add(f.parentId);
+    }
+    return parents;
+  });
 
   const sottoschedeByParent = useMemo(() => {
     const map = new Map<string, Scheda[]>();
@@ -215,6 +226,19 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
   function handleSchedaAggiornata(updated: Scheda) {
     setViewing(updated);
     handleReload();
+  }
+
+  const [completandoId, setCompletandoId] = useState<string | null>(null);
+  async function handleCompletaSottoschede(s: Scheda, aperte: number) {
+    if (!confirm(`Segnare come "Completato" le ${aperte} sottoschede ancora aperte di ${s.odp || s.numeroScheda}?`)) return;
+    setCompletandoId(s.id);
+    try {
+      const res = await fetch(`/api/schede/${s.id}/completa-sottoschede`, { method: "POST" });
+      if (!res.ok) { alert("Errore durante l'aggiornamento delle sottoschede."); return; }
+      handleReload();
+    } finally {
+      setCompletandoId(null);
+    }
   }
 
   const [showNuovaScheda, setShowNuovaScheda] = useState(false);
@@ -246,10 +270,14 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
     [schede]
   );
 
-  const fornitoriUniq = useMemo(
-    () => Array.from(new Set(schede.map((s) => s.fornitore).filter(Boolean))).sort() as string[],
-    [schede]
-  );
+  // Include anche i fornitori assegnati solo a livello di sottoscheda (produzione esterna
+  // spesso vive lì, non sulla scheda padre) — altrimenti il dropdown non li offre nemmeno.
+  const fornitoriUniq = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of schede) if (s.fornitore) set.add(s.fornitore);
+    for (const s of sottoschede) if (s.fornitore) set.add(s.fornitore);
+    return Array.from(set).sort();
+  }, [schede, sottoschede]);
 
   const [nascondiChiuse, setNascondiChiuse] = useState(true);
 
@@ -319,11 +347,18 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
     return schede
       .filter((s) => {
         if (q && !`${s.odp} ${s.clienteInfo} ${s.numeroScheda} ${s.commessaNr}`.toLowerCase().includes(q)) return false;
-        if (filtroStati.size > 0 && !filtroStati.has(s.statoProduzione ?? "")) return false;
-        if (filtroEsterna && !s.produzioneEsterna) return false;
+        // Stato/produzione-esterna/fornitore/rientro-in-ritardo vivono spesso sulla sottoscheda
+        // (produzione esterna presso il fornitore), non sulla scheda padre: un padre "Completato"
+        // che nasconde di default una sottoscheda ancora in lavorazione esterna farebbe perdere
+        // di vista la data di rientro da monitorare. Il gruppo (padre + figlie dirette) passa
+        // il filtro se lo soddisfa il padre o una qualsiasi sottoscheda.
+        const figlie = sottoschedeByParent.get(s.id) ?? [];
+        const gruppo = [s, ...figlie];
+        if (filtroStati.size > 0 && !gruppo.some((x) => filtroStati.has(x.statoProduzione ?? ""))) return false;
+        if (filtroEsterna && !gruppo.some((x) => x.produzioneEsterna)) return false;
         if (filtroRitardoProd && !isInRitardo(s, today).produzione) return false;
-        if (filtroRitardoRientro && !isInRitardo(s, today).rientro) return false;
-        if (filtroFornitore && s.fornitore !== filtroFornitore) return false;
+        if (filtroRitardoRientro && !gruppo.some((x) => isInRitardo(x, today).rientro)) return false;
+        if (filtroFornitore && !gruppo.some((x) => x.fornitore === filtroFornitore)) return false;
         if (filtroCommessa && s.commessaNr !== filtroCommessa) return false;
         const val = s[dateField] ?? "";
         if (dateFrom && val < dateFrom) return false;
@@ -331,31 +366,39 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
         return true;
       })
       .sort((a, b) => cmp(a, b, sortKey, sortDir));
-  }, [schede, search, filtroStati, filtroEsterna, filtroRitardoProd, filtroRitardoRientro, filtroFornitore, filtroCommessa, dateFrom, dateTo, dateField, sortKey, sortDir, today]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [schede, sottoschedeByParent, search, filtroStati, filtroEsterna, filtroRitardoProd, filtroRitardoRientro, filtroFornitore, filtroCommessa, dateFrom, dateTo, dateField, sortKey, sortDir, today]);
 
   // Contatori ritardo basati sui filtri attivi (esclusi i filtri ritardo stessi)
   const filteredSenzaRitardo = useMemo(() => {
     const q = search.toLowerCase();
     return schede.filter((s) => {
       if (q && !`${s.odp} ${s.clienteInfo} ${s.numeroScheda} ${s.commessaNr}`.toLowerCase().includes(q)) return false;
-      if (filtroStati.size > 0 && !filtroStati.has(s.statoProduzione ?? "")) return false;
-      if (filtroEsterna && !s.produzioneEsterna) return false;
-      if (filtroFornitore && s.fornitore !== filtroFornitore) return false;
+      const figlie = sottoschedeByParent.get(s.id) ?? [];
+      const gruppo = [s, ...figlie];
+      if (filtroStati.size > 0 && !gruppo.some((x) => filtroStati.has(x.statoProduzione ?? ""))) return false;
+      if (filtroEsterna && !gruppo.some((x) => x.produzioneEsterna)) return false;
+      if (filtroFornitore && !gruppo.some((x) => x.fornitore === filtroFornitore)) return false;
       if (filtroCommessa && s.commessaNr !== filtroCommessa) return false;
       const val = s[dateField] ?? "";
       if (dateFrom && val < dateFrom) return false;
       if (dateTo && val > dateTo) return false;
       return true;
     });
-  }, [schede, search, filtroStati, filtroEsterna, filtroFornitore, filtroCommessa, dateFrom, dateTo, dateField, today]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [schede, sottoschedeByParent, search, filtroStati, filtroEsterna, filtroFornitore, filtroCommessa, dateFrom, dateTo, dateField, today]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const conteggioRitardoProd = useMemo(
     () => filteredSenzaRitardo.filter((s) => isInRitardo(s, today).produzione).length,
     [filteredSenzaRitardo, today]
   );
+  // Conta il gruppo (padre o una sua sottoscheda) in ritardo di rientro — la produzione esterna
+  // e la relativa data di rientro sono tipicamente sulla sottoscheda, non sul padre.
   const conteggioRitardoRientro = useMemo(
-    () => filteredSenzaRitardo.filter((s) => isInRitardo(s, today).rientro).length,
-    [filteredSenzaRitardo, today]
+    () =>
+      filteredSenzaRitardo.filter((s) => {
+        const figlie = sottoschedeByParent.get(s.id) ?? [];
+        return [s, ...figlie].some((x) => isInRitardo(x, today).rientro);
+      }).length,
+    [filteredSenzaRitardo, sottoschedeByParent, today]
   );
 
   const filtriAttiviLabel = useMemo(() => {
@@ -556,9 +599,14 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
             ) : (
               filtered.map((s) => {
                 const ritardo = isInRitardo(s, today);
-                const rowInRitardo = ritardo.produzione || ritardo.rientro;
                 const figlie = sottoschedeByParent.get(s.id) ?? [];
+                const figlieInRitardo = figlie.some((f) => { const fr = isInRitardo(f, today); return fr.produzione || fr.rientro; });
+                const rowInRitardo = ritardo.produzione || ritardo.rientro || figlieInRitardo;
                 const rilavorazioniAperte = figlie.filter((f) => f.tipologia === "Rilavorazione" && STATI_RILAVORAZIONE_APERTA.has(f.statoProduzione));
+                // Scheda "Completato" che trascina sottoschede/rilavorazioni non ancora chiuse —
+                // il caso che nascondeva silenziosamente le sottoschede prima del fix ai filtri.
+                const figlieAperte = figlie.filter((f) => !STATI_COMPLETATI.has(f.statoProduzione));
+                const schedaCompletataConAperte = s.statoProduzione === "Completato" && figlieAperte.length > 0;
                 const expanded = expandedIds.has(s.id);
                 return (
                   <Fragment key={s.id}>
@@ -623,19 +671,40 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                       {s.faseCorrente && (
                         <div className="text-xs mt-1" style={{ color: "var(--color-grey-mid)" }}>({s.faseCorrente})</div>
                       )}
+                      {schedaCompletataConAperte && (
+                        <div
+                          className="mt-1 inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full font-bold whitespace-nowrap"
+                          style={{ background: "#FEE2E2", color: "#991B1B" }}
+                          title={`${figlieAperte.length} sottoscheda/e ancora da completare`}
+                        >
+                          ⚠ {figlieAperte.length} da sistemare
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3"><DataCell date={s.dataProduzionePrevista} inRitardo={ritardo.produzione} /></td>
                     <td className="px-4 py-3 text-xs max-w-[180px] truncate" title={s.fornitore || ""}>{s.fornitore || "—"}</td>
                     <td className="px-4 py-3"><DataCell date={s.dataRientroPrevista} inRitardo={ritardo.rientro} /></td>
                     <td className="px-4 py-3"><PdfLinks pdfAllegato={s.pdfAllegato} /></td>
                     <td className="px-4 py-3">
-                      <button
-                        onClick={() => setViewing(s)}
-                        className="text-sm px-3 py-1.5 rounded-lg font-semibold transition-colors whitespace-nowrap border"
-                        style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)", borderColor: "rgba(240,143,37,0.3)" }}
-                      >
-                        Vedi scheda
-                      </button>
+                      <div className="flex flex-col gap-1.5 items-start">
+                        <button
+                          onClick={() => setViewing(s)}
+                          className="text-sm px-3 py-1.5 rounded-lg font-semibold transition-colors whitespace-nowrap border"
+                          style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)", borderColor: "rgba(240,143,37,0.3)" }}
+                        >
+                          Vedi scheda
+                        </button>
+                        {userRole === "admin" && schedaCompletataConAperte && (
+                          <button
+                            onClick={() => handleCompletaSottoschede(s, figlieAperte.length)}
+                            disabled={completandoId === s.id}
+                            className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors whitespace-nowrap border disabled:opacity-50"
+                            style={{ color: "#991B1B", background: "#FEE2E2", borderColor: "#FCA5A5" }}
+                          >
+                            {completandoId === s.id ? "…" : "Completa sottoschede"}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                   {expanded && figlie.map((f) => {

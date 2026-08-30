@@ -4,4 +4,5 @@ import { revalidatePath } from "next/cache";
 
 export async function revalidateSchede() {
   revalidatePath("/schede");
+  revalidatePath("/schede/lavorazioni-esterne");
 }
