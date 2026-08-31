@@ -3,17 +3,21 @@ import { getOperatori } from "@/lib/operatoriRepository";
 import { chiudiSegmentoCorrente, getMatricoleConSegmentoAperto } from "@/lib/segmentiOperatoreRepository";
 import { getOrariTurno } from "@/lib/parametriGeneraliRepository";
 import { logOperation } from "@/lib/audit";
+import { dataOggiRoma, giornoSettimanaRoma, orarioRomaAUtc } from "@/lib/oraLocale";
 
 // Orario nominale di fine turno (da Admin → Orari Turno), unica fonte usata per stimare
 // l'orario di uscita di chi dimentica di chiudere — NON l'orario di "adesso" (quando passa il
 // job schedulato). Con la chiusura automatica pensata come rete di sicurezza principale
 // (l'operatore non deve più ricordarsi di premere "Ho finito"), assumere "adesso" gonfierebbe
 // sistematicamente le ore di chiunque dimentichi, non solo nei rari casi di straordinario reale.
+//
+// L'orario configurato ("18:00") è sempre inteso in ora italiana — il processo Node in
+// produzione gira in UTC, quindi va convertito con orarioRomaAUtc (che sa gestire ora legale/
+// solare) invece che con Date.setHours, che lo interpreterebbe come 18:00 UTC (le 20:00
+// italiane d'estate: bug reale trovato il 2026-08-31, chiudeva sempre 1-2h più tardi del dovuto).
 function orarioChiusuraPresunta(now: Date, fineTurnoFeriale: string, fineTurnoSabato: string): Date {
-  const sabato = now.getDay() === 6;
-  const [ore, minuti] = (sabato ? fineTurnoSabato : fineTurnoFeriale).split(":").map(Number);
-  const target = new Date(now);
-  target.setHours(ore, minuti, 0, 0);
+  const sabato = giornoSettimanaRoma(now) === 6;
+  const target = orarioRomaAUtc(dataOggiRoma(now), sabato ? fineTurnoSabato : fineTurnoFeriale);
   // Se il job schedulato passa prima dell'orario nominale (drift/anticipo), non si può assegnare
   // una chiusura nel futuro rispetto a "adesso" — in quel caso l'unica stima valida resta "adesso".
   return target.getTime() < now.getTime() ? target : now;

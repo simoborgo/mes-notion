@@ -791,32 +791,34 @@ function RigaOperatore({
         </div>
       )}
 
-      <div className="px-4 pb-3 pt-1 border-t flex items-center gap-2 flex-wrap" style={{ borderColor: "#e5e4e0" }}>
-        <div style={{ minWidth: 200, flex: 1 }}>
+      <div className="px-4 pb-3 pt-1 border-t flex flex-col lg:flex-row lg:items-center gap-2" style={{ borderColor: "#e5e4e0" }}>
+        <div className="lg:flex-1" style={{ minWidth: 200 }}>
           <OdpMultiAutocomplete odpList={odpList} value={odpSelezionati} onChange={setOdpOverride} placeholder="Cerca ODP… (anche più di uno, per un lotto)" />
         </div>
-        <input
-          type="number" step={0.5} min={0} className={inputCls}
-          style={{ width: 76, height: 44 }}
-          value={ore} onChange={e => setOreOverride(Number(e.target.value))}
-          title={odpSelezionati.length > 1 ? "Ore totali — verranno divise in parti uguali tra gli ODP selezionati" : "Ore (residuo suggerito, modificabile)"}
-        />
-        <label
-          className="flex items-center gap-2 px-3 rounded-lg border cursor-pointer flex-shrink-0 whitespace-nowrap"
-          style={{ height: 44, borderColor: rif ? "#FCA5A5" : "#d1d5db", background: rif ? "#FEF2F2" : "white" }}
-        >
-          <input type="checkbox" checked={rif} onChange={e => setRif(e.target.checked)} className="w-4 h-4 accent-red-600" />
-          <span className="text-xs font-semibold" style={{ color: rif ? "#991B1B" : "var(--color-grey-mid)" }}>RIFACIMENTO</span>
-        </label>
-        <button
-          onClick={handleAggiungi}
-          disabled={saving || giornataCompleta}
-          title={giornataCompleta ? `Giornata completa (${totaleGiornata}h considerando eventuali assenze) — elimina una voce per aggiungerne altre` : "Aggiungi riga"}
-          className="flex items-center justify-center rounded-lg text-white font-bold disabled:opacity-60 flex-shrink-0"
-          style={{ width: 44, height: 44, background: "var(--color-primary)", fontSize: 20 }}
-        >
-          {saving ? "…" : "+"}
-        </button>
+        <div className="flex items-center gap-2">
+          <input
+            type="number" step={0.5} min={0} className={inputCls}
+            style={{ width: 76, height: 44 }}
+            value={ore} onChange={e => setOreOverride(Number(e.target.value))}
+            title={odpSelezionati.length > 1 ? "Ore totali — verranno divise in parti uguali tra gli ODP selezionati" : "Ore (residuo suggerito, modificabile)"}
+          />
+          <label
+            className="flex items-center gap-2 px-3 rounded-lg border cursor-pointer flex-shrink-0 whitespace-nowrap"
+            style={{ height: 44, borderColor: rif ? "#FCA5A5" : "#d1d5db", background: rif ? "#FEF2F2" : "white" }}
+          >
+            <input type="checkbox" checked={rif} onChange={e => setRif(e.target.checked)} className="w-4 h-4 accent-red-600" />
+            <span className="text-xs font-semibold" style={{ color: rif ? "#991B1B" : "var(--color-grey-mid)" }}>RIFACIMENTO</span>
+          </label>
+          <button
+            onClick={handleAggiungi}
+            disabled={saving || giornataCompleta}
+            title={giornataCompleta ? `Giornata completa (${totaleGiornata}h considerando eventuali assenze) — elimina una voce per aggiungerne altre` : "Aggiungi riga"}
+            className="flex items-center justify-center rounded-lg text-white font-bold disabled:opacity-60 flex-shrink-0 ml-auto lg:ml-0"
+            style={{ width: 44, height: 44, background: "var(--color-primary)", fontSize: 20 }}
+          >
+            {saving ? "…" : "+"}
+          </button>
+        </div>
       </div>
       {odpSelezionati.length > 1 && ore > 0 && !err && (
         <p className="px-4 pb-3 text-xs font-medium" style={{ color: "var(--color-primary)" }}>
@@ -911,7 +913,12 @@ function RegistrazioneChip({
           {corretta ? `→ ${r.reparto}` : "reparto ▾"}
         </button>
       )}
-      <button onClick={() => onElimina(r.id)} className="text-gray-400 hover:text-gray-600 leading-none">×</button>
+      <button
+        onClick={() => onElimina(r.id)}
+        aria-label="Rimuovi registrazione"
+        className="flex items-center justify-center rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50 leading-none flex-shrink-0"
+        style={{ width: 24, height: 24, fontSize: 18 }}
+      >×</button>
     </div>
   );
 }

@@ -49,7 +49,8 @@ export default function OdpMultiAutocomplete({ odpList, value, onChange, placeho
                 type="button"
                 onClick={() => toggle(o.odp)}
                 aria-label={`Rimuovi ${o.odp}`}
-                className="text-gray-400 hover:text-gray-600 leading-none flex-shrink-0"
+                className="flex items-center justify-center rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50 leading-none flex-shrink-0"
+                style={{ width: 24, height: 24, fontSize: 18 }}
               >
                 ×
               </button>

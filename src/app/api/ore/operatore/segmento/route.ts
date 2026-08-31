@@ -4,6 +4,7 @@ import { apriSegmento, registraSegmentoRetroattivo, getSegmentoAperto, getSegmen
 import { getOrariTurno, OrariTurno } from "@/lib/parametriGeneraliRepository";
 import { getSessionFromRequest, getOperatoreMatricolaFromRequest } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
+import { dataOggiRoma, giornoSettimanaRoma, orarioRomaAUtc } from "@/lib/oraLocale";
 
 // Oltre questa soglia dall'inizio nominale del turno, la conferma del primo ODP della giornata
 // chiede prima all'operatore se ha già lavorato su qualcosa (vedi doc del "buco" di inizio
@@ -17,14 +18,13 @@ function oggiStr(d: Date): string {
 
 // Orario nominale di inizio turno di oggi, o null di domenica — nessun orario configurato per
 // quel giorno, il tablet non dovrebbe essere in uso: meglio non bloccare né chiedere nulla.
+// L'orario configurato è sempre inteso in ora italiana — vedi lo stesso bug (e fix) nel
+// webhook di chiusura automatica, orarioRomaAUtc gestisce la conversione da/verso UTC.
 function inizioTurnoOggi(now: Date, orari: OrariTurno): Date | null {
-  const giorno = now.getDay();
+  const giorno = giornoSettimanaRoma(now);
   if (giorno === 0) return null;
   const orario = giorno === 6 ? orari.turnoSabatoInizio : orari.turnoFerialeInizio;
-  const [ore, minuti] = orario.split(":").map(Number);
-  const d = new Date(now);
-  d.setHours(ore, minuti, 0, 0);
-  return d;
+  return orarioRomaAUtc(dataOggiRoma(now), orario);
 }
 
 export async function POST(req: NextRequest) {
