@@ -7,6 +7,7 @@ import type { DatiGantt, FaseGantt, RepartoGantt } from "@/lib/apsGanttRepositor
 import type { Scheda } from "@/lib/types";
 import type { Role } from "@/lib/roles";
 import DettaglioSchedaModal from "./DettaglioSchedaModal";
+import RicalcolaPianoApsButton from "./RicalcolaPianoApsButton";
 
 const DAY_W = 62; // largo abbastanza da mostrare il numero ODP anche su una barra di un solo giorno
 const LABEL_W = 210;
@@ -170,6 +171,11 @@ export default function GanttAps({ dati, userRole }: { dati: DatiGantt; userRole
           >
             ✕ Azzera date
           </button>
+        )}
+        {userRole === "admin" && (
+          <div className="ml-auto">
+            <RicalcolaPianoApsButton compact onSuccess={onCambiato} />
+          </div>
         )}
       </div>
 
