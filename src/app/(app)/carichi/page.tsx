@@ -24,7 +24,7 @@ export default async function CarichiPage() {
           Carichi
         </h1>
         <p className="text-sm mt-1" style={{ color: "var(--color-grey-mid)" }}>
-          {carichi.length} carichi · aggiornato {new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+          {carichi.length} carichi · aggiornato {new Date().toLocaleTimeString("it-IT", { timeZone: "Europe/Rome", hour: "2-digit", minute: "2-digit" })}
         </p>
       </div>
       <TabellaCarichi carichi={carichi} commesse={commesse} schede={schede} canWrite={canWrite} />

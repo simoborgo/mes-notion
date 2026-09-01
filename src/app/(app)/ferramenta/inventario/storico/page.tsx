@@ -13,7 +13,7 @@ const AMBITO_LABEL: Record<string, string> = {
 };
 
 function fmt(d: string) {
-  return new Date(d).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return new Date(d).toLocaleDateString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 export default async function StoricoInventarioPage() {

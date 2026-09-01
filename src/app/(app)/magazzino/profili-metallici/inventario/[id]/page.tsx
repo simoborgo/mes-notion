@@ -6,7 +6,7 @@ import InventarioProfiliMetalliciDettaglio from "@/components/InventarioProfiliM
 export const dynamic = "force-dynamic";
 
 function fmt(d: string) {
-  return new Date(d).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return new Date(d).toLocaleString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 export default async function InventarioProfiliMetalliciDettaglioPage({ params }: { params: Promise<{ id: string }> }) {

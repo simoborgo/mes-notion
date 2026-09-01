@@ -4,6 +4,7 @@ import { aggiungiOreRegistrate } from "./oreRepository";
 import { aggiornaStandardRepartoPerOdp } from "./standardRepartoRepository";
 import { getOrariTurno } from "./parametriGeneraliRepository";
 import { oreNetteSottraendoPausa } from "./oraLocale";
+import { logOperation } from "./audit";
 
 // Oltre questa soglia un segmento aperto è quasi certamente stato dimenticato (tablet spento,
 // operatore andato via senza premere "Ho finito per oggi") — si chiude comunque ma si marca
@@ -46,6 +47,32 @@ function mapRow(r: any): Segmento {
 
 function arrotondaMezzo(n: number): number {
   return Math.round(n * 2) / 2;
+}
+
+// Anomalia rilevata confrontando quanto risulta dai segmenti (fonte di verità) con quanto è
+// realmente scritto in ore_registrate — vedi registraOreDelta e segnalaAnomaliaRegistrazione.
+interface AnomaliaRegistrazione {
+  matricola: string;
+  odp: string;
+  data: string;
+  atteso: number;
+  trovato: number | null;
+}
+
+// Scrive l'anomalia in Audit Log (visibile in Admin > Impostazioni > Audit Log) — DOPO il commit
+// della transazione che l'ha rilevata, mai dentro (stesso motivo di aggiornaStandardRepartoPerOdp:
+// un problema qui non deve mai far fallire/rollbackare la scrittura delle ore).
+async function segnalaAnomaliaRegistrazione(a: AnomaliaRegistrazione): Promise<void> {
+  console.error(`[ore-segmenti] ANOMALIA matricola=${a.matricola} odp=${a.odp} data=${a.data} atteso=${a.atteso} trovato=${a.trovato ?? "assente"}`);
+  await logOperation("Sistema", "UPDATE", "ore_registrate", `${a.matricola}:${a.odp}`, {
+    via: "ore-segmenti-alert",
+    data: a.data,
+    atteso: a.atteso,
+    trovato: a.trovato,
+    nota: a.trovato === null
+      ? "Riga mancante in ore_registrate nonostante ore accumulate nei segmenti"
+      : "ore in ore_registrate diverse da quanto risulta dai segmenti",
+  });
 }
 
 export async function getMatricoleConSegmentoAperto(): Promise<string[]> {
@@ -109,21 +136,22 @@ interface DatiOperatore {
 export async function apriSegmento(op: DatiOperatore, odp: string, rif: boolean, iniziatoAlle?: Date): Promise<Segmento> {
   const orari = await getOrariTurno();
   const client = await pool.connect();
-  let odpChiuso: string | null;
+  let esito: { odpChiuso: string | null; anomalia: AnomaliaRegistrazione | null };
   // Diagnostica temporanea, vedi commento in chiudiSegmentoInterno — utile per capire se due
   // richieste per lo stesso operatore si sovrappongono nel tempo (doppio tap/retry di rete).
   console.log(`[ore-segmenti] apriSegmento INIZIO matricola=${op.matricola} nuovoOdp=${odp} t=${new Date().toISOString()}`);
   try {
     await client.query("BEGIN");
-    odpChiuso = await chiudiSegmentoInterno(client, op, orari);
+    esito = await chiudiSegmentoInterno(client, op, orari);
     const oggi = formatData(new Date());
     const { rows } = await client.query(
       `INSERT INTO ore_segmenti_odp (matricola, data, odp, rif, iniziato_alle) VALUES ($1, $2, $3, $4, COALESCE($5, now())) RETURNING *`,
       [op.matricola, oggi, odp, rif, iniziatoAlle ?? null]
     );
     await client.query("COMMIT");
-    console.log(`[ore-segmenti] apriSegmento COMMIT matricola=${op.matricola} chiusoOdp=${odpChiuso ?? "-"} nuovoSegmentoId=${rows[0].id}`);
-    if (odpChiuso) void aggiornaStandardRepartoPerOdp(odpChiuso);
+    console.log(`[ore-segmenti] apriSegmento COMMIT matricola=${op.matricola} chiusoOdp=${esito.odpChiuso ?? "-"} nuovoSegmentoId=${rows[0].id}`);
+    if (esito.odpChiuso) void aggiornaStandardRepartoPerOdp(esito.odpChiuso);
+    if (esito.anomalia) void segnalaAnomaliaRegistrazione(esito.anomalia);
     return mapRow(rows[0]);
   } catch (e) {
     await client.query("ROLLBACK");
@@ -144,9 +172,10 @@ export async function chiudiSegmentoCorrente(op: DatiOperatore, chiusoAlle?: Dat
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const odpChiuso = await chiudiSegmentoInterno(client, op, orari, chiusoAlle);
+    const esito = await chiudiSegmentoInterno(client, op, orari, chiusoAlle);
     await client.query("COMMIT");
-    if (odpChiuso) void aggiornaStandardRepartoPerOdp(odpChiuso);
+    if (esito.odpChiuso) void aggiornaStandardRepartoPerOdp(esito.odpChiuso);
+    if (esito.anomalia) void segnalaAnomaliaRegistrazione(esito.anomalia);
   } catch (e) {
     await client.query("ROLLBACK");
     throw e;
@@ -162,12 +191,12 @@ async function chiudiSegmentoInterno(
   client: PoolClient, op: DatiOperatore,
   orari: { turnoFerialePausaInizio: string; turnoFerialePausaFine: string },
   chiusoAlle?: Date
-): Promise<string | null> {
+): Promise<{ odpChiuso: string | null; anomalia: AnomaliaRegistrazione | null }> {
   const { rows } = await client.query(
     `SELECT * FROM ore_segmenti_odp WHERE matricola = $1 AND chiuso_alle IS NULL FOR UPDATE`,
     [op.matricola]
   );
-  if (rows.length === 0) return null;
+  if (rows.length === 0) return { odpChiuso: null, anomalia: null };
   const aperto = rows[0];
   const iniziatoAlle: Date = aperto.iniziato_alle;
   const dataSegmento = aperto.data instanceof Date ? formatData(aperto.data) : aperto.data;
@@ -189,9 +218,9 @@ async function chiudiSegmentoInterno(
     [aperto.id, Math.round(oreSegmento * 100) / 100, anomalo, chiusura]
   );
 
-  await registraOreDelta(client, op, dataSegmento, aperto.odp, aperto.rif, oreSegmento);
+  const anomalia = await registraOreDelta(client, op, dataSegmento, aperto.odp, aperto.rif, oreSegmento);
 
-  return aperto.odp as string;
+  return { odpChiuso: aperto.odp as string, anomalia };
 }
 
 // Arrotondare ogni segmento isolatamente perderebbe silenziosamente i cambi rapidi (es. tre
@@ -202,7 +231,7 @@ async function chiudiSegmentoInterno(
 // Condivisa fra la chiusura normale di un segmento e l'inserimento retroattivo (buco di inizio
 // giornata, vedi registraSegmentoRetroattivo): richiede che il segmento sia già scritto come
 // chiuso nella stessa transazione, cosi la SELECT sotto lo include nel totale.
-async function registraOreDelta(client: PoolClient, op: DatiOperatore, dataSegmento: string, odp: string, rif: boolean, oreSegmento: number): Promise<void> {
+async function registraOreDelta(client: PoolClient, op: DatiOperatore, dataSegmento: string, odp: string, rif: boolean, oreSegmento: number): Promise<AnomaliaRegistrazione | null> {
   // Somma la colonna `ore` già scritta su ogni segmento chiuso (netta pausa, capped all'anomalia
   // — vedi chiudiSegmentoInterno) invece di ricalcolare dai timestamp grezzi: la sottrazione
   // della pausa richiede la conversione fuso orario di oreNetteSottraendoPausa, non riproducibile
@@ -216,6 +245,7 @@ async function registraOreDelta(client: PoolClient, op: DatiOperatore, dataSegme
   const totaleConQuesto = Number(totRows[0].totale);
   const totalePrima = totaleConQuesto - oreSegmento;
   const delta = arrotondaMezzo(totaleConQuesto) - arrotondaMezzo(totalePrima);
+  const atteso = arrotondaMezzo(totaleConQuesto);
 
   // Diagnostica temporanea, vedi commento in chiudiSegmentoInterno sopra.
   console.log(`[ore-segmenti] delta odp=${odp} matricola=${op.matricola} data=${dataSegmento} totaleEsatto=${totaleConQuesto.toFixed(4)} totalePrima=${totalePrima.toFixed(4)} delta=${delta}`);
@@ -233,7 +263,29 @@ async function registraOreDelta(client: PoolClient, op: DatiOperatore, dataSegme
       rif,
     }, client);
     console.log(`[ore-segmenti] scritta id=${scritta.id} odp=${odp} matricola=${op.matricola} oreTotaliDopo=${scritta.ore}`);
+    // Verifica: la riga appena scritta deve avere `ore` = atteso. Se non torna, qualcosa nella
+    // catena chiudo→delta→scrittura si è comportato in modo inatteso — è esattamente il tipo di
+    // caso (indagine 2026-08-31) che questo alert serve a beccare sul fatto.
+    if (Math.abs(Number(scritta.ore) - atteso) > 0.01) {
+      return { matricola: op.matricola, odp, data: dataSegmento, atteso, trovato: Number(scritta.ore) };
+    }
+    return null;
   }
+
+  // delta <= 0: in questo ramo non scriviamo nulla, quindi se il totale atteso è positivo la riga
+  // deve già esistere da una chiusura precedente — se manca (o ha un valore diverso), una
+  // scrittura passata è andata persa e qui non ce ne accorgeremmo mai altrimenti.
+  if (atteso > 0) {
+    const { rows: verifica } = await client.query(
+      `SELECT ore FROM ore_registrate WHERE data = $1 AND matricola = $2 AND odp = $3`,
+      [dataSegmento, op.matricola, odp]
+    );
+    const trovato = verifica[0] ? Number(verifica[0].ore) : null;
+    if (trovato === null || Math.abs(trovato - atteso) > 0.01) {
+      return { matricola: op.matricola, odp, data: dataSegmento, atteso, trovato };
+    }
+  }
+  return null;
 }
 
 // Copre il buco tra l'inizio nominale del turno e la conferma del primo ODP della giornata:
@@ -273,11 +325,12 @@ export async function registraSegmentoRetroattivo(op: DatiOperatore, odp: string
       await client.query("COMMIT");
       return mapRow(esistente[0]);
     }
-    await registraOreDelta(client, op, dataSegmento, odp, false, oreSegmento);
+    const anomalia = await registraOreDelta(client, op, dataSegmento, odp, false, oreSegmento);
     await client.query("COMMIT");
     // DOPO il commit, mai dentro la transazione (stesso motivo di apriSegmento/chiudiSegmentoCorrente
     // sopra): il ricalcolo deve vedere le ore appena scritte, non partire prima che siano visibili.
     void aggiornaStandardRepartoPerOdp(odp);
+    if (anomalia) void segnalaAnomaliaRegistrazione(anomalia);
     return mapRow(rows[0]);
   } catch (e) {
     await client.query("ROLLBACK");

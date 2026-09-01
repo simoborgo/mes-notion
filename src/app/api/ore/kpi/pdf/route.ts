@@ -22,7 +22,7 @@ function getLogoDataUri(): string {
 
 function fmtData(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return new Date(y, m - 1, d).toLocaleDateString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 // Semaforo % rifacimento — stesse soglie di VistaKpi.tsx (semaforo()).
@@ -222,7 +222,7 @@ td{padding:1.8mm 2.5mm;border-bottom:1px solid #F0EFEC;font-size:10.5px}
 
 <div class="ft">
   <span>MES MODAR · RILEVAMENTO ORE — DASHBOARD KPI</span>
-  <span>Stampato il ${new Date().toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+  <span>Stampato il ${new Date().toLocaleString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
 </div>
 </body>
 </html>`;

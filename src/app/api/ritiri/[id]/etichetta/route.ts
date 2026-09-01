@@ -8,19 +8,24 @@ import { getRitiroById } from "@/lib/ritiriRepository";
 import { getCommessaById } from "@/lib/commesseRepository";
 import { getSessionFromRequest } from "@/lib/auth";
 import { getPublicBaseUrl } from "@/lib/url";
+import { partiRoma } from "@/lib/oraLocale";
 
 function esc(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+// Pagina server-rendered: in produzione il processo Node gira in UTC, non in Europe/Rome — sia
+// toLocaleDateString che dt.getHours()/getMinutes() userebbero altrimenti UTC come se fosse
+// locale, sfasando data e ora di 1-2h rispetto all'Italia reale.
 function fmtData(d: string | null): string {
   if (!d) return "—";
   const dt = new Date(d);
   const dateStr = dt.toLocaleDateString("it-IT", {
+    timeZone: "Europe/Rome",
     weekday: "long", day: "2-digit", month: "2-digit", year: "numeric",
   });
   if (d.includes("T")) {
-    const h = dt.getHours(), m = dt.getMinutes();
+    const { ore: h, minuti: m } = partiRoma(dt);
     if (h !== 0 || m !== 0)
       return `${dateStr} · ${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
   }

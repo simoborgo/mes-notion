@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 function fmt(d: string | null) {
   if (!d) return "—";
-  return new Date(d).toLocaleDateString("it-IT");
+  return new Date(d).toLocaleDateString("it-IT", { timeZone: "Europe/Rome" });
 }
 
 export default async function CommessaPage({ params }: { params: Promise<{ id: string }> }) {

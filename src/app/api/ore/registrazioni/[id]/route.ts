@@ -4,7 +4,7 @@ import { getSessionFromRequest, RILEVAMENTO_ORE_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 import { REPARTI_PRODUZIONE } from "@/lib/types";
 
-const CAUSALI: OreCausale[] = ["P", "T", "M", "C"];
+const CAUSALI: OreCausale[] = ["P", "T", "M", "C", "F"];
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSessionFromRequest(req);

@@ -27,7 +27,7 @@ function getLogoDataUri(): string {
 function fmtDataLunga(dateStr: string): string {
   const [y, m, d] = dateStr.split("-").map(Number);
   const dt = new Date(y, m - 1, d);
-  const raw = dt.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const raw = dt.toLocaleDateString("it-IT", { timeZone: "Europe/Rome", weekday: "long", day: "numeric", month: "long", year: "numeric" });
   return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 function defaultTotaleGiornata(dateStr: string, oreFeriale: number, oreSabato: number): number {
@@ -181,7 +181,7 @@ ${giornoChiuso ? `<div class="chiusura">⚠ Azienda chiusa — nessuna ora attes
 ${sezioniHtml}
 <div class="ft">
   <span>MES MODAR · RILEVAMENTO ORE</span>
-  <span>Stampato il ${new Date().toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+  <span>Stampato il ${new Date().toLocaleString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
 </div>
 </body>
 </html>`;

@@ -7,7 +7,7 @@ import { ODP_SPECIALI, ATTIVITA_SPECIALI_COMMESSA } from "@/lib/attivitaSpeciali
 import OdpAutocomplete from "./OdpAutocomplete";
 import OdpMultiAutocomplete from "./OdpMultiAutocomplete";
 
-type Causale = "P" | "T" | "M" | "C";
+type Causale = "P" | "T" | "M" | "C" | "F";
 
 interface RegistrazioneRow {
   id: string;

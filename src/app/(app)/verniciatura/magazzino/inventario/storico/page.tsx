@@ -6,7 +6,7 @@ import { getInventariChiusi, getRigheByInventario, AMBITO_VERNICI_LABEL } from "
 export const dynamic = "force-dynamic";
 
 function fmt(d: string) {
-  return new Date(d).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return new Date(d).toLocaleDateString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 export default async function StoricoInventarioVerniciPage() {

@@ -24,6 +24,7 @@ export const ODP_SPECIALI = [
   { prefix: "MEET", label: "Riunione" },
   { prefix: "FORM", label: "Formazione" },
   { prefix: "PUL", label: "Pulizie" },
+  { prefix: "ARR", label: "Arredi e Masselli" },
   { prefix: "FERMO", label: "Fermo Macchina" },
 ] as const;
 

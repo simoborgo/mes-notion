@@ -5,7 +5,9 @@
 // Europe/Rome) per convertire correttamente, indipendentemente dal fuso del processo.
 const FUSO = "Europe/Rome";
 
-function partiRoma(d: Date): { anno: number; mese: number; giorno: number; ore: number; minuti: number; secondi: number } {
+// Esportata: utile ovunque serva leggere ora/minuti "come li vedrebbe qualcuno in Italia" da un
+// istante UTC — es. formattazione di orari su pagine/PDF server-rendered (vedi ritiri/[id]/etichetta).
+export function partiRoma(d: Date): { anno: number; mese: number; giorno: number; ore: number; minuti: number; secondi: number } {
   const dtf = new Intl.DateTimeFormat("en-US", {
     timeZone: FUSO, hourCycle: "h23",
     year: "numeric", month: "2-digit", day: "2-digit",

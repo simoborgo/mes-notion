@@ -24,7 +24,7 @@ const STATO_LABEL: Record<string, { text: string; bg: string; color: string }> =
 };
 
 function fmt(d: string) {
-  return new Date(d).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return new Date(d).toLocaleString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 export default async function FoglioScaricoDettaglioPage({ params }: { params: Promise<{ odpId: string }> }) {

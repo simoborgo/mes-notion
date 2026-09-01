@@ -23,7 +23,7 @@ function verniceLabel(v: Vernice | undefined): string {
 }
 
 function fmtData(iso: string): string {
-  return new Date(iso).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return new Date(iso).toLocaleDateString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 // Scarica il file direttamente via Drive API e lo incorpora come data: URI, invece di puntare
