@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Scheda, SchedaUpdate, Area } from "@/lib/types";
+import type { Scheda, SchedaUpdate, Area, Commessa } from "@/lib/types";
 import FormArea from "./FormArea";
 
 const STATI = [
@@ -65,6 +65,7 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
   const [form, setForm] = useState<SchedaUpdate>({
     odp: scheda.odp,
     numeroScheda: scheda.numeroScheda,
+    commessaId: scheda.commessaId,
     statoProduzione: scheda.statoProduzione,
     dataProduzionePrevista: scheda.dataProduzionePrevista ?? "",
     note: scheda.note,
@@ -81,12 +82,26 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const [commesse, setCommesse] = useState<Commessa[]>([]);
+  useEffect(() => {
+    fetch(`/api/commesse`).then(r => r.json()).then((data) => setCommesse(Array.isArray(data) ? data : [])).catch(() => {});
+  }, []);
+
   const [aree, setAree] = useState<Area[]>([]);
   const [showFormArea, setShowFormArea] = useState(false);
   useEffect(() => {
-    if (!scheda.commessaId) return;
-    fetch(`/api/aree?commessaId=${scheda.commessaId}`).then(r => r.json()).then((data) => setAree(Array.isArray(data) ? data : [])).catch(() => {});
-  }, [scheda.commessaId]);
+    if (!form.commessaId) return;
+    fetch(`/api/aree?commessaId=${form.commessaId}`).then(r => r.json()).then((data) => setAree(Array.isArray(data) ? data : [])).catch(() => {});
+  }, [form.commessaId]);
+
+  function handleCommessaChange(id: string) {
+    // Un'Area appartiene a una singola Commessa: cambiando commessa quella già selezionata
+    // non ha più senso, si riparte da "nessuna" e si ricarica la lista sopra (o si svuota qui
+    // se la nuova commessa è vuota — l'effect sopra non chiama fetch in quel caso).
+    set("commessaId", id || null);
+    set("areaId", null);
+    setAree([]);
+  }
 
   function handleAreaCreata(area: Area) {
     setAree((prev) => [...prev, area]);
@@ -116,6 +131,9 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
     const odp = (form.odp ?? "").trim();
     if (!odp) { setError("L'ODP non può essere vuoto."); return; }
     if (odp !== scheda.odp && !confirm(`Stai per rinominare l'ODP da "${scheda.odp}" a "${odp}". Le ore e lo storico già registrati con "${scheda.odp}" NON verranno aggiornati e resteranno collegati al vecchio codice. Continuare?`)) {
+      return;
+    }
+    if ((form.commessaId ?? null) !== scheda.commessaId && !confirm(`Stai per spostare questa scheda su un'altra Commessa. L'Area assegnata verrà azzerata e gli eventuali file già caricati su Drive NON verranno spostati nella cartella della nuova commessa. Continuare?`)) {
       return;
     }
     setSaving(true);
@@ -323,9 +341,24 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
           </div>
 
           <div>
+            <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Commessa</label>
+            <select className={inputCls} value={form.commessaId ?? ""} onChange={(e) => handleCommessaChange(e.target.value)}>
+              <option value="">— nessuna —</option>
+              {commesse.map((c) => (
+                <option key={c.id} value={c.id}>{c.numeroCommessa} — {c.cliente}{c.localita ? ` (${c.localita})` : ""}</option>
+              ))}
+            </select>
+            {(form.commessaId ?? null) !== scheda.commessaId && (
+              <p className="text-xs mt-1" style={{ color: "#991B1B" }}>
+                Correggi solo per un inserimento sulla commessa sbagliata: i file già caricati su Drive restano nella cartella della vecchia commessa.
+              </p>
+            )}
+          </div>
+
+          <div>
             <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Area / Cartella</label>
             <div className="flex gap-2">
-              <select className={inputCls} value={form.areaId ?? ""} onChange={(e) => set("areaId", e.target.value || null)} disabled={!scheda.commessaId}>
+              <select className={inputCls} value={form.areaId ?? ""} onChange={(e) => set("areaId", e.target.value || null)} disabled={!form.commessaId}>
                 <option value="">— nessuna —</option>
                 {aree.map((a) => (
                   <option key={a.id} value={a.id}>{a.nomeArredo || "—"}</option>
@@ -334,14 +367,14 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
               <button
                 type="button"
                 onClick={() => setShowFormArea(true)}
-                disabled={!scheda.commessaId}
+                disabled={!form.commessaId}
                 className="px-3 py-2 text-sm rounded border font-medium whitespace-nowrap hover:bg-gray-50 transition-colors disabled:opacity-50"
                 style={{ color: "var(--color-primary)", borderColor: "rgba(240,143,37,0.3)" }}
               >
                 + Nuova
               </button>
             </div>
-            {!scheda.commessaId && (
+            {!form.commessaId && (
               <p className="text-xs mt-1" style={{ color: "var(--color-grey-mid)" }}>Assegna prima una Commessa per poter collegare un&apos;Area.</p>
             )}
           </div>
@@ -458,9 +491,9 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
           </div>
         </form>
       </div>
-      {showFormArea && scheda.commessaId && (
+      {showFormArea && form.commessaId && (
         <FormArea
-          commessaId={scheda.commessaId}
+          commessaId={form.commessaId}
           onClose={() => setShowFormArea(false)}
           onSaved={handleAreaCreata}
         />

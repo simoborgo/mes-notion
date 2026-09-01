@@ -332,6 +332,10 @@ export async function updateScheda(id: string, data: SchedaUpdate): Promise<Sche
   // codice, per questo il form mostra un avviso esplicito prima di salvare.
   if (data.odp !== undefined) { sets.push(`odp = $${i++}`); values.push(data.odp); }
   if (data.numeroScheda !== undefined) { sets.push(`numero_scheda = $${i++}`); values.push(data.numeroScheda); }
+  // Cambio Commessa (correzione inserimento su commessa sbagliata): il chiamante deve anche
+  // passare areaId (tipicamente null) nella stessa chiamata — un'Area appartiene a una singola
+  // Commessa, lasciarla appesa alla vecchia commessa produrrebbe un riferimento incoerente.
+  if (data.commessaId !== undefined) { sets.push(`commessa_id = $${i++}`); values.push(data.commessaId); }
   if (data.statoProduzione !== undefined) { sets.push(`stato = $${i++}`); values.push(data.statoProduzione); }
   if (data.dataProduzionePrevista !== undefined) { sets.push(`data_produzione_prevista = $${i++}`); values.push(data.dataProduzionePrevista); }
   // Il flag produzione_esterna non è più un campo editabile a sé: segue lo Stato Produzione.
