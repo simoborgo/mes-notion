@@ -44,6 +44,8 @@ export interface Scheda {
 export type PrioritaOdp = "critica" | "alta" | "media" | "bassa";
 
 export interface SchedaUpdate {
+  odp?: string;
+  numeroScheda?: string;
   priorita?: PrioritaOdp;
   statoProduzione?: string;
   dataProduzionePrevista?: string | null;

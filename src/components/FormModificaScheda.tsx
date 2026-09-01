@@ -63,6 +63,8 @@ function AllegatoSection({ titolo, children }: { titolo: string; children: React
 export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
   const [schedaLive, setSchedaLive] = useState(scheda);
   const [form, setForm] = useState<SchedaUpdate>({
+    odp: scheda.odp,
+    numeroScheda: scheda.numeroScheda,
     statoProduzione: scheda.statoProduzione,
     dataProduzionePrevista: scheda.dataProduzionePrevista ?? "",
     note: scheda.note,
@@ -111,11 +113,18 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const odp = (form.odp ?? "").trim();
+    if (!odp) { setError("L'ODP non può essere vuoto."); return; }
+    if (odp !== scheda.odp && !confirm(`Stai per rinominare l'ODP da "${scheda.odp}" a "${odp}". Le ore e lo storico già registrati con "${scheda.odp}" NON verranno aggiornati e resteranno collegati al vecchio codice. Continuare?`)) {
+      return;
+    }
     setSaving(true);
     setError("");
     try {
       const payload: SchedaUpdate = {
         ...form,
+        odp,
+        numeroScheda: (form.numeroScheda ?? "").trim(),
         dataProduzionePrevista: form.dataProduzionePrevista || null,
       };
       const res = await fetch(`/api/schede/${scheda.id}`, {
@@ -275,6 +284,20 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
         </div>
 
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>ODP</label>
+              <input type="text" className={inputCls} value={form.odp ?? ""} onChange={(e) => set("odp", e.target.value)} />
+              <p className="text-xs mt-1" style={{ color: "#991B1B" }}>
+                Correggi solo per un inserimento errato/doppio: le ore e lo storico già registrati restano collegati al vecchio ODP.
+              </p>
+            </div>
+            <div>
+              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Numero Scheda</label>
+              <input type="text" className={inputCls} value={form.numeroScheda ?? ""} onChange={(e) => set("numeroScheda", e.target.value)} />
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Codice Articolo</label>

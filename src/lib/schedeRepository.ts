@@ -326,6 +326,12 @@ export async function updateScheda(id: string, data: SchedaUpdate): Promise<Sche
   const values: unknown[] = [];
   let i = 1;
 
+  // ODP/Numero Scheda: correzione di un inserimento errato/doppio (es. numero digitato male alla
+  // creazione). L'ODP è usato come chiave testuale da ore_registrate/storico_consuntivo_articolo
+  // (vedi schema_ore.sql) — rinominarlo qui NON aggiorna lo storico già collegato al vecchio
+  // codice, per questo il form mostra un avviso esplicito prima di salvare.
+  if (data.odp !== undefined) { sets.push(`odp = $${i++}`); values.push(data.odp); }
+  if (data.numeroScheda !== undefined) { sets.push(`numero_scheda = $${i++}`); values.push(data.numeroScheda); }
   if (data.statoProduzione !== undefined) { sets.push(`stato = $${i++}`); values.push(data.statoProduzione); }
   if (data.dataProduzionePrevista !== undefined) { sets.push(`data_produzione_prevista = $${i++}`); values.push(data.dataProduzionePrevista); }
   // Il flag produzione_esterna non è più un campo editabile a sé: segue lo Stato Produzione.
