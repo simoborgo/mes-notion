@@ -4,6 +4,7 @@ import { getSession, VERNICIATURA_ROLES, MAGAZZINO_VERNICI_ROLES } from "@/lib/a
 import { getVernici } from "@/lib/verniciRepository";
 import VerniciaturaSubNav from "@/components/VerniciaturaSubNav";
 import MagazzinoVerniciHome from "@/components/MagazzinoVerniciHome";
+import ImportaVerniciButton from "@/components/ImportaVerniciButton";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ export default async function MagazzinoVerniciPage() {
           </p>
         </div>
         <div className="shrink-0 flex items-center gap-2">
+          <ImportaVerniciButton />
           <a
             href="/api/verniciatura/vernici/export"
             className="text-sm px-4 py-2 rounded-lg font-medium whitespace-nowrap border transition-colors hover:opacity-90"

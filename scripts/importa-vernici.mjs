@@ -15,8 +15,19 @@
 // La colonna "Bilancio di Massa" viene migrata grezza in bilancio_massa_raw E decodificata in
 // tipo_bilancio_massa tramite la mappatura reale (TABELLA CATEGORIE VERNICI.pdf fornita
 // dall'utente, 2026-08-09) — sigle non presenti in tabella (es. "0") restano solo grezze.
+// "Nome Colore" (ex "DESCRIZIONE" nel formato storico) va in descrizione_colore, prevalendo
+// sempre sulla deduzione euristica dal Codice Colore. "Fornitore" va nell'omonima colonna.
+// Entrambi, come cliente_riferimento/tipo_bilancio_massa, vengono scritti solo in backfill
+// (riga già presente con quel campo NULL) — mai sovrascritti se già valorizzati da UI.
 //
-// Uso: node scripts/importa-vernici.mjs <path-csv>
+// Uso:
+//   node scripts/importa-vernici.mjs <path-csv>              -> dry-run: analizza e basta, non scrive
+//   node scripts/importa-vernici.mjs <path-csv> --conferma    -> scrive davvero sul DB
+//
+// Di default gira sempre in sola analisi (nessuna query di scrittura, nessuna transazione aperta):
+// mostra quante righe sarebbero nuove (con i relativi codice_inventario) e quante già presenti
+// andrebbero solo a backfillare cliente_riferimento/tipo_bilancio_massa se mancanti. Per scrivere
+// davvero va rilanciato con --conferma dopo aver controllato l'anteprima.
 import fs from "node:fs";
 import pg from "pg";
 
@@ -32,9 +43,11 @@ const pool = new pg.Pool({
   ssl: env.DATABASE_SSL === "false" ? false : { rejectUnauthorized: false },
 });
 
-const csvPath = process.argv[2];
+const args = process.argv.slice(2).filter(a => a !== "--conferma");
+const CONFERMATO = process.argv.includes("--conferma");
+const csvPath = args[0];
 if (!csvPath) {
-  console.error("Uso: node scripts/importa-vernici.mjs <path-csv>");
+  console.error("Uso: node scripts/importa-vernici.mjs <path-csv> [--conferma]");
   process.exit(1);
 }
 
@@ -113,14 +126,55 @@ async function main() {
   const testo = fs.readFileSync(csvPath, "utf8");
   const allRows = parseCsv(testo);
 
-  // Riga 0 è uno scarto ("Tabella 1"), la vera intestazione è la riga 1.
-  const headerIdx = allRows.findIndex(r => r.some(c => c.includes("Cod. inventario")));
+  // Riga 0 è uno scarto ("Tabella 1"), la vera intestazione è la riga 1 — "Cod. inventario" nel
+  // formato storico, "Codice Inventario" nel formato OS1 aggiornato (2026-09-01, aggiunte anche
+  // le colonne "Nome Colore" e "Fornitore").
+  const headerIdx = allRows.findIndex(r => r.some(c => c.includes("Codice Inventario") || c.includes("Cod. inventario")));
   if (headerIdx === -1) {
-    console.error('Intestazione "Cod. inventario" non trovata nel CSV: formato inatteso');
+    console.error('Intestazione "Codice Inventario" non trovata nel CSV: formato inatteso');
     process.exit(1);
   }
   const dati = allRows.slice(headerIdx + 1).filter(r => r.length >= 9 && r[1]?.trim());
   console.log("Righe da importare:", dati.length);
+
+  // Analisi preventiva (sempre, anche in scrittura): classifica ogni riga del CSV contro lo stato
+  // attuale del DB senza toccare nulla — serve sia per il dry-run sia come riepilogo "prima" da
+  // confrontare col risultato finale.
+  const esistenti = await pool.query(`SELECT codice_inventario, cliente_riferimento, tipo_bilancio_massa, descrizione_colore, fornitore FROM vernici WHERE codice_inventario IS NOT NULL`);
+  const mappaEsistenti = new Map(esistenti.rows.map(r => [r.codice_inventario, r]));
+
+  const nuovi = [];
+  const daBackfillare = [];
+  let invarianteAnteprima = 0;
+  for (const r of dati) {
+    const [bilancioMassaRawGrezzo, codiceInventario, nomeColore, , , , , cliente, , fornitoreRaw] = r;
+    const codice = codiceInventario?.trim();
+    if (!codice) continue;
+    const rigaEsistente = mappaEsistenti.get(codice);
+    if (!rigaEsistente) { nuovi.push(codice); continue; }
+    const clienteRiferimentoNuovo = cliente?.trim() || null;
+    const tipoBilancioNuovo = bilancioMassaRawGrezzo?.trim()
+      ? (CATEGORIE_BILANCIO_MASSA[bilancioMassaRawGrezzo.trim().toUpperCase()] ?? null)
+      : null;
+    const descrizioneNuova = nomeColore?.trim() || null;
+    const fornitoreNuovo = fornitoreRaw?.trim() || null;
+    const cambiaCliente = rigaEsistente.cliente_riferimento === null && clienteRiferimentoNuovo !== null;
+    const cambiaBilancio = rigaEsistente.tipo_bilancio_massa === null && tipoBilancioNuovo !== null;
+    const cambiaDescrizione = rigaEsistente.descrizione_colore === null && descrizioneNuova !== null;
+    const cambiaFornitore = rigaEsistente.fornitore === null && fornitoreNuovo !== null;
+    if (cambiaCliente || cambiaBilancio || cambiaDescrizione || cambiaFornitore) daBackfillare.push(codice); else invarianteAnteprima++;
+  }
+
+  console.log("\n--- ANTEPRIMA (nessuna scrittura) ---");
+  console.log("Vernici NUOVE da inserire:", nuovi.length, nuovi.length > 0 ? `(${nuovi.slice(0, 20).join(", ")}${nuovi.length > 20 ? ", …" : ""})` : "");
+  console.log("Vernici esistenti da aggiornare (solo backfill cliente/bilancio massa mancanti):", daBackfillare.length);
+  console.log("Vernici esistenti invariate:", invarianteAnteprima);
+
+  if (!CONFERMATO) {
+    console.log("\nNessuna scrittura eseguita (dry-run). Per applicare davvero: aggiungi --conferma in fondo al comando.");
+    return;
+  }
+  console.log("\n--conferma presente: scrivo sul DB…");
 
   const clientiVisti = new Set();
   let bilancioDecodificato = 0, bilancioSconosciuto = 0;
@@ -131,9 +185,12 @@ async function main() {
 
     let inseriteONuove = 0, invariate = 0;
     for (const r of dati) {
-      const [bilancioMassaRawGrezzo, codiceInventario, , tipoVernice, codiceTintometro, colore, gloss, cliente, unitaMisuraRaw] = r;
+      const [bilancioMassaRawGrezzo, codiceInventario, nomeColore, tipoVernice, codiceTintometro, colore, gloss, cliente, unitaMisuraRaw, fornitoreRaw] = r;
 
-      const { codice: coloreCodice, nome: coloreNome } = classificaColore(colore);
+      const { codice: coloreCodice, nome: coloreNomeEuristico } = classificaColore(colore);
+      // "Nome Colore" (ex "DESCRIZIONE") è testo libero reale dall'estratto OS1: quando presente
+      // prevale sempre sulla deduzione euristica dal Codice Colore.
+      const descrizioneColore = nomeColore?.trim() || coloreNomeEuristico;
 
       const umNorm = (unitaMisuraRaw || "").trim().toUpperCase();
       const unitaMisura = ["KG", "LT", "NR"].includes(umNorm) ? umNorm : null;
@@ -145,28 +202,34 @@ async function main() {
         clientiVisti.add(clienteRiferimento);
       }
 
+      const fornitore = fornitoreRaw?.trim() || null;
+
       const bilancioMassaRaw = bilancioMassaRawGrezzo?.trim() || null;
       const tipoBilancioMassa = bilancioMassaRaw ? (CATEGORIE_BILANCIO_MASSA[bilancioMassaRaw.toUpperCase()] ?? null) : null;
       if (bilancioMassaRaw) { if (tipoBilancioMassa) bilancioDecodificato++; else bilancioSconosciuto++; }
 
-      // Rieseguibile: su una riga già presente (stesso codice_inventario) fa solo backfill di
-      // cliente_riferimento/tipo_bilancio_massa se erano NULL — non sovrascrive modifiche fatte
-      // medio tempore da UI.
+      // Rieseguibile: su una riga già presente (stesso codice_inventario) fa solo backfill dei
+      // campi rimasti NULL (cliente_riferimento/tipo_bilancio_massa/descrizione_colore/fornitore)
+      // — non sovrascrive mai modifiche fatte medio tempore da UI.
       const { rows: risultato } = await client.query(
         `INSERT INTO vernici
            (colore_codice, descrizione_colore, codice_tintometro, codice_inventario,
-            unita_misura, tipologia, tipo_bilancio_massa, bilancio_massa_raw, gloss, cliente_riferimento)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+            unita_misura, tipologia, tipo_bilancio_massa, bilancio_massa_raw, gloss, cliente_riferimento, fornitore)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
          ON CONFLICT (codice_inventario) WHERE codice_inventario IS NOT NULL
          DO UPDATE SET
            cliente_riferimento = EXCLUDED.cliente_riferimento,
-           tipo_bilancio_massa = COALESCE(vernici.tipo_bilancio_massa, EXCLUDED.tipo_bilancio_massa)
+           tipo_bilancio_massa = COALESCE(vernici.tipo_bilancio_massa, EXCLUDED.tipo_bilancio_massa),
+           descrizione_colore = COALESCE(vernici.descrizione_colore, EXCLUDED.descrizione_colore),
+           fornitore = COALESCE(vernici.fornitore, EXCLUDED.fornitore)
            WHERE (vernici.cliente_riferimento IS NULL AND EXCLUDED.cliente_riferimento IS NOT NULL)
               OR (vernici.tipo_bilancio_massa IS NULL AND EXCLUDED.tipo_bilancio_massa IS NOT NULL)
+              OR (vernici.descrizione_colore IS NULL AND EXCLUDED.descrizione_colore IS NOT NULL)
+              OR (vernici.fornitore IS NULL AND EXCLUDED.fornitore IS NOT NULL)
          RETURNING id`,
         [
           coloreCodice,
-          coloreNome,
+          descrizioneColore,
           codiceTintometro?.trim() || null,
           codiceInventario.trim(),
           unitaMisura,
@@ -175,6 +238,7 @@ async function main() {
           bilancioMassaRaw,
           gloss?.trim() || null,
           clienteRiferimento,
+          fornitore,
         ]
       );
       if (risultato.length > 0) inseriteONuove++; else invariate++;
