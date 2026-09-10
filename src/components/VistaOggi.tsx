@@ -140,7 +140,7 @@ export default function VistaOggi({ oreFeriale, oreSabato }: { oreFeriale: numbe
   // e forza totaleGiornata a 0h finché non viene tolto, anche riaprendo la pagina.
   const [giornoChiuso, setGiornoChiuso] = useState(false);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
-  const [preselezionaUltimoOdp, setPreselezionaUltimoOdp] = useState(true);
+  const [preselezionaUltimoOdp, setPreselezionaUltimoOdp] = useState(false);
 
   // mostraLoading=false per i ricaricamenti dopo salvataggio/eliminazione: evita che
   // l'intera lista sparisca dietro "Caricamento…" (smontando/rimontando ogni riga) a ogni
