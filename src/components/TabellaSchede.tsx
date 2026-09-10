@@ -186,18 +186,8 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  // Espande di default le schede che hanno una sottoscheda in ritardo (produzione o rientro
-  // da fornitore esterno), altrimenti resterebbero nascoste nella riga padre finché l'utente
-  // non le apre manualmente — proprio le sottoschede che servono monitorare.
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
-    const parents = new Set<string>();
-    for (const f of sottoschede) {
-      if (!f.parentId) continue;
-      const r = isInRitardo(f, today);
-      if (r.produzione || r.rientro) parents.add(f.parentId);
-    }
-    return parents;
-  });
+  // Tutte le schede con sottoschede partono collassate — l'utente le apre a mano quando serve.
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
 
   const sottoschedeByParent = useMemo(() => {
     const map = new Map<string, Scheda[]>();
@@ -251,8 +241,11 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
   const [search, setSearch] = useState("");
   const [filtroFornitore, setFiltroFornitore] = useState("");
   const [filtroCommessa, setFiltroCommessa] = useState("");
+  // Include anche gli stati presenti solo a livello di sottoscheda (es. "In attesa materiale",
+  // "Materiale Pronto") — altrimenti quei gruppi restano nascosti di default e non c'è nemmeno
+  // la pillola per riattivarli manualmente (stesso problema già risolto per fornitoriUniq sotto).
   const [filtroStati, setFiltroStati] = useState<Set<string>>(
-    () => new Set(initial.map((s) => s.statoProduzione).filter((s): s is string => !!s && s !== "Completato"))
+    () => new Set([...initial, ...sottoschede].map((s) => s.statoProduzione).filter((s): s is string => !!s && s !== "Completato"))
   );
   const [filtroEsterna, setFiltroEsterna] = useState(false);
   const [filtroRitardoProd, setFiltroRitardoProd] = useState(false);
@@ -265,9 +258,11 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
   const [viewing, setViewing] = useState<Scheda | null>(null);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
 
+  // Include anche gli stati presenti solo sulle sottoschede — stesso motivo di fornitoriUniq
+  // sotto: altrimenti quelle pillole di filtro non compaiono mai, anche se lo stato esiste.
   const statiUniq = useMemo(
-    () => Array.from(new Set(schede.map((s) => s.statoProduzione).filter(Boolean))).sort(),
-    [schede]
+    () => Array.from(new Set([...schede, ...sottoschede].map((s) => s.statoProduzione).filter(Boolean))).sort(),
+    [schede, sottoschede]
   );
 
   // Include anche i fornitori assegnati solo a livello di sottoscheda (produzione esterna
@@ -580,6 +575,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
               <Th label="Cod. Articolo" sortable="codiceArticolo" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <Th label="N° Scheda" sortable="numeroScheda" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               <th className="px-4 py-3 min-w-[180px]">Descrizione</th>
+              <th className="px-4 py-3 whitespace-nowrap">Posizione</th>
               <th className="px-4 py-3 whitespace-nowrap text-right">Quantità</th>
               <Th label="Stato" sortable="statoProduzione" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="min-w-[120px]" />
               <Th label="Data Prod. Prev." sortable="dataProduzionePrevista" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
@@ -592,7 +588,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={12} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
+                <td colSpan={13} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
                   Nessuna scheda trovata
                 </td>
               </tr>
@@ -665,6 +661,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                       ) : "—"}
                     </td>
                     <td className="px-4 py-3 text-xs">{s.descrizioneFasi || "—"}</td>
+                    <td className="px-4 py-3 text-xs whitespace-nowrap">{s.posizione || "—"}</td>
                     <td className="px-4 py-3 text-xs text-right tabular-nums">{s.quantita ?? "—"}</td>
                     <td className="px-4 py-3">
                       <BadgeStato stato={s.statoProduzione} />
@@ -740,6 +737,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                           ) : "—"}
                         </td>
                         <td className="px-4 py-2 text-xs">{f.descrizioneFasi || "—"}</td>
+                        <td className="px-4 py-2 text-xs whitespace-nowrap">{f.posizione || "—"}</td>
                         <td className="px-4 py-2 text-xs text-right tabular-nums">{f.quantita ?? "—"}</td>
                         <td className="px-4 py-2">
                           <BadgeStato stato={f.statoProduzione} />
@@ -781,6 +779,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                               ) : "—"}
                             </td>
                             <td className="px-4 py-2 text-xs">{n.descrizioneFasi || "—"}</td>
+                            <td className="px-4 py-2 text-xs whitespace-nowrap">{n.posizione || "—"}</td>
                             <td className="px-4 py-2 text-xs text-right tabular-nums">{n.quantita ?? "—"}</td>
                             <td className="px-4 py-2"><BadgeStato stato={n.statoProduzione} /></td>
                             <td className="px-4 py-2"><DataCell date={n.dataProduzionePrevista} inRitardo={nRitardo.produzione} /></td>
