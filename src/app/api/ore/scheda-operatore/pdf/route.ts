@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
       .slice()
       .sort((a, b) => a.reparto.localeCompare(b.reparto) || a.cognome.localeCompare(b.cognome));
 
-    const legendaSpeciali = ODP_SPECIALI.map(s => `${s.prefix} = ${s.label}`).join(" · ");
+    const legendaSpeciali = ODP_SPECIALI.map(s => `${s.prefix} = ${s.label}${"descrizione" in s ? ` (${s.descrizione})` : ""}`).join(" · ");
     const legendaCommessa = ATTIVITA_SPECIALI_COMMESSA.map(a => `‹n. commessa›-${a.suffix} = ${a.label}`).join(" · ");
 
     const righeVuoteHtml = Array.from({ length: N_RIGHE_VUOTE }, (_, i) => `

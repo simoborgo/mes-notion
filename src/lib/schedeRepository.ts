@@ -213,6 +213,7 @@ export async function getOdpAttivi(): Promise<OdpAttivo[]> {
     id: null,
     odp: s.prefix,
     label: `${s.prefix} — ${s.label}`,
+    descrizione: "descrizione" in s ? s.descrizione : undefined,
     isSpeciale: true,
   }));
   return [...attivi, ...speciali, ...specialiCommessa];

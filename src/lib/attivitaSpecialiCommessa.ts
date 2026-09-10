@@ -24,7 +24,7 @@ export const ODP_SPECIALI = [
   { prefix: "MEET", label: "Riunione" },
   { prefix: "FORM", label: "Formazione" },
   { prefix: "PUL", label: "Pulizie" },
-  { prefix: "ARR", label: "Arredi e Masselli" },
+  { prefix: "ARR", label: "Arredi e Masselli", descrizione: "Arredi o masselli ad uso interno MODAR (27x27, piani banchi ecc.)" },
   { prefix: "FERMO", label: "Fermo Macchina" },
 ] as const;
 

@@ -242,6 +242,7 @@ export interface OdpAttivo {
   id: string | null;
   odp: string;
   label: string;
+  descrizione?: string;
   numeroScheda?: string;
   clienteInfo?: string;
   codiceArticolo?: string;

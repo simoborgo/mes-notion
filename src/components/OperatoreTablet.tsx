@@ -247,6 +247,13 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
 
   const authHeaders = useMemo(() => ({ Authorization: `Bearer ${operatore.token}` }), [operatore.token]);
 
+  // Solo i codici speciali che hanno una descrizione (es. ARR) — la maggior parte è
+  // autoesplicativa (Setup, Pulizie...) e non serve appesantire lo schermo per tutti.
+  const hintOdpSpeciali = useMemo(
+    () => odpList.filter(o => o.isSpeciale && !o.commessaNr && o.descrizione).map(o => `${o.odp} = ${o.descrizione}`).join(" · "),
+    [odpList]
+  );
+
   const caricaStato = useCallback(async (precompila = false) => {
     const res = await fetch("/api/ore/operatore/stato", { headers: authHeaders });
     if (res.status === 401) { onCambiaOperatore(); return; }
@@ -415,6 +422,7 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
                         type="button"
                         onClick={() => handleConferma({ odpGap: o.odp })}
                         disabled={salvando}
+                        title={o.descrizione}
                         className="px-3 py-2 rounded-full text-sm font-semibold border disabled:opacity-60"
                         style={{ borderColor: "#9A3412", color: "#9A3412", background: "white" }}
                       >
@@ -422,6 +430,9 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
                       </button>
                     ))}
                   </div>
+                )}
+                {hintOdpSpeciali && (
+                  <p className="text-xs" style={{ color: "#9A3412", opacity: 0.8 }}>{hintOdpSpeciali}</p>
                 )}
                 <p className="text-xs" style={{ color: "#9A3412", opacity: 0.8 }}>
                   {HINT_ATTIVITA_SPECIALI}
@@ -451,6 +462,7 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
                       key={o.odp}
                       type="button"
                       onClick={() => setOdp(o.odp)}
+                      title={o.descrizione}
                       className="px-3 py-2 rounded-full text-sm font-semibold border"
                       style={{
                         borderColor: odp === o.odp ? "var(--color-primary)" : "#d1d5db",
@@ -462,6 +474,9 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
                     </button>
                   ))}
                 </div>
+              )}
+              {hintOdpSpeciali && (
+                <p className="text-xs" style={{ color: "var(--color-grey-mid)" }}>{hintOdpSpeciali}</p>
               )}
               <p className="text-xs" style={{ color: "var(--color-grey-mid)" }}>
                 {HINT_ATTIVITA_SPECIALI}
