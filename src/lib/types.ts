@@ -16,6 +16,7 @@ export interface Scheda {
   dataProduzionePrevista: string | null;
   pdfAllegato: { id: string | null; name: string; url: string }[];
   foto: { id: string | null; name: string; url: string }[];
+  allegati: { id: string; name: string; url: string }[];
   produzioneEsterna: boolean;
   statoProdEsterna: string;
   fornitore: string;

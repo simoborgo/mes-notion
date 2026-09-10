@@ -112,10 +112,12 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [uploadingFoto, setUploadingFoto] = useState(false);
   const [uploadingCopertina, setUploadingCopertina] = useState(false);
+  const [uploadingAllegato, setUploadingAllegato] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const fotoInputRef = useRef<HTMLInputElement>(null);
   const copertinaInputRef = useRef<HTMLInputElement>(null);
+  const allegatoInputRef = useRef<HTMLInputElement>(null);
 
   function set<K extends keyof SchedaUpdate>(k: K, v: SchedaUpdate[K]) {
     setForm((prev) => ({ ...prev, [k]: v }));
@@ -206,6 +208,33 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
     }
   }
 
+  async function handleAllegatoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (!files.length) return;
+    setUploadingAllegato(true);
+    setUploadError("");
+    try {
+      // In sequenza (non in parallelo): ogni upload calcola l'ordine successivo lato server
+      // leggendo il MAX corrente, richieste parallele potrebbero leggere lo stesso valore.
+      for (const file of files) {
+        const fileBase64 = await readAsBase64(file);
+        const res = await fetch(`/api/schede/${scheda.id}/allegati`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fileBase64, filename: file.name }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data?.error ?? "Errore caricamento allegato");
+        setSchedaLive(data as Scheda);
+      }
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Errore caricamento allegato");
+    } finally {
+      setUploadingAllegato(false);
+    }
+  }
+
   async function handleCopertinaUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -258,6 +287,22 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
       setSchedaLive(data as Scheda);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Errore eliminazione foto");
+    } finally {
+      setRemovingId(null);
+    }
+  }
+
+  async function handleRemoveAllegato(fileId: string) {
+    if (!confirm("Eliminare questo allegato?")) return;
+    setRemovingId(fileId);
+    setUploadError("");
+    try {
+      const res = await fetch(`/api/schede/${scheda.id}/allegati/${fileId}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error ?? "Errore eliminazione allegato");
+      setSchedaLive(data as Scheda);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Errore eliminazione allegato");
     } finally {
       setRemovingId(null);
     }
@@ -407,7 +452,7 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
             <textarea rows={3} className={inputCls + " resize-none"} value={form.note} onChange={(e) => set("note", e.target.value)} />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <AllegatoSection titolo={`PDF Allegato (${schedaLive.pdfAllegato.length})`}>
               <div className="flex flex-col gap-1">
                 {schedaLive.pdfAllegato.map((pdf, i) => (
@@ -470,6 +515,26 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
                   </button>
                 )}
               </div>
+            </AllegatoSection>
+
+            <AllegatoSection titolo={`Allegati (${schedaLive.allegati.length})`}>
+              <div className="flex flex-col gap-1">
+                {schedaLive.allegati.map((f) => (
+                  <div key={f.id} className="flex items-center gap-1.5">
+                    <a href={f.url} target="_blank" rel="noreferrer" className="text-xs underline truncate flex-1" style={{ color: "#DC2626" }}>
+                      {f.name}
+                    </a>
+                    <button type="button" onClick={() => handleRemoveAllegato(f.id)} disabled={removingId === f.id}
+                      title="Elimina" className="shrink-0 text-xs leading-none disabled:opacity-50" style={{ color: "var(--color-grey-mid)" }}>
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <input ref={allegatoInputRef} type="file" multiple className="hidden" onChange={handleAllegatoUpload} />
+              <button type="button" onClick={() => allegatoInputRef.current?.click()} disabled={uploadingAllegato} className={uploadBtnCls} style={uploadBtnStyle}>
+                {uploadingAllegato ? "Carico…" : "+ Aggiungi file"}
+              </button>
             </AllegatoSection>
           </div>
           {uploadError && <p className="text-sm text-red-600">{uploadError}</p>}

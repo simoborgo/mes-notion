@@ -9,7 +9,8 @@ import { getAuthClient } from "./googleDriveAuth";
 //           ├── pdf_allegato.pdf
 //           ├── copertina.*
 //           ├── ordine_fornitore.pdf
-//           └── foto_NN.jpg
+//           ├── foto_NN.jpg
+//           └── Allegati/                            (file vari, qualsiasi tipo, nome originale)
 // Postgres salva solo l'id (mai il path): commesse.drive_folder_id per la cartella Commessa,
 // schede.*_drive_id per i singoli file. La cartella Commessa è popolata in modo lazy (solo al
 // primo upload collegato), mai alla sola creazione della Commessa.
@@ -68,6 +69,13 @@ export async function getOrCreateSchedaFolder(commessaFolderId: string, odp: str
   return getOrCreateSubfolder(odp, commessaFolderId);
 }
 
+// Sottocartella "Allegati" dentro la cartella ODP — separata da PDF Allegato/Ordine
+// Fornitore/Foto/Copertina (che hanno già un posto e un nome fisso) per i file vari, di
+// qualsiasi tipo, caricati a mano dagli utenti.
+export async function getOrCreateAllegatiFolder(schedaFolderId: string): Promise<string> {
+  return getOrCreateSubfolder("Allegati", schedaFolderId);
+}
+
 async function uploadBuffer(folderId: string, buffer: Buffer, nomeFile: string, mimeType: string): Promise<{ id: string; webViewLink?: string | null }> {
   const bufferStream = new PassThrough();
   bufferStream.end(buffer);
@@ -95,6 +103,12 @@ export async function uploadCopertina(folderId: string, buffer: Buffer, mimeType
 export async function uploadFoto(folderId: string, buffer: Buffer, progressivo: number, mimeType = "image/jpeg"): Promise<{ id: string; webViewLink?: string | null }> {
   const ext = mimeType === "image/png" ? "png" : "jpg";
   return uploadBuffer(folderId, buffer, `foto_${String(progressivo).padStart(2, "0")}.${ext}`, mimeType);
+}
+
+// Allegato generico (file vari): a differenza degli altri upload sopra, mantiene il nome file
+// originale invece di un nome fisso — nella cartella Allegati/ non c'è un solo file per tipo.
+export async function uploadAllegato(folderId: string, buffer: Buffer, nomeFile: string, mimeType: string): Promise<{ id: string; webViewLink?: string | null }> {
+  return uploadBuffer(folderId, buffer, nomeFile || "allegato", mimeType || "application/octet-stream");
 }
 
 // Foto di un Ritiro/Consegna — finiscono nella stessa cartella MP della Scheda collegata (o

@@ -6,11 +6,12 @@ import { getCommesse, getCommessaFolderId, setCommessaFolderId } from "./commess
 import { generaFasiPerScheda } from "./schedeFasiRepository";
 import { ricalcolaPiano } from "./apsSchedulerRepository";
 import {
-  getOrCreateCommessaFolder, getOrCreateSchedaFolder,
+  getOrCreateCommessaFolder, getOrCreateSchedaFolder, getOrCreateAllegatiFolder,
   uploadPdfAllegato as driveUploadPdfAllegato,
   uploadOrdineFornitore as driveUploadOrdineFornitore,
   uploadCopertina as driveUploadCopertina,
   uploadFoto as driveUploadFoto,
+  uploadAllegato as driveUploadAllegato,
   deleteDriveFile,
   downloadDriveFile,
 } from "./googleDriveSchede";
@@ -36,12 +37,13 @@ function legacyFileUrl(schedaId: string, prop: string, index: number): string {
 
 async function caricaAllegati(schedeIds: string[]) {
   if (schedeIds.length === 0) {
-    return { pdfMap: new Map(), ofMap: new Map(), fotoMap: new Map() };
+    return { pdfMap: new Map(), ofMap: new Map(), fotoMap: new Map(), alMap: new Map() };
   }
-  const [pdf, of_, foto] = await Promise.all([
+  const [pdf, of_, foto, al] = await Promise.all([
     pool.query(`SELECT * FROM scheda_pdf_allegato WHERE scheda_id = ANY($1) ORDER BY scheda_id, ordine`, [schedeIds]),
     pool.query(`SELECT * FROM scheda_ordine_fornitore WHERE scheda_id = ANY($1) ORDER BY scheda_id, ordine`, [schedeIds]),
     pool.query(`SELECT * FROM scheda_foto WHERE scheda_id = ANY($1) ORDER BY scheda_id, ordine`, [schedeIds]),
+    pool.query(`SELECT * FROM scheda_allegato WHERE scheda_id = ANY($1) ORDER BY scheda_id, ordine`, [schedeIds]),
   ]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const group = (rows: any[]) => {
@@ -53,7 +55,7 @@ async function caricaAllegati(schedeIds: string[]) {
     }
     return map;
   };
-  return { pdfMap: group(pdf.rows), ofMap: group(of_.rows), fotoMap: group(foto.rows) };
+  return { pdfMap: group(pdf.rows), ofMap: group(of_.rows), fotoMap: group(foto.rows), alMap: group(al.rows) };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -61,6 +63,7 @@ function mapRow(r: any, allegati: Awaited<ReturnType<typeof caricaAllegati>>): S
   const pdfRows = allegati.pdfMap.get(r.id) ?? [];
   const ofRows = allegati.ofMap.get(r.id) ?? [];
   const fotoRows = allegati.fotoMap.get(r.id) ?? [];
+  const alRows = allegati.alMap.get(r.id) ?? [];
 
   const pdfAllegato = pdfRows.length > 0
     ? pdfRows.map((f: { id: string; drive_file_id: string; nome: string }) => ({ id: f.id, name: f.nome || "PDF Allegato", url: driveFileUrl(f.drive_file_id) }))
@@ -78,6 +81,9 @@ function mapRow(r: any, allegati: Awaited<ReturnType<typeof caricaAllegati>>): S
     ? driveFileUrl(r.copertina_drive_id)
     : (r.legacy_copertina ? legacyFileUrl(r.id, "Copertina", 0) : null);
 
+  const allegatiVari = alRows.map((f: { id: string; drive_file_id: string; nome: string }) =>
+    ({ id: f.id, name: f.nome || "Allegato", url: driveFileUrl(f.drive_file_id) }));
+
   return {
     id: r.id,
     odp: r.odp,
@@ -94,6 +100,7 @@ function mapRow(r: any, allegati: Awaited<ReturnType<typeof caricaAllegati>>): S
     dataProduzionePrevista: r.data_produzione_prevista ? dateToStr(r.data_produzione_prevista) : null,
     pdfAllegato,
     foto,
+    allegati: allegatiVari,
     produzioneEsterna: r.produzione_esterna,
     statoProdEsterna: r.stato_prod_esterna,
     fornitore: r.fornitore_nome ?? "",
@@ -524,6 +531,22 @@ export async function appendFotoToPage(schedaId: string, fotoBase64Array: string
   }
 }
 
+// Allegato generico (file vari, qualsiasi tipo): a differenza di PDF Allegato/Ordine
+// Fornitore/Foto finisce nella sottocartella Allegati/ dentro la cartella ODP, non direttamente
+// dentro la cartella ODP — mantiene il nome file originale, non un nome fisso per tipo.
+export async function appendAllegatoToScheda(schedaId: string, fileBase64: string, filename: string): Promise<void> {
+  const { buffer, mimeType } = decodeBase64File(fileBase64);
+  const schedaFolderId = await resolveSchedaFolder(schedaId);
+  const folderId = await getOrCreateAllegatiFolder(schedaFolderId);
+  const { rows } = await pool.query(`SELECT COALESCE(MAX(ordine), -1) + 1 AS next FROM scheda_allegato WHERE scheda_id = $1`, [schedaId]);
+  const ordine = rows[0].next as number;
+  const uploaded = await driveUploadAllegato(folderId, buffer, filename, mimeType);
+  await pool.query(
+    `INSERT INTO scheda_allegato (scheda_id, drive_file_id, nome, ordine) VALUES ($1,$2,$3,$4)`,
+    [schedaId, uploaded.id, filename, ordine],
+  );
+}
+
 // Sostituisce (non aggiunge) la Copertina — è un'immagine di anteprima singola, non un elenco.
 export async function updateCopertinaScheda(schedaId: string, imageBase64: string, filename: string): Promise<void> {
   const { buffer, mimeType } = decodeBase64File(imageBase64);
@@ -572,6 +595,19 @@ export async function removeFotoFromScheda(schedaId: string, rowId: string): Pro
     await deleteDriveFile(rows[0].drive_file_id);
   } catch (e) {
     console.error("[removeFotoFromScheda] pulizia Drive fallita:", (e as Error).message);
+  }
+}
+
+export async function removeAllegatoFromScheda(schedaId: string, rowId: string): Promise<void> {
+  const { rows } = await pool.query(
+    `DELETE FROM scheda_allegato WHERE id = $1 AND scheda_id = $2 RETURNING drive_file_id`,
+    [rowId, schedaId],
+  );
+  if (rows.length === 0) throw new Error("Allegato non trovato");
+  try {
+    await deleteDriveFile(rows[0].drive_file_id);
+  } catch (e) {
+    console.error("[removeAllegatoFromScheda] pulizia Drive fallita:", (e as Error).message);
   }
 }
 
