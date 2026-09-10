@@ -1,17 +1,25 @@
-const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
+const { PDFDocument, rgb, StandardFonts, degrees } = require('pdf-lib');
 
 /**
  * Restituisce i bounds della pagina e una funzione normToPdf che converte
  * coordinate normalizzate (0-1, sistema pdf.js: origine top-left) in
  * coordinate pdf-lib (origine bottom-left), tenendo conto della rotazione.
  *
- * Per pagine ruotate pdf-lib vede W/H come se fossero scambiate (getSize() swap),
- * ma le coordinate di disegno restano nel sistema non-ruotato del MediaBox.
- * Le formule derivano dalla matrice di viewport di pdf.js per ogni angolo di rotazione.
+ * W/H sono già le dimensioni VISIVE (scambiate rispetto al CropBox grezzo per
+ * rotazione 90/270 — pdf-lib stesso non fa mai questo scambio, getSize() resta
+ * sempre grezzo). Le coordinate di disegno restano nel sistema non-ruotato del
+ * MediaBox: il compito di normToPdf è mappare un punto "come visto sullo schermo"
+ * in quel sistema grezzo, così che il rendering finale (dopo il /Rotate del
+ * viewer) torni al punto visivo originale.
+ *
+ * Le formule per i 4 casi sono derivate e verificate contro la matrice di
+ * viewport di pdf.js (PageViewport, pdf.mjs) per ciascun angolo — i casi 90/270
+ * erano storicamente sbagliati (assi scambiati), corretto il 2026-09-10 dopo
+ * un bug segnalato sull'overlay ruotato in Verifica Spedizione.
  */
 function getPageBounds(page) {
   let rotation = 0;
-  try { rotation = (page.getRotation().angle ?? 0 + 360) % 360; } catch (_) {}
+  try { rotation = ((page.getRotation().angle ?? 0) + 360) % 360; } catch (_) {}
 
   // Dimensioni originali (non-ruotate) del CropBox
   let W, H, ox = 0, oy = 0;
@@ -31,14 +39,14 @@ function getPageBounds(page) {
 
   function normToPdf(nx, ny) {
     switch (rotation) {
-      case 90:  return { x: ox + ny * W,       y: oy + H * (1 - nx) };
+      case 90:  return { x: ox + ny * H,       y: oy + nx * W       };
       case 180: return { x: ox + W * (1 - nx), y: oy + ny * H       };
-      case 270: return { x: ox + W * (1 - ny), y: oy + nx * H       };
+      case 270: return { x: ox + H * (1 - ny), y: oy + W * (1 - nx) };
       default:  return { x: ox + nx * W,       y: oy + H * (1 - ny) };
     }
   }
 
-  return { ox, oy, W, H, normToPdf };
+  return { ox, oy, W, H, rotation, normToPdf };
 }
 
 /**
@@ -86,7 +94,7 @@ async function buildVerificaPdf({ originalBytes, strokes = {}, stamps = {}, user
     const pageNum = parseInt(pageNumStr, 10);
     if (pageNum < 1 || pageNum > pages.length) continue;
     const page = pages[pageNum - 1];
-    const { W, normToPdf } = getPageBounds(page);
+    const { W, H, rotation, normToPdf } = getPageBounds(page);
     const r = Math.max(18, W * 0.030);
 
     for (const s of pageStamps) {
@@ -101,20 +109,44 @@ async function buildVerificaPdf({ originalBytes, strokes = {}, stamps = {}, user
       const label = isOk ? 'OK' : '!';
       const fs = Math.round(r * 0.72);
       const tw = helveticaBold.widthOfTextAtSize(label, fs);
+      // Centratura calcolata in spazio normalizzato (non sull'offset raw cx/cy): su pagina
+      // ruotata uno spostamento raw non corrisponde allo stesso spostamento visivo (vedi
+      // commento sulla firma più sotto), e "rotate" raddrizza solo l'orientamento del glifo,
+      // non la sua posizione.
+      const { x: tx, y: ty } = normToPdf(s.x - (tw / 2) / W, s.y + (fs * 0.36) / H);
       page.drawText(label, {
-        x: cx - tw / 2, y: cy - fs * 0.36,
+        x: tx, y: ty,
         size: fs, font: helveticaBold, color: rgb(1, 1, 1),
+        rotate: degrees(rotation),
       });
     }
   }
 
-  // Firma operatore nell'ultima pagina
+  // Firma operatore nell'ultima pagina — stessa correzione rotation-aware di tratti/timbri
+  // sopra: usava lastPage.getSize() (dimensioni raw della MediaBox, mai la rotazione) e
+  // coordinate fisse, quindi su una pagina con /Rotate 90/270 (es. scan orizzontale con
+  // MediaBox verticale) la barra finiva sul lato sbagliato e il testo appariva ruotato di
+  // 90°/270° rispetto al resto della pagina come visualizzata.
   const lastPage = pages[pages.length - 1];
-  const { width: lw2 } = lastPage.getSize();
+  const { W: lastW, H: lastH, rotation: lastRotation, normToPdf: lastNormToPdf } = getPageBounds(lastPage);
   const now = new Date().toLocaleString('it-IT');
   const firma = `Verificato da: ${userName} — ${now}`;
-  lastPage.drawRectangle({ x: 20, y: 10, width: lw2 - 40, height: 20, color: rgb(0.95, 0.95, 0.95), opacity: 0.8 });
-  lastPage.drawText(firma, { x: 24, y: 15, size: 8, font: helvetica, color: rgb(0.3, 0.3, 0.3) });
+  // Bordi della barra in spazio normalizzato (0-1, origine in alto a sinistra come lo schermo),
+  // equivalenti ai margini raw originali (20pt laterali, 10-30pt dal basso) quando rotation=0 —
+  // mappati poi in raw tramite normToPdf, che già gestisce lo scambio W/H per rotazione 90/270.
+  const barCorners = [
+    lastNormToPdf(20 / lastW, 1 - 30 / lastH),
+    lastNormToPdf(1 - 20 / lastW, 1 - 30 / lastH),
+    lastNormToPdf(20 / lastW, 1 - 10 / lastH),
+    lastNormToPdf(1 - 20 / lastW, 1 - 10 / lastH),
+  ];
+  const barX = Math.min(...barCorners.map((c) => c.x));
+  const barY = Math.min(...barCorners.map((c) => c.y));
+  const barW = Math.max(...barCorners.map((c) => c.x)) - barX;
+  const barH = Math.max(...barCorners.map((c) => c.y)) - barY;
+  lastPage.drawRectangle({ x: barX, y: barY, width: barW, height: barH, color: rgb(0.95, 0.95, 0.95), opacity: 0.8 });
+  const { x: firmaX, y: firmaY } = lastNormToPdf(24 / lastW, 1 - 15 / lastH);
+  lastPage.drawText(firma, { x: firmaX, y: firmaY, size: 8, font: helvetica, color: rgb(0.3, 0.3, 0.3), rotate: degrees(lastRotation) });
 
   // Pagine foto (JPEG o PNG)
   for (let i = 0; i < fotoBuffers.length; i++) {
