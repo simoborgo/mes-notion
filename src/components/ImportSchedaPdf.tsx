@@ -164,6 +164,11 @@ export default function ImportSchedaPdf() {
           ...it,
           stato: it.stato ?? (isExternal ? "In lavorazione Esterna" : "In lavorazione"),
           includeAsSubitem: idx === 0 ? undefined : isExternal,
+          // Deve essere un valore reale nello state fin da subito, non solo il fallback
+          // visivo dell'input "Gruppo" (che mostrava idx senza mai salvarlo) — altrimenti
+          // resta undefined finché l'utente non tocca quello specifico campo, e il server
+          // (import-scheda/route.ts, sub.item.gruppo != null) tratta ogni pagina come a sé.
+          gruppo: it.gruppo ?? idx,
         };
       }));
       setStatus("preview");
