@@ -49,8 +49,10 @@ export const OFFERTE_ROLES: Role[] = ["admin"];
 export const PARAMETRI_REPARTO_ROLES: Role[] = ["admin"];
 // APS (Advanced Planning & Scheduling) — anagrafica Reparti/Pattern_Ciclo, solo admin per ora.
 export const REPARTI_ROLES: Role[] = ["admin"];
-// Vista Gantt APS (sola lettura) — chi già lavora con Schede/Rilevamento Ore, non solo admin.
-export const APS_GANTT_ROLES: Role[] = ["admin", "produzione", "responsabile_produzione"];
+// Vista Gantt APS (sola lettura) — ristretta a solo admin (deciso con l'utente 2026-09-10):
+// apre le Schede sulla tab Fasi APS, ora anch'essa solo admin, niente senso lasciarla aperta
+// a chi poi non vedrebbe comunque quella tab.
+export const APS_GANTT_ROLES: Role[] = ["admin"];
 export const PREVISIONALE_ROLES: Role[] = ["admin"];
 export const ORARI_TURNO_ROLES: Role[] = ["admin"];
 export const IMPOSTAZIONI_ROLES: Role[] = ["admin"];

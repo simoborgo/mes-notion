@@ -310,6 +310,7 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
   const [activeTab, setActiveTab] = useState<"info" | "fornitore" | "kit" | "aps" | "verniciatura">(tabIniziale ?? "info");
   const [showNoteStato, setShowNoteStato] = useState(false);
   const canFerramenta = !!userRole && FERRAMENTA_ROLES.includes(userRole);
+  const canAps = userRole === "admin";
 
   // Sottoschede e Rilavorazioni sono record a sé: senza questo la loro scheda dettaglio è
   // visivamente identica a quella di una Scheda madre, e non si capisce di cosa si tratta né da
@@ -356,7 +357,7 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
         </svg>
       ),
     }] : []),
-    ...(s.tipologia === "Scheda" ? [{
+    ...(s.tipologia === "Scheda" && canAps ? [{
       key: "aps" as const, label: "Fasi APS",
       icon: (
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -618,7 +619,7 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
 
           {activeTab === "kit" && canFerramenta && <KitFerramentaTab scheda={s} />}
 
-          {activeTab === "aps" && s.tipologia === "Scheda" && <SchedaFasiApsTab scheda={s} />}
+          {activeTab === "aps" && s.tipologia === "Scheda" && canAps && <SchedaFasiApsTab scheda={s} />}
 
           {activeTab === "fornitore" && (
             <FornitoreEsternoTab key={s.id} scheda={s} userRole={userRole} onSchedaAggiornata={onSchedaAggiornata} />
