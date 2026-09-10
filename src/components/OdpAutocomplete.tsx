@@ -20,6 +20,9 @@ export function OdpLabel({ o }: { o: OdpAttivo }) {
       {o.completato && (
         <span className="text-xs font-semibold shrink-0" style={{ color: "#16A34A" }}>(Completato)</span>
       )}
+      {o.esterno && (
+        <span className="text-xs font-semibold shrink-0" style={{ color: "#2563EB" }}>(Lavorazione Esterna)</span>
+      )}
       {o.clienteInfo && (
         <span className="text-xs truncate" style={{ color: "#9ca3af" }}>{o.clienteInfo}</span>
       )}

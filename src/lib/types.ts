@@ -250,6 +250,7 @@ export interface OdpAttivo {
   copertina?: string | null;
   isSpeciale: boolean;
   completato?: boolean;
+  esterno?: boolean;
 }
 
 // Etichette per le categorie ore_registrate non-COMMESSA (ODP_SPECIALI in src/lib/notion.ts),

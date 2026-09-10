@@ -215,11 +215,16 @@ function giornoPrecedente(dataStr: string): string {
   return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())}`;
 }
 
+// Reparti esclusi dalla pagina Rilevamento Ore (Vista Oggi + relativa stampa PDF): non
+// registrano ore su ODP da qui, restano gestiti altrove (tablet timbratura, PIN, webhook
+// chiusura automatica continuano a usare getOperatori() senza questo filtro).
+const REPARTI_ESCLUSI_RILEVAMENTO_ORE = ["Logistica", "Produzione", "Spedizioni", "Ferramenta"];
+
 // Estratto da /api/ore/presenti (route GET) così la stessa identica logica (registrazioni,
 // permessi/assenze riconciliate, ODP del giorno precedente) è riusabile anche server-side, es.
 // dalla stampa PDF di Vista Oggi — nessuna duplicazione, nessun self-fetch interno all'API.
 export async function getPresentiPerData(data: string): Promise<{ presenti: PresenteRow[]; warningPermessi: string | null }> {
-  const operatori = await getOperatori();
+  const operatori = (await getOperatori()).filter(o => !REPARTI_ESCLUSI_RILEVAMENTO_ORE.includes(o.reparto));
   const matricole = operatori.map(o => o.matricola);
 
   const [registrazioni, odpGiornoPrecedenteMap, assenzeResult, repartiSecondari, schede] = await Promise.all([

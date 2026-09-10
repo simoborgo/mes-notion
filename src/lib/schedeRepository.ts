@@ -206,6 +206,7 @@ export async function getOdpAttivi(): Promise<OdpAttivo[]> {
       copertina: s.copertina,
       isSpeciale: false,
       completato: s.statoProduzione === "Completato",
+      esterno: s.statoProduzione === "In lavorazione Esterna" || s.produzioneEsterna,
     });
   }
 

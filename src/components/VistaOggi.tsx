@@ -355,7 +355,7 @@ export default function VistaOggi({ oreFeriale, oreSabato }: { oreFeriale: numbe
             Causali speciali —{" "}
           </span>
           <span style={{ color: "var(--color-grey-mid)" }}>
-            {ODP_SPECIALI.map(s => `${s.prefix} (${s.label})`).join(" · ")}
+            {ODP_SPECIALI.map(s => `${s.prefix} (${s.label}${"descrizione" in s ? ` — ${s.descrizione}` : ""})`).join(" · ")}
           </span>
         </div>
         <div>
@@ -430,6 +430,18 @@ export default function VistaOggi({ oreFeriale, oreSabato }: { oreFeriale: numbe
               <polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" />
             </svg>
             Stampa Scheda Ore Operatore
+          </a>
+          <a
+            href={`/api/ore/scheda-esterni/pdf?mese=${data.slice(0, 7)}`}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1.5 px-3 rounded-lg border text-sm font-semibold hover:bg-gray-50"
+            style={{ height: 44, borderColor: "#d1d5db", color: "var(--color-grey-mid)", background: "white" }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" />
+            </svg>
+            Stampa Calendario Esterni
           </a>
           <div className="flex-1" />
           <label
@@ -710,16 +722,19 @@ function RigaOperatore({
     }
   }
 
-  // Verde solo se la giornata è completa E non c'è un'assenza in corso — l'assenza (rosso) resta
-  // il segnale prioritario, più informativo di "ore complete" per chi scorre la lista.
-  const completaSenzaAssenza = giornataCompleta && !p.assenza;
+  // Rosso per assenza "piena" (ferie, o assenza manuale senza permesso sincronizzato es. malattia);
+  // arancione per il solo permesso, meno bloccante. Verde "completa" solo se nessuna delle due,
+  // altrimenti il colore di assenza/permesso resta il segnale prioritario per chi scorre la lista.
+  const assenzaRossa = p.assenza?.tipo === "FERIE" || (!p.assenza && !!p.assenzaManuale);
+  const assenzaArancione = p.assenza?.tipo === "PERMESSO";
+  const completaSenzaAssenza = giornataCompleta && !assenzaRossa && !assenzaArancione;
 
   return (
     <div
       className="rounded-xl border"
       style={{
-        borderColor: p.assenza ? "#FCA5A5" : completaSenzaAssenza ? "#86EFAC" : "#e5e4e0",
-        background: p.assenza ? "#FEF2F2" : completaSenzaAssenza ? "#F0FDF4" : "white",
+        borderColor: assenzaRossa ? "#FCA5A5" : assenzaArancione ? "#FDBA74" : completaSenzaAssenza ? "#86EFAC" : "#e5e4e0",
+        background: assenzaRossa ? "#FEF2F2" : assenzaArancione ? "#FFF7ED" : completaSenzaAssenza ? "#F0FDF4" : "white",
       }}
     >
       <div className="flex items-center gap-3 px-4 py-3">
@@ -727,9 +742,14 @@ function RigaOperatore({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold" style={{ color: "var(--color-black)" }}>{p.cognome} {p.nome}</span>
-            {p.assenza && (
+            {assenzaRossa && (
               <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "#FEE2E2", color: "#991B1B" }}>
-                {p.assenza.tipo === "FERIE" ? "In ferie" : "In permesso"}
+                {p.assenza?.tipo === "FERIE" ? "In ferie" : "Assente"}
+              </span>
+            )}
+            {assenzaArancione && (
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "#FFEDD5", color: "#9A3412" }}>
+                In permesso
               </span>
             )}
             {completaSenzaAssenza && (
