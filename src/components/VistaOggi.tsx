@@ -843,8 +843,8 @@ function RigaOperatore({
           </label>
           <button
             onClick={handleAggiungi}
-            disabled={saving || giornataCompleta}
-            title={giornataCompleta ? `Giornata completa (${totaleGiornata}h considerando eventuali assenze) — elimina una voce per aggiungerne altre` : "Aggiungi riga"}
+            disabled={saving}
+            title={giornataCompleta ? `Giornata completa (${totaleGiornata}h considerando eventuali assenze) — aggiungendo altre ore verranno registrate come straordinario` : "Aggiungi riga"}
             className="flex items-center justify-center rounded-lg text-white font-bold disabled:opacity-60 flex-shrink-0 ml-auto lg:ml-0"
             style={{ width: 44, height: 44, background: "var(--color-primary)", fontSize: 20 }}
           >
