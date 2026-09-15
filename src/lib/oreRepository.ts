@@ -1,5 +1,5 @@
 import type { Pool, PoolClient } from "pg";
-import { pool } from "./db";
+import { pool, dateToStr } from "./db";
 import { aggiornaStandardRepartoPerOdp } from "./standardRepartoRepository";
 import { getSchede } from "./schedeRepository";
 import { getOperatori, getTuttiOperatori } from "./operatoriRepository";
@@ -396,6 +396,30 @@ export async function getStoricoOperatore(matricola: string, da?: string, a?: st
     params
   );
   return rows.map(mapRow);
+}
+
+export interface OreGiornoOperatore {
+  matricola: string;
+  data: string;
+  ore: number;
+}
+
+// Ore lavorate per operatore e giorno in un intervallo — rifacimenti inclusi senza distinzione
+// (sono comunque ore di presenza da pagare/fatturare). Usata dal Calendario Esterni per il
+// totale di fine mese: nessun filtro sul reparto, a differenza di getPresentiPerData, perché qui
+// contano tutte le ore registrate per quella matricola, non solo quelle passate da Vista Oggi.
+export async function getOreLavoratePerGiornoPeriodo(da: string, a: string): Promise<OreGiornoOperatore[]> {
+  const { rows } = await pool.query(
+    `SELECT matricola, data, SUM(ore) AS ore FROM ore_registrate
+     WHERE data BETWEEN $1 AND $2 GROUP BY matricola, data`,
+    [da, a]
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return rows.map((r: any) => ({
+    matricola: r.matricola,
+    data: r.data instanceof Date ? dateToStr(r.data) : r.data,
+    ore: Number(r.ore),
+  }));
 }
 
 export interface KpiTotali {

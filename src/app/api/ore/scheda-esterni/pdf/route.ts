@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import puppeteer from "puppeteer";
 import fs from "fs";
 import path from "path";
-import { getOperatori } from "@/lib/operatoriRepository";
+import { getTuttiOperatori } from "@/lib/operatoriRepository";
+import { getOreLavoratePerGiornoPeriodo } from "@/lib/oreRepository";
 import { giornoLavorativo } from "@/lib/calendarioLavorativo";
 import { getSessionFromRequest, RILEVAMENTO_ORE_ROLES } from "@/lib/auth";
 
@@ -25,22 +26,27 @@ function meseLabel(meseStr: string): string {
   return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
+function fmtOre(n: number): string {
+  return `${Math.round(n * 100) / 100}`;
+}
+
 interface GiornoCalendario {
   giorno: number;
-  weekdayLabel: string;
+  data: string;
+  weekday: number; // 0 = domenica … 6 = sabato, come Date.getDay()
   festivo: boolean;
 }
 
-// Tutti i giorni del mese "YYYY-MM", con etichetta giorno settimana ed eventuale
-// evidenziazione weekend/festivi (non lavorativi per un esterno, ma comunque compilabili
-// a mano in caso di eccezione — nessuna cella è bloccata).
+// weekday calcolato qui, dalla stessa istanza Date costruita con anno/mese/giorno espliciti
+// (mai da un parsing di stringa YYYY-MM-DD, che verrebbe interpretata come UTC e potrebbe
+// spostare il giorno della settimana a seconda del fuso del server).
 function giorniDelMese(meseStr: string): GiornoCalendario[] {
   const [anno, mese] = meseStr.split("-").map(Number);
   const nGiorni = new Date(anno, mese, 0).getDate();
+  const p = (n: number) => String(n).padStart(2, "0");
   return Array.from({ length: nGiorni }, (_, i) => {
     const d = new Date(anno, mese - 1, i + 1);
-    const weekdayLabel = d.toLocaleDateString("it-IT", { weekday: "short" }).replace(".", "");
-    return { giorno: i + 1, weekdayLabel, festivo: !giornoLavorativo(d) };
+    return { giorno: i + 1, data: `${anno}-${p(mese)}-${p(i + 1)}`, weekday: d.getDay(), festivo: !giornoLavorativo(d) };
   });
 }
 
@@ -57,27 +63,69 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Parametro mese mancante o non valido (YYYY-MM)" }, { status: 400 });
     }
 
-    const operatori = await getOperatori();
-    const esterni = operatori
-      .filter(o => o.tipo === "Esterno")
-      .sort((a, b) => a.azienda.localeCompare(b.azienda) || a.cognome.localeCompare(b.cognome));
+    const giorni = giorniDelMese(mese);
+    const da = giorni[0].data;
+    const a = giorni[giorni.length - 1].data;
+
+    const [tuttiOperatori, oreGiornaliere] = await Promise.all([
+      getTuttiOperatori(),
+      getOreLavoratePerGiornoPeriodo(da, a),
+    ]);
+
+    // Un esterno non più in forza che ha lavorato durante il mese richiesto non deve sparire dal
+    // proprio calendario di fine mese: qui conta chi è in forza oggi O chi ha almeno un'ora
+    // lavorata nel periodo, non solo il primo caso (vedi stesso bug già corretto in
+    // getPresentiPerData/oreRepository.ts). Permessi/ferie non danno diritto a comparire da soli:
+    // non sono pagati, quindi un mese di sola assenza non produce nulla da fatturare.
+    const matricoleConOreLavorate = new Set(oreGiornaliere.map(r => r.matricola));
+    const esterni = tuttiOperatori
+      .filter(o => o.tipo === "Esterno" && (o.inForza || matricoleConOreLavorate.has(o.matricola)))
+      .sort((a2, b) => a2.azienda.localeCompare(b.azienda) || a2.cognome.localeCompare(b.cognome));
 
     if (esterni.length === 0) {
-      return NextResponse.json({ error: "Nessun dipendente esterno in forza" }, { status: 404 });
+      return NextResponse.json({ error: "Nessun dipendente esterno per il mese richiesto" }, { status: 404 });
     }
 
-    const giorni = giorniDelMese(mese);
+    const oreLavoratePerMatricolaGiorno = new Map<string, Map<string, number>>();
+    for (const r of oreGiornaliere) {
+      if (!oreLavoratePerMatricolaGiorno.has(r.matricola)) oreLavoratePerMatricolaGiorno.set(r.matricola, new Map());
+      oreLavoratePerMatricolaGiorno.get(r.matricola)!.set(r.data, r.ore);
+    }
+
+    // Griglia calendario Lunedì-Domenica: celle vuote per completare la prima e l'ultima settimana.
+    const primoWeekdayMonFirst = (giorni[0].weekday + 6) % 7;
+    const celle: (GiornoCalendario | null)[] = [
+      ...Array(primoWeekdayMonFirst).fill(null),
+      ...giorni,
+    ];
+    while (celle.length % 7 !== 0) celle.push(null);
+    const settimane: (GiornoCalendario | null)[][] = [];
+    for (let i = 0; i < celle.length; i += 7) settimane.push(celle.slice(i, i + 7));
+
     const logoUri = getLogoDataUri();
+    const weekdayLabels = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 
-    const righeGiorniHtml = giorni.map(g => `
-      <tr class="${g.festivo ? "riposo" : ""}">
-        <td class="num">${g.giorno}</td>
-        <td class="weekday">${esc(g.weekdayLabel)}</td>
-        <td class="cell-ore"></td>
-        <td class="cell-firma"></td>
-      </tr>`).join("");
+    const paginaHtml = (o: (typeof esterni)[number]) => {
+      const oreMatricola = oreLavoratePerMatricolaGiorno.get(o.matricola) ?? new Map<string, number>();
 
-    const paginaHtml = (o: (typeof esterni)[number]) => `
+      let totaleMese = 0;
+      const settimaneHtml = settimane.map(settimana => {
+        const celleHtml = settimana.map(g => {
+          if (!g) return `<td class="cella vuota"></td>`;
+          // Solo ore effettivamente lavorate: permessi e ferie non sono pagati agli esterni,
+          // quindi non entrano nel totale — decisione esplicita dell'utente 2026-09-13.
+          const totale = oreMatricola.get(g.data) ?? 0;
+          totaleMese += totale;
+          return `
+            <td class="cella${g.festivo ? " riposo" : ""}">
+              <div class="num-giorno">${g.giorno}</div>
+              ${totale > 0 ? `<div class="ore-giorno">${fmtOre(totale)}</div>` : ""}
+            </td>`;
+        }).join("");
+        return `<tr>${celleHtml}</tr>`;
+      }).join("");
+
+      return `
       <section class="pagina">
         <div class="hd">
           <div>
@@ -89,19 +137,18 @@ export async function GET(req: NextRequest) {
         </div>
         <div class="info-riga">
           <div class="box"><div class="l">Mese</div><div class="v">${esc(meseLabel(mese))}</div></div>
+          <div class="box"><div class="l">Totale ore mese</div><div class="v">${fmtOre(totaleMese)}h</div></div>
         </div>
-        <table>
-          <thead>
-            <tr>
-              <th class="num">Giorno</th>
-              <th class="weekday"></th>
-              <th class="cell-ore">Ore</th>
-              <th class="cell-firma">Firma</th>
-            </tr>
-          </thead>
-          <tbody>${righeGiorniHtml}</tbody>
+        <table class="calendario">
+          <thead><tr>${weekdayLabels.map(w => `<th>${w}</th>`).join("")}</tr></thead>
+          <tbody>${settimaneHtml}</tbody>
         </table>
+        <div class="firma-riga">
+          <span>Firma</span>
+          <span class="linea"></span>
+        </div>
       </section>`;
+    };
 
     const html = `<!DOCTYPE html>
 <html lang="it">
@@ -114,23 +161,25 @@ export async function GET(req: NextRequest) {
 body{font-family:'Jost',sans-serif;color:#1A1918}
 .pagina{break-after:page}
 .pagina:last-child{break-after:auto}
-.hd{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:2.5mm;border-bottom:2px solid #1A1918;margin-bottom:2.5mm}
+.hd{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:2.5mm;border-bottom:2px solid #1A1918;margin-bottom:4mm}
 .hd .lbl{font-size:9px;letter-spacing:.15em;color:#A4A4A6;text-transform:uppercase}
 .hd .title{font-size:18px;font-weight:700;margin-top:1mm}
 .hd .sub{font-size:10px;color:#6b6966;margin-top:0.5mm}
 .hd .logo{height:14mm;width:auto;object-fit:contain;flex-shrink:0}
-.info-riga{display:flex;gap:3mm;margin-bottom:2.5mm}
+.info-riga{display:flex;gap:3mm;margin-bottom:4mm}
 .info-riga .box{flex:1;border:1px solid #E4E0DA;border-radius:2mm;padding:1.5mm 4mm}
 .info-riga .l{font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:#6b6966}
-.info-riga .v{font-size:11px;font-weight:600;margin-top:0.3mm}
-table{width:100%;border-collapse:collapse}
-th{text-align:left;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#A4A4A6;padding:1.3mm 2.5mm;border-bottom:2px solid #1A1918}
-td{padding:1.15mm 2.5mm;border-bottom:1px solid #E4E0DA;font-size:10.5px;line-height:1.1}
-.num{width:14mm;color:#A4A4A6;text-align:center}
-.weekday{width:14mm;color:#6b6966;text-transform:capitalize}
-.cell-ore{width:22mm;text-align:center}
-.cell-firma{width:auto}
-tr.riposo td{background:#F5F3EF;color:#A4A4A6}
+.info-riga .v{font-size:13px;font-weight:700;margin-top:0.3mm}
+table.calendario{width:100%;border-collapse:collapse;table-layout:fixed}
+table.calendario th{text-align:center;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#A4A4A6;padding:1.5mm 0;border-bottom:2px solid #1A1918}
+td.cella{border:1px solid #E4E0DA;height:24mm;vertical-align:top;padding:1.5mm 2mm}
+td.cella.vuota{border-color:#F5F3EF;background:#FBFAF8}
+td.cella.riposo{background:#F5F3EF}
+.num-giorno{font-size:9px;color:#A4A4A6;font-weight:600}
+.ore-giorno{font-size:19px;font-weight:700;text-align:center;margin-top:5mm;color:#1A1918}
+.firma-riga{display:flex;align-items:center;gap:4mm;margin-top:8mm}
+.firma-riga span:first-child{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#6b6966}
+.firma-riga .linea{flex:1;border-bottom:1px solid #1A1918;height:1px;max-width:90mm}
 @media print{@page{size:A4;margin:12mm}}
 </style>
 </head>
