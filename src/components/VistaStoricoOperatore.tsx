@@ -70,7 +70,10 @@ export default function VistaStoricoOperatore() {
         <div className="relative" style={{ width: 280 }}>
           {selezionato ? (
             <div className="flex items-center gap-2 px-3 rounded-lg border text-sm font-medium" style={{ height: 48, borderColor: "var(--color-primary)", background: "rgba(240,143,37,0.06)" }}>
-              <span className="flex-1 truncate">{selezionato.cognome} {selezionato.nome}</span>
+              <span className="flex-1 truncate">
+                {selezionato.cognome} {selezionato.nome}
+                {!selezionato.inForza && <span className="ml-1.5 font-normal" style={{ color: "var(--color-grey-mid)" }}>(non in forza)</span>}
+              </span>
               <button onClick={() => { setSelezionato(null); setVoci(null); }} className="text-gray-400 hover:text-gray-600">×</button>
             </div>
           ) : (
@@ -90,6 +93,11 @@ export default function VistaStoricoOperatore() {
                       onMouseDown={e => { e.preventDefault(); setSelezionato(o); setSearch(""); setOpen(false); }}>
                       <span className="font-semibold">{o.cognome} {o.nome}</span>
                       <span className="ml-2 text-xs" style={{ color: "var(--color-grey-mid)" }}>{o.reparto}</span>
+                      {!o.inForza && (
+                        <span className="ml-2 text-xs font-bold px-1.5 py-0.5 rounded-full" style={{ background: "#F3F4F6", color: "#6b6966" }}>
+                          non in forza
+                        </span>
+                      )}
                     </li>
                   ))}
                 </ul>

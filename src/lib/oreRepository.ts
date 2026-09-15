@@ -2,7 +2,7 @@ import type { Pool, PoolClient } from "pg";
 import { pool } from "./db";
 import { aggiornaStandardRepartoPerOdp } from "./standardRepartoRepository";
 import { getSchede } from "./schedeRepository";
-import { getOperatori } from "./operatoriRepository";
+import { getOperatori, getTuttiOperatori } from "./operatoriRepository";
 import { getAssenzeApprovatePerData, isAssente } from "./permessiRepository";
 import {
   type AssenzaManuale, getAssenzeManualiPerData, oreDaPermesso, reconciliaAssenzeConPermessi, oreEqual,
@@ -224,11 +224,28 @@ const REPARTI_ESCLUSI_RILEVAMENTO_ORE = ["Logistica", "Produzione", "Spedizioni"
 // permessi/assenze riconciliate, ODP del giorno precedente) è riusabile anche server-side, es.
 // dalla stampa PDF di Vista Oggi — nessuna duplicazione, nessun self-fetch interno all'API.
 export async function getPresentiPerData(data: string): Promise<{ presenti: PresenteRow[]; warningPermessi: string | null }> {
-  const operatori = (await getOperatori()).filter(o => !REPARTI_ESCLUSI_RILEVAMENTO_ORE.includes(o.reparto));
+  // "In forza" è uno stato attuale: da solo non basta a scegliere chi mostrare per una data
+  // passata, altrimenti un operatore disattivato dopo aver lavorato (tipico per un esterno a fine
+  // rapporto) sparirebbe anche dai giorni in cui aveva già ore/assenze registrate. Si riammette
+  // chi non è più in forza ma ha almeno una riga quel giorno specifico.
+  const [operatoriInForza, tuttiOperatori, registrazioni, assenzeManualiEsistenti] = await Promise.all([
+    getOperatori(),
+    getTuttiOperatori(),
+    getRegistrazioniPerData(data),
+    getAssenzeManualiPerData(data).catch(() => new Map<string, AssenzaManuale>()),
+  ]);
+  const matricoleInForza = new Set(operatoriInForza.map(o => o.matricola));
+  const matricoleConStoricoData = new Set([
+    ...registrazioni.map(r => r.matricola),
+    ...assenzeManualiEsistenti.keys(),
+  ]);
+  const operatori = tuttiOperatori.filter(o =>
+    !REPARTI_ESCLUSI_RILEVAMENTO_ORE.includes(o.reparto) &&
+    (matricoleInForza.has(o.matricola) || matricoleConStoricoData.has(o.matricola))
+  );
   const matricole = operatori.map(o => o.matricola);
 
-  const [registrazioni, odpGiornoPrecedenteMap, assenzeResult, repartiSecondari, schede] = await Promise.all([
-    getRegistrazioniPerData(data),
+  const [odpGiornoPrecedenteMap, assenzeResult, repartiSecondari, schede] = await Promise.all([
     getOdpGiornoPrecedenteMap(matricole, giornoPrecedente(data)),
     getAssenzeApprovatePerData(data).then(
       assenze => ({ ok: true as const, assenze }),
