@@ -275,6 +275,22 @@ export async function iniziaFasePerOdpReparto(odp: string, repartoId: string): P
   return rows.length > 0;
 }
 
+// Risolve quale fase CNC "In lavorazione" proporre per la dichiarazione di chiusura sul tablet
+// (cambio ODP, vedi apriSegmento/segmentiOperatoreRepository.ts) — non esiste ancora un vincolo
+// che impedisca a un odp di avere più fasi CNC "In lavorazione" insieme (iniziaFasePerOdpReparto
+// sopra non ha ORDER BY/LIMIT), quindi si sceglie sempre la prima in sequenza per `ordine`,
+// pronta per un futuro ODP a più fasi CNC senza dover essere riscritta.
+export async function getFaseCncInLavorazione(odp: string): Promise<{ id: string; schedaId: string } | null> {
+  const { rows } = await pool.query(
+    `SELECT sf.id, sf.scheda_id
+     FROM schede_fasi sf JOIN schede s ON s.id = sf.scheda_id
+     WHERE s.odp = $1 AND sf.reparto_id = 'cnc' AND sf.stato_fase = 'In lavorazione' AND sf.esclusa = false
+     ORDER BY sf.ordine ASC LIMIT 1`,
+    [odp]
+  );
+  return rows[0] ? { id: rows[0].id, schedaId: rows[0].scheda_id } : null;
+}
+
 export interface RisultatoPianificazioneManuale {
   ok: boolean;
   conflitto?: boolean;

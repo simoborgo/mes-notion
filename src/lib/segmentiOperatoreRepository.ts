@@ -133,7 +133,7 @@ interface DatiOperatore {
 // entro la soglia di tolleranza dal buco (vedi /api/ore/operatore/segmento), passa invece
 // l'orario nominale di inizio turno — altrimenti i minuti fra l'inizio turno e il tap sul tablet
 // andrebbero persi anche quando non c'è nulla da chiedere all'operatore.
-export async function apriSegmento(op: DatiOperatore, odp: string, rif: boolean, iniziatoAlle?: Date): Promise<Segmento> {
+export async function apriSegmento(op: DatiOperatore, odp: string, rif: boolean, iniziatoAlle?: Date): Promise<{ segmento: Segmento; odpChiuso: string | null }> {
   const orari = await getOrariTurno();
   const client = await pool.connect();
   let esito: { odpChiuso: string | null; anomalia: AnomaliaRegistrazione | null };
@@ -152,7 +152,7 @@ export async function apriSegmento(op: DatiOperatore, odp: string, rif: boolean,
     console.log(`[ore-segmenti] apriSegmento COMMIT matricola=${op.matricola} chiusoOdp=${esito.odpChiuso ?? "-"} nuovoSegmentoId=${rows[0].id}`);
     if (esito.odpChiuso) void aggiornaStandardRepartoPerOdp(esito.odpChiuso);
     if (esito.anomalia) void segnalaAnomaliaRegistrazione(esito.anomalia);
-    return mapRow(rows[0]);
+    return { segmento: mapRow(rows[0]), odpChiuso: esito.odpChiuso };
   } catch (e) {
     await client.query("ROLLBACK");
     console.error(`[ore-segmenti] apriSegmento ROLLBACK matricola=${op.matricola} nuovoOdp=${odp}`, e);

@@ -244,6 +244,8 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
   const [odpGiornoPrecedente, setOdpGiornoPrecedente] = useState<string | null>(null);
   const [gap, setGap] = useState<{ inizioTurno: string; oraAttuale: string } | null>(null);
   const [gapOdp, setGapOdp] = useState<string | null>(null);
+  const [promptCnc, setPromptCnc] = useState<{ odp: string; faseId: string } | null>(null);
+  const [rispondendoCnc, setRispondendoCnc] = useState(false);
 
   const authHeaders = useMemo(() => ({ Authorization: `Bearer ${operatore.token}` }), [operatore.token]);
 
@@ -298,6 +300,7 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
       setRif(false);
       setGap(null);
       setGapOdp(null);
+      if (json.promptCompletamentoCnc) setPromptCnc(json.promptCompletamentoCnc);
       await caricaStato();
     } catch (e) {
       setErrore(e instanceof Error ? e.message : "Errore salvataggio");
@@ -327,6 +330,36 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
       setErrore(e instanceof Error ? e.message : "Errore salvataggio");
     } finally {
       setSalvando(false);
+    }
+  }
+
+  // Non bloccante — a differenza della domanda sul "buco" di inizio giornata (gap), qui
+  // l'operatore ha già passato il nuovo ODP: rispondere "No" o ignorare la card non impedisce
+  // di continuare a lavorare, la fase resta semplicemente "In lavorazione" per essere richiesta
+  // di nuovo al prossimo cambio ODP (o completata a mano dal responsabile).
+  async function handleConfermaCnc(completata: boolean) {
+    if (!promptCnc) return;
+    if (!completata) { setPromptCnc(null); return; }
+    setRispondendoCnc(true);
+    try {
+      const res = await fetch("/api/ore/operatore/fase-cnc-completa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify({ odp: promptCnc.odp, faseId: promptCnc.faseId }),
+      });
+      if (res.status === 401) { onCambiaOperatore(); return; }
+      // 409 = la fase non è più "In lavorazione" su CNC (già completata da altrove): non è un
+      // errore da mostrare all'operatore, la card semplicemente non ha più senso.
+      if (!res.ok && res.status !== 409) {
+        const json = await res.json().catch(() => ({}));
+        setErrore(json.error ?? "Errore nel completamento fase CNC");
+        return;
+      }
+      setPromptCnc(null);
+    } catch {
+      setErrore("Errore di connessione durante il completamento fase CNC");
+    } finally {
+      setRispondendoCnc(false);
     }
   }
 
@@ -397,6 +430,34 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
               </div>
             );
           })()}
+
+          {promptCnc && (
+            <div className="rounded-2xl border-2 p-5 space-y-3" style={{ borderColor: "#FBE9D2", background: "#FFFBF5" }}>
+              <p className="text-sm font-semibold" style={{ color: "var(--color-primary-dark)" }}>
+                Hai completato la lavorazione CNC di {promptCnc.odp}?
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleConfermaCnc(true)}
+                  disabled={rispondendoCnc}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-60"
+                  style={{ background: "var(--color-primary)" }}
+                >
+                  {rispondendoCnc ? "…" : "Sì, completata"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleConfermaCnc(false)}
+                  disabled={rispondendoCnc}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-bold border disabled:opacity-60"
+                  style={{ borderColor: "var(--color-primary-dark)", color: "var(--color-primary-dark)", background: "white" }}
+                >
+                  No, non ancora
+                </button>
+              </div>
+            </div>
+          )}
 
           {gap ? (
             <div className="rounded-2xl border-2 p-5 space-y-3" style={{ borderColor: "#FED7AA", background: "#FFF7ED" }}>

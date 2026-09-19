@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOperatori } from "@/lib/operatoriRepository";
 import { apriSegmento, registraSegmentoRetroattivo, getSegmentoAperto, getSegmentiOggi } from "@/lib/segmentiOperatoreRepository";
+import { getFaseCncInLavorazione } from "@/lib/schedeFasiRepository";
 import { getOrariTurno, OrariTurno } from "@/lib/parametriGeneraliRepository";
 import { getSessionFromRequest, getOperatoreMatricolaFromRequest } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
@@ -80,12 +81,23 @@ export async function POST(req: NextRequest) {
       await registraSegmentoRetroattivo(opDati, gapRisposta.odpGap, inizioTurno, now);
     }
 
-    const segmento = await apriSegmento(opDati, odp, !!rif, iniziatoAlleOverride);
+    const { segmento, odpChiuso } = await apriSegmento(opDati, odp, !!rif, iniziatoAlleOverride);
     void logOperation(`${op.cognome} ${op.nome}`, "CREATE", "ore_registrate", `${matricola}:${odp}`, {
       via: "tablet-operatore", accountSessione: session.name, rif: !!rif,
       gapOdp: gapRisposta && typeof gapRisposta === "object" ? gapRisposta.odpGap ?? null : null,
     });
-    return NextResponse.json({ ok: true, segmento });
+
+    // Cambio ODP reale (non il caso "Segnala inizio Rifacimento", che riapre lo stesso odp con
+    // rif=true — lì odpChiuso === odp, non è un vero passaggio ad altro lavoro): se l'ODP appena
+    // lasciato ha ancora una fase CNC "In lavorazione", propone all'operatore di dichiararla
+    // conclusa (vedi OperatoreTablet.tsx, card di conferma non bloccante).
+    let promptCompletamentoCnc: { odp: string; faseId: string; schedaId: string } | null = null;
+    if (odpChiuso && odpChiuso !== odp) {
+      const fase = await getFaseCncInLavorazione(odpChiuso);
+      if (fase) promptCompletamentoCnc = { odp: odpChiuso, faseId: fase.id, schedaId: fase.schedaId };
+    }
+
+    return NextResponse.json({ ok: true, segmento, promptCompletamentoCnc });
   } catch (e) {
     console.error("[ore/operatore/segmento]", e);
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
