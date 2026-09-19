@@ -36,6 +36,7 @@ export interface FaseGantt {
   pianificazioneManuale: boolean;
   sequenzaManuale: number | null;
   copertina: string | null;
+  aggiornatoIl: string;
 }
 
 export interface RepartoGantt {
@@ -87,6 +88,7 @@ function mapFase(r: any): FaseGantt {
     copertina: r.copertina_drive_id
       ? driveFileUrl(r.copertina_drive_id)
       : (r.legacy_copertina ? legacyFileUrl(r.scheda_id, "Copertina", 0) : null),
+    aggiornatoIl: r.aggiornato_il instanceof Date ? r.aggiornato_il.toISOString() : r.aggiornato_il,
   };
 }
 
@@ -150,7 +152,7 @@ export async function getDatiGantt(): Promise<DatiGantt> {
   const { rows: fasiRows } = await pool.query(
     `SELECT sf.id, sf.scheda_id, sf.reparto_id, sf.sotto_fase, sf.ore_stimate, sf.stato_fase,
             sf.data_inizio_pianificata, sf.data_fine_pianificata, sf.corsia, sf.a_rischio,
-            sf.pianificazione_manuale, sf.sequenza_manuale,
+            sf.pianificazione_manuale, sf.sequenza_manuale, sf.aggiornato_il,
             s.odp, s.priorita, s.copertina_drive_id, s.legacy_copertina,
             CASE WHEN c.id IS NOT NULL THEN c.numero_commessa || ' ' || c.cliente ELSE '' END AS cliente_info
      FROM schede_fasi sf

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { APS_GANTT_ROLES } from "@/lib/roles";
 import { getDatiGantt } from "@/lib/apsGanttRepository";
+import { getOrariTurno, calcolaOreStandard } from "@/lib/parametriGeneraliRepository";
 import GanttAps from "@/components/GanttAps";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +12,8 @@ export default async function ApsPage() {
   if (!session) redirect("/login");
   if (!APS_GANTT_ROLES.includes(session.role)) redirect("/");
 
-  const dati = await getDatiGantt();
+  const [dati, orariTurno] = await Promise.all([getDatiGantt(), getOrariTurno()]);
+  const oreStandard = calcolaOreStandard(orariTurno);
 
   return (
     <div className="space-y-4">
@@ -21,7 +23,7 @@ export default async function ApsPage() {
           Piano di produzione per reparto — sola lettura, calcolato dal motore APS.
         </p>
       </div>
-      <GanttAps dati={dati} userRole={session.role} />
+      <GanttAps dati={dati} userRole={session.role} oreStandard={oreStandard} />
     </div>
   );
 }

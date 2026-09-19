@@ -422,6 +422,39 @@ export async function getOreLavoratePerGiornoPeriodo(da: string, a: string): Pro
   }));
 }
 
+export interface OreOdpGiorno {
+  odp: string;
+  data: string;
+  ore: number;
+  operatori: string;
+}
+
+// Ore lavorate per ODP e giorno in un intervallo, filtrate su un singolo reparto (nome storico,
+// es. "CNC" — vedi REPARTO_ID_A_NOME_STORICO in schedeFasiRepository.ts) — usata dalla Vista CNC
+// settimanale per mostrare le ore realmente registrate ogni giorno (e chi le ha lavorate), non
+// solo l'intervallo pianificato. Filtrare sul reparto evita di sommare ore che lo stesso ODP ha
+// ricevuto altrove (es. Falegnameria) nella stessa finestra di date. `operatori` è la lista (di
+// norma un solo nome) di chi ha registrato ore quel giorno su quell'ODP, già unita in stringa —
+// più di un nome capita solo con un cambio operatore a metà giornata sulla stessa corsia.
+export async function getOreLavoratePerOdpGiornoReparto(odps: string[], reparto: string, da: string, a: string): Promise<OreOdpGiorno[]> {
+  if (odps.length === 0) return [];
+  const { rows } = await pool.query(
+    `SELECT odp, data, SUM(ore) AS ore,
+            string_agg(DISTINCT cognome || ' ' || nome, ', ') AS operatori
+     FROM ore_registrate
+     WHERE odp = ANY($1) AND reparto = $2 AND data BETWEEN $3 AND $4
+     GROUP BY odp, data`,
+    [odps, reparto, da, a]
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return rows.map((r: any) => ({
+    odp: r.odp,
+    data: r.data instanceof Date ? dateToStr(r.data) : r.data,
+    ore: Number(r.ore),
+    operatori: r.operatori ?? "",
+  }));
+}
+
 export interface KpiTotali {
   oreTotali: number;
   oreValore: number;

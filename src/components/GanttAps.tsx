@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import type { DatiGantt, FaseGantt, RepartoGantt } from "@/lib/apsGanttRepository";
 import type { Scheda } from "@/lib/types";
 import type { Role } from "@/lib/roles";
+import { giornoLavorativoAps } from "@/lib/calendarioLavorativo";
 import DettaglioSchedaModal from "./DettaglioSchedaModal";
 import RicalcolaPianoApsButton from "./RicalcolaPianoApsButton";
 
@@ -20,6 +21,26 @@ const PRIORITA: Record<string, { label: string; colore: string; peso: number }> 
   media:   { label: "Media",   colore: "#D9A62E", peso: 2 },
   bassa:   { label: "Bassa",   colore: "#8B8680", peso: 1 },
 };
+
+// Colori brillanti per stato — solo Vista CNC (ufficio programmazione): a differenza del resto
+// dell'app, qui il colore primario della cella è lo stato della fase, non la priorità (che
+// comunque conta poco quando la fase è già avviata) — priorità e rischio restano visibili nella
+// coda dettagliata sotto la griglia.
+const STATO_COLORE_CNC: Record<string, { bg: string; fg: string }> = {
+  "Da iniziare": { bg: "#2563EB", fg: "#FFFFFF" },
+  "In lavorazione": { bg: "#F97316", fg: "#FFFFFF" },
+  "Completato": { bg: "#16A34A", fg: "#FFFFFF" },
+};
+
+// Le due corsie fisiche di CNC sono due macchine reali, non uno slot astratto — solo qui
+// (Vista CNC), non nel Gantt completo condiviso con gli altri reparti a corsie.
+const MACCHINE_CNC: Record<number, { nome: string; matricola: string }> = {
+  0: { nome: "Rover B1", matricola: "10000 30501" },
+  1: { nome: "Rover B2", matricola: "10000 59815" },
+};
+function nomeCorsiaCnc(corsia: number): string {
+  return MACCHINE_CNC[corsia]?.nome ?? `Corsia ${corsia + 1}`;
+}
 
 function toDate(iso: string): Date {
   const [y, m, d] = iso.split("-").map(Number);
@@ -42,6 +63,47 @@ function isWeekend(d: Date): boolean {
 }
 function fmtGiorno(d: Date): { mese: string; giorno: number } {
   return { mese: d.toLocaleDateString("it-IT", { month: "short" }).toUpperCase(), giorno: d.getDate() };
+}
+function fmtDataOra(iso: string): string {
+  return new Date(iso).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+function isoDaDate(d: Date): string {
+  const p = (x: number) => String(x).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+function lunedeDellaSettimana(d: Date): Date {
+  const giorno = d.getDay(); // 0 = domenica … 6 = sabato
+  const offset = giorno === 0 ? -6 : 1 - giorno;
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + offset);
+}
+// Peso-capacità di un giorno per la Vista CNC — stessa fonte (Impostazioni → Orari Turno,
+// getOrariTurno/calcolaOreStandard) e stessa nozione di "giorno lavorativo" già usate dal motore
+// APS vero (giornoLavorativoAps: sabato lavorativo, solo domenica e festivi esclusi) — non la
+// versione "weekend" generica, che qui tratterebbe il sabato come chiuso mentre non lo è.
+function pesoGiornoCnc(d: Date, oreStandard: { oreFeriale: number; oreSabato: number }): number {
+  if (!giornoLavorativoAps(d)) return 0;
+  return d.getDay() === 6 ? oreStandard.oreSabato : oreStandard.oreFeriale;
+}
+
+// Distribuisce le ore stimate di una fase sui giorni del suo intervallo pianificato,
+// proporzionalmente al peso-capacità di ciascun giorno (stesso principio di capacitaGiornoReparto
+// in apsSchedulerRepository.ts, qui solo per la previsione mostrata in Vista CNC — il motore di
+// pianificazione vero resta a giornate intere, invariato).
+function stimaPerGiornoIntervallo(daIso: string, aIso: string, oreStimate: number, oreStandard: { oreFeriale: number; oreSabato: number }): Map<string, number> {
+  const pesi: { iso: string; peso: number }[] = [];
+  let cur = toDate(daIso);
+  const fine = toDate(aIso);
+  while (cur <= fine) {
+    pesi.push({ iso: isoDaDate(cur), peso: pesoGiornoCnc(cur, oreStandard) });
+    cur = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() + 1);
+  }
+  const sommaPesi = pesi.reduce((s, p) => s + p.peso, 0);
+  const mappa = new Map<string, number>();
+  if (sommaPesi <= 0) return mappa;
+  for (const { iso, peso } of pesi) {
+    if (peso > 0) mappa.set(iso, Math.round((oreStimate * peso / sommaPesi) * 10) / 10);
+  }
+  return mappa;
 }
 
 // Date effettive di una fase per il rendering: mai nascondere silenziosamente una barra per un
@@ -75,6 +137,32 @@ function impacchetta(fasi: FaseGantt[]): Map<string, number> {
   return rigaDiFase;
 }
 
+function fmtRangeSettimana(daIso: string, aIso: string): string {
+  const da = toDate(daIso), a = toDate(aIso);
+  const meseA = a.toLocaleDateString("it-IT", { month: "long" });
+  if (da.getMonth() === a.getMonth()) return `${da.getDate()} - ${a.getDate()} ${meseA} ${a.getFullYear()}`;
+  const meseDa = da.toLocaleDateString("it-IT", { month: "short" });
+  return `${da.getDate()} ${meseDa} - ${a.getDate()} ${meseA} ${a.getFullYear()}`;
+}
+
+interface OreCellaCnc { ore: number; operatori: string }
+
+// Ore (ed eventuale operatore) da mostrare in una cella giorno×fase: reali se registrate quel
+// giorno (da ore_registrate, vincono sempre sulla stima — mai in "Completato", dove una stima
+// residua non avrebbe più senso), altrimenti la previsione già distribuita per fase in
+// previsioniPerFase (vedi stimaPerGiornoIntervallo).
+function oreDelGiorno(
+  f: FaseGantt, giornoIso: string,
+  oreMap: Map<string, Map<string, OreCellaCnc>>,
+  previsioniPerFase: Map<string, Map<string, number>>
+): { valore: number | null; reale: boolean; operatori: string } {
+  const reale = oreMap.get(f.odp)?.get(giornoIso);
+  if (reale != null) return { valore: reale.ore, reale: true, operatori: reale.operatori };
+  if (f.statoFase === "Completato") return { valore: null, reale: false, operatori: "" };
+  const stima = previsioniPerFase.get(f.id)?.get(giornoIso);
+  return { valore: stima ?? null, reale: false, operatori: "" };
+}
+
 function KpiCard({ label, value, accent }: { label: string; value: string | number; accent: string }) {
   return (
     <div className="rounded-lg px-4 py-2.5 flex items-center gap-3 border" style={{ background: "white", borderColor: "#e5e4e0" }}>
@@ -84,8 +172,15 @@ function KpiCard({ label, value, accent }: { label: string; value: string | numb
   );
 }
 
-export default function GanttAps({ dati, userRole }: { dati: DatiGantt; userRole?: Role }) {
+type Tab = "gantt" | "cnc";
+const TABS: { value: Tab; label: string }[] = [
+  { value: "gantt", label: "Gantt completo" },
+  { value: "cnc", label: "CNC" },
+];
+
+export default function GanttAps({ dati, userRole, oreStandard }: { dati: DatiGantt; userRole?: Role; oreStandard: { oreFeriale: number; oreSabato: number } }) {
   const router = useRouter();
+  const [tab, setTab] = useState<Tab>("gantt");
   const primoGiorno = dati.giorni[0];
   const ultimoGiorno = dati.giorni[dati.giorni.length - 1];
   // Filtro data: solo una vista ristretta lato client su dati già tutti caricati per l'intera
@@ -131,6 +226,8 @@ export default function GanttAps({ dati, userRole }: { dati: DatiGantt; userRole
     return giorniIso.indexOf(iso);
   }
 
+  const repartoCnc = useMemo(() => dati.reparti.find((r) => r.id === "cnc") ?? null, [dati.reparti]);
+
   return (
     <div className="space-y-5">
       {toast && (
@@ -145,6 +242,24 @@ export default function GanttAps({ dati, userRole }: { dati: DatiGantt; userRole
         </div>
       )}
 
+      {/* Tab — stesso stile pillola di PrevisionaleHub.tsx */}
+      <div className="inline-flex gap-1 p-1 rounded-xl flex-wrap" style={{ background: "#F5F2EE" }}>
+        {TABS.map((t) => (
+          <button
+            key={t.value}
+            onClick={() => setTab(t.value)}
+            className="px-5 py-2.5 text-base font-semibold rounded-lg transition-all"
+            style={tab === t.value
+              ? { background: "var(--color-primary)", color: "white", boxShadow: "0 1px 4px rgba(0,0,0,0.18)" }
+              : { background: "transparent", color: "var(--color-grey-mid)" }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "gantt" && (
+      <>
       {/* KPI di testata — sull'intero piano, non sulla sola finestra filtrata */}
       <div className="flex flex-wrap gap-3">
         <KpiCard label="Ore preventivate" value={dati.kpi.orePreventivateTotali} accent="var(--color-primary)" />
@@ -235,6 +350,14 @@ export default function GanttAps({ dati, userRole }: { dati: DatiGantt; userRole
           ))}
         </div>
       </div>
+      </>
+      )}
+
+      {tab === "cnc" && (
+        repartoCnc
+          ? <VistaCnc reparto={repartoCnc} userRole={userRole} oreStandard={oreStandard} onCambiato={onCambiato} onErrore={setToast} onApriScheda={apriScheda} />
+          : <p className="text-sm" style={{ color: "var(--color-grey-mid)" }}>Reparto CNC non trovato.</p>
+      )}
 
       {schedaAperta && (
         <DettaglioSchedaModal
@@ -244,6 +367,546 @@ export default function GanttAps({ dati, userRole }: { dati: DatiGantt; userRole
           onClose={() => setSchedaAperta(null)}
           onSchedaAggiornata={() => { setSchedaAperta(null); router.refresh(); }}
         />
+      )}
+    </div>
+  );
+}
+
+// Vista dedicata a un solo reparto (per ora solo CNC, il "tamburo" principale) — griglia
+// settimanale con le ore realmente lavorate ogni giorno (da ore_registrate, non solo
+// l'intervallo pianificato come blocco unico) più una coda in forma di tabella, pensata per
+// rispondere a "quando verrà lavorato in CNC l'ODP X" senza dover leggere le celle una per una.
+// Sola lettura: niente drag&drop qui, quello resta nella vista Gantt completa.
+function VistaCnc({ reparto, userRole, oreStandard, onCambiato, onErrore, onApriScheda }: {
+  reparto: RepartoGantt; userRole?: Role; oreStandard: { oreFeriale: number; oreSabato: number };
+  onCambiato: () => void; onErrore: (msg: string) => void; onApriScheda: (schedaId: string) => void;
+}) {
+  const [inizioSettimana, setInizioSettimana] = useState(() => isoDaDate(lunedeDellaSettimana(new Date())));
+  // Settimana lavorativa Lun-Sab (6 giorni) — stessa nozione di "giorno lavorativo" della
+  // configurazione Orari Turno (giornoLavorativoAps: sabato incluso, domenica mai lavorativa,
+  // quindi mai mostrata come colonna).
+  const fineSettimana = useMemo(() => addDays(inizioSettimana, 5), [inizioSettimana]);
+  const giorniSettimana = useMemo(() => Array.from({ length: 6 }, (_, i) => addDays(inizioSettimana, i)), [inizioSettimana]);
+  const oggiIso = useMemo(() => oggiIsoLocale(), []);
+  const settimanaCorrente = inizioSettimana === isoDaDate(lunedeDellaSettimana(new Date()));
+
+  // Ore reali lavorate su CNC (e chi le ha lavorate) per ODP e giorno, per la settimana
+  // visualizzata — fetch dedicato (non nel payload principale della Pianificazione, che nessun'altra
+  // vista usa) rilanciato ad ogni cambio settimana.
+  const odps = useMemo(() => [...new Set(reparto.fasi.map((f) => f.odp))], [reparto.fasi]);
+  const [oreMap, setOreMap] = useState<Map<string, Map<string, OreCellaCnc>>>(new Map());
+  const [caricandoOre, setCaricandoOre] = useState(false);
+  useEffect(() => {
+    let annullato = false;
+    setCaricandoOre(true);
+    const params = new URLSearchParams({ odps: odps.join(","), da: inizioSettimana, a: fineSettimana });
+    fetch(`/api/aps/cnc/ore-giornaliere?${params}`)
+      .then((r) => r.json())
+      .then((righe: { odp: string; data: string; ore: number; operatori: string }[]) => {
+        if (annullato) return;
+        const mappa = new Map<string, Map<string, OreCellaCnc>>();
+        for (const r of righe) {
+          if (!mappa.has(r.odp)) mappa.set(r.odp, new Map());
+          mappa.get(r.odp)!.set(r.data, { ore: r.ore, operatori: r.operatori });
+        }
+        setOreMap(mappa);
+      })
+      .catch(() => { if (!annullato) onErrore("Errore nel caricamento delle ore CNC della settimana"); })
+      .finally(() => { if (!annullato) setCaricandoOre(false); });
+    return () => { annullato = true; };
+  }, [odps, inizioSettimana, fineSettimana, onErrore]);
+
+  // Previsione (ore stimate distribuite sui giorni pianificati, pesata per capacità reale del
+  // giorno) precalcolata una volta per fase, non ad ogni cella — vedi stimaPerGiornoIntervallo.
+  const previsioniPerFase = useMemo(() => {
+    const mappa = new Map<string, Map<string, number>>();
+    for (const f of reparto.fasi) {
+      if (f.oreStimate == null) continue;
+      const date = dateEffettive(f);
+      if (!date) continue;
+      mappa.set(f.id, stimaPerGiornoIntervallo(date.inizio, date.fine, f.oreStimate, oreStandard));
+    }
+    return mappa;
+  }, [reparto.fasi, oreStandard]);
+
+  const nCorsie = reparto.nRisorseParallele ?? 1;
+  const nRighe = Math.max(nCorsie, ...reparto.fasi.map((f) => (f.corsia ?? 0) + 1), 1);
+
+  // Coda dettagliata: tutte le fasi CNC non completate, indipendentemente dalla settimana
+  // visualizzata sopra — ordinata per corsia e poi data inizio, l'elenco pensato per ufficio
+  // tecnico e falegnameria per sapere in che ordine reale gli ODP passeranno dal tamburo.
+  const coda = useMemo(() => {
+    return [...reparto.fasi]
+      .filter((f) => dateEffettive(f) !== null && f.statoFase !== "Completato")
+      .sort((a, b) => {
+        const corsiaA = a.corsia ?? 99, corsiaB = b.corsia ?? 99;
+        if (corsiaA !== corsiaB) return corsiaA - corsiaB;
+        return dateEffettive(a)!.inizio.localeCompare(dateEffettive(b)!.inizio);
+      });
+  }, [reparto.fasi]);
+
+  // Notifica di apertura (in-app, per ora niente canali esterni): fasi passate a "In lavorazione"
+  // nelle ultime 48h, più recenti prima — l'unico modo oggi di sapere "cosa si è aperto e quando"
+  // senza dover leggere una a una le barre della timeline sotto.
+  const aperture = useMemo(() => {
+    const sogliaMs = 48 * 3_600_000;
+    const ora = new Date().getTime();
+    return reparto.fasi
+      .filter((f) => f.statoFase === "In lavorazione" && ora - new Date(f.aggiornatoIl).getTime() <= sogliaMs)
+      .sort((a, b) => b.aggiornatoIl.localeCompare(a.aggiornatoIl));
+  }, [reparto.fasi]);
+
+  // Programmazione (Fase 9b) — coda ordinabile per macchina, non una vista a data: l'ufficio
+  // programmazione decide solo macchina + posizione, le date restano sempre calcolate dal motore
+  // (pianificaCorsie, apsSchedulerRepository.ts, che dà priorità a sequenza_manuale su
+  // priorità/EDD automatici quando presente). Drag&drop nativo HTML5 tra colonne (dataTransfer
+  // porta il solo faseId) per cambiare macchina; frecce su/giù per riordinare nella stessa coda.
+  const [vista, setVista] = useState<"settimana" | "programmazione">("settimana");
+  const [assegnando, setAssegnando] = useState<string | null>(null);
+
+  // Non assegnati: fasi ancora sotto pieno controllo automatico (nessuna sequenza_manuale) —
+  // l'ufficio programmazione non le ha ancora toccate, l'algoritmo le piazza per conto suo e
+  // possono cambiare macchina da un ricalcolo all'altro. Ordinate come le calcola il motore
+  // (proxy: data inizio pianificata) così l'ordine qui riflette quello che succederà davvero.
+  const nonAssegnati = useMemo(() => {
+    return reparto.fasi
+      .filter((f) => f.statoFase === "Da iniziare" && f.sequenzaManuale == null)
+      .sort((a, b) => (dateEffettive(a)?.inizio ?? "9999-99-99").localeCompare(dateEffettive(b)?.inizio ?? "9999-99-99"));
+  }, [reparto.fasi]);
+
+  // Coda manuale di una macchina: solo le fasi che l'ufficio programmazione ha esplicitamente
+  // sequenziato lì (sequenza_manuale valorizzata) — le automatiche restano in "Non assegnati"
+  // finché non vengono trascinate qui, non compaiono mai mescolate in questa colonna.
+  function codaMacchina(corsia: number): FaseGantt[] {
+    return reparto.fasi
+      .filter((f) => f.statoFase === "Da iniziare" && f.corsia === corsia && f.sequenzaManuale != null)
+      .sort((a, b) => a.sequenzaManuale! - b.sequenzaManuale!);
+  }
+
+  async function salvaCodaMacchina(corsia: number, faseIds: string[]) {
+    setAssegnando(faseIds[faseIds.length - 1] ?? null);
+    try {
+      const res = await fetch(`/api/aps/cnc/coda-manuale`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ corsia, faseIds }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        onErrore(body?.error ?? "Errore nell'aggiornamento della coda");
+        return;
+      }
+      onCambiato();
+    } catch {
+      onErrore("Errore di connessione durante l'aggiornamento della coda");
+    } finally {
+      setAssegnando(null);
+    }
+  }
+
+  // Sposta (o assegna per la prima volta, da "Non assegnati") una fase su una macchina — va in
+  // fondo alla coda manuale di destinazione, dopo le altre già sequenziate lì. Nessun controllo
+  // sulla corsia attuale: anche una fase che l'automatico ha già provvisoriamente messo lì va
+  // comunque sequenziata quando la si trascina, altrimenti trascinarla da "Non assegnati" sulla
+  // stessa macchina scelta per caso dall'algoritmo risulterebbe un no-op silenzioso.
+  function spostaSuMacchina(faseId: string, corsiaTarget: number) {
+    const f = reparto.fasi.find((x) => x.id === faseId);
+    if (!f || f.statoFase !== "Da iniziare") return;
+    const nuovaCoda = [...codaMacchina(corsiaTarget).map((x) => x.id), faseId];
+    void salvaCodaMacchina(corsiaTarget, nuovaCoda);
+  }
+
+  // Riordina nella stessa coda scambiando con il vicino, poi rimanda l'intero ordine risultante.
+  function spostaPosizione(corsia: number, faseId: string, direzione: -1 | 1) {
+    const coda = codaMacchina(corsia).map((f) => f.id);
+    const idx = coda.indexOf(faseId);
+    const nuovoIdx = idx + direzione;
+    if (idx < 0 || nuovoIdx < 0 || nuovoIdx >= coda.length) return;
+    [coda[idx], coda[nuovoIdx]] = [coda[nuovoIdx], coda[idx]];
+    void salvaCodaMacchina(corsia, coda);
+  }
+
+  // Rimette una fase manuale sotto controllo automatico — corsia inclusa, ricalcolata da zero.
+  async function rimuoviManuale(faseId: string) {
+    const f = reparto.fasi.find((x) => x.id === faseId);
+    if (!f) return;
+    setAssegnando(faseId);
+    try {
+      const res = await fetch(`/api/schede/${f.schedaId}/fasi/${f.id}/rimuovi-coda-manuale-cnc`, { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        onErrore(body?.error ?? "Errore nella rimozione dalla coda manuale");
+        return;
+      }
+      onCambiato();
+    } catch {
+      onErrore("Errore di connessione durante la rimozione");
+    } finally {
+      setAssegnando(null);
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      {aperture.length > 0 && (
+        <div className="rounded-lg border p-3" style={{ borderColor: "#FBE9D2", background: "#FFFBF5" }}>
+          <div className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-primary-dark)" }}>
+            Aperture recenti (ultime 48h)
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {aperture.map((f) => (
+              <button
+                key={f.id} onClick={() => onApriScheda(f.schedaId)}
+                className="text-xs font-semibold px-2.5 py-1.5 rounded-full border hover:bg-orange-50"
+                style={{ borderColor: "#FBE9D2", color: "var(--color-black)", background: "white" }}
+              >
+                {f.odp} <span style={{ color: "var(--color-grey-mid)", fontWeight: 400 }}>· {fmtDataOra(f.aggiornatoIl)}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="inline-flex gap-1 p-1 rounded-lg" style={{ background: "#F5F2EE" }}>
+        {(["settimana", "programmazione"] as const).map((v) => (
+          <button
+            key={v}
+            onClick={() => setVista(v)}
+            className="px-3 py-1.5 text-xs font-semibold rounded-md transition-all"
+            style={vista === v
+              ? { background: "var(--color-primary)", color: "white" }
+              : { background: "transparent", color: "var(--color-grey-mid)" }}
+          >
+            {v === "settimana" ? "Settimana" : "Programmazione"}
+          </button>
+        ))}
+      </div>
+
+      {vista === "settimana" && (
+      <>
+      <div className="flex flex-wrap gap-3 items-center">
+        <button
+          onClick={() => setInizioSettimana(addDays(inizioSettimana, -7))}
+          className="text-sm px-3 py-1.5 rounded-lg border font-medium hover:bg-gray-50 transition-colors"
+          style={{ borderColor: "#d1d5db", color: "var(--color-black)" }}
+        >
+          ◀ Settimana precedente
+        </button>
+        <span className="text-sm font-semibold" style={{ color: "var(--color-black)" }}>
+          {fmtRangeSettimana(inizioSettimana, fineSettimana)}
+        </span>
+        <button
+          onClick={() => setInizioSettimana(addDays(inizioSettimana, 7))}
+          className="text-sm px-3 py-1.5 rounded-lg border font-medium hover:bg-gray-50 transition-colors"
+          style={{ borderColor: "#d1d5db", color: "var(--color-black)" }}
+        >
+          Settimana successiva ▶
+        </button>
+        {!settimanaCorrente && (
+          <button
+            onClick={() => setInizioSettimana(isoDaDate(lunedeDellaSettimana(new Date())))}
+            className="text-xs px-2 py-1.5 rounded border font-medium hover:bg-gray-50 transition-colors"
+            style={{ color: "var(--color-grey-mid)" }}
+          >
+            ✕ Torna a oggi
+          </button>
+        )}
+        {caricandoOre && <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>Caricamento ore…</span>}
+        {userRole === "admin" && (
+          <div className="ml-auto">
+            <RicalcolaPianoApsButton compact onSuccess={onCambiato} />
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-4 text-xs" style={{ color: "var(--color-grey-mid)" }}>
+        {Object.entries(STATO_COLORE_CNC).map(([stato, c]) => (
+          <span key={stato} className="flex items-center gap-1.5">
+            <span style={{ width: 12, height: 12, borderRadius: 3, background: c.bg, display: "inline-block" }} />
+            {stato}
+          </span>
+        ))}
+        <span className="flex items-center gap-1.5">
+          <span style={{ width: 12, height: 12, borderRadius: 3, border: "3px solid #DC2626", display: "inline-block" }} />
+          A rischio consegna
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span style={{ width: 12, height: 12, borderRadius: 3, border: "3px solid #7C3AED", display: "inline-block" }} />
+          Pianificazione manuale
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span style={{ width: 12, height: 12, borderRadius: 3, background: "#FCA5A5", display: "inline-block" }} />
+          Più ODP sulla stessa corsia — verifica
+        </span>
+      </div>
+
+      <div className="overflow-x-auto rounded-xl border" style={{ borderColor: "#e5e4e0" }}>
+        <table className="w-full text-sm" style={{ tableLayout: "fixed", minWidth: 780 }}>
+          <thead>
+            <tr>
+              <th style={{ width: 90 }} />
+              {giorniSettimana.map((g) => {
+                const d = toDate(g);
+                const isOggi = g === oggiIso;
+                const nonLavorativo = !giornoLavorativoAps(d);
+                return (
+                  <th key={g} style={{ padding: "6px 4px", borderRadius: isOggi ? 6 : 0, background: isOggi ? "var(--color-primary)" : nonLavorativo ? "#EAE4D9" : "transparent" }}>
+                    <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: ".05em", color: isOggi ? "white" : "var(--color-grey-icon)" }}>
+                      {d.toLocaleDateString("it-IT", { weekday: "short" }).replace(".", "")}
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: isOggi ? "white" : "var(--color-black)" }}>{d.getDate()}</div>
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: nRighe }).map((_, riga) => {
+              const overflow = riga >= nCorsie;
+              return (
+                <tr key={riga}>
+                  <td
+                    className="pr-2 text-right align-top" style={{ fontSize: 10, paddingTop: 8, color: overflow ? "#991B1B" : "var(--color-grey-icon)", fontWeight: overflow ? 700 : 400 }}
+                    title={MACCHINE_CNC[riga] ? `Matricola ${MACCHINE_CNC[riga].matricola}` : undefined}
+                  >
+                    {overflow ? "⚠ " : ""}{nomeCorsiaCnc(riga)}
+                  </td>
+                  {giorniSettimana.map((g) => {
+                    const fasiGiorno = reparto.fasi.filter((f) => f.corsia === riga && (() => {
+                      const date = dateEffettive(f);
+                      return date != null && date.inizio <= g && g <= date.fine;
+                    })());
+                    const nonLavorativo = !giornoLavorativoAps(toDate(g));
+                    return (
+                      <td
+                        key={g} className="align-top"
+                        style={{
+                          border: "1px solid #EBE9E5", height: 70, padding: 2,
+                          background: fasiGiorno.length > 1 ? "#FCA5A5" : nonLavorativo ? "#FBFAF8" : "white",
+                        }}
+                      >
+                        {fasiGiorno.map((f) => {
+                          const { valore, reale, operatori } = oreDelGiorno(f, g, oreMap, previsioniPerFase);
+                          const stato = STATO_COLORE_CNC[f.statoFase] ?? STATO_COLORE_CNC["Da iniziare"];
+                          const bordo = f.aRischio ? "3px solid #DC2626" : f.pianificazioneManuale ? "3px solid #7C3AED" : "3px solid transparent";
+                          return (
+                            <button
+                              key={f.id} onClick={() => onApriScheda(f.schedaId)}
+                              className="w-full text-left rounded-md mb-0.5 transition-transform hover:brightness-110"
+                              style={{ background: stato.bg, border: bordo, padding: "3px 5px", boxShadow: "0 1px 2px rgba(26,25,24,0.2)" }}
+                            >
+                              <div style={{ fontSize: 9, fontWeight: 800, color: stato.fg, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {f.odp}
+                              </div>
+                              {valore != null && (
+                                <div style={{ fontSize: reale ? 13 : 10, fontWeight: reale ? 800 : 600, fontStyle: reale ? "normal" : "italic", color: reale ? stato.fg : "rgba(255,255,255,0.8)" }}>
+                                  {valore}h{!reale && " prev."}
+                                </div>
+                              )}
+                              {reale && operatori && (
+                                <div style={{ fontSize: 8.5, fontWeight: 600, color: "rgba(255,255,255,0.92)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                  {operatori}
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      </>
+      )}
+
+      {vista === "programmazione" && (
+        <VistaProgrammazioneCnc
+          nCorsie={reparto.nRisorseParallele ?? 2} nonAssegnati={nonAssegnati} codaMacchina={codaMacchina} assegnando={assegnando}
+          onSpostaSuMacchina={spostaSuMacchina} onSpostaPosizione={spostaPosizione}
+          onRimuoviManuale={rimuoviManuale} onApriScheda={onApriScheda}
+        />
+      )}
+
+      <div className="rounded-lg border overflow-hidden" style={{ borderColor: "#e5e4e0" }}>
+        <table className="min-w-full text-sm">
+          <thead>
+            <tr className="text-left text-xs font-bold uppercase" style={{ background: "#faf9f7", color: "var(--color-grey-mid)" }}>
+              <th className="px-4 py-2">Macchina</th>
+              <th className="px-4 py-2">ODP</th>
+              <th className="px-4 py-2">Cliente</th>
+              <th className="px-4 py-2">Priorità</th>
+              <th className="px-4 py-2">Ore stimate</th>
+              <th className="px-4 py-2">Stato</th>
+              <th className="px-4 py-2">Inizio</th>
+              <th className="px-4 py-2">Fine</th>
+            </tr>
+          </thead>
+          <tbody>
+            {coda.length === 0 ? (
+              <tr><td colSpan={8} className="px-4 py-6 text-center" style={{ color: "var(--color-grey-mid)" }}>Nessun ODP in coda su CNC</td></tr>
+            ) : coda.map((f) => {
+              const p = PRIORITA[f.priorita] ?? PRIORITA.media;
+              const date = dateEffettive(f)!;
+              return (
+                <tr
+                  key={f.id} onClick={() => onApriScheda(f.schedaId)}
+                  className="border-t cursor-pointer hover:bg-orange-50"
+                  style={{ borderColor: "#f0efec", background: f.aRischio ? "#FFFBEB" : "transparent" }}
+                >
+                  <td className="px-4 py-2">{f.corsia != null ? nomeCorsiaCnc(f.corsia) : "—"}</td>
+                  <td className="px-4 py-2 font-semibold">{f.odp}{f.sottoFase ? ` · ${f.sottoFase}` : ""}</td>
+                  <td className="px-4 py-2">{f.clienteInfo || "—"}</td>
+                  <td className="px-4 py-2">
+                    <span className="flex items-center gap-1.5">
+                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: p.colore, display: "inline-block" }} />
+                      {p.label}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2 tabular-nums">{f.oreStimate != null ? `${f.oreStimate}h` : "—"}</td>
+                  <td className="px-4 py-2">{f.statoFase}{f.aRischio ? " ⚠" : ""}</td>
+                  <td className="px-4 py-2 tabular-nums">{toDate(date.inizio).toLocaleDateString("it-IT")}</td>
+                  <td className="px-4 py-2 tabular-nums">{toDate(date.fine).toLocaleDateString("it-IT")}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// Programmazione (Fase 9b) — due colonne, una per macchina, ciascuna con la coda reale di quella
+// corsia (manuali per primi nell'ordine scelto, poi gli automatici). Trascinare una carta da una
+// colonna all'altra la riassegna (finisce in fondo alla nuova coda); le frecce riordinano nella
+// stessa coda. Solo le fasi "Da iniziare" sono trascinabili/riordinabili — una già avviata non si
+// può più ripiazzare. Le date mostrate sono quelle che il motore ha già calcolato per l'ordine
+// corrente, non scelte qui.
+function VistaProgrammazioneCnc({
+  nCorsie, nonAssegnati, codaMacchina, assegnando, onSpostaSuMacchina, onSpostaPosizione, onRimuoviManuale, onApriScheda,
+}: {
+  nCorsie: number; nonAssegnati: FaseGantt[]; codaMacchina: (corsia: number) => FaseGantt[]; assegnando: string | null;
+  onSpostaSuMacchina: (faseId: string, corsia: number) => void;
+  onSpostaPosizione: (corsia: number, faseId: string, direzione: -1 | 1) => void;
+  onRimuoviManuale: (faseId: string) => void; onApriScheda: (schedaId: string) => void;
+}) {
+  function onDropSuMacchina(e: ReactDragEvent<HTMLDivElement>, corsia: number) {
+    e.preventDefault();
+    const faseId = e.dataTransfer.getData("text/plain");
+    if (faseId) onSpostaSuMacchina(faseId, corsia);
+  }
+  function onDropSuNonAssegnati(e: ReactDragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    const faseId = e.dataTransfer.getData("text/plain");
+    if (faseId) onRimuoviManuale(faseId);
+  }
+
+  return (
+    <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${nCorsie + 1}, minmax(0, 1fr))` }}>
+      <div
+        onDragOver={(e) => e.preventDefault()} onDrop={onDropSuNonAssegnati}
+        className="rounded-xl border p-3" style={{ borderColor: "#e5e4e0", background: "#faf9f7", minHeight: 420 }}
+      >
+        <div className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: "var(--color-grey-mid)" }}>
+          Non assegnati ({nonAssegnati.length})
+        </div>
+        <div className="space-y-2" style={{ maxHeight: 560, overflowY: "auto" }}>
+          {nonAssegnati.length === 0 && (
+            <p className="text-xs" style={{ color: "var(--color-grey-mid)" }}>Tutto sequenziato a mano</p>
+          )}
+          {nonAssegnati.map((f) => (
+            <CartaProgrammazioneCnc
+              key={f.id} f={f} occupato={assegnando === f.id}
+              onRimuoviManuale={() => onRimuoviManuale(f.id)} onApriScheda={onApriScheda}
+            />
+          ))}
+        </div>
+      </div>
+
+      {Array.from({ length: nCorsie }).map((_, corsia) => {
+        const coda = codaMacchina(corsia);
+        return (
+          <div
+            key={corsia}
+            onDragOver={(e) => e.preventDefault()} onDrop={(e) => onDropSuMacchina(e, corsia)}
+            className="rounded-xl border p-3" style={{ borderColor: "#e5e4e0", minHeight: 420 }}
+          >
+            <div className="text-sm font-bold mb-3" style={{ color: "var(--color-black)" }} title={MACCHINE_CNC[corsia] ? `Matricola ${MACCHINE_CNC[corsia].matricola}` : undefined}>
+              {nomeCorsiaCnc(corsia)} <span className="font-normal" style={{ color: "var(--color-grey-mid)" }}>({coda.length})</span>
+            </div>
+            <div className="space-y-2">
+              {coda.length === 0 && (
+                <p className="text-xs" style={{ color: "var(--color-grey-mid)" }}>Nessun lavoro sequenziato</p>
+              )}
+              {coda.map((f, i) => (
+                <CartaProgrammazioneCnc
+                  key={f.id} f={f} occupato={assegnando === f.id}
+                  suAbilitato={i > 0} giuAbilitato={i < coda.length - 1}
+                  onSu={() => onSpostaPosizione(corsia, f.id, -1)} onGiu={() => onSpostaPosizione(corsia, f.id, 1)}
+                  onRimuoviManuale={() => onRimuoviManuale(f.id)} onApriScheda={onApriScheda}
+                />
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function CartaProgrammazioneCnc({ f, occupato, suAbilitato, giuAbilitato, onSu, onGiu, onRimuoviManuale, onApriScheda }: {
+  f: FaseGantt; occupato: boolean; suAbilitato?: boolean; giuAbilitato?: boolean;
+  onSu?: () => void; onGiu?: () => void; onRimuoviManuale: () => void; onApriScheda: (schedaId: string) => void;
+}) {
+  const stato = STATO_COLORE_CNC[f.statoFase] ?? STATO_COLORE_CNC["Da iniziare"];
+  const trascinabile = f.statoFase === "Da iniziare" && !occupato;
+  const riordinabile = trascinabile && onSu != null && onGiu != null;
+  const date = dateEffettive(f);
+  const bordo = f.aRischio ? "3px solid #DC2626" : "3px solid transparent";
+  const btnCls = "flex items-center justify-center rounded disabled:opacity-30";
+  return (
+    <div
+      draggable={trascinabile}
+      onDragStart={(e) => e.dataTransfer.setData("text/plain", f.id)}
+      className="rounded-lg transition-opacity flex items-start gap-2"
+      style={{ background: stato.bg, border: bordo, padding: "8px 10px", boxShadow: "0 1px 3px rgba(26,25,24,0.25)", opacity: occupato ? 0.5 : 1 }}
+    >
+      {riordinabile && (
+        <div className="flex flex-col gap-0.5 pt-0.5">
+          <button type="button" onClick={onSu} disabled={!suAbilitato} className={btnCls} style={{ width: 18, height: 16, background: "rgba(255,255,255,0.25)", color: stato.fg, fontSize: 10 }} title="Sposta su">▲</button>
+          <button type="button" onClick={onGiu} disabled={!giuAbilitato} className={btnCls} style={{ width: 18, height: 16, background: "rgba(255,255,255,0.25)", color: stato.fg, fontSize: 10 }} title="Sposta giù">▼</button>
+        </div>
+      )}
+      <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onApriScheda(f.schedaId)}>
+        <div className="flex items-center gap-1.5">
+          <span style={{ fontSize: 12, fontWeight: 800, color: stato.fg }}>{f.odp}</span>
+          {f.sequenzaManuale != null && (
+            <span style={{ fontSize: 8.5, fontWeight: 700, padding: "1px 5px", borderRadius: 8, background: "rgba(255,255,255,0.3)", color: stato.fg }}>MANUALE</span>
+          )}
+        </div>
+        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.85)" }}>{f.clienteInfo || "—"}</div>
+        <div className="flex items-center justify-between mt-0.5">
+          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.85)" }}>{f.oreStimate != null ? `${f.oreStimate}h stimate` : "ore da stimare"}</span>
+          {date && (
+            <span style={{ fontSize: 9.5, color: "rgba(255,255,255,0.85)" }}>
+              {toDate(date.inizio).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" })}
+              {" → "}
+              {toDate(date.fine).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" })}
+            </span>
+          )}
+        </div>
+      </div>
+      {f.sequenzaManuale != null && (
+        <button
+          type="button" onClick={onRimuoviManuale} disabled={occupato}
+          className="flex-shrink-0 text-xs disabled:opacity-30" style={{ color: "rgba(255,255,255,0.85)" }}
+          title="Torna sotto controllo automatico"
+        >
+          ↺
+        </button>
       )}
     </div>
   );
