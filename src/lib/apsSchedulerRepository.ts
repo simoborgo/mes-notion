@@ -103,6 +103,10 @@ interface Fase {
   pianificazioneManuale: boolean;
   dataInizioEsistente: string | null;
   dataFineEsistente: string | null;
+  // Fase 9b (Vista CNC "Programmazione") — posizione scelta a mano nella coda della corsia
+  // indicata da `corsia`; a differenza di pianificazioneManuale non congela le date, solo
+  // l'ordine di ingresso e la corsia (vedi confrontaCoda e pianificaCorsie sotto).
+  sequenzaManuale: number | null;
 }
 
 interface Reparto {
@@ -126,8 +130,15 @@ interface Risultato {
   corsia: number | null;
 }
 
-// Confronto coda — spec sez. 4a: priorità > EDD (nulla = in fondo) > data_disponibilita più vecchia.
+// Confronto coda — spec sez. 4a: priorità > EDD (nulla = in fondo) > data_disponibilita più
+// vecchia. Fase 9b: un ordine scelto a mano dall'ufficio programmazione (Vista CNC
+// "Programmazione") batte sempre priorità/EDD automatici — è una decisione esplicita, non un
+// suggerimento da poter scavalcare. Tra due fasi entrambe manuali vince il numero più basso.
 function confrontaCoda(a: Fase, b: Fase): number {
+  if (a.sequenzaManuale != null || b.sequenzaManuale != null) {
+    if (a.sequenzaManuale != null && b.sequenzaManuale != null) return a.sequenzaManuale - b.sequenzaManuale;
+    return a.sequenzaManuale != null ? -1 : 1;
+  }
   const pa = PESO_PRIORITA[a.priorita] ?? 2;
   const pb = PESO_PRIORITA[b.priorita] ?? 2;
   if (pa !== pb) return pb - pa;
@@ -151,21 +162,35 @@ function pianificaCorsie(reparto: Reparto, coda: Fase[], occupazione: Occupazion
   for (const fase of coda) {
     const disponibileDal = nonPrimaDi(primoGiornoLavorativoDa(toDate(fase.dataDisponibilita!)), oggi);
 
-    // Prima corsia libera per ciascuna delle nCorsie, e la prima data utile su ciascuna.
-    let migliore: Date | null = null;
-    let corsiaScelta = 0;
-    for (let c = 0; c < nCorsie; c++) {
-      const occupanti = occupazione.filter((o) => o.corsia === c);
+    let corsiaScelta: number;
+    let inizio: Date;
+    if (fase.sequenzaManuale != null && fase.corsia != null) {
+      // Fase 9b: la corsia è quella scelta dall'ufficio programmazione, non la si sceglie tra
+      // tutte — si guarda solo quando si libera QUELLA corsia (che, essendo processata nello
+      // stesso ordine di `coda`, riflette già i lavori manuali messi prima nella stessa coda).
+      corsiaScelta = fase.corsia;
+      const occupanti = occupazione.filter((o) => o.corsia === corsiaScelta);
       const liberaDa = occupanti.length === 0
         ? disponibileDal
         : prossimoGiornoLavorativo(occupanti.reduce((max, o) => (o.fine > max ? o.fine : max), occupanti[0].fine));
-      const candidata = liberaDa > disponibileDal ? liberaDa : disponibileDal;
-      if (migliore === null || candidata < migliore) {
-        migliore = candidata;
-        corsiaScelta = c;
+      inizio = liberaDa > disponibileDal ? liberaDa : disponibileDal;
+    } else {
+      // Prima corsia libera per ciascuna delle nCorsie, e la prima data utile su ciascuna.
+      let migliore: Date | null = null;
+      corsiaScelta = 0;
+      for (let c = 0; c < nCorsie; c++) {
+        const occupanti = occupazione.filter((o) => o.corsia === c);
+        const liberaDa = occupanti.length === 0
+          ? disponibileDal
+          : prossimoGiornoLavorativo(occupanti.reduce((max, o) => (o.fine > max ? o.fine : max), occupanti[0].fine));
+        const candidata = liberaDa > disponibileDal ? liberaDa : disponibileDal;
+        if (migliore === null || candidata < migliore) {
+          migliore = candidata;
+          corsiaScelta = c;
+        }
       }
+      inizio = migliore ?? disponibileDal;
     }
-    const inizio = migliore ?? disponibileDal;
 
     // Durata: 1 giorno lavorativo "istantaneo" se manca il dato per calcolarla davvero — mai un
     // blocco, mai un crash, solo un placeholder dichiarato (vedi Contesto del piano Fase 3+4).
@@ -303,7 +328,7 @@ export async function ricalcolaPiano(): Promise<RisultatoRicalcolo> {
     // costante STATI_CHIUSI_ODP già usata altrove nel progetto per questo scopo.
     const { rows: fasiRows } = await client.query(
       `SELECT sf.id, sf.scheda_id, sf.reparto_id, sf.ordine, sf.ore_stimate, sf.data_disponibilita,
-              sf.a_rischio, sf.corsia, sf.pianificazione_manuale,
+              sf.a_rischio, sf.corsia, sf.pianificazione_manuale, sf.sequenza_manuale,
               sf.data_inizio_pianificata, sf.data_fine_pianificata,
               s.priorita, s.odp, s.data_produzione_prevista
        FROM schede_fasi sf
@@ -327,6 +352,7 @@ export async function ricalcolaPiano(): Promise<RisultatoRicalcolo> {
         pianificazioneManuale: r.pianificazione_manuale,
         dataInizioEsistente: r.data_inizio_pianificata ? toIso(new Date(r.data_inizio_pianificata)) : null,
         dataFineEsistente: r.data_fine_pianificata ? toIso(new Date(r.data_fine_pianificata)) : null,
+        sequenzaManuale: r.sequenza_manuale != null ? Number(r.sequenza_manuale) : null,
       }])
     );
 

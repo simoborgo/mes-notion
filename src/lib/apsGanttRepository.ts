@@ -34,6 +34,7 @@ export interface FaseGantt {
   corsia: number | null;
   aRischio: boolean;
   pianificazioneManuale: boolean;
+  sequenzaManuale: number | null;
   copertina: string | null;
 }
 
@@ -82,6 +83,7 @@ function mapFase(r: any): FaseGantt {
     corsia: r.corsia != null ? Number(r.corsia) : null,
     aRischio: r.a_rischio,
     pianificazioneManuale: r.pianificazione_manuale,
+    sequenzaManuale: r.sequenza_manuale != null ? Number(r.sequenza_manuale) : null,
     copertina: r.copertina_drive_id
       ? driveFileUrl(r.copertina_drive_id)
       : (r.legacy_copertina ? legacyFileUrl(r.scheda_id, "Copertina", 0) : null),
@@ -148,7 +150,7 @@ export async function getDatiGantt(): Promise<DatiGantt> {
   const { rows: fasiRows } = await pool.query(
     `SELECT sf.id, sf.scheda_id, sf.reparto_id, sf.sotto_fase, sf.ore_stimate, sf.stato_fase,
             sf.data_inizio_pianificata, sf.data_fine_pianificata, sf.corsia, sf.a_rischio,
-            sf.pianificazione_manuale,
+            sf.pianificazione_manuale, sf.sequenza_manuale,
             s.odp, s.priorita, s.copertina_drive_id, s.legacy_copertina,
             CASE WHEN c.id IS NOT NULL THEN c.numero_commessa || ' ' || c.cliente ELSE '' END AS cliente_info
      FROM schede_fasi sf

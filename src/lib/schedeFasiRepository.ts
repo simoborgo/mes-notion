@@ -315,6 +315,34 @@ export async function pianificaManualmente(faseId: string, dataInizio: string, d
   return { ok: rows.length > 0 };
 }
 
+// Fase 9b (Vista CNC "Programmazione") — riordina/assegna a mano l'intera coda di una corsia:
+// riceve l'ordine desiderato (array di faseId, in ordine) e rinumera 1..N con `sequenza_manuale`,
+// fissando anche la corsia per ciascuna. Sempre l'intero array dopo un drag&drop, mai un
+// inserimento/spostamento calcolato per differenza — così l'ordine finale è sempre esplicito.
+// Le date NON vengono toccate qui: le calcola solo il motore (pianificaCorsie, vedi confrontaCoda
+// in apsSchedulerRepository.ts, che dà priorità a sequenza_manuale) al prossimo ricalcolo.
+export async function impostaCodaManualeCnc(corsia: number, faseIdsInOrdine: string[]): Promise<void> {
+  if (faseIdsInOrdine.length === 0) return;
+  await pool.query(
+    `UPDATE schede_fasi sf SET corsia = $1, sequenza_manuale = o.pos, aggiornato_il = now()
+     FROM unnest($2::uuid[]) WITH ORDINALITY AS o(id, pos)
+     WHERE sf.id = o.id AND sf.reparto_id = 'cnc' AND sf.stato_fase = 'Da iniziare' AND sf.esclusa = false`,
+    [corsia, faseIdsInOrdine]
+  );
+}
+
+// Rimuove una fase dalla coda manuale CNC — torna sotto controllo automatico (corsia inclusa,
+// ricalcolata da zero) al prossimo ricalcolo.
+export async function rimuoviDaCodaManualeCnc(faseId: string): Promise<boolean> {
+  const { rows } = await pool.query(
+    `UPDATE schede_fasi SET sequenza_manuale = NULL, aggiornato_il = now()
+     WHERE id = $1 AND reparto_id = 'cnc' AND stato_fase = 'Da iniziare' AND sequenza_manuale IS NOT NULL
+     RETURNING id`,
+    [faseId]
+  );
+  return rows.length > 0;
+}
+
 // Sblocca una fase pinnata — torna una fase normale, il prossimo ricalcolo la ripiazza da capo
 // usando la sua data_disponibilita (invariata da questa operazione).
 export async function sbloccaPianificazione(faseId: string): Promise<boolean> {
