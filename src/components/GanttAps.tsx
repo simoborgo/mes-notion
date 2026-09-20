@@ -76,6 +76,15 @@ function lunedeDellaSettimana(d: Date): Date {
   const offset = giorno === 0 ? -6 : 1 - giorno;
   return new Date(d.getFullYear(), d.getMonth(), d.getDate() + offset);
 }
+// Capacità oraria di una macchina in un giorno (turno × buffer) — stessa formula di
+// capacitaOreCorsiaGiorno in apsSchedulerRepository.ts (server-only, non importabile qui): il
+// buffer 0,85 è duplicato di proposito (BUFFER_CAPACITA), tenerli allineati.
+const BUFFER_CAPACITA_CLIENT = 0.85;
+function capacitaOreCorsiaClient(d: Date, oreStandard: { oreFeriale: number; oreSabato: number }): number {
+  if (!giornoLavorativoAps(d)) return 0;
+  return (d.getDay() === 6 ? oreStandard.oreSabato : oreStandard.oreFeriale) * BUFFER_CAPACITA_CLIENT;
+}
+
 // Peso-capacità di un giorno per la Vista CNC — stessa fonte (Impostazioni → Orari Turno,
 // getOrariTurno/calcolaOreStandard) e stessa nozione di "giorno lavorativo" già usate dal motore
 // APS vero (giornoLavorativoAps: sabato lavorativo, solo domenica e festivi esclusi) — non la
@@ -426,8 +435,16 @@ function VistaCnc({ reparto, userRole, oreStandard, onCambiato, onErrore, onApri
       if (!date) continue;
       mappa.set(f.id, stimaPerGiornoIntervallo(date.inizio, date.fine, f.oreStimate, oreStandard));
     }
+    // Reparto a ore: la previsione è quella realmente allocata dal motore (turno × buffer, lavori
+    // in sequenza), non la stima uniforme di sopra — che resta solo come ripiego per una fase
+    // senza allocazioni (es. mai ricalcolata dopo l'attivazione del modello).
+    if (reparto.modelloOre) {
+      for (const f of reparto.fasi) {
+        if (f.allocazioni.length > 0) mappa.set(f.id, new Map(f.allocazioni.map((a) => [a.giorno, a.ore])));
+      }
+    }
     return mappa;
-  }, [reparto.fasi, oreStandard]);
+  }, [reparto.fasi, reparto.modelloOre, oreStandard]);
 
   const nCorsie = reparto.nRisorseParallele ?? 1;
   const nRighe = Math.max(nCorsie, ...reparto.fasi.map((f) => (f.corsia ?? 0) + 1), 1);
@@ -635,7 +652,7 @@ function VistaCnc({ reparto, userRole, oreStandard, onCambiato, onErrore, onApri
         </span>
         <span className="flex items-center gap-1.5">
           <span style={{ width: 12, height: 12, borderRadius: 3, background: "#FCA5A5", display: "inline-block" }} />
-          Più ODP sulla stessa corsia — verifica
+          {reparto.modelloOre ? "Ore oltre la capacità della macchina — verifica" : "Più ODP sulla stessa corsia — verifica"}
         </span>
       </div>
 
@@ -673,15 +690,25 @@ function VistaCnc({ reparto, userRole, oreStandard, onCambiato, onErrore, onApri
                   {giorniSettimana.map((g) => {
                     const fasiGiorno = reparto.fasi.filter((f) => f.corsia === riga && (() => {
                       const date = dateEffettive(f);
-                      return date != null && date.inizio <= g && g <= date.fine;
-                    })());
+                      if (date == null || !(date.inizio <= g && g <= date.fine)) return false;
+                      // Reparto a ore: una fase ancora da iniziare compare solo nei giorni in cui il
+                      // motore le ha davvero allocato ore (nessuna barra continua sui giorni vuoti).
+                      return !reparto.modelloOre || f.allocazioni.length === 0 || f.statoFase !== "Da iniziare"
+                        || f.allocazioni.some((a) => a.giorno === g);
+                    })()).sort((a, b) => (a.allocazioni.find((x) => x.giorno === g)?.ordineGiorno ?? 0) - (b.allocazioni.find((x) => x.giorno === g)?.ordineGiorno ?? 0));
                     const nonLavorativo = !giornoLavorativoAps(toDate(g));
+                    // Con il modello a ore più lavori nello stesso giorno sono normali: si segnala solo
+                    // se le ore allocate superano la capacità della macchina in quel giorno.
+                    const oreAllocateCella = fasiGiorno.reduce((s, f) => s + (f.allocazioni.find((x) => x.giorno === g)?.ore ?? 0), 0);
+                    const sovraccarico = reparto.modelloOre
+                      ? oreAllocateCella > capacitaOreCorsiaClient(toDate(g), oreStandard) + 0.01
+                      : fasiGiorno.length > 1;
                     return (
                       <td
                         key={g} className="align-top"
                         style={{
                           border: "1px solid #EBE9E5", height: 70, padding: 2,
-                          background: fasiGiorno.length > 1 ? "#FCA5A5" : nonLavorativo ? "#FBFAF8" : "white",
+                          background: sovraccarico ? "#FCA5A5" : nonLavorativo ? "#FBFAF8" : "white",
                         }}
                       >
                         {fasiGiorno.map((f) => {

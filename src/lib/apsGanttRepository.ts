@@ -1,6 +1,6 @@
 import { pool, dateToStr } from "./db";
 import { giornoLavorativoAps as giornoLavorativo } from "./calendarioLavorativo";
-import { capacitaGiornoReparto } from "./apsSchedulerRepository";
+import { capacitaGiornoReparto, capacitaOreCorsiaGiorno } from "./apsSchedulerRepository";
 import { getOrariTurno, calcolaOreStandard, type OrariTurno } from "./parametriGeneraliRepository";
 
 // Stesso pattern di schedeRepository.ts/ritiriRepository.ts — duplicato invece di importato,
@@ -37,6 +37,8 @@ export interface FaseGantt {
   sequenzaManuale: number | null;
   copertina: string | null;
   aggiornatoIl: string;
+  // Solo reparti a ore (modello_ore): ore allocate per giorno dal motore, vuoto altrimenti.
+  allocazioni: { giorno: string; ore: number; ordineGiorno: number }[];
 }
 
 export interface RepartoGantt {
@@ -49,6 +51,7 @@ export interface RepartoGantt {
   tamburo: boolean;
   tbd: boolean;
   ordinePipeline: number;
+  modelloOre: boolean;
   fasi: FaseGantt[];
   // percentuale = null quando non calcolabile (capacità TBD)
   caricoGiornaliero: { data: string; percentuale: number | null }[];
@@ -89,6 +92,7 @@ function mapFase(r: any): FaseGantt {
       ? driveFileUrl(r.copertina_drive_id)
       : (r.legacy_copertina ? legacyFileUrl(r.scheda_id, "Copertina", 0) : null),
     aggiornatoIl: r.aggiornato_il instanceof Date ? r.aggiornato_il.toISOString() : r.aggiornato_il,
+    allocazioni: [],
   };
 }
 
@@ -103,6 +107,21 @@ function caricoCorsie(fasi: FaseGantt[], nRisorseParallele: number, giorni: Date
         .map((f) => f.corsia)
     );
     return { data: dateToStr(g), percentuale: Math.round((occupate.size / nRisorseParallele) * 100) };
+  });
+}
+
+// Carico giornaliero di un reparto a corsie con modello a ore: ore realmente allocate quel giorno
+// (somma sulle corsie) / capacità oraria di tutte le corsie — più fedele di caricoCorsie (0/100%
+// per corsia), che con più lavori nello stesso giorno diventa ambiguo.
+function caricoOreCorsie(fasi: FaseGantt[], nRisorseParallele: number, giorni: Date[], ore: { oreFeriale: number; oreSabato: number }): { data: string; percentuale: number | null }[] {
+  const orePerGiorno = new Map<string, number>();
+  for (const f of fasi) for (const a of f.allocazioni) orePerGiorno.set(a.giorno, (orePerGiorno.get(a.giorno) ?? 0) + a.ore);
+  return giorni.map((g) => {
+    const key = dateToStr(g);
+    const capacita = capacitaOreCorsiaGiorno(g, ore) * nRisorseParallele;
+    const oreGiorno = orePerGiorno.get(key) ?? 0;
+    if (capacita <= 0) return { data: key, percentuale: oreGiorno > 0 ? 100 : 0 };
+    return { data: key, percentuale: Math.round((oreGiorno / capacita) * 100) };
   });
 }
 
@@ -145,7 +164,7 @@ export async function getDatiGantt(): Promise<DatiGantt> {
   const oreStandard = calcolaOreStandard(orariTurno);
 
   const { rows: repartiRows } = await pool.query(
-    `SELECT id, nome, tipo_capacita, capacita_sett, n_risorse_parallele, wip_max, tamburo, tbd, ordine_pipeline
+    `SELECT id, nome, tipo_capacita, capacita_sett, n_risorse_parallele, wip_max, tamburo, tbd, ordine_pipeline, modello_ore
      FROM reparti ORDER BY ordine_pipeline`
   );
 
@@ -163,6 +182,15 @@ export async function getDatiGantt(): Promise<DatiGantt> {
      ORDER BY sf.data_inizio_pianificata NULLS LAST`
   );
   const fasi = fasiRows.map(mapFase);
+
+  // Allocazioni orarie per fase (solo reparti con modello a ore ne hanno) — un'unica query.
+  const { rows: allocRows } = await pool.query(
+    `SELECT fase_id, giorno, ore, ordine_giorno FROM schede_fasi_allocazioni ORDER BY giorno, ordine_giorno`
+  );
+  const fasePerId = new Map(fasi.map((f) => [f.id, f]));
+  for (const a of allocRows) {
+    fasePerId.get(a.fase_id)?.allocazioni.push({ giorno: dateToStr(a.giorno), ore: Number(a.ore), ordineGiorno: Number(a.ordine_giorno) });
+  }
 
   // Finestra temporale condivisa da tutti i reparti (colonne allineate). Un orizzonte minimo
   // garantito (oggi-14gg / oggi+90gg) — non solo "fino alla fase più lontana mostrata" — perché
@@ -188,9 +216,11 @@ export async function getDatiGantt(): Promise<DatiGantt> {
     const fasiReparto = fasi.filter((f) => f.repartoId === r.id);
     const capacitaSett = r.capacita_sett != null ? Number(r.capacita_sett) : null;
     const nRisorseParallele = r.n_risorse_parallele != null ? Number(r.n_risorse_parallele) : null;
-    const caricoGiornaliero = r.tipo_capacita === "corsie"
-      ? caricoCorsie(fasiReparto, nRisorseParallele ?? 1, giorni)
-      : caricoMonteOre(fasiReparto, capacitaSett, giorni, oreStandard);
+    const caricoGiornaliero = r.tipo_capacita === "corsie" && r.modello_ore
+      ? caricoOreCorsie(fasiReparto, nRisorseParallele ?? 1, giorni, oreStandard)
+      : r.tipo_capacita === "corsie"
+        ? caricoCorsie(fasiReparto, nRisorseParallele ?? 1, giorni)
+        : caricoMonteOre(fasiReparto, capacitaSett, giorni, oreStandard);
     return {
       id: r.id,
       nome: r.nome,
@@ -201,6 +231,7 @@ export async function getDatiGantt(): Promise<DatiGantt> {
       tamburo: r.tamburo,
       tbd: r.tbd,
       ordinePipeline: Number(r.ordine_pipeline),
+      modelloOre: r.modello_ore === true,
       fasi: fasiReparto,
       caricoGiornaliero,
     };
