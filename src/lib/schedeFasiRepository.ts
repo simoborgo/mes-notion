@@ -302,7 +302,7 @@ export interface RisultatoPianificazioneManuale {
 // una fase già avviata/completata non è più "da piazzare", spostarla non avrebbe senso.
 export async function pianificaManualmente(faseId: string, dataInizio: string, dataFine: string): Promise<RisultatoPianificazioneManuale> {
   const { rows: faseRows } = await pool.query(
-    `SELECT sf.reparto_id, sf.corsia, sf.stato_fase, sf.esclusa, r.tipo_capacita
+    `SELECT sf.reparto_id, sf.corsia, sf.stato_fase, sf.esclusa, r.tipo_capacita, r.modello_ore
      FROM schede_fasi sf JOIN reparti r ON r.id = sf.reparto_id WHERE sf.id = $1`,
     [faseId]
   );
@@ -312,7 +312,9 @@ export async function pianificaManualmente(faseId: string, dataInizio: string, d
   // Su un reparto a corsie, due fasi pinnate sulla stessa corsia con date sovrapposte sarebbero
   // due lavori fisicamente impossibili nello stesso posto — mai scriverlo silenziosamente, va
   // segnalato invece di lasciare che il Gantt mostri due barre accavallate senza spiegazione.
-  if (fase.tipo_capacita === "corsie" && fase.corsia != null) {
+  // Non nei reparti a ore (Fase 10): lì due lavori nello stesso giorno sulla stessa corsia sono
+  // normali (si dividono le ore), l'assegnazione manuale passa dalla Programmazione.
+  if (fase.tipo_capacita === "corsie" && !fase.modello_ore && fase.corsia != null) {
     const { rows: conflittoRows } = await pool.query(
       `SELECT 1 FROM schede_fasi
        WHERE reparto_id = $1 AND corsia = $2 AND pianificazione_manuale = true AND id != $3

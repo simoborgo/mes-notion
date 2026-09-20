@@ -11,6 +11,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Non autorizzato" }, { status: 403 });
   }
   try {
+    // Anteprima (?dryRun=1[&modelloOre=cnc,...]): calcola tutto ma non scrive nulla — restituisce
+    // il confronto vecchio/nuovo dei reparti a ore, da rivedere prima di attivare il modello.
+    const { searchParams } = new URL(req.url);
+    if (searchParams.get("dryRun") === "1") {
+      const forzaModelloOre = (searchParams.get("modelloOre") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+      return NextResponse.json(await ricalcolaPiano({ dryRun: true, forzaModelloOre }));
+    }
     const risultato = await ricalcolaPiano();
     void logOperation(session.name, "UPDATE", "reparto", "aps-ricalcolo", { azione: "ricalcola_piano_aps", ...risultato });
     return NextResponse.json(risultato);
