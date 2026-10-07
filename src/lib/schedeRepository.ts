@@ -351,9 +351,30 @@ export async function updateScheda(id: string, data: SchedaUpdate): Promise<Sche
   // Se questa chiamata porta lo stato a "In lavorazione Esterna" e nessuno ha già specificato
   // esplicitamente produzioneEsterna, lo forziamo a true — così la tab Fornitore Esterno si
   // sblocca automaticamente qualunque sia il form da cui è partito il cambio di stato.
-  const produzioneEsterna = data.produzioneEsterna !== undefined
-    ? data.produzioneEsterna
-    : data.statoProduzione === "In lavorazione Esterna" ? true : undefined;
+  let produzioneEsterna = data.produzioneEsterna;
+  if (produzioneEsterna === undefined && data.statoProduzione !== undefined) {
+    if (data.statoProduzione === "In lavorazione Esterna") {
+      produzioneEsterna = true;
+    } else {
+      // Stato in uscita da "In lavorazione Esterna": disattiva la tab Fornitore Esterno solo se
+      // non ci sono ancora dati esterni compilati — altrimenti servono a mostrare lo storico
+      // (es. dopo il rientro materiale, quando lo stato torna "In lavorazione" ma fornitore/date
+      // restano visibili).
+      const { rows: curRows } = await pool.query(
+        `SELECT fornitore_id, stato_prod_esterna, data_uscita_materiale, data_rientro_prevista, data_rientro_effettiva
+         FROM schede WHERE id = $1`,
+        [id],
+      );
+      const cur = curRows[0];
+      const fornitoreId = data.fornitoreId !== undefined ? data.fornitoreId : cur?.fornitore_id;
+      const statoProdEsterna = data.statoProdEsterna !== undefined ? data.statoProdEsterna : cur?.stato_prod_esterna;
+      const dataUscitaMateriale = data.dataUscitaMateriale !== undefined ? data.dataUscitaMateriale : cur?.data_uscita_materiale;
+      const dataRientroPrevista = data.dataRientroPrevista !== undefined ? data.dataRientroPrevista : cur?.data_rientro_prevista;
+      const dataRientroEffettiva = data.dataRientroEffettiva !== undefined ? data.dataRientroEffettiva : cur?.data_rientro_effettiva;
+      const haDatiEsterni = !!fornitoreId || !!statoProdEsterna || !!dataUscitaMateriale || !!dataRientroPrevista || !!dataRientroEffettiva;
+      if (!haDatiEsterni) produzioneEsterna = false;
+    }
+  }
   if (produzioneEsterna !== undefined) { sets.push(`produzione_esterna = $${i++}`); values.push(produzioneEsterna); }
   if (data.statoProdEsterna !== undefined) { sets.push(`stato_prod_esterna = $${i++}`); values.push(data.statoProdEsterna || ""); }
   if (data.dataRientroPrevista !== undefined) { sets.push(`data_rientro_prevista = $${i++}`); values.push(data.dataRientroPrevista); }
