@@ -38,25 +38,23 @@ function mapRow(r: any): ArticoloFerramenta {
   };
 }
 
-// Cerca un articolo Ferramenta per codice fornitore (confronto normalizzato: niente zeri
-// iniziali/separatori, stessa logica di normalizzaCodiceFornitore ma in SQL). Non filtra più per
-// fornitore: dopo il reimport anagrafica fornitore_nome è vuoto e il nome è solo in
-// fornitore_nome_os1 ("WUERTH s.r.l."), quindi il vecchio filtro '%wurth%' escludeva tutto.
-// I codici però non sono univoci tra fornitori (~86 collisioni): con più candidati si preferisce
-// quello Wurth, e se resta ambiguo si restituisce null (riga "non censita", da rivedere a mano)
-// piuttosto che rischiare l'articolo sbagliato nel file OS1.
+// Cerca un articolo Ferramenta Wurth per codice fornitore (confronto normalizzato: niente zeri
+// iniziali/separatori, stessa logica di normalizzaCodiceFornitore ma in SQL). Il fornitore va
+// verificato su fornitore_nome E fornitore_nome_os1: dopo il reimport anagrafica il primo è vuoto
+// e il nome sta solo nel secondo ("WUERTH s.r.l."), quindi serve un pattern che accetti anche
+// "wuerth". Il filtro sul fornitore evita falsi positivi con codici uguali di altri fornitori.
+// Se più articoli Wurth condividono lo stesso codice si restituisce null (riga "non censita", da
+// rivedere a mano) piuttosto che rischiare l'articolo sbagliato nel file OS1.
 export async function matchArticoloPerCodiceFornitore(codiceArticolo: string): Promise<ArticoloFerramenta | null> {
   const target = normalizzaCodiceFornitore(codiceArticolo);
   if (!target) return null;
   const { rows } = await pool.query(
     `SELECT * FROM articoli_ferramenta
-     WHERE ltrim(regexp_replace(lower(coalesce(codice_fornitore, '')), '[^a-z0-9]', '', 'g'), '0') = $1`,
+     WHERE ltrim(regexp_replace(lower(coalesce(codice_fornitore, '')), '[^a-z0-9]', '', 'g'), '0') = $1
+       AND (fornitore_nome ~* 'w(ue|u)e?rth' OR fornitore_nome_os1 ~* 'w(ue|u)e?rth')`,
     [target]
   );
-  if (rows.length === 0) return null;
-  if (rows.length === 1) return mapRow(rows[0]);
-  const wurth = rows.filter((r) => /w(ue|u)?e?rth/i.test(`${r.fornitore_nome ?? ""} ${r.fornitore_nome_os1 ?? ""}`));
-  return wurth.length === 1 ? mapRow(wurth[0]) : null;
+  return rows.length === 1 ? mapRow(rows[0]) : null;
 }
 
 export async function getArticoliFerramenta(): Promise<ArticoloFerramenta[]> {
