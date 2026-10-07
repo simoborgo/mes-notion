@@ -385,6 +385,21 @@ export async function getStoricoOdps(odps: string[]): Promise<OreRegistrata[]> {
   return rows.map(mapRow);
 }
 
+// Ore sulle causali fisse di stabilimento (Setup, Manutenzione, Riunione, ...): tutto ciò che su
+// ore_registrate ha categoria diversa da COMMESSA. Intervallo opzionale su data.
+export async function getOreCausaliStabilimento(da?: string, a?: string): Promise<OreRegistrata[]> {
+  const conditions = ["categoria <> 'COMMESSA'"];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const params: any[] = [];
+  if (da) { params.push(da); conditions.push(`data >= $${params.length}`); }
+  if (a) { params.push(a); conditions.push(`data <= $${params.length}`); }
+  const { rows } = await pool.query(
+    `SELECT * FROM ore_registrate WHERE ${conditions.join(" AND ")} ORDER BY data, cognome`,
+    params
+  );
+  return rows.map(mapRow);
+}
+
 export async function getStoricoOperatore(matricola: string, da?: string, a?: string): Promise<OreRegistrata[]> {
   const conditions = ["matricola = $1"];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

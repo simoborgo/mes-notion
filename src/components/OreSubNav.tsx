@@ -10,6 +10,7 @@ const TABS = [
   { href: "/ore/storico-commessa", key: "storico-commessa", label: "Storico Commessa" },
   { href: "/ore/storico-operatore", key: "storico-operatore", label: "Storico Operatore" },
   { href: "/ore/storico-articolo", key: "storico-articolo", label: "Storico Articolo" },
+  { href: "/ore/causali-stabilimento", key: "causali-stabilimento", label: "Causali Stabilimento" },
   { href: "/ore/standard-articoli", key: "standard-articoli", label: "Standard Articoli" },
   { href: "/ore/kpi", key: "kpi", label: "Dashboard KPI" },
 ];
