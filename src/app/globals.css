@@ -166,3 +166,36 @@ header a {
     border-left: 3px solid #F08F25;
   }
 }
+
+/* Scrollbar sempre visibili e ben cliccabili (alcuni PC/trackpad le nascondono
+   o le rendono sottilissime, e le tabelle larghe diventano irraggiungibili). */
+.overflow-x-auto,
+.overflow-auto,
+.overflow-y-auto {
+  scrollbar-width: auto;
+  scrollbar-color: var(--color-grey-icon) var(--color-offwhite);
+}
+.overflow-x-auto::-webkit-scrollbar,
+.overflow-auto::-webkit-scrollbar,
+.overflow-y-auto::-webkit-scrollbar {
+  height: 14px;
+  width: 14px;
+  -webkit-appearance: none;
+}
+.overflow-x-auto::-webkit-scrollbar-track,
+.overflow-auto::-webkit-scrollbar-track,
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: var(--color-offwhite);
+}
+.overflow-x-auto::-webkit-scrollbar-thumb,
+.overflow-auto::-webkit-scrollbar-thumb,
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: var(--color-grey-icon);
+  border-radius: 8px;
+  border: 3px solid var(--color-offwhite);
+}
+.overflow-x-auto::-webkit-scrollbar-thumb:hover,
+.overflow-auto::-webkit-scrollbar-thumb:hover,
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: var(--color-grey-mid);
+}
