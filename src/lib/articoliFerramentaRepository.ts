@@ -38,19 +38,25 @@ function mapRow(r: any): ArticoloFerramenta {
   };
 }
 
-// Cerca un articolo Ferramenta per codice fornitore, solo tra quelli collegati a un fornitore il
-// cui nome contiene "wurth" (case-insensitive) — usato dalla Gestione Ordini Wurth per evitare
-// falsi positivi con codici numerici simili di altri fornitori. Confronto fatto in JS dopo aver
-// filtrato lato SQL, perché normalizzare richiede rimuovere zeri iniziali e non alfanumerici,
-// cosa che non vale la pena esprimere come funzione SQL per il volume di righe coinvolto (poche
-// centinaia di articoli Wurth, non l'intero catalogo).
+// Cerca un articolo Ferramenta per codice fornitore (confronto normalizzato: niente zeri
+// iniziali/separatori, stessa logica di normalizzaCodiceFornitore ma in SQL). Non filtra più per
+// fornitore: dopo il reimport anagrafica fornitore_nome è vuoto e il nome è solo in
+// fornitore_nome_os1 ("WUERTH s.r.l."), quindi il vecchio filtro '%wurth%' escludeva tutto.
+// I codici però non sono univoci tra fornitori (~86 collisioni): con più candidati si preferisce
+// quello Wurth, e se resta ambiguo si restituisce null (riga "non censita", da rivedere a mano)
+// piuttosto che rischiare l'articolo sbagliato nel file OS1.
 export async function matchArticoloPerCodiceFornitore(codiceArticolo: string): Promise<ArticoloFerramenta | null> {
   const target = normalizzaCodiceFornitore(codiceArticolo);
+  if (!target) return null;
   const { rows } = await pool.query(
-    `SELECT * FROM articoli_ferramenta WHERE fornitore_nome ILIKE '%wurth%'`
+    `SELECT * FROM articoli_ferramenta
+     WHERE ltrim(regexp_replace(lower(coalesce(codice_fornitore, '')), '[^a-z0-9]', '', 'g'), '0') = $1`,
+    [target]
   );
-  const match = rows.find((r) => normalizzaCodiceFornitore(r.codice_fornitore ?? "") === target);
-  return match ? mapRow(match) : null;
+  if (rows.length === 0) return null;
+  if (rows.length === 1) return mapRow(rows[0]);
+  const wurth = rows.filter((r) => /w(ue|u)?e?rth/i.test(`${r.fornitore_nome ?? ""} ${r.fornitore_nome_os1 ?? ""}`));
+  return wurth.length === 1 ? mapRow(wurth[0]) : null;
 }
 
 export async function getArticoliFerramenta(): Promise<ArticoloFerramenta[]> {
