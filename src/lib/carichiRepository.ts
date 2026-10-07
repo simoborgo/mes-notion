@@ -1,5 +1,14 @@
 import { pool, dateToStr } from "./db";
 import type { Carico, CaricoUpdate } from "./types";
+import { STATI_CHIUSI_ODP } from "./types";
+import { sottraiGiorniLavorativi } from "./calendarioLavorativo";
+
+// Anticipo della produzione rispetto al carico: la data produzione prevista degli ODP è sempre
+// "data carico − 5 giorni lavorativi" (deciso con l'utente 2026-10-07).
+export const ANTICIPO_PRODUZIONE_GIORNI_LAVORATIVI = 5;
+
+// Un ODP può stare in un solo carico: l'API la traduce in 409.
+export class OdpGiaInCaricoError extends Error {}
 
 // "Documenti" era un allegato files genuino su Notion, ma senza alcun upload path nell'app
 // attuale (solo letto in export CSV, mai scritto) — nessuna colonna Drive dedicata qui, solo il
@@ -67,6 +76,63 @@ async function setOdpIds(caricoId: string, odpIds: string[]): Promise<void> {
   }
 }
 
+// Solo carichi non archiviati: un carico eliminato (soft-delete) lascia le sue righe in
+// carichi_schede, quindi un vincolo UNIQUE a DB bloccherebbe ODP in realtà liberi.
+async function verificaOdpLiberi(odpIds: string[], caricoIdCorrente: string | null): Promise<void> {
+  if (odpIds.length === 0) return;
+  const { rows } = await pool.query(
+    `SELECT s.odp, k.titolo, k.data_carico
+     FROM carichi_schede ks
+     JOIN carichi k ON k.id = ks.carico_id AND k.archiviato = false
+     JOIN schede s ON s.id = ks.scheda_id
+     WHERE ks.scheda_id = ANY($1) AND ($2::uuid IS NULL OR ks.carico_id <> $2::uuid)`,
+    [odpIds, caricoIdCorrente],
+  );
+  if (rows.length === 0) return;
+  const elenco = rows
+    .map(r => `${r.odp} è già nel carico «${r.titolo}»${r.data_carico ? ` (${new Date(dateToStr(r.data_carico)).toLocaleDateString("it-IT")})` : ""}`)
+    .join("; ");
+  throw new OdpGiaInCaricoError(`${elenco}. Un ODP può stare in un solo carico: toglilo prima dall'altro.`);
+}
+
+// Data produzione prevista = data carico − 5 gg lavorativi, solo sugli ODP aperti (gli ODP
+// Completati/Annullati mantengono la data storica). Solo la colonna: nessun ricalcolo APS.
+async function riallineaDataProduzione(schedaIds: string[], dataCarico: string | null): Promise<void> {
+  if (schedaIds.length === 0 || !dataCarico) return;
+  await pool.query(
+    `UPDATE schede SET data_produzione_prevista = $1, aggiornato_il = now()
+     WHERE id = ANY($2) AND stato <> ALL($3)`,
+    [sottraiGiorniLavorativi(dataCarico, ANTICIPO_PRODUZIONE_GIORNI_LAVORATIVI), schedaIds, STATI_CHIUSI_ODP],
+  );
+}
+
+// id delle schede presenti in almeno un carico non archiviato (per segnalare quelle senza carico)
+export async function getSchedaIdsInCarico(): Promise<string[]> {
+  const { rows } = await pool.query(
+    `SELECT DISTINCT ks.scheda_id FROM carichi_schede ks JOIN carichi k ON k.id = ks.carico_id AND k.archiviato = false`,
+  );
+  return rows.map(r => r.scheda_id as string);
+}
+
+// ODP presenti in più di un carico non archiviato (doppioni storici, ora impediti dal controllo)
+export async function getOdpInPiuCarichi(): Promise<{ schedaId: string; carichi: { id: string; titolo: string; dataCarico: string | null }[] }[]> {
+  const { rows } = await pool.query(
+    `SELECT ks.scheda_id, k.id, k.titolo, k.data_carico
+     FROM carichi_schede ks JOIN carichi k ON k.id = ks.carico_id AND k.archiviato = false
+     WHERE ks.scheda_id IN (
+       SELECT ks2.scheda_id FROM carichi_schede ks2 JOIN carichi k2 ON k2.id = ks2.carico_id AND k2.archiviato = false
+       GROUP BY ks2.scheda_id HAVING COUNT(*) > 1)
+     ORDER BY k.data_carico`,
+  );
+  const map = new Map<string, { id: string; titolo: string; dataCarico: string | null }[]>();
+  for (const r of rows) {
+    const arr = map.get(r.scheda_id) ?? [];
+    arr.push({ id: r.id, titolo: r.titolo, dataCarico: r.data_carico ? dateToStr(r.data_carico) : null });
+    map.set(r.scheda_id, arr);
+  }
+  return [...map.entries()].map(([schedaId, carichi]) => ({ schedaId, carichi }));
+}
+
 export async function createCarico({
   titolo,
   descrizione,
@@ -84,6 +150,8 @@ export async function createCarico({
   modalita?: string;
   stato?: string;
 }): Promise<Carico> {
+  const odpUnici = [...new Set(odpIds ?? [])];
+  await verificaOdpLiberi(odpUnici, null);
   const { rows } = await pool.query(
     `INSERT INTO carichi (id, titolo, descrizione, data_carico, commessa_id, modalita, stato)
      VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, COALESCE($6,'Pianificato'))
@@ -91,11 +159,21 @@ export async function createCarico({
     [titolo || "Carico", descrizione || "", dataCarico, commessaId || null, modalita || "", stato || null],
   );
   const id = rows[0].id as string;
-  if (odpIds && odpIds.length) await setOdpIds(id, odpIds);
+  if (odpUnici.length) {
+    await setOdpIds(id, odpUnici);
+    await riallineaDataProduzione(odpUnici, dataCarico);
+  }
   return getCaricoById(id);
 }
 
 export async function updateCarico(id: string, data: CaricoUpdate): Promise<Carico> {
+  const prima = await getCaricoById(id);
+  const odpNuovi = data.odpIds !== undefined ? [...new Set(data.odpIds)] : null;
+  // Si controllano solo gli ODP aggiunti: un carico che contiene già un doppione storico resta
+  // modificabile (i doppioni si sistemano dal report "ODP senza carico").
+  const odpAggiunti = odpNuovi ? odpNuovi.filter(o => !prima.odpIds.includes(o)) : [];
+  await verificaOdpLiberi(odpAggiunti, id);
+
   const sets: string[] = [];
   const values: unknown[] = [];
   let i = 1;
@@ -112,7 +190,12 @@ export async function updateCarico(id: string, data: CaricoUpdate): Promise<Cari
   const { rows } = await pool.query(`UPDATE carichi SET ${sets.join(", ")} WHERE id = $${i} RETURNING id`, values);
   if (rows.length === 0) throw new Error(`Carico non trovato: ${id}`);
 
-  if (data.odpIds !== undefined) await setOdpIds(id, data.odpIds);
+  if (odpNuovi) await setOdpIds(id, odpNuovi);
+
+  // ODP rimossi dal carico: la loro data resta com'è (vanno solo segnalati come "senza carico").
+  const dataCambiata = data.dataCarico !== undefined && data.dataCarico !== prima.dataCarico;
+  const odpDaRiallineare = dataCambiata ? (odpNuovi ?? prima.odpIds) : odpAggiunti;
+  await riallineaDataProduzione(odpDaRiallineare, data.dataCarico ?? prima.dataCarico);
 
   return getCaricoById(id);
 }

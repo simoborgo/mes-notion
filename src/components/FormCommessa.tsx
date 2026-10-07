@@ -21,6 +21,7 @@ export default function FormCommessa({
   const [responsabile, setResponsabile] = useState(commessa?.responsabile ?? "");
   const [stato, setStato] = useState(commessa?.stato ?? "ShopDrawing");
   const [dataCarico, setDataCarico] = useState(commessa?.dataCarico ?? "");
+  const dataCaricoDaCarichi = commessa?.dataCaricoDaCarichi ?? false;
   const [inizioMontaggio, setInizioMontaggio] = useState(commessa?.inizioMontaggio ?? "");
   const [fineMontaggio, setFineMontaggio] = useState(commessa?.fineMontaggio ?? "");
   const [info, setInfo] = useState(commessa?.info ?? "");
@@ -106,8 +107,14 @@ export default function FormCommessa({
 
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Data Carico</label>
-              <input type="date" className={inputCls} value={dataCarico} onChange={e => setDataCarico(e.target.value)} />
+              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Prossimo Carico</label>
+              <input
+                type="date" className={inputCls + (dataCaricoDaCarichi ? " bg-gray-100 cursor-not-allowed" : "")}
+                value={dataCarico} onChange={e => setDataCarico(e.target.value)} disabled={dataCaricoDaCarichi}
+              />
+              {dataCaricoDaCarichi && (
+                <p className="text-[11px] mt-1" style={{ color: "var(--color-grey-mid)" }}>Calcolata dai carichi della commessa</p>
+              )}
             </div>
             <div>
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Inizio Montaggio</label>

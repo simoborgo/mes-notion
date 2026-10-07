@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { getCarichi, createCarico } from "@/lib/carichiRepository";
+import { getCarichi, createCarico, OdpGiaInCaricoError } from "@/lib/carichiRepository";
 import { getSessionFromRequest, WRITE_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
@@ -42,10 +42,12 @@ export async function POST(req: NextRequest) {
     void logOperation(session.name, "CREATE", "carico", carico.id, { titolo, dataCarico, commessaId, odpIds, modalita, stato });
 
     revalidatePath("/carichi");
+    revalidatePath("/schede");
     if (commessaId) revalidatePath("/commesse");
 
     return NextResponse.json(carico, { status: 201 });
   } catch (e) {
+    if (e instanceof OdpGiaInCaricoError) return NextResponse.json({ error: e.message }, { status: 409 });
     console.error(e);
     return NextResponse.json({ error: "Errore creazione carico" }, { status: 500 });
   }

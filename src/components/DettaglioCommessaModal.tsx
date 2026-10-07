@@ -27,7 +27,7 @@ function fmt(d: string | null) {
 function InfoGrid({ commessa }: { commessa: Commessa }) {
   const items = [
     { label: "Responsabile", value: commessa.responsabile || "—" },
-    { label: "Data Inizio Carichi", value: fmt(commessa.dataCarico) },
+    { label: "Prossimo Carico", value: fmt(commessa.dataCarico) },
     { label: "Inizio Montaggio", value: fmt(commessa.inizioMontaggio) },
     { label: "Fine Montaggio", value: fmt(commessa.fineMontaggio) },
     { label: "Giorni Montaggio", value: commessa.giorniMontaggio != null ? String(commessa.giorniMontaggio) : "—" },

@@ -49,7 +49,7 @@ export default async function CommessaPage({ params }: { params: Promise<{ id: s
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 rounded-lg border border-gray-200 bg-white p-4">
         {[
           { label: "Responsabile", value: commessa.responsabile },
-          { label: "Data Carico", value: fmt(commessa.dataCarico) },
+          { label: "Prossimo Carico", value: fmt(commessa.dataCarico) },
           { label: "Inizio Montaggio", value: fmt(commessa.inizioMontaggio) },
           { label: "Fine Montaggio", value: fmt(commessa.fineMontaggio) },
         ].map(({ label, value }) => (

@@ -122,7 +122,9 @@ export interface Commessa {
   info: string;
   responsabile: string;
   stato: string;
+  // Derivata dai carichi (vedi commesseRepository); modificabile a mano solo se non ci sono carichi
   dataCarico: string | null;
+  dataCaricoDaCarichi: boolean;
   inizioMontaggio: string | null;
   fineMontaggio: string | null;
   giorniMontaggio: number | null;

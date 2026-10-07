@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { updateCarico, deleteCarico } from "@/lib/carichiRepository";
+import { updateCarico, deleteCarico, OdpGiaInCaricoError } from "@/lib/carichiRepository";
 import type { CaricoUpdate } from "@/lib/types";
 import { getSessionFromRequest, WRITE_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
@@ -21,10 +21,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     revalidatePath("/carichi");
     revalidatePath("/commesse");
+    revalidatePath("/schede");
 
     return NextResponse.json(updated);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
+    if (e instanceof OdpGiaInCaricoError) return NextResponse.json({ error: message }, { status: 409 });
     console.error("[PATCH /api/carichi] FAILED — payload:", JSON.stringify(body));
     console.error("[PATCH /api/carichi] ERROR:", message);
     return NextResponse.json({ error: message }, { status: 500 });

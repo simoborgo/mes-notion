@@ -182,7 +182,7 @@ function RitardoBtn({ label, count, active, onToggle }: { label: string; count: 
   );
 }
 
-export default function TabellaSchede({ schede: initial, sottoschede = [], commesse = [], revalidate, userRole }: { schede: Scheda[]; sottoschede?: Scheda[]; commesse?: Commessa[]; revalidate?: () => Promise<void>; userRole?: Role }) {
+export default function TabellaSchede({ schede: initial, sottoschede = [], commesse = [], schedeInCarico = [], revalidate, userRole }: { schede: Scheda[]; sottoschede?: Scheda[]; commesse?: Commessa[]; schedeInCarico?: string[]; revalidate?: () => Promise<void>; userRole?: Role }) {
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -275,6 +275,12 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
   }, [schede, sottoschede]);
 
   const [nascondiChiuse, setNascondiChiuse] = useState(true);
+  const [filtroSenzaCarico, setFiltroSenzaCarico] = useState(false);
+
+  // ODP attivo che non è in nessun carico: la data produzione prevista resta quella manuale e
+  // nessuno la riallinea, quindi va reso visibile (vedi anche /carichi/senza-carico).
+  const inCaricoSet = useMemo(() => new Set(schedeInCarico), [schedeInCarico]);
+  const senzaCarico = (s: Scheda) => !STATI_COMPLETATI.has(s.statoProduzione) && !inCaricoSet.has(s.id);
 
   // Ripristina filtri/ordinamento salvati quando si torna su questa pagina — sessionStorage
   // sopravvive alla navigazione client-side tra sezioni (che smonta/rimonta il componente),
@@ -355,13 +361,14 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
         if (filtroRitardoRientro && !gruppo.some((x) => isInRitardo(x, today).rientro)) return false;
         if (filtroFornitore && !gruppo.some((x) => x.fornitore === filtroFornitore)) return false;
         if (filtroCommessa && s.commessaNr !== filtroCommessa) return false;
+        if (filtroSenzaCarico && !senzaCarico(s)) return false;
         const val = s[dateField] ?? "";
         if (dateFrom && val < dateFrom) return false;
         if (dateTo && val > dateTo) return false;
         return true;
       })
       .sort((a, b) => cmp(a, b, sortKey, sortDir));
-  }, [schede, sottoschedeByParent, search, filtroStati, filtroEsterna, filtroRitardoProd, filtroRitardoRientro, filtroFornitore, filtroCommessa, dateFrom, dateTo, dateField, sortKey, sortDir, today]);
+  }, [schede, sottoschedeByParent, search, filtroStati, filtroEsterna, filtroRitardoProd, filtroRitardoRientro, filtroFornitore, filtroCommessa, filtroSenzaCarico, inCaricoSet, dateFrom, dateTo, dateField, sortKey, sortDir, today]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Contatori ritardo basati sui filtri attivi (esclusi i filtri ritardo stessi)
   const filteredSenzaRitardo = useMemo(() => {
@@ -412,9 +419,10 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
     }
     if (filtroRitardoProd) parts.push("Solo prod. in ritardo");
     if (filtroRitardoRientro) parts.push("Solo rientro in ritardo");
+    if (filtroSenzaCarico) parts.push("Solo ODP senza carico");
     if (nascondiChiuse) parts.push("Senza commesse chiuse");
     return parts.length > 0 ? parts.join(" · ") : "Nessun filtro attivo";
-  }, [search, filtroStati, filtroEsterna, filtroFornitore, filtroCommessa, commesseOptions, dateFrom, dateTo, dateField, filtroRitardoProd, filtroRitardoRientro, nascondiChiuse]);
+  }, [search, filtroStati, filtroEsterna, filtroFornitore, filtroCommessa, commesseOptions, dateFrom, dateTo, dateField, filtroRitardoProd, filtroRitardoRientro, nascondiChiuse, filtroSenzaCarico]);
 
   function handleSort(key: SortKey) {
     if (key === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -563,6 +571,15 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
           />
           Nascondi commesse chiuse
         </label>
+        <label className="flex items-center gap-2 cursor-pointer select-none text-sm" style={{ color: "var(--color-black)" }}>
+          <input
+            type="checkbox"
+            checked={filtroSenzaCarico}
+            onChange={(e) => handleFilter(() => setFiltroSenzaCarico(e.target.checked))}
+            className="w-4 h-4 cursor-pointer accent-orange-500"
+          />
+          Solo ODP senza carico
+        </label>
       </div>
 
       {/* Tabella */}
@@ -649,6 +666,11 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                               ⚙ {rilavorazioniAperte.length}
                             </span>
                           )}
+                        </span>
+                      )}
+                      {senzaCarico(s) && (
+                        <span className="no-print ml-2 text-[11px] px-1.5 py-0.5 rounded-full font-bold align-middle" style={{ background: "#FEE2E2", color: "#991B1B" }} title="Questo ODP non è in nessun carico">
+                          Senza carico
                         </span>
                       )}
                     </td>

@@ -12,6 +12,8 @@ interface Tab {
 const TABS: Tab[] = [
   { href: "/commesse", label: "Commesse", match: (p) => p === "/commesse" },
   { href: "/carichi", label: "Carichi", match: (p) => p === "/carichi" },
+  { href: "/carichi/odp", label: "ODP per carico", match: (p) => p === "/carichi/odp" },
+  { href: "/carichi/senza-carico", label: "ODP senza carico", match: (p) => p === "/carichi/senza-carico" },
 ];
 
 export default function CommesseSubNav() {

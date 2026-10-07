@@ -299,6 +299,7 @@ export default function TabellaCarichi({ carichi: initial, commesse, schede, can
         <FormCarico
           commesse={commesse}
           schede={schede}
+          carichi={carichi}
           onClose={() => setCreando(false)}
           onSave={handleCreated}
         />
@@ -308,6 +309,7 @@ export default function TabellaCarichi({ carichi: initial, commesse, schede, can
           carico={editing}
           commesse={commesse}
           schede={schede}
+          carichi={carichi}
           onClose={() => setEditing(null)}
           onSave={handleSave}
         />

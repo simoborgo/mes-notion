@@ -11,7 +11,8 @@ function mapRow(r: any): Commessa {
     info: r.info,
     responsabile: r.responsabile,
     stato: r.stato,
-    dataCarico: r.data_carico ? dateToStr(r.data_carico) : null,
+    dataCarico: r.data_carico_eff ? dateToStr(r.data_carico_eff) : null,
+    dataCaricoDaCarichi: !!r.ha_carichi,
     inizioMontaggio: r.inizio_montaggio ? dateToStr(r.inizio_montaggio) : null,
     fineMontaggio: r.fine_montaggio ? dateToStr(r.fine_montaggio) : null,
     giorniMontaggio: r.giorni_montaggio != null ? Number(r.giorni_montaggio) : null,
@@ -19,11 +20,29 @@ function mapRow(r: any): Commessa {
   };
 }
 
-const SELECT = `SELECT *, (fine_montaggio - inizio_montaggio) AS giorni_montaggio FROM commesse`;
+// data_carico_eff: la data di carico della commessa è derivata dai suoi carichi (prossimo carico da
+// oggi in avanti, altrimenti l'ultimo); solo senza carichi vale il valore manuale della colonna.
+// Calcolata in lettura, così non può andare fuori sync né invecchiare con il passare dei giorni.
+const SELECT = `SELECT c.*, (c.fine_montaggio - c.inizio_montaggio) AS giorni_montaggio,
+  COALESCE(
+    (SELECT MIN(k.data_carico) FROM carichi k WHERE k.commessa_id = c.id AND k.archiviato = false AND k.data_carico >= (now() AT TIME ZONE 'Europe/Rome')::date),
+    (SELECT MAX(k.data_carico) FROM carichi k WHERE k.commessa_id = c.id AND k.archiviato = false),
+    c.data_carico
+  ) AS data_carico_eff,
+  EXISTS (SELECT 1 FROM carichi k WHERE k.commessa_id = c.id AND k.archiviato = false AND k.data_carico IS NOT NULL) AS ha_carichi
+  FROM commesse c`;
 
 export async function getCommesse(): Promise<Commessa[]> {
   const { rows } = await pool.query(`${SELECT} ORDER BY numero_commessa DESC`);
   return rows.map(mapRow);
+}
+
+async function haCarichi(commessaId: string): Promise<boolean> {
+  const { rows } = await pool.query(
+    `SELECT 1 FROM carichi WHERE commessa_id = $1 AND archiviato = false AND data_carico IS NOT NULL LIMIT 1`,
+    [commessaId],
+  );
+  return rows.length > 0;
 }
 
 export async function getCommessaById(id: string): Promise<Commessa> {
@@ -51,7 +70,7 @@ export async function createCommessa(data: {
   const { rows } = await pool.query(
     `INSERT INTO commesse (id, numero_commessa, cliente, localita, info, responsabile, stato, data_carico, inizio_montaggio, fine_montaggio)
      VALUES (gen_random_uuid(), $1,$2,$3,$4,$5,COALESCE($6,'ShopDrawing'),$7,$8,$9)
-     RETURNING *, (fine_montaggio - inizio_montaggio) AS giorni_montaggio`,
+     RETURNING id`,
     [
       data.numeroCommessa,
       data.cliente ?? "",
@@ -64,7 +83,7 @@ export async function createCommessa(data: {
       data.fineMontaggio ?? null,
     ],
   );
-  return mapRow(rows[0]);
+  return getCommessaById(rows[0].id);
 }
 
 // Cartella Drive della Commessa (root COMMESSE_DRIVE_FOLDER_ID) — popolata in modo lazy al primo
@@ -89,16 +108,18 @@ export async function updateCommessa(id: string, data: CommessaUpdate): Promise<
   if (data.info !== undefined) { sets.push(`info = $${i++}`); values.push(data.info); }
   if (data.responsabile !== undefined) { sets.push(`responsabile = $${i++}`); values.push(data.responsabile); }
   if (data.stato !== undefined) { sets.push(`stato = $${i++}`); values.push(data.stato); }
-  if (data.dataCarico !== undefined) { sets.push(`data_carico = $${i++}`); values.push(data.dataCarico); }
+  // Con carichi collegati la data è derivata (vedi SELECT): la scrittura manuale viene ignorata
+  // anche se arriva dall'API, altrimenti tornerebbe il conflitto con le date dei carichi.
+  if (data.dataCarico !== undefined && !(await haCarichi(id))) { sets.push(`data_carico = $${i++}`); values.push(data.dataCarico); }
   if (data.inizioMontaggio !== undefined) { sets.push(`inizio_montaggio = $${i++}`); values.push(data.inizioMontaggio); }
   if (data.fineMontaggio !== undefined) { sets.push(`fine_montaggio = $${i++}`); values.push(data.fineMontaggio); }
   sets.push(`aggiornato_il = now()`);
 
   values.push(id);
   const { rows } = await pool.query(
-    `UPDATE commesse SET ${sets.join(", ")} WHERE id = $${i} RETURNING *, (fine_montaggio - inizio_montaggio) AS giorni_montaggio`,
+    `UPDATE commesse SET ${sets.join(", ")} WHERE id = $${i} RETURNING id`,
     values,
   );
   if (rows.length === 0) throw new Error(`Commessa non trovata: ${id}`);
-  return mapRow(rows[0]);
+  return getCommessaById(id);
 }

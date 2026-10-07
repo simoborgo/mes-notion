@@ -83,6 +83,20 @@ export function giorniLavorativi(dataInizioStr: string, dataFineStr: string): nu
   return count;
 }
 
+// Sottrae n giorni lavorativi (lun-ven, festivi esclusi) da una data "YYYY-MM-DD": se la data di
+// partenza non è lavorativa si parte comunque da lì (es. carico di sabato − 1 gg = venerdì).
+// Stessa aritmetica su anno/mese/giorno di giorniLavorativi (niente fusi orari).
+export function sottraiGiorniLavorativi(dataStr: string, n: number): string {
+  const [y, m, d] = dataStr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  let rimasti = n;
+  while (rimasti > 0) {
+    dt.setDate(dt.getDate() - 1);
+    if (giornoLavorativo(dt)) rimasti--;
+  }
+  return fmtData(dt);
+}
+
 // Giorni lavorativi dell'intero mese di calendario (anno, mese 1-based) — usato per la
 // capacità grezza di un reparto in quel mese, indipendentemente dalle offerte.
 export function giorniLavorativiMese(anno: number, mese1based: number): number {

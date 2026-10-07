@@ -16,7 +16,9 @@ interface FormState {
   stato: string;
 }
 
-function OdpMultiSelect({ schede, value, onChange }: { schede: Scheda[]; value: string[]; onChange: (ids: string[]) => void }) {
+// occupati: scheda.id → altro carico che la contiene. Un ODP può stare in un solo carico, quindi
+// quelli già altrove restano visibili (si capisce dove sono) ma non selezionabili.
+function OdpMultiSelect({ schede, value, onChange, occupati }: { schede: Scheda[]; value: string[]; onChange: (ids: string[]) => void; occupati: Map<string, Carico> }) {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
 
@@ -26,11 +28,12 @@ function OdpMultiSelect({ schede, value, onChange }: { schede: Scheda[]; value: 
   const filtrati = useMemo(() => {
     const q = search.toLowerCase().trim();
     const candidati = schede.filter((s) => s.odp && !value.includes(s.id));
-    if (!q) return candidati.slice(0, 30);
-    return candidati
-      .filter((s) => `${s.odp} ${s.numeroScheda} ${s.clienteInfo}`.toLowerCase().includes(q))
-      .slice(0, 30);
-  }, [schede, search, value]);
+    const trovati = q
+      ? candidati.filter((s) => `${s.odp} ${s.numeroScheda} ${s.clienteInfo}`.toLowerCase().includes(q))
+      : candidati;
+    // Prima i liberi, poi quelli già in un altro carico
+    return [...trovati.filter((s) => !occupati.has(s.id)), ...trovati.filter((s) => occupati.has(s.id))].slice(0, 30);
+  }, [schede, search, value, occupati]);
 
   function add(id: string) {
     onChange([...value, id]);
@@ -71,17 +74,21 @@ function OdpMultiSelect({ schede, value, onChange }: { schede: Scheda[]; value: 
             className="absolute z-50 w-full mt-1 rounded-lg border bg-white shadow-lg overflow-y-auto"
             style={{ borderColor: "#d1d5db", maxHeight: 220 }}
           >
-            {filtrati.map((s) => (
+            {filtrati.map((s) => {
+              const altro = occupati.get(s.id);
+              return (
               <li
                 key={s.id}
-                className="px-3 py-2 text-sm cursor-pointer hover:bg-orange-50"
-                onMouseDown={(e) => { e.preventDefault(); add(s.id); }}
+                className={altro ? "px-3 py-2 text-sm cursor-not-allowed opacity-50" : "px-3 py-2 text-sm cursor-pointer hover:bg-orange-50"}
+                onMouseDown={(e) => { e.preventDefault(); if (!altro) add(s.id); }}
               >
                 <span className="font-semibold">{s.odp}</span>
                 {s.numeroScheda && <span className="ml-1.5">— {s.numeroScheda}</span>}
                 {s.clienteInfo && <span className="ml-1.5 text-xs" style={{ color: "#9ca3af" }}>{s.clienteInfo}</span>}
+                {altro && <span className="ml-1.5 text-xs font-semibold" style={{ color: "#B45309" }}>già in «{altro.titolo}»</span>}
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </div>
@@ -93,11 +100,13 @@ interface Props {
   carico?: Carico | null;
   commesse: Commessa[];
   schede: Scheda[];
+  // Tutti i carichi, per sapere quali ODP sono già assegnati altrove
+  carichi: Carico[];
   onClose: () => void;
   onSave: (carico: Carico) => void;
 }
 
-export default function FormCarico({ carico, commesse, schede, onClose, onSave }: Props) {
+export default function FormCarico({ carico, commesse, schede, carichi, onClose, onSave }: Props) {
   const isEdit = !!carico;
   const [form, setForm] = useState<FormState>({
     titolo: carico?.titolo ?? "",
@@ -110,6 +119,15 @@ export default function FormCarico({ carico, commesse, schede, onClose, onSave }
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const occupati = useMemo(() => {
+    const m = new Map<string, Carico>();
+    for (const c of carichi) {
+      if (c.id === carico?.id) continue;
+      for (const id of c.odpIds) m.set(id, c);
+    }
+    return m;
+  }, [carichi, carico]);
 
   function set<K extends keyof FormState>(k: K, v: FormState[K]) {
     setForm((prev) => ({ ...prev, [k]: v }));
@@ -137,11 +155,15 @@ export default function FormCarico({ carico, commesse, schede, onClose, onSave }
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Errore salvataggio");
+      if (!res.ok) {
+        // 409: ODP già in un altro carico — il messaggio del server dice quale
+        if (res.status === 409) throw new Error((await res.json().catch(() => null))?.error ?? "ODP già assegnato a un altro carico");
+        throw new Error("Errore salvataggio");
+      }
       const saved: Carico = await res.json();
       onSave(saved);
-    } catch {
-      setError("Errore durante il salvataggio. Riprova.");
+    } catch (e) {
+      setError(e instanceof Error && e.message !== "Errore salvataggio" ? e.message : "Errore durante il salvataggio. Riprova.");
     } finally {
       setSaving(false);
     }
@@ -214,7 +236,7 @@ export default function FormCarico({ carico, commesse, schede, onClose, onSave }
 
           <div>
             <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>ODP collegati</label>
-            <OdpMultiSelect schede={schede} value={form.odpIds} onChange={(ids) => set("odpIds", ids)} />
+            <OdpMultiSelect schede={schede} value={form.odpIds} onChange={(ids) => set("odpIds", ids)} occupati={occupati} />
           </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
