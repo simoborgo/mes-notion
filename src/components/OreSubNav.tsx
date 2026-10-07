@@ -13,6 +13,7 @@ const TABS = [
   { href: "/ore/causali-stabilimento", key: "causali-stabilimento", label: "Causali Stabilimento" },
   { href: "/ore/standard-articoli", key: "standard-articoli", label: "Standard Articoli" },
   { href: "/ore/kpi", key: "kpi", label: "Dashboard KPI" },
+  { href: "/ore/export-excel", key: "export-excel", label: "Export Excel" },
 ];
 
 export default function OreSubNav({ active }: { active: string }) {
