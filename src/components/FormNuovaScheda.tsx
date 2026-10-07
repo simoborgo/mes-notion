@@ -183,7 +183,7 @@ export default function FormNuovaScheda({ commesse, onClose, onCreated }: Props)
           </div>
 
           <div>
-            <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Note</label>
+            <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Descrizione</label>
             <textarea rows={3} className={inputCls + " resize-none"} value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
 

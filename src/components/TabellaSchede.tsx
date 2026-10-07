@@ -341,7 +341,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
     const q = search.toLowerCase();
     return schede
       .filter((s) => {
-        if (q && !`${s.odp} ${s.clienteInfo} ${s.numeroScheda} ${s.commessaNr}`.toLowerCase().includes(q)) return false;
+        if (q && !`${s.odp} ${s.clienteInfo} ${s.numeroScheda} ${s.commessaNr} ${s.descrizioneFasi}`.toLowerCase().includes(q)) return false;
         // Stato/produzione-esterna/fornitore/rientro-in-ritardo vivono spesso sulla sottoscheda
         // (produzione esterna presso il fornitore), non sulla scheda padre: un padre "Completato"
         // che nasconde di default una sottoscheda ancora in lavorazione esterna farebbe perdere
@@ -367,7 +367,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
   const filteredSenzaRitardo = useMemo(() => {
     const q = search.toLowerCase();
     return schede.filter((s) => {
-      if (q && !`${s.odp} ${s.clienteInfo} ${s.numeroScheda} ${s.commessaNr}`.toLowerCase().includes(q)) return false;
+      if (q && !`${s.odp} ${s.clienteInfo} ${s.numeroScheda} ${s.commessaNr} ${s.descrizioneFasi}`.toLowerCase().includes(q)) return false;
       const figlie = sottoschedeByParent.get(s.id) ?? [];
       const gruppo = [s, ...figlie];
       if (filtroStati.size > 0 && !gruppo.some((x) => filtroStati.has(x.statoProduzione ?? ""))) return false;

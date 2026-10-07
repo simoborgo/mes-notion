@@ -448,7 +448,7 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
           </div>
 
           <div>
-            <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Note</label>
+            <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Descrizione</label>
             <textarea rows={3} className={inputCls + " resize-none"} value={form.note} onChange={(e) => set("note", e.target.value)} />
           </div>
 
