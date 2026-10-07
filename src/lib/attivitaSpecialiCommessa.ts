@@ -26,6 +26,8 @@ export const ODP_SPECIALI = [
   { prefix: "PUL", label: "Pulizie" },
   { prefix: "ARR", label: "Arredi e Masselli", descrizione: "Arredi o masselli ad uso interno MODAR (27x27, piani banchi ecc.)" },
   { prefix: "FERMO", label: "Fermo Macchina" },
+  { prefix: "INV", label: "Inventario" },
+  { prefix: "MONTAGGIO EST", label: "Montaggi Esterni" },
 ] as const;
 
 export type AttivitaSpecialeSuffix = (typeof ATTIVITA_SPECIALI_COMMESSA)[number]["suffix"];

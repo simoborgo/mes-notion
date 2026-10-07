@@ -9,7 +9,7 @@ import {
 } from "./assenzeRepository";
 import { getRepartiSecondari } from "./articoliRepository";
 
-export type OreCategoria = "COMMESSA" | "SETUP" | "MANUTENZIONE" | "RIUNIONE" | "FORMAZIONE" | "PULIZIE" | "FERMO_MACCHINA" | "ARREDI_MASSELLI";
+export type OreCategoria = "COMMESSA" | "SETUP" | "MANUTENZIONE" | "RIUNIONE" | "FORMAZIONE" | "PULIZIE" | "FERMO_MACCHINA" | "ARREDI_MASSELLI" | "INVENTARIO" | "MONTAGGIO_ESTERNO";
 export type OreCausale = "P" | "T" | "M" | "C" | "F";
 
 const COSTO_ORARIO = 41;
@@ -64,6 +64,8 @@ export function categoriaFromOdp(odp: string): OreCategoria {
   if (upper.startsWith("PUL")) return "PULIZIE";
   if (upper.startsWith("ARR")) return "ARREDI_MASSELLI";
   if (upper.startsWith("FERMO")) return "FERMO_MACCHINA";
+  if (upper.startsWith("INV")) return "INVENTARIO";
+  if (upper.startsWith("MONTAGGIO EST")) return "MONTAGGIO_ESTERNO";
   return "COMMESSA";
 }
 

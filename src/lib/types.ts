@@ -260,6 +260,7 @@ export interface OdpAttivo {
 export const CATEGORIA_ODP_LABEL: Record<string, string> = {
   SETUP: "Setup", MANUTENZIONE: "Manutenzione", RIUNIONE: "Riunione", FORMAZIONE: "Formazione", PULIZIE: "Pulizie",
   ARREDI_MASSELLI: "Arredi e Masselli", FERMO_MACCHINA: "Fermo Macchina",
+  INVENTARIO: "Inventario", MONTAGGIO_ESTERNO: "Montaggi Esterni",
 };
 
 export type MetodoGestioneFerramenta = "Kanban" | "A Pezzo";
