@@ -1,5 +1,6 @@
 import { pool } from "./db";
 import type { Operatore } from "./types";
+import { apriPeriodo, chiudiPeriodoAperto } from "./operatoriPeriodiRepository";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapRow(r: any): Operatore {
@@ -33,8 +34,10 @@ export async function getTuttiOperatori(): Promise<Operatore[]> {
 // "rimuovere" un operatore significa sempre disattivarlo (inForza -> false), mai eliminare la riga
 // (altrimenti si perderebbe il collegamento con lo storico ore già registrato per quella matricola,
 // che in Postgres chiava per matricola TEXT, non per id).
+// dataEvento: data del periodo aperto quando inForza = true (default oggi se omessa, gestito dal
+// chiamante). Il formato atteso è "YYYY-MM-DD".
 export async function createOperatorePage(entry: {
-  cognome: string; nome: string; reparto: string; tipo: string; azienda: string; inForza: boolean;
+  cognome: string; nome: string; reparto: string; tipo: string; azienda: string; inForza: boolean; dataEvento?: string;
 }): Promise<Operatore> {
   const { rows } = await pool.query(
     `INSERT INTO operatori (id, matricola, cognome, nome, reparto, tipo, azienda, in_forza)
@@ -42,11 +45,16 @@ export async function createOperatorePage(entry: {
      RETURNING *`,
     [entry.cognome, entry.nome, entry.reparto, entry.tipo, entry.azienda, entry.inForza],
   );
-  return mapRow(rows[0]);
+  const operatore = mapRow(rows[0]);
+  if (entry.inForza) await apriPeriodo(operatore.id, entry.dataEvento ?? new Date().toISOString().slice(0, 10));
+  return operatore;
 }
 
+// dataEvento: data della transizione di inForza (assunzione/cessazione), usata per aprire/chiudere
+// il periodo corrispondente in operatori_periodi_impiego — ignorata se inForza non è tra i campi
+// aggiornati o non cambia rispetto al valore corrente.
 export async function updateOperatorePage(id: string, entry: Partial<{
-  cognome: string; nome: string; reparto: string; tipo: string; azienda: string; inForza: boolean;
+  cognome: string; nome: string; reparto: string; tipo: string; azienda: string; inForza: boolean; dataEvento: string;
 }>): Promise<Operatore> {
   const sets: string[] = [];
   const values: unknown[] = [];
@@ -60,11 +68,25 @@ export async function updateOperatorePage(id: string, entry: Partial<{
   if (entry.inForza !== undefined) { sets.push(`in_forza = $${i++}`); values.push(entry.inForza); }
   sets.push(`aggiornato_il = now()`);
 
+  let inForzaPrecedente: boolean | undefined;
+  if (entry.inForza !== undefined) {
+    const { rows: prev } = await pool.query(`SELECT in_forza FROM operatori WHERE id = $1`, [id]);
+    if (prev.length === 0) throw new Error(`Operatore non trovato: ${id}`);
+    inForzaPrecedente = prev[0].in_forza;
+  }
+
   values.push(id);
   const { rows } = await pool.query(
     `UPDATE operatori SET ${sets.join(", ")} WHERE id = $${i} RETURNING *`,
     values,
   );
   if (rows.length === 0) throw new Error(`Operatore non trovato: ${id}`);
+
+  if (entry.inForza !== undefined && entry.inForza !== inForzaPrecedente) {
+    const dataEvento = entry.dataEvento ?? new Date().toISOString().slice(0, 10);
+    if (entry.inForza) await apriPeriodo(id, dataEvento);
+    else await chiudiPeriodoAperto(id, dataEvento);
+  }
+
   return mapRow(rows[0]);
 }

@@ -2,7 +2,8 @@ import type { Pool, PoolClient } from "pg";
 import { pool, dateToStr } from "./db";
 import { aggiornaStandardRepartoPerOdp } from "./standardRepartoRepository";
 import { getSchede } from "./schedeRepository";
-import { getOperatori, getTuttiOperatori } from "./operatoriRepository";
+import { getTuttiOperatori } from "./operatoriRepository";
+import { getOperatoriInForzaAlla } from "./operatoriPeriodiRepository";
 import { getAssenzeApprovatePerData, isAssente } from "./permessiRepository";
 import {
   type AssenzaManuale, getAssenzeManualiPerData, oreDaPermesso, reconciliaAssenzeConPermessi, oreEqual,
@@ -226,12 +227,13 @@ const REPARTI_ESCLUSI_RILEVAMENTO_ORE = ["Logistica", "Produzione", "Spedizioni"
 // permessi/assenze riconciliate, ODP del giorno precedente) è riusabile anche server-side, es.
 // dalla stampa PDF di Vista Oggi — nessuna duplicazione, nessun self-fetch interno all'API.
 export async function getPresentiPerData(data: string): Promise<{ presenti: PresenteRow[]; warningPermessi: string | null }> {
-  // "In forza" è uno stato attuale: da solo non basta a scegliere chi mostrare per una data
-  // passata, altrimenti un operatore disattivato dopo aver lavorato (tipico per un esterno a fine
-  // rapporto) sparirebbe anche dai giorni in cui aveva già ore/assenze registrate. Si riammette
-  // chi non è più in forza ma ha almeno una riga quel giorno specifico.
+  // "In forza" alla data richiesta è calcolato sullo storico periodi (operatori_periodi_impiego),
+  // non sul solo booleano operatori.in_forza che riflette lo stato odierno. In più si riammette chi
+  // non risulta in forza quel giorno secondo lo storico periodi ma ha comunque almeno una riga
+  // (ore/assenza) registrata per quel giorno specifico — rete di sicurezza per dati storici
+  // inconsistenti (es. periodi non ancora migrati correttamente).
   const [operatoriInForza, tuttiOperatori, registrazioni, assenzeManualiEsistenti] = await Promise.all([
-    getOperatori(),
+    getOperatoriInForzaAlla(data),
     getTuttiOperatori(),
     getRegistrazioniPerData(data),
     getAssenzeManualiPerData(data).catch(() => new Map<string, AssenzaManuale>()),

@@ -21,8 +21,16 @@ export default function FormOperatore({
   const [tipo, setTipo] = useState(operatore?.tipo ?? "Modar");
   const [azienda, setAzienda] = useState(operatore?.azienda ?? "");
   const [inForza, setInForza] = useState(operatore?.inForza ?? true);
+  const oggi = new Date().toISOString().slice(0, 10);
+  const [dataEvento, setDataEvento] = useState(oggi);
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState("");
+
+  // Campo data visibile solo quando "In forza" viene effettivamente cambiato rispetto al valore
+  // iniziale (nuovo operatore attivo, o transizione su uno esistente) — apre/chiude un periodo in
+  // operatori_periodi_impiego, da cui dipende chi compare in Rilevamento Ore per una data passata.
+  const inForzaIniziale = operatore?.inForza ?? true;
+  const mostraDataEvento = !operatore ? inForza : inForza !== inForzaIniziale;
 
   async function salva(e: React.FormEvent) {
     e.preventDefault();
@@ -30,7 +38,10 @@ export default function FormOperatore({
     setSalvando(true);
     setErrore("");
     try {
-      const payload = { cognome: cognome.trim(), nome: nome.trim(), reparto: reparto.trim(), tipo, azienda: azienda.trim(), inForza };
+      const payload = {
+        cognome: cognome.trim(), nome: nome.trim(), reparto: reparto.trim(), tipo, azienda: azienda.trim(), inForza,
+        ...(mostraDataEvento ? { dataEvento } : {}),
+      };
       const res = await fetch(operatore ? `/api/admin/operatori/${operatore.id}` : "/api/admin/operatori", {
         method: operatore ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -106,6 +117,18 @@ export default function FormOperatore({
             />
             <label htmlFor="operatore-in-forza" className="text-base font-medium">In forza</label>
           </div>
+
+          {mostraDataEvento && (
+            <div>
+              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>
+                {inForza ? "In forza dal" : "Cessato il"}
+              </label>
+              <input
+                type="date" className={inputCls} value={dataEvento}
+                onChange={e => setDataEvento(e.target.value)}
+              />
+            </div>
+          )}
 
           {errore && <p className="text-base text-red-600">{errore}</p>}
 

@@ -19,6 +19,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       tipo: typeof body.tipo === "string" ? body.tipo.trim() : undefined,
       azienda: typeof body.azienda === "string" ? body.azienda.trim() : undefined,
       inForza: typeof body.inForza === "boolean" ? body.inForza : undefined,
+      dataEvento: typeof body.dataEvento === "string" ? body.dataEvento : undefined,
     });
     void logOperation(session.name, "UPDATE", "operatore", id, body as Record<string, unknown>);
     return NextResponse.json(operatore);

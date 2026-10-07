@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
       tipo: typeof body.tipo === "string" ? body.tipo.trim() : "",
       azienda: typeof body.azienda === "string" ? body.azienda.trim() : "",
       inForza: body.inForza ?? true,
+      dataEvento: typeof body.dataEvento === "string" ? body.dataEvento : undefined,
     });
     void logOperation(session.name, "CREATE", "operatore", operatore.id, body as Record<string, unknown>);
     return NextResponse.json(operatore);
