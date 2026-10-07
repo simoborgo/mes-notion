@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
     {
       items: [
         {
+          pagina: "numero della pagina PDF di origine — DEVE corrispondere esattamente a N in [PAGINA N] qui sopra",
           numeroScheda: "POSIZIONE + ' - ' + DESCRIZIONE PRINCIPALE della pagina (es: '01 - CORNICI VIP')",
           commessaNr: "SOLO la parte numerica della commessa (es: '25306' da 'GGCT-25306-HXBP')",
           termineDiConsegna: "YYYY-MM-DD oppure null — vedi regole sotto",
@@ -47,6 +48,8 @@ export async function POST(req: NextRequest) {
 
   const rules = [
     "UN ITEM PER PAGINA PDF — non estrarre singole righe della distinta/BOM come item separati.",
+    "pagina è OBBLIGATORIO su ogni item e deve riportare esattamente il numero N dell'etichetta [PAGINA N] da cui proviene quell'item — serve ad associare ogni item alla pagina giusta anche se una pagina viene saltata o il testo di una pagina è scarso/vuoto. Restituisci un item per OGNI [PAGINA N] presente nell'input, nell'ordine in cui vuoi, con il campo pagina sempre corretto — mai per posizione nell'array.",
+    "Se una pagina ha testo scarso o vuoto, restituisci comunque un item con quel numero di pagina e gli altri campi null, non saltarla.",
     "commessaNr è solo il numero numerico (es: '25306'). Non confonderlo con codiceArticolo.",
     "codiceArticolo è il codice specifico dell'articolo, non la commessa. null se non trovato.",
     "fornitore: MODAR è l'azienda committente/produttrice — NON va MAI messo in 'fornitore'. Cerca il subfornitore esterno specifico della pagina (es: Cattaneo, Rossi Srl, ecc.). Se non c'è, metti null.",
@@ -95,13 +98,37 @@ export async function POST(req: NextRequest) {
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : text);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const items = (parsed as any)?.items ?? [];
+    const rawItems: any[] = (parsed as any)?.items ?? [];
+
+    // Non ci si può fidare dell'ordine dell'array per associare item↔pagina: se il modello salta
+    // una pagina (testo scarso/vuoto) o ne inverte due, il resto si disallinea in cascata e ogni
+    // item finisce associato alla pagina sbagliata nella preview. Si reindicizza invece sul campo
+    // "pagina" dichiarato dal modello, con un placeholder esplicito per le pagine mancanti.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const byPagina = new Map<number, any>();
+    for (const it of rawItems) {
+      const p = Number(it?.pagina);
+      if (Number.isInteger(p) && p >= 1 && p <= pageTexts.length && !byPagina.has(p)) byPagina.set(p, it);
+    }
+    const items = Array.from({ length: pageTexts.length }, (_, idx) => {
+      const found = byPagina.get(idx + 1);
+      if (found) return found;
+      return {
+        pagina: idx + 1,
+        paginaMancante: true,
+        numeroScheda: "", commessaNr: "", termineDiConsegna: null,
+        codiceArticolo: null, posizione: null, fornitore: null, quantita: null,
+      };
+    });
+    const paginePersi = items.filter((it) => it.paginaMancante).map((it) => it.pagina);
+
     console.log(
-      `[import-scheda/parse] estrazione completata — ${items.length} item:`,
+      `[import-scheda/parse] estrazione completata — ${items.length} pagina/e, item ricevuti dal modello: ${rawItems.length}` +
+      (paginePersi.length ? `, pagine senza item valido: ${paginePersi.join(", ")}` : ""),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      items.map((it: any) => ({ numeroScheda: it.numeroScheda, termineDiConsegna: it.termineDiConsegna })),
+      items.map((it: any) => ({ pagina: it.pagina, numeroScheda: it.numeroScheda, termineDiConsegna: it.termineDiConsegna })),
     );
-    return NextResponse.json({ ok: true, ...parsed });
+    return NextResponse.json({ ok: true, items, paginePersi });
   } catch (e) {
     console.error("[parse] JSON parse error:", e, "\ntext:", text);
     return NextResponse.json({ ok: false, error: "Errore parsing risposta AI", rawText: text }, { status: 500 });

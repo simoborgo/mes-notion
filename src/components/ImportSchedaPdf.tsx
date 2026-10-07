@@ -3,6 +3,8 @@
 import { useRef, useState, useCallback, DragEvent, ChangeEvent } from "react";
 
 interface ParsedItem {
+  pagina?: number;
+  paginaMancante?: boolean;
   numeroScheda: string;
   commessaNr: string;
   termineDiConsegna: string | null;
@@ -118,6 +120,7 @@ export default function ImportSchedaPdf() {
   const [pageThumbnails, setPageThumbnails] = useState<string[]>([]);
   const [pdfBase64, setPdfBase64] = useState<string | null>(null);
   const [items, setItems] = useState<ParsedItem[]>([]);
+  const [paginePersi, setPaginePersi] = useState<number[]>([]);
   const [result, setResult] = useState<ImportResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -155,9 +158,10 @@ export default function ImportSchedaPdf() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pageTexts }),
       });
-      const data = (await res.json()) as { ok: boolean; items?: ParsedItem[]; error?: string };
+      const data = (await res.json()) as { ok: boolean; items?: ParsedItem[]; paginePersi?: number[]; error?: string };
       if (!res.ok || !data.ok) throw new Error(data.error ?? "Errore parsing");
 
+      setPaginePersi(data.paginePersi ?? []);
       setItems((data.items ?? []).map((it: ParsedItem, idx: number) => {
         const isExternal = !!(it.fornitore && it.fornitore.toUpperCase() !== "MODAR");
         return {
@@ -238,6 +242,7 @@ export default function ImportSchedaPdf() {
     setPageThumbnails([]);
     setPdfBase64(null);
     setItems([]);
+    setPaginePersi([]);
     setResult(null);
   }, []);
 
@@ -360,6 +365,16 @@ export default function ImportSchedaPdf() {
           </button>
         </div>
 
+        {paginePersi.length > 0 && (
+          <div
+            className="rounded-lg px-3 py-2 mb-4 text-xs"
+            style={{ background: "#fef2f2", border: "1px solid #fecaca", color: "#991b1b" }}
+          >
+            ⚠ L&apos;estrazione automatica non ha trovato dati per {paginePersi.length === 1 ? "la pagina" : "le pagine"}{" "}
+            {paginePersi.join(", ")} — compila a mano i campi di {paginePersi.length === 1 ? "quella pagina" : "quelle pagine"} (segnalate sotto) prima di importare.
+          </div>
+        )}
+
         <div className="flex gap-6 flex-wrap">
           {/* Thumbnail */}
           {thumbnailBase64 && (
@@ -427,6 +442,15 @@ export default function ImportSchedaPdf() {
                   >
                     Pagina {idx + 1} di {items.length}
                   </span>
+                  {item.paginaMancante && (
+                    <span
+                      className="text-xs px-2 py-0.5 rounded font-medium"
+                      style={{ background: "#fee2e2", color: "#991b1b" }}
+                      title="L'estrazione automatica non ha trovato dati per questa pagina — verifica e compila a mano"
+                    >
+                      ⚠ Dati non estratti
+                    </span>
+                  )}
                   {idx > 0 && item.includeAsSubitem === true && (
                     <label className="flex items-center gap-1.5 text-xs" style={{ color: "#6b6966" }}>
                       Gruppo
