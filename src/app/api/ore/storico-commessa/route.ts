@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getStoricoOdps } from "@/lib/oreRepository";
 import { getSchedeByCommessa } from "@/lib/schedeRepository";
 import { getCommessaById } from "@/lib/commesseRepository";
+import { ATTIVITA_SPECIALI_COMMESSA, codiceAttivitaSpecialeCommessa } from "@/lib/attivitaSpecialiCommessa";
 import { getSessionFromRequest, RILEVAMENTO_ORE_ROLES } from "@/lib/auth";
 
 const COSTO_ORARIO = 41;
@@ -26,11 +27,29 @@ export async function GET(req: NextRequest) {
       odpInfo.set(s.odp, { codiceArticolo: s.codiceArticolo || null, numeroScheda: s.numeroScheda });
     }
 
-    const voci = await getStoricoOdps([...odpInfo.keys()]);
+    // Attività speciali di commessa (pseudo-ODP "NUMERO-SUFFISSO"): non hanno una scheda, quindi
+    // vanno aggiunte a mano, con l'etichetta leggibile al posto del numero scheda.
+    const odpSpeciali = new Map<string, string>();
+    for (const a of ATTIVITA_SPECIALI_COMMESSA) {
+      odpSpeciali.set(codiceAttivitaSpecialeCommessa(commessa.numeroCommessa, a.suffix), a.label);
+    }
 
-    const perArticolo = new Map<string, { codiceArticolo: string | null; numeroScheda: string | null; ore: number; oreRifacimento: number }>();
+    const voci = await getStoricoOdps([...odpInfo.keys(), ...odpSpeciali.keys()]);
+
+    const perArticolo = new Map<string, { codiceArticolo: string | null; numeroScheda: string | null; speciale?: boolean; ore: number; oreRifacimento: number }>();
     for (const v of voci) {
       const info = odpInfo.get(v.odp);
+      const labelSpeciale = odpSpeciali.get(v.odp);
+      if (labelSpeciale) {
+        const k = `__speciale__${v.odp}`;
+        if (!perArticolo.has(k)) {
+          perArticolo.set(k, { codiceArticolo: null, numeroScheda: labelSpeciale, speciale: true, ore: 0, oreRifacimento: 0 });
+        }
+        const b = perArticolo.get(k)!;
+        b.ore += v.ore;
+        if (v.rif) b.oreRifacimento += v.ore;
+        continue;
+      }
       const key = info?.codiceArticolo ?? `__non_classificato__${v.odp}`;
       if (!perArticolo.has(key)) {
         perArticolo.set(key, {

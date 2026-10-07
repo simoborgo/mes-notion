@@ -11,6 +11,7 @@ interface CommessaOpzione {
 interface RigaArticolo {
   codiceArticolo: string | null;
   numeroScheda: string | null;
+  speciale?: boolean;
   ore: number;
   oreRifacimento: number;
 }
@@ -130,7 +131,7 @@ export default function VistaStoricoCommessa({ commesse }: { commesse: CommessaO
             ) : (
               <div className="rounded-lg border overflow-hidden" style={{ borderColor: "#e5e4e0" }}>
                 {risultato.perArticolo.map((r, i) => {
-                  const nonClassificato = !r.codiceArticolo;
+                  const nonClassificato = !r.codiceArticolo && !r.speciale;
                   const pct = risultato.totali.oreTotali > 0 ? (r.ore / risultato.totali.oreTotali) * 100 : 0;
                   return (
                     <div
@@ -140,7 +141,7 @@ export default function VistaStoricoCommessa({ commesse }: { commesse: CommessaO
                     >
                       <div className="min-w-0">
                         <span className="font-semibold" style={{ color: nonClassificato ? "#92400E" : "var(--color-black)" }}>
-                          {nonClassificato ? `NON CLASSIFICATO — ${r.numeroScheda}` : r.codiceArticolo}
+                          {r.speciale ? r.numeroScheda : nonClassificato ? `NON CLASSIFICATO — ${r.numeroScheda}` : r.codiceArticolo}
                         </span>
                         <span className="ml-2 text-xs" style={{ color: "var(--color-grey-mid)" }}>{pct.toFixed(0)}%</span>
                       </div>
