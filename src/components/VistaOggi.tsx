@@ -859,7 +859,7 @@ function RigaOperatore({
       )}
       {giornataCompleta && !err && (
         <p className="px-4 pb-3 text-xs font-medium" style={{ color: "#92400E" }}>
-          Giornata completa ({totaleGiornata}h{oreAssenza > 0 ? `, di cui ${oreAssenza}h di assenza` : ""}) — elimina una voce per aggiungerne altre
+          Giornata completa ({totaleGiornata}h{oreAssenza > 0 ? `, di cui ${oreAssenza}h di assenza` : ""}) — aggiungendo altre ore verranno registrate come straordinario
         </p>
       )}
       {err && <p className="px-4 pb-3 text-xs font-medium" style={{ color: "#991B1B" }}>{err}</p>}
