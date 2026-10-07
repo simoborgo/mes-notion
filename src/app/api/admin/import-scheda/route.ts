@@ -59,13 +59,20 @@ export async function POST(req: NextRequest) {
   console.log(`[import-scheda] ODP assegnato: ${odp}`);
   const oggi = new Date().toISOString().slice(0, 10);
 
-  const pdfMatch = pdfBase64.match(/^data:[^;]+;base64,(.+)$/);
-  const pdfBuffer = Buffer.from(pdfMatch ? pdfMatch[1] : pdfBase64, "base64");
+  // Niente regex su data URL potenzialmente multi-MB: `.+$` può far esplodere lo stack di V8
+  // ("Maximum call stack size exceeded") per il backtracking dell'engine su stringhe lunghe.
+  const dataUrlPayload = (dataUrl: string): string | null => {
+    const idx = dataUrl.indexOf(";base64,");
+    return idx === -1 ? null : dataUrl.slice(idx + ";base64,".length);
+  };
+
+  const pdfPayload = dataUrlPayload(pdfBase64);
+  const pdfBuffer = Buffer.from(pdfPayload ?? pdfBase64, "base64");
   const pdfFilename = `scheda-${odp}.pdf`;
 
   let thumbnailBuffer: Buffer | undefined;
-  const thumbMatch = thumbnailBase64?.match(/^data:[^;]+;base64,(.+)$/);
-  if (thumbMatch) thumbnailBuffer = Buffer.from(thumbMatch[1], "base64");
+  const thumbPayload = thumbnailBase64 ? dataUrlPayload(thumbnailBase64) : null;
+  if (thumbPayload) thumbnailBuffer = Buffer.from(thumbPayload, "base64");
   const thumbnailFilename = thumbnailBuffer ? `copertina-${odp}.jpg` : undefined;
 
   // Resolve fornitore names → Notion relation IDs (in parallel)

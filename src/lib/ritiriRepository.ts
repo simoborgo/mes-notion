@@ -278,10 +278,16 @@ async function resolveRitiroFolder(schedaId: string | null, commessaId: string |
   return process.env.COMMESSE_DRIVE_FOLDER_ID!;
 }
 
+// Niente regex: su data URL di file grandi (foto/PDF multi-MB) un match con `.+$` può far
+// esplodere lo stack di V8 ("Maximum call stack size exceeded") per il backtracking dell'engine
+// su stringhe molto lunghe. indexOf/slice sono O(n) senza backtracking.
 function decodeBase64File(base64: string): { buffer: Buffer; mimeType: string } {
-  const match = base64.match(/^data:([^;]+);base64,(.+)$/);
-  if (!match) throw new Error("File non valido");
-  return { mimeType: match[1], buffer: Buffer.from(match[2], "base64") };
+  const marker = ";base64,";
+  const markerIdx = base64.indexOf(marker);
+  if (!base64.startsWith("data:") || markerIdx === -1) throw new Error("File non valido");
+  const mimeType = base64.slice(5, markerIdx);
+  const buffer = Buffer.from(base64.slice(markerIdx + marker.length), "base64");
+  return { mimeType, buffer };
 }
 
 export async function appendFotoToRitiro(ritiroId: string, fotoBase64Array: string[]): Promise<void> {

@@ -463,10 +463,17 @@ export async function resolveSchedaFolder(schedaId: string): Promise<string> {
   return getOrCreateSchedaFolder(parentFolderId, r.odp);
 }
 
+// Niente regex qui: su data URL di file grandi (PDF multi-MB → decine di milioni di caratteri
+// base64) un match con `.+$` può far esplodere lo stack di V8 ("Maximum call stack size
+// exceeded") per il backtracking dell'engine su stringhe così lunghe. indexOf/slice sono O(n)
+// senza backtracking e funzionano per qualunque dimensione.
 function decodeBase64File(base64: string): { buffer: Buffer; mimeType: string } {
-  const match = base64.match(/^data:([^;]+);base64,(.+)$/);
-  if (!match) throw new Error("File non valido");
-  return { mimeType: match[1], buffer: Buffer.from(match[2], "base64") };
+  const marker = ";base64,";
+  const markerIdx = base64.indexOf(marker);
+  if (!base64.startsWith("data:") || markerIdx === -1) throw new Error("File non valido");
+  const mimeType = base64.slice(5, markerIdx);
+  const buffer = Buffer.from(base64.slice(markerIdx + marker.length), "base64");
+  return { mimeType, buffer };
 }
 
 // drive_file_id del primo PDF Allegato di una Scheda (ordine più basso) — usato per allegare la
@@ -523,10 +530,13 @@ export async function appendFotoToPage(schedaId: string, fotoBase64Array: string
   let ordine = rows[0].next as number;
 
   for (const base64 of fotoBase64Array) {
-    const match = base64.match(/^data:([^;]+);base64,(.+)$/);
-    if (!match) continue;
-    const mimeType = match[1];
-    const buffer = Buffer.from(match[2], "base64");
+    let decoded: { buffer: Buffer; mimeType: string };
+    try {
+      decoded = decodeBase64File(base64);
+    } catch {
+      continue;
+    }
+    const { mimeType, buffer } = decoded;
     const uploaded = await driveUploadFoto(folderId, buffer, ordine, mimeType);
     await pool.query(`INSERT INTO scheda_foto (scheda_id, drive_file_id, ordine) VALUES ($1,$2,$3)`, [schedaId, uploaded.id, ordine]);
     ordine++;
