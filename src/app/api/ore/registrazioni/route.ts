@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { upsertRegistrazione, type OreCausale } from "@/lib/oreRepository";
 import { getSessionFromRequest, RILEVAMENTO_ORE_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
+import { èMultiploQuarto } from "@/lib/oreStep";
 
 interface VoceInput {
   data: string;
@@ -37,6 +38,9 @@ export async function POST(req: NextRequest) {
   for (const v of voci) {
     if (!v.data || !v.matricola || !v.odp || !(v.ore > 0)) {
       return NextResponse.json({ error: "Voce non valida: data, matricola, odp e ore sono obbligatori" }, { status: 400 });
+    }
+    if (!èMultiploQuarto(v.ore)) {
+      return NextResponse.json({ error: `Le ore devono essere multipli di 15 minuti (0.25h): ricevuto ${v.ore}` }, { status: 400 });
     }
   }
 

@@ -4,6 +4,7 @@ import { aggiungiOreRegistrate } from "./oreRepository";
 import { aggiornaStandardRepartoPerOdp } from "./standardRepartoRepository";
 import { getOrariTurno } from "./parametriGeneraliRepository";
 import { oreNetteSottraendoPausa } from "./oraLocale";
+import { arrotondaQuarto } from "./oreStep";
 import { logOperation } from "./audit";
 
 // Oltre questa soglia un segmento aperto è quasi certamente stato dimenticato (tablet spento,
@@ -43,10 +44,6 @@ function mapRow(r: any): Segmento {
     anomalo: r.anomalo,
     daBuco: r.da_buco,
   };
-}
-
-function arrotondaMezzo(n: number): number {
-  return Math.round(n * 2) / 2;
 }
 
 // Anomalia rilevata confrontando quanto risulta dai segmenti (fonte di verità) con quanto è
@@ -244,8 +241,8 @@ async function registraOreDelta(client: PoolClient, op: DatiOperatore, dataSegme
   );
   const totaleConQuesto = Number(totRows[0].totale);
   const totalePrima = totaleConQuesto - oreSegmento;
-  const delta = arrotondaMezzo(totaleConQuesto) - arrotondaMezzo(totalePrima);
-  const atteso = arrotondaMezzo(totaleConQuesto);
+  const delta = arrotondaQuarto(totaleConQuesto) - arrotondaQuarto(totalePrima);
+  const atteso = arrotondaQuarto(totaleConQuesto);
 
   // Diagnostica temporanea, vedi commento in chiudiSegmentoInterno sopra.
   console.log(`[ore-segmenti] delta odp=${odp} matricola=${op.matricola} data=${dataSegmento} totaleEsatto=${totaleConQuesto.toFixed(4)} totalePrima=${totalePrima.toFixed(4)} delta=${delta}`);

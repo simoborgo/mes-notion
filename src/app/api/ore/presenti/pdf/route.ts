@@ -5,6 +5,7 @@ import path from "path";
 import { getPresentiPerData, type PresenteRow } from "@/lib/oreRepository";
 import { getOrariTurno, calcolaOreStandard } from "@/lib/parametriGeneraliRepository";
 import { isGiornoChiuso } from "@/lib/giorniChiusiRepository";
+import { arrotondaQuarto } from "@/lib/oreStep";
 import { getSessionFromRequest, RILEVAMENTO_ORE_ROLES } from "@/lib/auth";
 
 function esc(s: string) {
@@ -92,12 +93,12 @@ export async function GET(req: NextRequest) {
       }
       oreLavorateTotali += p.registrazioni.reduce((s, r) => s + r.ore, 0);
     }
-    oreLavorateTotali = Math.round(oreLavorateTotali * 2) / 2;
+    oreLavorateTotali = arrotondaQuarto(oreLavorateTotali);
 
     const sezioniHtml = reparti.map(reparto => {
       const operatori = (perReparto.get(reparto) ?? []).slice().sort((a, b) => a.cognome.localeCompare(b.cognome));
       const righeHtml = operatori.map(p => {
-        const totaleOre = Math.round(p.registrazioni.reduce((s, r) => s + r.ore, 0) * 2) / 2;
+        const totaleOre = arrotondaQuarto(p.registrazioni.reduce((s, r) => s + r.ore, 0));
         const stato = statoAssenza(p, totaleGiornata, giornoChiuso);
         const odpHtml = p.registrazioni.length === 0
           ? `<span class="odp-vuoto">—</span>`

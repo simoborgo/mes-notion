@@ -5,6 +5,7 @@ import path from "path";
 import { getPresentiPerData, type PresenteRow } from "@/lib/oreRepository";
 import { getOrariTurno, calcolaOreStandard } from "@/lib/parametriGeneraliRepository";
 import { isGiornoChiuso } from "@/lib/giorniChiusiRepository";
+import { arrotondaQuarto } from "@/lib/oreStep";
 import { getSessionFromRequest, RILEVAMENTO_ORE_ROLES } from "@/lib/auth";
 
 function esc(s: string) {
@@ -83,7 +84,7 @@ export async function GET(req: NextRequest) {
       const operatori = (perReparto.get(reparto) ?? []).slice().sort((a, b) => a.cognome.localeCompare(b.cognome));
       const righeHtml = operatori.map(p => {
         const oreAssenza = oreAssenzaEffettiva(p.assenzaManuale, totaleGiornata);
-        const oreDisponibili = Math.round((totaleGiornata - oreAssenza) * 2) / 2;
+        const oreDisponibili = arrotondaQuarto(totaleGiornata - oreAssenza);
         // 0h disponibili = assenza a tutti gli effetti anche quando il permesso non copre
         // formalmente l'intera giornata (ore != null) ma ne consuma comunque tutte le ore
         // (es. permesso di 8h in un giorno da 8h) — non solo il caso "ore null" esplicito.

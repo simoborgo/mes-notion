@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { upsertAssenzaManuale, eliminaAssenzaManuale } from "@/lib/assenzeRepository";
 import { getSessionFromRequest, RILEVAMENTO_ORE_ROLES } from "@/lib/auth";
+import { èMultiploQuarto } from "@/lib/oreStep";
 import { logOperation } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
@@ -17,6 +18,9 @@ export async function POST(req: NextRequest) {
   const ore = body.ore === null || body.ore === undefined ? null : Number(body.ore);
   if (ore !== null && !(ore > 0)) {
     return NextResponse.json({ error: "ore, se indicate, devono essere > 0" }, { status: 400 });
+  }
+  if (ore !== null && !èMultiploQuarto(ore)) {
+    return NextResponse.json({ error: "Le ore devono essere multipli di 15 minuti (0.25h)" }, { status: 400 });
   }
 
   try {

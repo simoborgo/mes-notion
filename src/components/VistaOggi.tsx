@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import type { OdpAttivo } from "@/lib/types";
 import { REPARTI_PRODUZIONE, CATEGORIA_ODP_LABEL } from "@/lib/types";
 import { ODP_SPECIALI, ATTIVITA_SPECIALI_COMMESSA } from "@/lib/attivitaSpecialiCommessa";
+import { STEP_ORE, arrotondaQuarto, èMultiploQuarto, ripartisciOre, fmtOreMinuti } from "@/lib/oreStep";
 import OdpAutocomplete from "./OdpAutocomplete";
 import OdpMultiAutocomplete from "./OdpMultiAutocomplete";
 
@@ -97,10 +98,6 @@ function fmtDataLunga(dateStr: string): string {
   const dt = new Date(y, m - 1, d);
   const raw = dt.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   return raw.charAt(0).toUpperCase() + raw.slice(1);
-}
-
-function arrotondaMezzo(n: number): number {
-  return Math.round(n * 2) / 2;
 }
 
 // Ore da togliere dal conteggio per via dell'assenza — null = intera giornata, risolto sul valore
@@ -236,23 +233,23 @@ export default function VistaOggi({ oreFeriale, oreSabato }: { oreFeriale: numbe
         .map(p => {
           const totaleRegistrato = p.registrazioni.reduce((s, r) => s + r.ore, 0);
           const oreAssenza = oreAssenzaEffettiva(p.assenzaManuale, totaleGiornata);
-          const rimanenti = Math.max(arrotondaMezzo(totaleGiornata - oreAssenza - totaleRegistrato), 0);
+          const rimanenti = Math.max(arrotondaQuarto(totaleGiornata - oreAssenza - totaleRegistrato), 0);
           return { p, totaleRegistrato, oreAssenza, rimanenti, giornataCompleta: rimanenti <= 0 };
         });
       const capacitaLorda = operatori.length * totaleGiornata;
       const oreAssenzaTot = operatori.reduce((s, o) => s + o.oreAssenza, 0);
-      const capacitaNetta = arrotondaMezzo(capacitaLorda - oreAssenzaTot);
-      const oreRegistrate = arrotondaMezzo(oreRegistratePerReparto.get(reparto) ?? 0);
-      const residuo = arrotondaMezzo(capacitaNetta - oreRegistrate);
+      const capacitaNetta = arrotondaQuarto(capacitaLorda - oreAssenzaTot);
+      const oreRegistrate = arrotondaQuarto(oreRegistratePerReparto.get(reparto) ?? 0);
+      const residuo = arrotondaQuarto(capacitaNetta - oreRegistrate);
       return { reparto, operatori, capacitaNetta, oreRegistrate, residuo };
     });
   }, [presenti, totaleGiornata]);
 
   const globale = useMemo(() => {
-    const capacitaNetta = arrotondaMezzo(sezioni.reduce((s, sez) => s + sez.capacitaNetta, 0));
-    const oreRegistrate = arrotondaMezzo(sezioni.reduce((s, sez) => s + sez.oreRegistrate, 0));
+    const capacitaNetta = arrotondaQuarto(sezioni.reduce((s, sez) => s + sez.capacitaNetta, 0));
+    const oreRegistrate = arrotondaQuarto(sezioni.reduce((s, sez) => s + sez.oreRegistrate, 0));
     const nOperatori = sezioni.reduce((s, sez) => s + sez.operatori.length, 0);
-    const residuo = arrotondaMezzo(capacitaNetta - oreRegistrate);
+    const residuo = arrotondaQuarto(capacitaNetta - oreRegistrate);
     return { capacitaNetta, oreRegistrate, nOperatori, residuo };
   }, [sezioni]);
 
@@ -264,21 +261,19 @@ export default function VistaOggi({ oreFeriale, oreSabato }: { oreFeriale: numbe
     });
   }
 
-  // Lavoro su più ODP contemporaneamente (lotto): le ore inserite sono il totale,
-  // diviso in parti uguali tra gli ODP selezionati. L'ultimo assorbe il resto
-  // dell'arrotondamento (2 decimali) così la somma delle righe torna sempre esatta.
+  // Lavoro su più ODP contemporaneamente (lotto): le ore inserite sono il totale, ripartito
+  // tra gli ODP selezionati in multipli di 15 minuti (vedi ripartisciOre).
   async function salvaVoce(voce: {
     matricola: string; cognome: string; nome: string; azienda: string | null; reparto: string | null;
     odpList: string[]; ore: number; rif: boolean; causale: Causale | null; note: string | null;
   }) {
-    const n = voce.odpList.length;
-    const oreBase = Math.round((voce.ore / n) * 100) / 100;
+    const parti = ripartisciOre(voce.ore, voce.odpList.length);
     const voci = voce.odpList.map((odp, i) => ({
       data,
       matricola: voce.matricola, cognome: voce.cognome, nome: voce.nome,
       azienda: voce.azienda, reparto: voce.reparto,
       odp,
-      ore: i === n - 1 ? Math.round((voce.ore - oreBase * (n - 1)) * 100) / 100 : oreBase,
+      ore: parti[i],
       rif: voce.rif, causale: voce.causale, note: voce.note,
     }));
     const res = await fetch("/api/ore/registrazioni", {
@@ -461,11 +456,12 @@ export default function VistaOggi({ oreFeriale, oreSabato }: { oreFeriale: numbe
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <span style={{ color: "var(--color-grey-mid)" }}>Totale giornata</span>
             <input
-              type="number" step={0.5} min={0}
+              type="number" step={STEP_ORE} min={0}
               className={inputCls}
               style={{ width: 68, height: 36 }}
               value={totaleGiornata}
               onChange={e => setTotaleGiornata(Number(e.target.value))}
+              onBlur={() => setTotaleGiornata(t => arrotondaQuarto(t))}
             />
             <span style={{ color: "var(--color-grey-mid)" }}>h</span>
           </label>
@@ -475,7 +471,27 @@ export default function VistaOggi({ oreFeriale, oreSabato }: { oreFeriale: numbe
           </label>
         </div>
 
-        <h2 className="text-lg font-semibold mt-2" style={{ color: "var(--color-black)" }}>{fmtDataLunga(data)}</h2>
+        <h2 className="text-lg font-bold mt-2" style={{ color: "var(--color-black)" }}>{fmtDataLunga(data)}</h2>
+        {!loading && sezioni.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {sezioni.map(sez => {
+              const b = badgeResiduo(sez.residuo);
+              return (
+                <button
+                  key={sez.reparto}
+                  type="button"
+                  onClick={() => document.getElementById(`reparto-${sez.reparto}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                  className="text-left rounded-lg px-2.5 py-1.5 text-xs border"
+                  style={{ background: b.bg, color: b.color, borderColor: b.color + "40" }}
+                  title={`capacità ${sez.capacitaNetta}h · registrate ${sez.oreRegistrate}h`}
+                >
+                  <div className="font-bold uppercase tracking-wide truncate">{sez.reparto}</div>
+                  <div className="font-semibold">{b.label}</div>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {giornoChiuso && (
@@ -578,7 +594,7 @@ function SezioneReparto({
 }) {
   const badge = badgeResiduo(sez.residuo);
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" id={`reparto-${sez.reparto}`} style={{ scrollMarginTop: 200 }}>
       <div className="flex items-center justify-between flex-wrap gap-2 px-1">
         <h3 className="text-sm font-bold uppercase tracking-wide" style={{ color: "var(--color-black)" }}>
           {sez.reparto}
@@ -671,14 +687,15 @@ function RigaOperatore({
 
   async function handleAggiungi() {
     if (odpSelezionati.length === 0) { setErr("Seleziona almeno un ODP"); return; }
-    if (!(ore > 0)) { setErr("Ore non valide"); return; }
+    const oreQuarto = arrotondaQuarto(ore);
+    if (!(oreQuarto > 0)) { setErr("Ore non valide (minimo 15 minuti)"); return; }
     setSaving(true);
     setErr("");
     try {
       await onSalva({
         matricola: p.matricola, cognome: p.cognome, nome: p.nome,
         azienda: p.azienda, reparto: p.reparto,
-        odpList: odpSelezionati, ore, rif, causale: null, note: null,
+        odpList: odpSelezionati, ore: oreQuarto, rif, causale: null, note: null,
       });
       setOdpOverride([]);
       setRif(false);
@@ -709,10 +726,12 @@ function RigaOperatore({
 
   async function handleBlurOreAssenza() {
     if (oreAssenzaOverride === undefined) return; // non modificato
+    const oreAssenzaQuarto = arrotondaQuarto(oreAssenzaOverride);
+    if (!(oreAssenzaQuarto > 0)) { setErrAssenza("Ore non valide"); return; }
     setSavingAssenza(true);
     setErrAssenza("");
     try {
-      const oreDaSalvare = oreAssenzaOverride === totaleGiornata ? null : oreAssenzaOverride;
+      const oreDaSalvare = oreAssenzaQuarto === totaleGiornata ? null : oreAssenzaQuarto;
       await onSalvaAssenza(oreDaSalvare);
       setOreAssenzaOverride(undefined);
     } catch (e) {
@@ -787,7 +806,7 @@ function RigaOperatore({
             {assenteChecked && (
               <>
                 <input
-                  type="number" step={0.5} min={0.5} max={totaleGiornata}
+                  type="number" step={STEP_ORE} min={STEP_ORE} max={totaleGiornata}
                   className={inputCls}
                   style={{ width: 64, height: 28 }}
                   value={oreAssenzaVisualizzate}
@@ -829,9 +848,10 @@ function RigaOperatore({
         </div>
         <div className="flex items-center gap-2">
           <input
-            type="number" step={0.5} min={0} className={inputCls}
+            type="number" step={STEP_ORE} min={0} className={inputCls}
             style={{ width: 76, height: 44 }}
             value={ore} onChange={e => setOreOverride(Number(e.target.value))}
+            onBlur={() => setOreOverride(o => (o === null ? o : arrotondaQuarto(o)))}
             title={odpSelezionati.length > 1 ? "Ore totali — verranno divise in parti uguali tra gli ODP selezionati" : "Ore (residuo suggerito, modificabile)"}
           />
           <label
@@ -854,7 +874,7 @@ function RigaOperatore({
       </div>
       {odpSelezionati.length > 1 && ore > 0 && !err && (
         <p className="px-4 pb-3 text-xs font-medium" style={{ color: "var(--color-primary)" }}>
-          Lotto di {odpSelezionati.length} ODP → {Math.round((ore / odpSelezionati.length) * 100) / 100}h ciascuno
+          Lotto di {odpSelezionati.length} ODP → {ripartisciOre(ore, odpSelezionati.length).map(fmtOreMinuti).join(" + ")}{!èMultiploQuarto(ore) ? ` (totale arrotondato a ${fmtOreMinuti(arrotondaQuarto(ore))})` : ""}
         </p>
       )}
       {giornataCompleta && !err && (
@@ -1027,7 +1047,7 @@ function BulkAssegnaModal({
         <div className="flex items-center gap-2">
           <label className="text-xs font-semibold" style={{ color: "var(--color-grey-mid)" }}>Ore</label>
           <input
-            type="number" step={0.5} min={0.5} className={inputCls}
+            type="number" step={STEP_ORE} min={0.5} className={inputCls}
             style={{ width: 90, height: 44 }}
             value={ore} onChange={e => setOre(Number(e.target.value))}
           />
