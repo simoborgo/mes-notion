@@ -259,6 +259,7 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
   const caricaStato = useCallback(async (precompila = false) => {
     const res = await fetch("/api/ore/operatore/stato", { headers: authHeaders });
     if (res.status === 401) { onCambiaOperatore(); return; }
+    if (res.status === 403) { window.location.href = "/login"; return; } // sessione di login scaduta
     const json = await res.json();
     if (res.ok) {
       setAperto(json.aperto);
@@ -289,6 +290,7 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
         body: JSON.stringify({ odp, rif, gapRisposta }),
       });
       if (res.status === 401) { onCambiaOperatore(); return; }
+      if (res.status === 403) { window.location.href = "/login"; return; } // sessione di login scaduta
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Errore salvataggio");
       if (json.gapRichiesto) {
@@ -323,6 +325,7 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
         body: JSON.stringify({ odp: aperto.odp, rif: true }),
       });
       if (res.status === 401) { onCambiaOperatore(); return; }
+      if (res.status === 403) { window.location.href = "/login"; return; } // sessione di login scaduta
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Errore salvataggio");
       await caricaStato();
@@ -348,6 +351,7 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
         body: JSON.stringify({ odp: promptCnc.odp, faseId: promptCnc.faseId }),
       });
       if (res.status === 401) { onCambiaOperatore(); return; }
+      if (res.status === 403) { window.location.href = "/login"; return; } // sessione di login scaduta
       // 409 = la fase non è più "In lavorazione" su CNC (già completata da altrove): non è un
       // errore da mostrare all'operatore, la card semplicemente non ha più senso.
       if (!res.ok && res.status !== 409) {
@@ -372,6 +376,7 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
         headers: { "Content-Type": "application/json", ...authHeaders },
       });
       if (res.status === 401) { onCambiaOperatore(); return; }
+      if (res.status === 403) { window.location.href = "/login"; return; } // sessione di login scaduta
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Errore salvataggio");
       await caricaStato();

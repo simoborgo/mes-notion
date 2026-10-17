@@ -32,6 +32,11 @@ export async function middleware(req: NextRequest) {
   const session = token ? await verifyToken(token) : null;
 
   if (!session) {
+    // Per le chiamate API un redirect a /login farebbe rifare la POST sulla pagina (405 non-JSON):
+    // meglio un errore leggibile dal client.
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Sessione scaduta: effettua di nuovo il login" }, { status: 403 });
+    }
     const url = req.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
