@@ -114,6 +114,17 @@ export async function getSchedaIdsInCarico(): Promise<string[]> {
   return rows.map(r => r.scheda_id as string);
 }
 
+// scheda_id → data del carico (non archiviato) in cui sta. Con doppioni storici vale il carico più vicino.
+export async function getDateCaricoPerScheda(): Promise<Record<string, string | null>> {
+  const { rows } = await pool.query(
+    `SELECT ks.scheda_id, k.data_carico FROM carichi_schede ks JOIN carichi k ON k.id = ks.carico_id AND k.archiviato = false
+     ORDER BY k.data_carico DESC NULLS FIRST`,
+  );
+  const out: Record<string, string | null> = {};
+  for (const r of rows) out[r.scheda_id] = r.data_carico ? dateToStr(r.data_carico) : null;
+  return out;
+}
+
 // ODP presenti in più di un carico non archiviato (doppioni storici, ora impediti dal controllo)
 export async function getOdpInPiuCarichi(): Promise<{ schedaId: string; carichi: { id: string; titolo: string; dataCarico: string | null }[] }[]> {
   const { rows } = await pool.query(

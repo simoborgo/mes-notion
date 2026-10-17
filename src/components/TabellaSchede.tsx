@@ -75,6 +75,19 @@ function DataCell({ date, inRitardo }: { date: string | null; inRitardo: boolean
   return <span className="tabular-nums whitespace-nowrap">{fmt(date)}</span>;
 }
 
+function BadgeCarico({ carico }: { carico: { data: string; ereditato: boolean } | null }) {
+  if (!carico) return null;
+  return (
+    <div
+      className="mt-1 inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-full font-bold whitespace-nowrap"
+      style={carico.ereditato ? { background: "#F3F4F6", color: "#4B5563" } : { background: "#DBEAFE", color: "#1E40AF" }}
+      title={carico.ereditato ? "Carico ereditato dalla scheda padre" : "Data del carico"}
+    >
+      Carico {fmt(carico.data)}
+    </div>
+  );
+}
+
 function PdfLinks({ pdfAllegato }: { pdfAllegato: { name: string; url: string }[] }) {
   if (pdfAllegato.length === 0) return <span style={{ color: "var(--color-grey-icon)" }}>—</span>;
   return (
@@ -182,7 +195,7 @@ function RitardoBtn({ label, count, active, onToggle }: { label: string; count: 
   );
 }
 
-export default function TabellaSchede({ schede: initial, sottoschede = [], commesse = [], schedeInCarico = [], revalidate, userRole }: { schede: Scheda[]; sottoschede?: Scheda[]; commesse?: Commessa[]; schedeInCarico?: string[]; revalidate?: () => Promise<void>; userRole?: Role }) {
+export default function TabellaSchede({ schede: initial, sottoschede = [], commesse = [], schedeInCarico = [], dateCarico = {}, revalidate, userRole }: { schede: Scheda[]; sottoschede?: Scheda[]; commesse?: Commessa[]; schedeInCarico?: string[]; dateCarico?: Record<string, string | null>; revalidate?: () => Promise<void>; userRole?: Role }) {
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -280,6 +293,16 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
   // ODP attivo che non è in nessun carico: la data produzione prevista resta quella manuale e
   // nessuno la riallinea, quindi va reso visibile (vedi anche /carichi/senza-carico).
   const inCaricoSet = useMemo(() => new Set(schedeInCarico), [schedeInCarico]);
+  // Data carico di una scheda: la propria se è in un carico, altrimenti quella del padre (le
+  // sottoschede ereditano finché non vengono assegnate a un carico separato).
+  const schedeById = useMemo(() => new Map([...initial, ...sottoschede].map((x) => [x.id, x])), [initial, sottoschede]);
+  const caricoDi = (s: Scheda): { data: string; ereditato: boolean } | null => {
+    for (let cur: Scheda | undefined = s, ereditato = false; cur; cur = cur.parentId ? schedeById.get(cur.parentId) : undefined, ereditato = true) {
+      const d = dateCarico[cur.id];
+      if (d) return { data: d, ereditato };
+    }
+    return null;
+  };
   const senzaCarico = (s: Scheda) => !STATI_COMPLETATI.has(s.statoProduzione) && !inCaricoSet.has(s.id);
 
   // Ripristina filtri/ordinamento salvati quando si torna su questa pagina — sessionStorage
@@ -700,7 +723,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3"><DataCell date={s.dataProduzionePrevista} inRitardo={ritardo.produzione} /></td>
+                    <td className="px-4 py-3"><DataCell date={s.dataProduzionePrevista} inRitardo={ritardo.produzione} /><div><BadgeCarico carico={caricoDi(s)} /></div></td>
                     <td className="px-4 py-3 text-xs max-w-[180px] truncate" title={s.fornitore || ""}>{s.fornitore || "—"}</td>
                     <td className="px-4 py-3"><DataCell date={s.dataRientroPrevista} inRitardo={ritardo.rientro} /></td>
                     <td className="px-4 py-3"><PdfLinks pdfAllegato={s.pdfAllegato} /></td>
@@ -767,7 +790,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                             <div className="text-xs mt-0.5" style={{ color: "var(--color-grey-mid)" }}>({f.faseCorrente})</div>
                           )}
                         </td>
-                        <td className="px-4 py-2"><DataCell date={f.dataProduzionePrevista} inRitardo={fRitardo.produzione} /></td>
+                        <td className="px-4 py-2"><DataCell date={f.dataProduzionePrevista} inRitardo={fRitardo.produzione} /><div><BadgeCarico carico={caricoDi(f)} /></div></td>
                         <td className="px-4 py-2 text-xs max-w-[180px] truncate" title={f.fornitore || ""}>{f.fornitore || "—"}</td>
                         <td className="px-4 py-2"><DataCell date={f.dataRientroPrevista} inRitardo={fRitardo.rientro} /></td>
                         <td className="px-4 py-2"><PdfLinks pdfAllegato={f.pdfAllegato} /></td>
@@ -804,7 +827,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                             <td className="px-4 py-2 text-xs whitespace-nowrap">{n.posizione || "—"}</td>
                             <td className="px-4 py-2 text-xs text-right tabular-nums">{n.quantita ?? "—"}</td>
                             <td className="px-4 py-2"><BadgeStato stato={n.statoProduzione} /></td>
-                            <td className="px-4 py-2"><DataCell date={n.dataProduzionePrevista} inRitardo={nRitardo.produzione} /></td>
+                            <td className="px-4 py-2"><DataCell date={n.dataProduzionePrevista} inRitardo={nRitardo.produzione} /><div><BadgeCarico carico={caricoDi(n)} /></div></td>
                             <td className="px-4 py-2 text-xs max-w-[180px] truncate" title={n.fornitore || ""}>{n.fornitore || "—"}</td>
                             <td className="px-4 py-2"><DataCell date={n.dataRientroPrevista} inRitardo={nRitardo.rientro} /></td>
                             <td className="px-4 py-2"><PdfLinks pdfAllegato={n.pdfAllegato} /></td>

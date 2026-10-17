@@ -1,5 +1,5 @@
 import { getCarichi } from "@/lib/carichiRepository";
-import { getSchede } from "@/lib/schedeRepository";
+import { getSchede, getSottoschede } from "@/lib/schedeRepository";
 import { getCommesse } from "@/lib/commesseRepository";
 import { getSession, WRITE_ROLES } from "@/lib/auth";
 import TabellaCarichi from "@/components/TabellaCarichi";
@@ -8,10 +8,11 @@ import CommesseSubNav from "@/components/CommesseSubNav";
 export const dynamic = "force-dynamic";
 
 export default async function CarichiPage() {
-  const [carichi, commesse, schede, session] = await Promise.all([
+  const [carichi, commesse, schede, sottoschede, session] = await Promise.all([
     getCarichi(),
     getCommesse(),
     getSchede(),
+    getSottoschede(),
     getSession(),
   ]);
   const canWrite = !!session && WRITE_ROLES.includes(session.role);
@@ -27,7 +28,7 @@ export default async function CarichiPage() {
           {carichi.length} carichi · aggiornato {new Date().toLocaleTimeString("it-IT", { timeZone: "Europe/Rome", hour: "2-digit", minute: "2-digit" })}
         </p>
       </div>
-      <TabellaCarichi carichi={carichi} commesse={commesse} schede={schede} canWrite={canWrite} />
+      <TabellaCarichi carichi={carichi} commesse={commesse} schede={[...schede, ...sottoschede]} canWrite={canWrite} />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Fragment } from "react";
 import type { Carico, Commessa, Scheda } from "@/lib/types";
 import BadgeStato from "./BadgeStato";
 import FormCarico from "./FormCarico";
@@ -102,6 +102,36 @@ export default function TabellaCarichi({ carichi: initial, commesse, schede, can
     return rows;
   }, [carichi, filtroStati, search, commessaMap, sortCol, sortDir]);
 
+  // Raggruppa per commessa. `filtered` è già ordinato, quindi la prima riga di ogni gruppo è il suo
+  // carico "più estremo" per la colonna scelta (data minore in asc, maggiore in desc): i gruppi si
+  // ordinano su quello. "Senza commessa" resta in fondo.
+  const gruppi = useMemo(() => {
+    const map = new Map<string, Carico[]>();
+    for (const c of filtered) {
+      const key = c.commessaId && commessaMap.has(c.commessaId) ? c.commessaId : "";
+      const arr = map.get(key) ?? [];
+      arr.push(c);
+      map.set(key, arr);
+    }
+    const lista = [...map.entries()].map(([key, righe]) => ({ key, commessa: commessaMap.get(key) ?? null, righe }));
+    const ordine = new Map(filtered.map((c, i) => [c.id, i]));
+    return lista.sort((a, b) => {
+      if (!a.commessa) return 1;
+      if (!b.commessa) return -1;
+      if (sortCol === "commessa") {
+        const cmp = a.commessa.numeroCommessa.localeCompare(b.commessa.numeroCommessa, "it", { numeric: true });
+        return sortDir === "asc" ? cmp : -cmp;
+      }
+      return ordine.get(a.righe[0].id)! - ordine.get(b.righe[0].id)!;
+    });
+  }, [filtered, commessaMap, sortCol, sortDir]);
+
+  const [raggruppa, setRaggruppa] = useState(true);
+  const [chiusi, setChiusi] = useState<Set<string>>(new Set());
+  function toggleGruppo(key: string) {
+    setChiusi(prev => { const next = new Set(prev); next.has(key) ? next.delete(key) : next.add(key); return next; });
+  }
+
   function SortIcon({ col }: { col: string }) {
     if (sortCol !== col) return <span style={{ opacity: 0.3 }}>↕</span>;
     return <span>{sortDir === "asc" ? "↑" : "↓"}</span>;
@@ -116,6 +146,83 @@ export default function TabellaCarichi({ carichi: initial, commesse, schede, can
         <span className="inline-flex items-center gap-1">{label} <SortIcon col={col} /></span>
       </th>
     );
+  }
+
+  function renderRiga(c: Carico) {
+    const commessa = commessaMap.get(c.commessaId ?? "");
+                    const isLoading = loadingIds.has(c.id);
+                    return (
+                      <tr key={c.id} className="border-b last:border-0 hover:bg-orange-50/30 transition-colors">
+                        <td className="px-4 py-3 font-medium">{c.titolo || "—"}</td>
+                        <td className="px-4 py-3 tabular-nums">{fmt(c.dataCarico)}</td>
+            {!raggruppa && (
+              <td className="px-4 py-3">
+                {commessa ? (
+                  <div>
+                    <span className="font-medium">{commessa.numeroCommessa}</span>
+                    {commessa.cliente && (
+                      <span className="ml-1.5 text-xs" style={{ color: "var(--color-grey-mid)" }}>{commessa.cliente}</span>
+                    )}
+                    {commessa.localita && (
+                      <div className="text-xs mt-0.5" style={{ color: "var(--color-grey-mid)" }}>{commessa.localita}</div>
+                    )}
+                  </div>
+                ) : "—"}
+              </td>
+            )}
+                        <td className="px-4 py-3">
+                          {c.modalita ? <BadgeStato stato={c.modalita} /> : "—"}
+                        </td>
+                        <td className="px-4 py-3">
+                          {c.stato ? <BadgeStato stato={c.stato} /> : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums font-medium">
+                          {c.odpIds.length > 0 ? c.odpIds.length : "—"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2 justify-end">
+                            {canWrite && (
+                              <button
+                                onClick={() => setEditing(c)}
+                                className="font-semibold px-3 py-1 rounded transition-colors hover:opacity-80 whitespace-nowrap"
+                                style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)", fontSize: "0.8rem", borderRadius: "var(--radius-badge)" }}
+                              >
+                                Modifica
+                              </button>
+                            )}
+                            {canWrite && (
+                              confirmDelete === c.id ? (
+                                <span className="inline-flex items-center gap-1">
+                                  <button
+                                    onClick={() => handleDelete(c.id)}
+                                    disabled={isLoading}
+                                    className="font-semibold px-3 py-1 rounded text-white transition-colors disabled:opacity-40 whitespace-nowrap"
+                                    style={{ background: "#DC2626", fontSize: "0.8rem", borderRadius: "var(--radius-badge)" }}
+                                  >
+                                    Conferma
+                                  </button>
+                                  <button
+                                    onClick={() => setConfirmDelete(null)}
+                                    className="font-semibold px-2 py-1 rounded transition-colors"
+                                    style={{ color: "#6B7280", background: "#F3F4F6", fontSize: "0.8rem", borderRadius: "var(--radius-badge)" }}
+                                  >
+                                    ✕
+                                  </button>
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => setConfirmDelete(c.id)}
+                                  className="font-semibold px-3 py-1 rounded transition-colors hover:opacity-80 whitespace-nowrap"
+                                  style={{ color: "#DC2626", background: "rgba(220,38,38,0.07)", fontSize: "0.8rem", borderRadius: "var(--radius-badge)" }}
+                                >
+                                  Elimina
+                                </button>
+                              )
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
   }
 
   const inputCls = "border rounded px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300";
@@ -179,6 +286,11 @@ export default function TabellaCarichi({ carichi: initial, commesse, schede, can
           )}
         </div>
 
+        <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+          <input type="checkbox" checked={raggruppa} onChange={e => setRaggruppa(e.target.checked)} className="accent-orange-500" />
+          Raggruppa per commessa
+        </label>
+
         <span className="text-sm" style={{ color: "var(--color-grey-mid)" }}>
           {filtered.length} carichi
         </span>
@@ -201,7 +313,7 @@ export default function TabellaCarichi({ carichi: initial, commesse, schede, can
             <tr className="border-b text-left text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-grey-mid)", background: "#faf9f7" }}>
               <Th col="titolo" label="Titolo" />
               <Th col="dataCarico" label="Data Carico" />
-              <Th col="commessa" label="Commessa" />
+              {!raggruppa && <Th col="commessa" label="Commessa" />}
               <Th col="modalita" label="Modalità" />
               <Th col="stato" label="Stato" />
               <Th col="odp" label="ODP" className="text-right" />
@@ -211,83 +323,31 @@ export default function TabellaCarichi({ carichi: initial, commesse, schede, can
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
+                <td colSpan={raggruppa ? 6 : 7} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
                   Nessun carico trovato
                 </td>
               </tr>
             ) : (
-              filtered.map(c => {
-                const commessa = commessaMap.get(c.commessaId ?? "");
-                const isLoading = loadingIds.has(c.id);
+              !raggruppa ? filtered.map(renderRiga) : gruppi.map(g => {
+                const aperto = !chiusi.has(g.key);
+                const totOdp = g.righe.reduce((n, c) => n + c.odpIds.length, 0);
                 return (
-                  <tr key={c.id} className="border-b last:border-0 hover:bg-orange-50/30 transition-colors">
-                    <td className="px-4 py-3 font-medium">{c.titolo || "—"}</td>
-                    <td className="px-4 py-3 tabular-nums">{fmt(c.dataCarico)}</td>
-                    <td className="px-4 py-3">
-                      {commessa ? (
-                        <div>
-                          <span className="font-medium">{commessa.numeroCommessa}</span>
-                          {commessa.cliente && (
-                            <span className="ml-1.5 text-xs" style={{ color: "var(--color-grey-mid)" }}>{commessa.cliente}</span>
-                          )}
-                          {commessa.localita && (
-                            <div className="text-xs mt-0.5" style={{ color: "var(--color-grey-mid)" }}>{commessa.localita}</div>
-                          )}
+                  <Fragment key={g.key || "senza-commessa"}>
+                    <tr className="border-b cursor-pointer select-none hover:bg-orange-50/40" style={{ background: "#faf9f7" }} onClick={() => toggleGruppo(g.key)}>
+                      <td colSpan={6} className="px-4 py-2.5">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                          <span className="inline-flex items-center justify-center w-3 h-3 text-[10px] transition-transform" style={{ color: "var(--color-primary)", transform: aperto ? "rotate(90deg)" : "rotate(0deg)" }}>▶</span>
+                          <span className="font-semibold">{g.commessa ? g.commessa.numeroCommessa : "Senza commessa"}</span>
+                          {g.commessa?.cliente && <span className="text-sm" style={{ color: "var(--color-grey-mid)" }}>{g.commessa.cliente}</span>}
+                          {g.commessa?.localita && <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>{g.commessa.localita}</span>}
+                          <span className="ml-auto text-xs" style={{ color: "var(--color-grey-mid)" }}>
+                            {g.righe.length} {g.righe.length === 1 ? "carico" : "carichi"} · {totOdp} ODP
+                          </span>
                         </div>
-                      ) : "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      {c.modalita ? <BadgeStato stato={c.modalita} /> : "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      {c.stato ? <BadgeStato stato={c.stato} /> : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums font-medium">
-                      {c.odpIds.length > 0 ? c.odpIds.length : "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2 justify-end">
-                        {canWrite && (
-                          <button
-                            onClick={() => setEditing(c)}
-                            className="font-semibold px-3 py-1 rounded transition-colors hover:opacity-80 whitespace-nowrap"
-                            style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)", fontSize: "0.8rem", borderRadius: "var(--radius-badge)" }}
-                          >
-                            Modifica
-                          </button>
-                        )}
-                        {canWrite && (
-                          confirmDelete === c.id ? (
-                            <span className="inline-flex items-center gap-1">
-                              <button
-                                onClick={() => handleDelete(c.id)}
-                                disabled={isLoading}
-                                className="font-semibold px-3 py-1 rounded text-white transition-colors disabled:opacity-40 whitespace-nowrap"
-                                style={{ background: "#DC2626", fontSize: "0.8rem", borderRadius: "var(--radius-badge)" }}
-                              >
-                                Conferma
-                              </button>
-                              <button
-                                onClick={() => setConfirmDelete(null)}
-                                className="font-semibold px-2 py-1 rounded transition-colors"
-                                style={{ color: "#6B7280", background: "#F3F4F6", fontSize: "0.8rem", borderRadius: "var(--radius-badge)" }}
-                              >
-                                ✕
-                              </button>
-                            </span>
-                          ) : (
-                            <button
-                              onClick={() => setConfirmDelete(c.id)}
-                              className="font-semibold px-3 py-1 rounded transition-colors hover:opacity-80 whitespace-nowrap"
-                              style={{ color: "#DC2626", background: "rgba(220,38,38,0.07)", fontSize: "0.8rem", borderRadius: "var(--radius-badge)" }}
-                            >
-                              Elimina
-                            </button>
-                          )
-                        )}
-                      </div>
-                    </td>
-                  </tr>
+                      </td>
+                    </tr>
+                    {aperto && g.righe.map(renderRiga)}
+                  </Fragment>
                 );
               })
             )}

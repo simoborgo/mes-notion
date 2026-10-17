@@ -51,14 +51,41 @@ async function compressPhoto(file: File, maxDim = 1400, quality = 0.82): Promise
   });
 }
 
-function AllegatoSection({ titolo, children }: { titolo: string; children: React.ReactNode }) {
+// Box con drag & drop: i file trascinati vengono filtrati con `accept` (es. solo PDF o solo immagini)
+// e passati a `onFiles`; senza `onFiles` resta un semplice contenitore.
+function AllegatoSection({ titolo, children, onFiles, accept }: {
+  titolo: string;
+  children: React.ReactNode;
+  onFiles?: (files: File[]) => void;
+  accept?: (f: File) => boolean;
+}) {
+  const [dragging, setDragging] = useState(false);
   return (
-    <div className="space-y-2 rounded-lg border p-3" style={{ borderColor: "#e5e4e0" }}>
+    <div
+      className="space-y-2 rounded-lg border p-3 transition-colors"
+      style={{
+        borderColor: dragging ? "var(--color-primary)" : "#e5e4e0",
+        background: dragging ? "#fafaf9" : undefined,
+        borderStyle: dragging ? "dashed" : "solid",
+      }}
+      onDragOver={onFiles ? (e) => { e.preventDefault(); setDragging(true); } : undefined}
+      onDragLeave={onFiles ? (e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragging(false); } : undefined}
+      onDrop={onFiles ? (e) => {
+        e.preventDefault();
+        setDragging(false);
+        const files = Array.from(e.dataTransfer.files).filter(accept ?? (() => true));
+        if (files.length) onFiles(files);
+      } : undefined}
+    >
       <p className="text-xs font-semibold" style={{ color: "var(--color-grey-mid)" }}>{titolo}</p>
       {children}
+      {onFiles && <p className="text-[10px]" style={{ color: "var(--color-grey-mid)" }}>…oppure trascina qui i file</p>}
     </div>
   );
 }
+
+const isPdf = (f: File) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf");
+const isImage = (f: File) => f.type.startsWith("image/");
 
 export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
   const [schedaLive, setSchedaLive] = useState(scheda);
@@ -162,22 +189,29 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
     }
   }
 
-  async function handlePdfUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+  function pickFiles(e: React.ChangeEvent<HTMLInputElement>): File[] {
+    const files = Array.from(e.target.files ?? []);
     e.target.value = "";
-    if (!file) return;
+    return files;
+  }
+
+  async function uploadPdf(files: File[]) {
+    if (!files.length) return;
     setUploadingPdf(true);
     setUploadError("");
     try {
-      const pdfBase64 = await readAsBase64(file);
-      const res = await fetch(`/api/schede/${scheda.id}/pdf-allegato`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pdfBase64, filename: file.name }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error ?? "Errore caricamento PDF");
-      setSchedaLive(data as Scheda);
+      // In sequenza: l'ordine successivo viene calcolato lato server sul MAX corrente.
+      for (const file of files) {
+        const pdfBase64 = await readAsBase64(file);
+        const res = await fetch(`/api/schede/${scheda.id}/pdf-allegato`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pdfBase64, filename: file.name }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data?.error ?? "Errore caricamento PDF");
+        setSchedaLive(data as Scheda);
+      }
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Errore caricamento PDF");
     } finally {
@@ -185,9 +219,7 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
     }
   }
 
-  async function handleFotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []);
-    e.target.value = "";
+  async function uploadFoto(files: File[]) {
     if (!files.length) return;
     setUploadingFoto(true);
     setUploadError("");
@@ -208,9 +240,7 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
     }
   }
 
-  async function handleAllegatoUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []);
-    e.target.value = "";
+  async function uploadAllegati(files: File[]) {
     if (!files.length) return;
     setUploadingAllegato(true);
     setUploadError("");
@@ -235,9 +265,8 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
     }
   }
 
-  async function handleCopertinaUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
+  async function uploadCopertina(files: File[]) {
+    const file = files[0];
     if (!file) return;
     setUploadingCopertina(true);
     setUploadError("");
@@ -453,7 +482,7 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <AllegatoSection titolo={`PDF Allegato (${schedaLive.pdfAllegato.length})`}>
+            <AllegatoSection titolo={`PDF Allegato (${schedaLive.pdfAllegato.length})`} onFiles={uploadPdf} accept={isPdf}>
               <div className="flex flex-col gap-1">
                 {schedaLive.pdfAllegato.map((pdf, i) => (
                   <div key={pdf.id ?? i} className="flex items-center gap-1.5">
@@ -469,13 +498,13 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
                   </div>
                 ))}
               </div>
-              <input ref={pdfInputRef} type="file" accept="application/pdf" className="hidden" onChange={handlePdfUpload} />
+              <input ref={pdfInputRef} type="file" accept="application/pdf" multiple className="hidden" onChange={(e) => uploadPdf(pickFiles(e))} />
               <button type="button" onClick={() => pdfInputRef.current?.click()} disabled={uploadingPdf} className={uploadBtnCls} style={uploadBtnStyle}>
                 {uploadingPdf ? "Carico…" : "+ Aggiungi PDF"}
               </button>
             </AllegatoSection>
 
-            <AllegatoSection titolo={`Foto (${schedaLive.foto.length})`}>
+            <AllegatoSection titolo={`Foto (${schedaLive.foto.length})`} onFiles={uploadFoto} accept={isImage}>
               <div className="flex flex-wrap gap-1.5">
                 {schedaLive.foto.map((f, i) => (
                   <div key={f.id ?? i} className="relative">
@@ -491,19 +520,19 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
                   </div>
                 ))}
               </div>
-              <input ref={fotoInputRef} type="file" accept="image/*" multiple capture="environment" className="hidden" onChange={handleFotoUpload} />
+              <input ref={fotoInputRef} type="file" accept="image/*" multiple capture="environment" className="hidden" onChange={(e) => uploadFoto(pickFiles(e))} />
               <button type="button" onClick={() => fotoInputRef.current?.click()} disabled={uploadingFoto} className={uploadBtnCls} style={uploadBtnStyle}>
                 {uploadingFoto ? "Carico…" : "+ Aggiungi foto"}
               </button>
             </AllegatoSection>
 
-            <AllegatoSection titolo="Copertina">
+            <AllegatoSection titolo="Copertina" onFiles={uploadCopertina} accept={isImage}>
               {schedaLive.copertina && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={schedaLive.copertina} alt="Copertina" className="w-full h-16 object-cover rounded border" style={{ borderColor: "#e5e4e0" }} />
               )}
               <div className="flex gap-2">
-                <input ref={copertinaInputRef} type="file" accept="image/*" className="hidden" onChange={handleCopertinaUpload} />
+                <input ref={copertinaInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => uploadCopertina(pickFiles(e))} />
                 <button type="button" onClick={() => copertinaInputRef.current?.click()} disabled={uploadingCopertina} className={uploadBtnCls} style={uploadBtnStyle}>
                   {uploadingCopertina ? "Carico…" : schedaLive.copertina ? "Sostituisci" : "+ Carica copertina"}
                 </button>
@@ -517,7 +546,7 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
               </div>
             </AllegatoSection>
 
-            <AllegatoSection titolo={`Allegati (${schedaLive.allegati.length})`}>
+            <AllegatoSection titolo={`Allegati (${schedaLive.allegati.length})`} onFiles={uploadAllegati}>
               <div className="flex flex-col gap-1">
                 {schedaLive.allegati.map((f) => (
                   <div key={f.id} className="flex items-center gap-1.5">
@@ -531,7 +560,7 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
                   </div>
                 ))}
               </div>
-              <input ref={allegatoInputRef} type="file" multiple className="hidden" onChange={handleAllegatoUpload} />
+              <input ref={allegatoInputRef} type="file" multiple className="hidden" onChange={(e) => uploadAllegati(pickFiles(e))} />
               <button type="button" onClick={() => allegatoInputRef.current?.click()} disabled={uploadingAllegato} className={uploadBtnCls} style={uploadBtnStyle}>
                 {uploadingAllegato ? "Carico…" : "+ Aggiungi file"}
               </button>
