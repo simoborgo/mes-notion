@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { updateSchedaKitFerramenta } from "@/lib/schedeRepository";
+import { updateSchedaKitFerramenta, getSchedaById } from "@/lib/schedeRepository";
 import { deleteDistintaKitByOdp, getDistintaKitByOdp } from "@/lib/kitFerramentaRepository";
 import { getSessionFromRequest, FERRAMENTA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
+import { sendNotifica } from "@/lib/notify";
 
 // Usata dalla tab "Kit Ferramenta" dentro il dettaglio Scheda (client-side, fetch on demand) —
 // la pagina admin/ferramenta/kit/[schedaId] invece legge le righe direttamente server-side.
@@ -52,8 +53,27 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ s
   }
 
   const { schedaId } = await params;
+  const schedaPrima = await getSchedaById(schedaId);
   await deleteDistintaKitByOdp(schedaId);
   const updated = await updateSchedaKitFerramenta(schedaId, null);
+
+  // Avvisa il magazziniere solo se il kit era già stato confermato (e quindi notificato).
+  if (schedaPrima.kitFerramenta === "Si") {
+    const result = await sendNotifica({
+      entityType: "scheda",
+      entityId: schedaId,
+      eventType: "kit_annullato",
+      eventId: crypto.randomUUID(),
+      webhookUrl: process.env.N8N_WEBHOOK_FERRAMENTA,
+      payload: {
+        evento: "kit_annullato",
+        tipo_kit: "odp",
+        odp: schedaPrima.odp,
+        numero_scheda: schedaPrima.numeroScheda,
+      },
+    });
+    if (result.warning) console.warn("[kit DELETE] notifica kit_annullato:", result.warning);
+  }
   void logOperation(session.name, "DELETE", "kit_ferramenta", schedaId, { azione: "elimina-foglio-scarico" });
   revalidatePath("/admin/ferramenta/kit");
   revalidatePath("/ferramenta/fogli-scarico");

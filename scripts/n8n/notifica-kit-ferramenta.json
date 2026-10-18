@@ -50,9 +50,9 @@
       "parameters": {
         "fromEmail": "MES <CAMBIA_MITTENTE@tuodominio.it>",
         "toEmail": "noventa@modar.it",
-        "subject": "={{ $json.body.tipo_kit === 'commessa' ? 'Kit ferramenta pronto – ' + $json.body.titolo : 'Kit ferramenta pronto – ODP ' + $json.body.odp }}",
+        "subject": "={{ ($json.body.aggiornamento ? 'AGGIORNATO – ' : '') + ($json.body.tipo_kit === 'commessa' ? 'Kit ferramenta pronto – ' + $json.body.titolo : 'Kit ferramenta pronto – ODP ' + $json.body.odp) }}",
         "emailFormat": "html",
-        "html": "={{ $json.body.tipo_kit === 'commessa'\n ? '<p>Il kit ferramenta della commessa <b>' + $json.body.titolo + '</b> è pronto (' + $json.body.righe + ' righe).</p><p><a href=\"' + $json.body.url + '\">Apri il kit</a></p>'\n : '<p>Il kit ferramenta per l\\'ODP <b>' + $json.body.odp + '</b> (scheda ' + $json.body.numero_scheda + ') è pronto (' + $json.body.righe + ' righe).</p><p><a href=\"' + $json.body.pdf_url + '\">Scarica il PDF del kit</a></p>' }}",
+        "html": "={{ ($json.body.aggiornamento ? '<p><b>ATTENZIONE: kit modificato.</b> Questo kit sostituisce quello inviato in precedenza.</p>' : '') + ($json.body.tipo_kit === 'commessa'\n ? '<p>Il kit ferramenta della commessa <b>' + $json.body.titolo + '</b> è pronto (' + $json.body.righe + ' righe).</p><p><a href=\"' + $json.body.url + '\">Apri il kit</a></p>'\n : '<p>Il kit ferramenta per l\\'ODP <b>' + $json.body.odp + '</b> (scheda ' + $json.body.numero_scheda + ') è pronto (' + $json.body.righe + ' righe).</p><p><a href=\"' + $json.body.pdf_url + '\">Scarica il PDF del kit</a></p>') }}",
         "options": {}
       },
       "name": "Email magazziniere",
@@ -82,7 +82,7 @@
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        720,
+        960,
         60
       ],
       "credentials": {
@@ -117,9 +117,61 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
+        720,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c3",
+              "leftValue": "={{ $json.body.evento }}",
+              "rightValue": "kit_annullato",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "name": "È kit_annullato?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
         480,
         100
       ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "MES <CAMBIA_MITTENTE@tuodominio.it>",
+        "toEmail": "noventa@modar.it",
+        "subject": "={{ 'Kit ferramenta ANNULLATO – ODP ' + $json.body.odp }}",
+        "emailFormat": "html",
+        "html": "={{ '<p><b>Il kit ferramenta per l\\'ODP ' + $json.body.odp + '</b> (scheda ' + $json.body.numero_scheda + ') è stato annullato.</p><p>Non preparare il materiale: se il kit viene ricostruito riceverai una nuova email con la dicitura AGGIORNATO.</p>' }}",
+        "options": {}
+      },
+      "name": "Email kit annullato",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        720,
+        -20
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "",
+          "name": "SMTP (da configurare)"
+        }
+      }
     }
   ],
   "connections": {
@@ -145,7 +197,7 @@
         ],
         [
           {
-            "node": "È sotto_soglia?",
+            "node": "È kit_annullato?",
             "type": "main",
             "index": 0
           }
@@ -162,6 +214,24 @@
           }
         ],
         []
+      ]
+    },
+    "È kit_annullato?": {
+      "main": [
+        [
+          {
+            "node": "Email kit annullato",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "È sotto_soglia?",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
