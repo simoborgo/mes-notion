@@ -18,6 +18,9 @@ interface ParsedItem {
   includeAsSubitem?: boolean;
   gruppo?: number | null;
   otherFields?: Record<string, string>;
+  // "layout" = letto dal cartiglio per posizione, "ai" = fallback LLM; i warnings segnalano campi da verificare
+  source?: "layout" | "ai";
+  warnings?: string[];
 }
 
 type Status = "idle" | "extracting" | "parsing" | "preview" | "importing" | "done" | "error";
@@ -38,7 +41,11 @@ async function getPdfjsLib() {
   return pdfjsLib;
 }
 
-async function extractPdfData(file: File): Promise<{ pageTexts: string[]; thumbnailBase64: string; pageThumbnails: string[] }> {
+// Elemento di testo con coordinate nello spazio della viewport (rotazione di pagina già applicata):
+// serve al parser del cartiglio, che associa i valori alle etichette per posizione.
+interface PageTextItems { n: number; items: Array<{ s: string; x: number; y: number; w: number; h: number }> }
+
+async function extractPdfData(file: File): Promise<{ pageTexts: string[]; pageItems: PageTextItems[]; thumbnailBase64: string; pageThumbnails: string[] }> {
   const pdfjs = await getPdfjsLib();
   const buf = await file.arrayBuffer();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -48,6 +55,7 @@ async function extractPdfData(file: File): Promise<{ pageTexts: string[]; thumbn
   const ctx = canvas.getContext("2d")!;
 
   const pageTexts: string[] = [];
+  const pageItems: PageTextItems[] = [];
   // Piccola anteprima per pagina — così in preview si vede subito a quale pagina del PDF
   // corrisponde ogni scheda/sottoscheda estratta, senza dover riaprire il PDF originale per
   // controllare (l'estrazione automatica a volte sbaglia la pagina di provenienza).
@@ -62,6 +70,14 @@ async function extractPdfData(file: File): Promise<{ pageTexts: string[]; thumbn
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const vpSmall0 = page.getViewport({ scale: 1 }) as any;
+    pageItems.push({
+      n: i,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      items: content.items.filter((it: any) => it.str.trim()).map((it: any) => {
+        const t = pdfjs.Util.transform(vpSmall0.transform, it.transform);
+        return { s: it.str, x: Math.round(t[4] * 10) / 10, y: Math.round(t[5] * 10) / 10, w: Math.round(it.width * 10) / 10, h: Math.round(Math.hypot(t[2], t[3]) * 10) / 10 };
+      }),
+    });
     const smallScale = 480 / vpSmall0.width;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const vpSmall = page.getViewport({ scale: smallScale }) as any;
@@ -83,7 +99,7 @@ async function extractPdfData(file: File): Promise<{ pageTexts: string[]; thumbn
   await page1.render({ canvasContext: ctx, viewport: vp }).promise;
   const thumbnailBase64 = canvas.toDataURL("image/jpeg", 0.92);
 
-  return { pageTexts, thumbnailBase64, pageThumbnails };
+  return { pageTexts, pageItems, thumbnailBase64, pageThumbnails };
 }
 
 function fieldRow(
@@ -146,24 +162,35 @@ export default function ImportSchedaPdf() {
       setPdfBase64(base64);
 
       // Extract text + thumbnails via pdfjs
-      const { pageTexts, thumbnailBase64: thumb, pageThumbnails: pageThumbs } = await extractPdfData(file);
+      const { pageTexts, pageItems, thumbnailBase64: thumb, pageThumbnails: pageThumbs } = await extractPdfData(file);
       setThumbnailBase64(thumb);
       setPageThumbnails(pageThumbs);
 
       setStatus("parsing");
 
-      // Call Claude API parse endpoint
+      // Parser del cartiglio per posizione (+ fallback AI sulle pagine non riconosciute)
       const res = await fetch("/api/admin/import-scheda/parse", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pageTexts }),
+        body: JSON.stringify({ pageTexts, pageItems }),
       });
       const data = (await res.json()) as { ok: boolean; items?: ParsedItem[]; paginePersi?: number[]; error?: string };
       if (!res.ok || !data.ok) throw new Error(data.error ?? "Errore parsing");
 
       setPaginePersi(data.paginePersi ?? []);
+      // Le pagine di uno stesso fornitore esterno (dalla seconda in poi) finiscono nella stessa
+      // sottoscheda: stesso numero di gruppo = il primo indice di pagina di quel fornitore.
+      // Nome normalizzato così "C.V.M." e "CVM" coincidono; resta modificabile a mano in preview.
+      const gruppoFornitore = new Map<string, number>();
+      const chiaveFornitore = (f: string) => f.toUpperCase().replace(/[^A-Z0-9]/g, "");
       setItems((data.items ?? []).map((it: ParsedItem, idx: number) => {
         const isExternal = !!(it.fornitore && it.fornitore.toUpperCase() !== "MODAR");
+        let gruppoAuto = idx;
+        if (idx > 0 && isExternal) {
+          const k = chiaveFornitore(it.fornitore!);
+          if (!gruppoFornitore.has(k)) gruppoFornitore.set(k, idx);
+          gruppoAuto = gruppoFornitore.get(k)!;
+        }
         return {
           ...it,
           stato: it.stato ?? (isExternal ? "In lavorazione Esterna" : "In lavorazione"),
@@ -172,7 +199,7 @@ export default function ImportSchedaPdf() {
           // visivo dell'input "Gruppo" (che mostrava idx senza mai salvarlo) — altrimenti
           // resta undefined finché l'utente non tocca quello specifico campo, e il server
           // (import-scheda/route.ts, sub.item.gruppo != null) tratta ogni pagina come a sé.
-          gruppo: it.gruppo ?? idx,
+          gruppo: it.gruppo ?? gruppoAuto,
         };
       }));
       setStatus("preview");
@@ -329,7 +356,7 @@ export default function ImportSchedaPdf() {
           style={{ borderColor: "#6366f1", borderTopColor: "transparent" }}
         />
         <p className="text-sm" style={{ color: "var(--color-grey-mid)" }}>
-          {status === "extracting" ? "Estrazione testo dal PDF…" : "Analisi metadati con AI…"}
+          {status === "extracting" ? "Estrazione testo dal PDF…" : "Lettura cartiglio…"}
         </p>
       </div>
     );
@@ -442,6 +469,15 @@ export default function ImportSchedaPdf() {
                   >
                     Pagina {idx + 1} di {items.length}
                   </span>
+                  {item.source === "ai" && (
+                    <span
+                      className="text-xs px-2 py-0.5 rounded font-medium"
+                      style={{ background: "#ede9fe", color: "#5b21b6" }}
+                      title="Cartiglio non riconosciuto: campi estratti con AI"
+                    >
+                      AI
+                    </span>
+                  )}
                   {item.paginaMancante && (
                     <span
                       className="text-xs px-2 py-0.5 rounded font-medium"
@@ -465,6 +501,12 @@ export default function ImportSchedaPdf() {
                     </label>
                   )}
                 </div>
+
+                {!!item.warnings?.length && (
+                  <ul className="text-xs mb-2 space-y-0.5" style={{ color: "#92400e" }}>
+                    {item.warnings.map((w, k) => <li key={k}>⚠ {w}</li>)}
+                  </ul>
+                )}
 
                 <div className="flex gap-3">
                 {pageThumbnails[idx] && (

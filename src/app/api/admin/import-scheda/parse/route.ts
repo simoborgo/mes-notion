@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/auth";
+import { parseDocument, type PdfPageData } from "@/lib/schedaPdfLayoutParser";
 
 export async function POST(req: NextRequest) {
   const session = await getSessionFromRequest(req);
@@ -7,23 +8,67 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Non autorizzato" }, { status: 403 });
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ ok: false, error: "ANTHROPIC_API_KEY non configurata" }, { status: 500 });
-  }
-
-  const body = (await req.json()) as { pageTexts?: string[]; pdfText?: string };
+  const body = (await req.json()) as { pageTexts?: string[]; pdfText?: string; pageItems?: PdfPageData[] };
   const pageTexts: string[] = body.pageTexts ?? (body.pdfText ? [body.pdfText] : []);
 
   if (!pageTexts.length || !pageTexts.some((t) => t.trim())) {
     return NextResponse.json({ ok: false, error: "Testo PDF mancante" }, { status: 400 });
   }
 
-  console.log(`[import-scheda/parse] avvio estrazione AI — ${pageTexts.length} pagina/e`);
+  // 1) Parser deterministico sul cartiglio (coordinate degli elementi di testo): è la via principale.
+  //    Una pagina con cartiglio non riconosciuto (formato nuovo, scansione, ecc.) passa all'AI.
+  const layout = body.pageItems?.length ? parseDocument(body.pageItems) : [];
+  const layoutByPagina = new Map(layout.filter((r) => r.ok && r.item).map((r) => [r.pagina, r.item!]));
+  const paginePerAi = pageTexts.map((_, i) => i + 1).filter((n) => !layoutByPagina.has(n));
 
+  console.log(
+    `[import-scheda/parse] ${pageTexts.length} pagina/e — layout: ${layoutByPagina.size}, fallback AI: ${paginePerAi.length}` +
+    (paginePerAi.length ? ` (pagine ${paginePerAi.join(", ")})` : ""),
+  );
+
+  const aiByPagina = new Map<number, Record<string, unknown>>();
+  let aiError: string | null = null;
+  if (paginePerAi.length) {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      aiError = "ANTHROPIC_API_KEY non configurata";
+    } else {
+      const ai = await parseWithAi(apiKey, paginePerAi.map((n) => ({ n, text: pageTexts[n - 1] ?? "" })));
+      if (ai.error) aiError = ai.error; else for (const [n, it] of ai.items) aiByPagina.set(n, it);
+    }
+  }
+
+  const items = pageTexts.map((_, idx) => {
+    const n = idx + 1;
+    const fromLayout = layoutByPagina.get(n);
+    if (fromLayout) return fromLayout;
+    const fromAi = aiByPagina.get(n);
+    if (fromAi) return { ...fromAi, pagina: n, source: "ai", warnings: ["Cartiglio non riconosciuto: campi estratti con AI, da verificare"] };
+    return {
+      pagina: n, paginaMancante: true, numeroScheda: "", commessaNr: "", termineDiConsegna: null,
+      codiceArticolo: null, posizione: null, fornitore: null, quantita: null,
+      warnings: [aiError ? `Cartiglio non riconosciuto e AI non disponibile: ${aiError}` : "Cartiglio non riconosciuto"],
+    };
+  });
+  const paginePersi = items.filter((it) => "paginaMancante" in it && it.paginaMancante).map((it) => it.pagina);
+
+  console.log(
+    "[import-scheda/parse] completato",
+    items.map((it) => ({ pagina: it.pagina, numeroScheda: it.numeroScheda, termineDiConsegna: it.termineDiConsegna })),
+  );
+  return NextResponse.json({ ok: true, items, paginePersi });
+}
+
+// Fallback LLM per le sole pagine il cui cartiglio non è stato riconosciuto dal parser a coordinate.
+async function parseWithAi(
+  apiKey: string,
+  pages: Array<{ n: number; text: string }>,
+): Promise<{ items: Map<number, Record<string, unknown>>; error?: string }> {
+  const items = new Map<number, Record<string, unknown>>();
+  const pageTexts = pages.map((p) => p.text);
   // Build page sections (first 1500 chars per page is plenty for header data)
-  const pageSections = pageTexts
-    .map((t, i) => `[PAGINA ${i + 1}]\n${t.slice(0, 1500).trim()}`)
+  const pageSections = pages
+    .map((p) => `[PAGINA ${p.n}]\n${p.text.slice(0, 1500).trim()}`)
     .join("\n\n---\n\n");
 
   const schemaExample = JSON.stringify(
@@ -64,7 +109,7 @@ export async function POST(req: NextRequest) {
 
   const prompt =
     `Sei un assistente per l'estrazione di metadati da schede di produzione tecniche in PDF.\n\n` +
-    `Il PDF ha ${pageTexts.length} pagina/e. Di seguito il testo estratto da ciascuna:\n\n` +
+    `Di seguito il testo estratto da ${pageTexts.length} pagina/e di un PDF (le etichette [PAGINA N] riportano il numero reale della pagina):\n\n` +
     `${pageSections}\n\n` +
     `COMPITO: estrai UN SOLO ITEM PER PAGINA PDF e restituisci SOLO un JSON valido con questa struttura:\n` +
     `${schemaExample}\n\n` +
@@ -88,7 +133,7 @@ export async function POST(req: NextRequest) {
     const errBody = await response.json().catch(() => ({})) as { error?: { message?: string } };
     const msg = errBody?.error?.message ?? `HTTP ${response.status}`;
     console.error("[parse] Claude API error:", msg);
-    return NextResponse.json({ ok: false, error: `Claude API: ${msg}` }, { status: 500 });
+    return { items, error: `Claude API: ${msg}` };
   }
 
   const result = (await response.json()) as { content: Array<{ type: string; text: string }> };
@@ -96,41 +141,18 @@ export async function POST(req: NextRequest) {
 
   try {
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : text);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rawItems: any[] = (parsed as any)?.items ?? [];
-
+    const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : text) as { items?: Array<Record<string, unknown>> };
     // Non ci si può fidare dell'ordine dell'array per associare item↔pagina: se il modello salta
-    // una pagina (testo scarso/vuoto) o ne inverte due, il resto si disallinea in cascata e ogni
-    // item finisce associato alla pagina sbagliata nella preview. Si reindicizza invece sul campo
-    // "pagina" dichiarato dal modello, con un placeholder esplicito per le pagine mancanti.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const byPagina = new Map<number, any>();
-    for (const it of rawItems) {
-      const p = Number(it?.pagina);
-      if (Number.isInteger(p) && p >= 1 && p <= pageTexts.length && !byPagina.has(p)) byPagina.set(p, it);
+    // una pagina o ne inverte due, il resto si disallinea in cascata. Si indicizza sul campo
+    // "pagina" dichiarato dal modello, accettando solo i numeri di pagina effettivamente richiesti.
+    const richieste = new Set(pages.map((p) => p.n));
+    for (const it of parsed.items ?? []) {
+      const n = Number(it?.pagina);
+      if (Number.isInteger(n) && richieste.has(n) && !items.has(n)) items.set(n, it);
     }
-    const items = Array.from({ length: pageTexts.length }, (_, idx) => {
-      const found = byPagina.get(idx + 1);
-      if (found) return found;
-      return {
-        pagina: idx + 1,
-        paginaMancante: true,
-        numeroScheda: "", commessaNr: "", termineDiConsegna: null,
-        codiceArticolo: null, posizione: null, fornitore: null, quantita: null,
-      };
-    });
-    const paginePersi = items.filter((it) => it.paginaMancante).map((it) => it.pagina);
-
-    console.log(
-      `[import-scheda/parse] estrazione completata — ${items.length} pagina/e, item ricevuti dal modello: ${rawItems.length}` +
-      (paginePersi.length ? `, pagine senza item valido: ${paginePersi.join(", ")}` : ""),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      items.map((it: any) => ({ pagina: it.pagina, numeroScheda: it.numeroScheda, termineDiConsegna: it.termineDiConsegna })),
-    );
-    return NextResponse.json({ ok: true, items, paginePersi });
+    return { items };
   } catch (e) {
     console.error("[parse] JSON parse error:", e, "\ntext:", text);
-    return NextResponse.json({ ok: false, error: "Errore parsing risposta AI", rawText: text }, { status: 500 });
+    return { items, error: "Errore parsing risposta AI" };
   }
 }
