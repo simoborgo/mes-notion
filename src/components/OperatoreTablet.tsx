@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Operatore, OdpAttivo } from "@/lib/types";
 import { ATTIVITA_SPECIALI_COMMESSA } from "@/lib/attivitaSpecialiCommessa";
 import OdpSelettore from "./OdpSelettore";
 
-interface OperatoreLoggato {
+export interface OperatoreLoggato {
   matricola: string;
   cognome: string;
   nome: string;
@@ -30,7 +30,7 @@ interface SegmentoAperto {
   rif: boolean;
 }
 
-const STORAGE_KEY = "mes_operatore_tablet";
+export const STORAGE_KEY = "mes_operatore_tablet";
 
 function fmtOra(iso: string): string {
   return new Date(iso).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
@@ -80,7 +80,7 @@ export default function OperatoreTablet() {
   );
 }
 
-function Tastierino({ onDigit, onCancella, disabled }: { onDigit: (d: string) => void; onCancella: () => void; disabled: boolean }) {
+export function Tastierino({ onDigit, onCancella, disabled }: { onDigit: (d: string) => void; onCancella: () => void; disabled: boolean }) {
   const tasti = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"];
   return (
     <div className="grid grid-cols-3 gap-3">
@@ -278,6 +278,23 @@ function SchermataLavoro({ operatore, onCambiaOperatore }: { operatore: Operator
       caricaStato(true),
     ]).finally(() => setLoading(false));
   }, [caricaStato]);
+
+  // ODP in arrivo dalla scansione del QR della scheda (/q/<codice> → /operatore?odp=...): si
+  // preseleziona una sola volta a caricamento finito, sopra il precompila dell'ODP del giorno
+  // prima. Non conferma nulla: l'operatore controlla e preme Conferma (resta valido il controllo
+  // del "buco" di inizio giornata). Un ODP non più attivo non è selezionabile: lo si dice.
+  const odpDaQr = useRef<string | null>(null);
+  useEffect(() => {
+    odpDaQr.current = new URLSearchParams(window.location.search).get("odp");
+  }, []);
+  useEffect(() => {
+    if (loading || !odpDaQr.current) return;
+    const richiesto = odpDaQr.current;
+    odpDaQr.current = null;
+    window.history.replaceState(null, "", window.location.pathname);
+    if (odpList.some(o => o.odp === richiesto)) setOdp(richiesto);
+    else setErrore(`L'ODP ${richiesto} della scheda scansionata non è tra quelli attivi: cercalo a mano o chiedi al responsabile.`);
+  }, [loading, odpList]);
 
   async function handleConferma(gapRisposta?: "primo" | { odpGap: string }) {
     if (!odp) { setErrore("Seleziona un ODP"); return; }

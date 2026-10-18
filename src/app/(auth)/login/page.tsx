@@ -22,7 +22,9 @@ export default function LoginPage() {
       });
       const body = await res.json();
       if (res.ok) {
-        window.location.replace("/");
+        // Solo percorsi interni (mai //host o URL assoluti): evita redirect aperti dopo il login
+        const next = new URLSearchParams(window.location.search).get("next");
+        window.location.replace(next && next.startsWith("/") && !next.startsWith("//") ? next : "/");
       } else {
         setError(body.error || "Credenziali errate");
         setLoading(false);

@@ -39,6 +39,10 @@ export async function middleware(req: NextRequest) {
     }
     const url = req.nextUrl.clone();
     url.pathname = "/login";
+    // Chi arriva da un QR con la sessione scaduta torna sulla scheda scansionata dopo il login
+    const destinazione = pathname + req.nextUrl.search;
+    url.search = "";
+    if (pathname !== "/") url.searchParams.set("next", destinazione);
     return NextResponse.redirect(url);
   }
 

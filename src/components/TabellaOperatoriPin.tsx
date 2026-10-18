@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { Operatore } from "@/lib/types";
 
-type OperatoreConPin = Operatore & { hasPin: boolean };
+type OperatoreConPin = Operatore & { hasPin: boolean; pinSolo: boolean };
 
 const inputCls = "rounded-lg border px-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300";
 
@@ -23,11 +23,11 @@ export default function TabellaOperatoriPin({ operatoriIniziali }: { operatoriIn
   async function rimuoviPin(matricola: string) {
     if (!confirm("Rimuovere il PIN di questo operatore? Non potrà più accedere al tablet finché non gliene viene impostato uno nuovo.")) return;
     const res = await fetch(`/api/admin/operatori-pin/${matricola}`, { method: "DELETE" });
-    if (res.ok) setOperatori(prev => prev.map(o => o.matricola === matricola ? { ...o, hasPin: false } : o));
+    if (res.ok) setOperatori(prev => prev.map(o => o.matricola === matricola ? { ...o, hasPin: false, pinSolo: false } : o));
   }
 
   function handlePinImpostato(matricola: string) {
-    setOperatori(prev => prev.map(o => o.matricola === matricola ? { ...o, hasPin: true } : o));
+    setOperatori(prev => prev.map(o => o.matricola === matricola ? { ...o, hasPin: true, pinSolo: true } : o));
     setModaleMatricola(null);
   }
 
@@ -57,6 +57,15 @@ export default function TabellaOperatoriPin({ operatoriIniziali }: { operatoriIn
               >
                 {o.hasPin ? "PIN impostato" : "Nessun PIN"}
               </span>
+              {o.hasPin && !o.pinSolo && (
+                <span
+                  className="text-xs font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: "#F3F4F6", color: "#4B5563" }}
+                  title="Entra dal tablet scegliendo il nome. Per il solo PIN (QR scheda): al prossimo accesso con nome e PIN, o reimposta il PIN."
+                >
+                  Serve nome + PIN
+                </span>
+              )}
               <button
                 onClick={() => setModaleMatricola(o.matricola)}
                 className="text-sm font-semibold px-3 py-1.5 rounded-lg border hover:bg-gray-50"

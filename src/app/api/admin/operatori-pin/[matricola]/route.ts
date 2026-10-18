@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { impostaPin, rimuoviPin } from "@/lib/operatoriPinRepository";
+import { impostaPin, rimuoviPin, PinInUsoError } from "@/lib/operatoriPinRepository";
 import { getSessionFromRequest } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
@@ -21,6 +21,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ma
     void logOperation(session.name, "UPDATE", "operatore_pin", matricola, { azione: "imposta-pin" });
     return NextResponse.json({ ok: true });
   } catch (e) {
+    if (e instanceof PinInUsoError) return NextResponse.json({ error: e.message }, { status: 409 });
     console.error("[admin/operatori-pin PATCH]", e);
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }

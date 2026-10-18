@@ -1,5 +1,7 @@
 import { randomBytes } from "crypto";
 import { pool } from "./db";
+import { getSchedaById } from "./schedeRepository";
+import type { Scheda } from "./types";
 
 // Alfabeto senza caratteri ambigui (0/O, 1/I/L): il codice è stampato anche in chiaro sotto il QR
 // per essere digitato a mano se il QR è rovinato.
@@ -34,4 +36,12 @@ export async function getOrCreateQrCodice(schedaId: string): Promise<string> {
     }
   }
   throw new Error("Impossibile generare un codice QR univoco");
+}
+
+// Scheda a partire dal codice letto dal QR (maiuscolo/minuscolo indifferente: il codice può essere
+// digitato a mano dall'etichetta). null se il codice non corrisponde a nessuna scheda.
+export async function getSchedaByQrCodice(codice: string): Promise<Scheda | null> {
+  const { rows } = await pool.query(`SELECT id FROM schede WHERE qr_codice = $1`, [codice.trim().toUpperCase()]);
+  if (rows.length === 0) return null;
+  return getSchedaById(rows[0].id as string);
 }

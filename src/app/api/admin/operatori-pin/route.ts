@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOperatori } from "@/lib/operatoriRepository";
-import { getMatricoleConPin } from "@/lib/operatoriPinRepository";
+import { getMatricoleConPin, getMatricoleConPinSolo } from "@/lib/operatoriPinRepository";
 import { getSessionFromRequest } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
@@ -9,8 +9,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Non autorizzato" }, { status: 403 });
   }
   try {
-    const [operatori, conPin] = await Promise.all([getOperatori(), getMatricoleConPin()]);
-    const lista = operatori.map(o => ({ ...o, hasPin: conPin.has(o.matricola) }));
+    const [operatori, conPin, conPinSolo] = await Promise.all([getOperatori(), getMatricoleConPin(), getMatricoleConPinSolo()]);
+    const lista = operatori.map(o => ({ ...o, hasPin: conPin.has(o.matricola), pinSolo: conPinSolo.has(o.matricola) }));
     return NextResponse.json(lista);
   } catch (e) {
     console.error("[admin/operatori-pin GET]", e);
