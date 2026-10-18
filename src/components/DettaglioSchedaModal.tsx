@@ -552,6 +552,16 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
                 Modifica
               </button>
             )}
+            <a href={`/api/schede/${s.id}/etichetta`} target="_blank" rel="noreferrer"
+              title="Etichetta con QR code per richiamare la scheda dal tablet"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13.2px] font-medium transition-colors hover:bg-gray-100"
+              style={{ color: "var(--color-grey-mid)", border: "1px solid #d1d5db", background: "white" }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
+                <path d="M14 14h3v3h-3zM20 14v3M14 20h3M20 20h1" />
+              </svg>
+              Etichetta QR
+            </a>
             {(userRole === "admin" || userRole === "produzione") && (
               <button onClick={handleElimina} disabled={eliminando}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13.2px] font-medium transition-colors hover:bg-red-50 disabled:opacity-50"
