@@ -29,6 +29,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       eventId: id,
       webhookUrl: process.env.N8N_WEBHOOK_FERRAMENTA,
       payload: {
+        evento: "kit_pronto",
+        tipo_kit: "commessa",
         titolo: kit.commessaLabel || kit.commessaId,
         righe: righe.length,
         url: `${getPublicBaseUrl(req)}/ferramenta/kit-commessa/${id}`,

@@ -28,6 +28,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ sch
     eventId: crypto.randomUUID(),
     webhookUrl: process.env.N8N_WEBHOOK_FERRAMENTA,
     payload: {
+      evento: "kit_pronto",
+      tipo_kit: "odp",
       odp: scheda.odp,
       numero_scheda: scheda.numeroScheda,
       righe: righe.length,

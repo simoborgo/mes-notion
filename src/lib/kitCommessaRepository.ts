@@ -222,6 +222,7 @@ export async function spuntaRiga(rigaId: string, { articoloId, operatore }: { ar
         eventId: movimento.id,
         webhookUrl: process.env.N8N_WEBHOOK_FERRAMENTA,
         payload: {
+          evento: "sotto_soglia",
           articolo_id: effettivoArticoloId,
           codice_os1: a.codice_os1,
           descrizione: a.descrizione,

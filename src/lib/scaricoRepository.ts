@@ -191,6 +191,7 @@ export async function chiudiScarico(id: string, operatore: string): Promise<{ wa
           eventId: movimento.id,
           webhookUrl: process.env.N8N_WEBHOOK_FERRAMENTA,
           payload: {
+            evento: "sotto_soglia",
             articolo_id: riga.articolo_id,
             codice_os1: a.codice_os1,
             descrizione: a.descrizione,

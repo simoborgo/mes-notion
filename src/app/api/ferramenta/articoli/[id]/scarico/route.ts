@@ -81,6 +81,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       eventId: movimento.id,
       webhookUrl: process.env.N8N_WEBHOOK_FERRAMENTA,
       payload: {
+        evento: "sotto_soglia",
         articolo_id: id,
         codice_os1: articolo.codiceOs1,
         descrizione: articolo.descrizione,
