@@ -1,7 +1,7 @@
 import { getSchede, getSottoschede } from "@/lib/schedeRepository";
 import { getCommesse } from "@/lib/commesseRepository";
 import { getSchedaIdsInCarico, getDateCaricoPerScheda } from "@/lib/carichiRepository";
-import { getSession } from "@/lib/auth";
+import { getSession, KPI_PRODUZIONE_ROLES } from "@/lib/auth";
 import TabellaSchede from "@/components/TabellaSchede";
 import SchedeSubNav from "@/components/SchedeSubNav";
 import { revalidateSchede } from "./actions";
@@ -13,7 +13,7 @@ export default async function SchedePage() {
 
   return (
     <div className="space-y-5">
-      <SchedeSubNav />
+      <SchedeSubNav mostraKpi={!!session && KPI_PRODUZIONE_ROLES.includes(session.role)} />
       <div className="no-print">
         <h1 className="text-2xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
           Schede di Produzione

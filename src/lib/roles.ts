@@ -54,6 +54,8 @@ export const REPARTI_ROLES: Role[] = ["admin"];
 // a chi poi non vedrebbe comunque quella tab.
 export const APS_GANTT_ROLES: Role[] = ["admin"];
 export const PREVISIONALE_ROLES: Role[] = ["admin"];
+// Dashboard KPI Produzione (Lead Time e costo del lavoro per ODP) — dati di costo, stesso perimetro del Previsionale.
+export const KPI_PRODUZIONE_ROLES: Role[] = ["admin"];
 export const ORARI_TURNO_ROLES: Role[] = ["admin"];
 export const IMPOSTAZIONI_ROLES: Role[] = ["admin"];
 // Creazione/modifica di Commesse e Aree — stesso perimetro di CARICO_ROLES (deciso con l'utente

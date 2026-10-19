@@ -7,19 +7,22 @@ interface Tab {
   href: string;
   label: string;
   match: (pathname: string) => boolean;
+  soloKpi?: boolean;
 }
 
 const TABS: Tab[] = [
   { href: "/schede", label: "Tutte le Schede", match: (p) => p === "/schede" },
   { href: "/schede/lavorazioni-esterne", label: "Lavorazioni Esterne", match: (p) => p.startsWith("/schede/lavorazioni-esterne") },
+  { href: "/schede/kpi-produzione", label: "KPI Produzione", match: (p) => p.startsWith("/schede/kpi-produzione"), soloKpi: true },
 ];
 
-export default function SchedeSubNav() {
+// La tab KPI mostra costi del lavoro: visibile solo a chi può aprire la dashboard (KPI_PRODUZIONE_ROLES).
+export default function SchedeSubNav({ mostraKpi = false }: { mostraKpi?: boolean }) {
   const pathname = usePathname();
 
   return (
     <div className="no-print flex flex-wrap gap-2 pb-3 mb-1 border-b" style={{ borderColor: "#E4E0DA" }}>
-      {TABS.map((t) => {
+      {TABS.filter((t) => !t.soloKpi || mostraKpi).map((t) => {
         const active = t.match(pathname);
         return (
           <Link
