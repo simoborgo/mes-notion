@@ -295,7 +295,7 @@ export default function FormModificaRitiro({ ritiro, schede = [], fornitori = []
               </div>
             </div>
             {form.schedaId && (
-              <SelezioneGiro schedaId={form.schedaId} value={form.giroId} onChange={g => set("giroId", g)} inputCls={inputCls} labelCls={labelCls} />
+              <SelezioneGiro key={form.schedaId} schedaId={form.schedaId} value={form.giroId} onChange={g => set("giroId", g)} inputCls={inputCls} labelCls={labelCls} />
             )}
             <div className="col-span-2">
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Fornitore</label>

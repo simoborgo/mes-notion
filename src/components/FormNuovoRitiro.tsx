@@ -24,11 +24,12 @@ interface Props {
   fornitori?: { id: string; nome: string }[];
   commesse?: Commessa[];
   initialScheda?: Scheda | null;
+  initialGiroId?: string | null; // giro da preselezionare (es. "Pianifica consegna" dalla tab Fornitore Esterno)
   onClose: () => void;
   onCreated: (ritiro: Ritiro) => void;
 }
 
-export default function FormNuovoRitiro({ schede = [], fornitori = [], commesse = [], initialScheda = null, onClose, onCreated }: Props) {
+export default function FormNuovoRitiro({ schede = [], fornitori = [], commesse = [], initialScheda = null, initialGiroId = null, onClose, onCreated }: Props) {
   const [mode, setMode] = useState<"odp" | "commessa">("odp");
   const [form, setForm] = useState({
     causale: "",
@@ -42,7 +43,7 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], commesse 
     schedaId: null as string | null,
     fornitoreId: null as string | null,
     commessaId: null as string | null,
-    giroId: null as string | null,
+    giroId: initialGiroId,
   });
   const [schedaSearch, setSchedaSearch] = useState("");
   const [schedaOpen, setSchedaOpen] = useState(false);
@@ -383,7 +384,7 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], commesse 
               )}
             </div>
             {form.schedaId && (
-              <SelezioneGiro schedaId={form.schedaId} value={form.giroId} onChange={g => set("giroId", g)} autoAttivo inputCls={inputCls} labelCls={labelCls} />
+              <SelezioneGiro key={form.schedaId} schedaId={form.schedaId} value={form.giroId} onChange={g => set("giroId", g)} autoAttivo={!initialGiroId} inputCls={inputCls} labelCls={labelCls} />
             )}
             <div>
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Fornitore</label>

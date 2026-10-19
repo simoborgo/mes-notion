@@ -19,7 +19,6 @@ export default function SelezioneGiro({ schedaId, value, onChange, autoAttivo = 
 
   useEffect(() => {
     let annullato = false;
-    setGiri(null);
     fetch(`/api/schede/${schedaId}/giri`)
       .then((r) => (r.ok ? r.json() : []))
       .then((data: Giro[]) => {
