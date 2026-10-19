@@ -22,10 +22,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ sc
   }
 
   try {
-    const riga = await setNonNecessariaRiga(rigaId, body.nonNecessaria, session.name);
-    void logOperation(session.name, "UPDATE", "kit_ferramenta", schedaId, { rigaId, azione: body.nonNecessaria ? "non-serve" : "serve" });
+    const { riga, ricaricata } = await setNonNecessariaRiga(rigaId, body.nonNecessaria, session.name);
+    void logOperation(session.name, "UPDATE", "kit_ferramenta", schedaId, { rigaId, azione: body.nonNecessaria ? "non-serve" : "serve", ricaricata });
     revalidatePath(`/ferramenta/fogli-scarico/${schedaId}`);
-    return NextResponse.json(riga);
+    if (ricaricata > 0) revalidatePath("/ferramenta");
+    return NextResponse.json({ ...riga, ricaricata });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Errore" }, { status: 400 });
   }

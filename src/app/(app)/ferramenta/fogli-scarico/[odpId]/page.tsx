@@ -59,6 +59,9 @@ export default async function FoglioScaricoDettaglioPage({ params }: { params: P
   for (const m of movimenti) {
     if (m.tipo === "scarico_kanban" || m.tipo === "scarico_a_pezzo") {
       scaricatoPerArticolo.set(m.articoloId, (scaricatoPerArticolo.get(m.articoloId) ?? 0) + m.quantita);
+    } else if (m.tipo === "carico") {
+      // Carichi legati all'ODP = materiale reso a magazzino ("Non serve" su riga già scaricata)
+      scaricatoPerArticolo.set(m.articoloId, (scaricatoPerArticolo.get(m.articoloId) ?? 0) - m.quantita);
     }
   }
 
@@ -153,6 +156,8 @@ export default async function FoglioScaricoDettaglioPage({ params }: { params: P
                           stato={r.statoApprovvigionamento}
                           inArrivoIl={r.inArrivoIl}
                           nonNecessaria={r.nonNecessaria}
+                          preparato={r.stato === "completo"}
+                          scaricato={r.scaricato ?? 0}
                         />
                         </div>
                       </td>

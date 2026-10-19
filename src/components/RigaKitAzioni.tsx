@@ -13,7 +13,7 @@ export const STATO_APPROVVIGIONAMENTO_LABEL: Record<StatoApprovvigionamentoKit, 
 // Azioni del magazziniere su una riga del Kit Ferramenta ODP, nel Foglio di Scarico: segnalare lo
 // stato di approvvigionamento, marcare "non serve", correggere quantità/descrizione, eliminare.
 // Scarica/Preparato restano nei componenti esistenti: qui solo ciò che non è movimento di magazzino.
-export default function RigaKitAzioni({ schedaId, rigaId, quantita, descrizione, testoLibero, stato, inArrivoIl, nonNecessaria }: {
+export default function RigaKitAzioni({ schedaId, rigaId, quantita, descrizione, testoLibero, stato, inArrivoIl, nonNecessaria, preparato, scaricato }: {
   schedaId: string;
   rigaId: string;
   quantita: number;
@@ -22,6 +22,8 @@ export default function RigaKitAzioni({ schedaId, rigaId, quantita, descrizione,
   stato: StatoApprovvigionamentoKit | null;
   inArrivoIl: string | null;
   nonNecessaria: boolean;
+  preparato: boolean; // già preparato: restano solo le azioni di annullamento ("Non serve")
+  scaricato: number; // pezzi già scaricati per questo ODP (da ricaricare se "Non serve")
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -82,7 +84,7 @@ export default function RigaKitAzioni({ schedaId, rigaId, quantita, descrizione,
 
   return (
     <div className="flex flex-col items-end gap-1.5">
-      {!nonNecessaria && (
+      {!nonNecessaria && !preparato && (
         <div className="flex items-center gap-1 flex-wrap justify-end">
           <select
             className={inputCls}
@@ -107,7 +109,7 @@ export default function RigaKitAzioni({ schedaId, rigaId, quantita, descrizione,
         </div>
       )}
 
-      {modifica ? (
+      {modifica && !preparato ? (
         <div className="flex items-center gap-1 flex-wrap justify-end">
           {testoLibero && (
             <input className={inputCls + " w-44"} value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Descrizione" />
@@ -123,14 +125,21 @@ export default function RigaKitAzioni({ schedaId, rigaId, quantita, descrizione,
           <button
             type="button"
             disabled={saving}
-            onClick={() => chiama(`${base}/non-necessaria`, "PATCH", { nonNecessaria: !nonNecessaria })}
+            onClick={() => {
+              if (!nonNecessaria && scaricato > 0 && !confirm(`Segnare "${descrizione}" come non necessario? ${scaricato} pz già scaricati verranno ricaricati a magazzino.`)) return;
+              void chiama(`${base}/non-necessaria`, "PATCH", { nonNecessaria: !nonNecessaria });
+            }}
             className={btn}
             style={nonNecessaria ? { color: "#374151", background: "#F3F4F6", borderColor: "#9CA3AF" } : grigio}
           >
             {nonNecessaria ? "↺ Serve" : "Non serve"}
           </button>
-          <button type="button" disabled={saving} onClick={() => setModifica(true)} className={btn} style={grigio}>Modifica</button>
-          <button type="button" disabled={saving} onClick={elimina} className={btn} style={{ color: "#991B1B", borderColor: "#FCA5A5", background: "white" }}>Elimina</button>
+          {!preparato && (
+            <>
+              <button type="button" disabled={saving} onClick={() => setModifica(true)} className={btn} style={grigio}>Modifica</button>
+              <button type="button" disabled={saving} onClick={elimina} className={btn} style={{ color: "#991B1B", borderColor: "#FCA5A5", background: "white" }}>Elimina</button>
+            </>
+          )}
         </div>
       )}
       {errore && <p className="text-xs" style={{ color: "#991B1B" }}>{errore}</p>}

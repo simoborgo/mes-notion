@@ -1,4 +1,6 @@
 import { pool } from "./db";
+import { updateArticoloFerramentaGiacenza } from "./articoliFerramentaRepository";
+import { registraMovimento } from "./ferramentaRepository";
 import { updateSchedaKitFerramentaDescrizione } from "./schedeRepository";
 import type { DistintaKitRiga, StatoApprovvigionamentoKit } from "./types";
 
@@ -52,9 +54,9 @@ export async function getStatoPreparazionePerOdp(odpIds: string[]): Promise<Map<
     `SELECT r.odp_id, r.articolo_id, r.quantita, r.preparata_il, r.non_necessaria, COALESCE(m.scaricato, 0) AS scaricato
      FROM kit_ferramenta_righe r
      LEFT JOIN (
-       SELECT odp_id, articolo_id, SUM(quantita) AS scaricato
+       SELECT odp_id, articolo_id, SUM(CASE WHEN tipo = 'carico' THEN -quantita ELSE quantita END) AS scaricato
        FROM movimenti_ferramenta
-       WHERE tipo IN ('scarico_kanban', 'scarico_a_pezzo') AND odp_id = ANY($1)
+       WHERE tipo IN ('scarico_kanban', 'scarico_a_pezzo', 'carico') AND odp_id = ANY($1)
        GROUP BY odp_id, articolo_id
      ) m ON m.odp_id = r.odp_id AND m.articolo_id = r.articolo_id::text
      WHERE r.odp_id = ANY($1)`,
@@ -165,18 +167,68 @@ export async function setStatoApprovvigionamentoRiga(
   return mapRow(rows[0]);
 }
 
-// "Non serve": il componente richiesto in distinta non è necessario. Toggle reversibile; la riga
-// resta in distinta (traccia di cosa era stato chiesto) ma esce dal calcolo dello stato ODP.
-export async function setNonNecessariaRiga(id: string, nonNecessaria: boolean, operatore: string): Promise<DistintaKitRiga> {
-  const { rowCount } = await pool.query(
-    nonNecessaria
-      ? `UPDATE kit_ferramenta_righe SET non_necessaria = true, non_necessaria_da = $2, non_necessaria_il = now(), aggiornato_il = now() WHERE id = $1`
-      : `UPDATE kit_ferramenta_righe SET non_necessaria = false, non_necessaria_da = NULL, non_necessaria_il = NULL, aggiornato_il = now() WHERE id = $1`,
-    nonNecessaria ? [id, operatore] : [id],
-  );
-  if (!rowCount) throw new Error("Riga non trovata");
+// "Non serve": il componente richiesto in distinta non è necessario. Toggle; la riga resta in
+// distinta (traccia di cosa era stato chiesto) ma esce dal calcolo dello stato ODP. Se il
+// materiale era già stato scaricato per questo ODP, viene RICARICATO a magazzino con un movimento
+// di carico legato all'ODP (in transazione, stessa logica di giacenza degli scarichi). I carichi
+// legati all'ODP sono sottratti dal "scaricato" mostrato/calcolato, quindi tornando a "Serve" la
+// riga risulta di nuovo da scaricare e non si ricarica due volte. Ritorna la quantità ricaricata.
+export async function setNonNecessariaRiga(id: string, nonNecessaria: boolean, operatore: string): Promise<{ riga: DistintaKitRiga; ricaricata: number }> {
+  const client = await pool.connect();
+  let ricaricata = 0;
+  try {
+    await client.query("BEGIN");
+    const { rows: rigaRows } = await client.query(`SELECT odp_id, articolo_id FROM kit_ferramenta_righe WHERE id = $1 FOR UPDATE`, [id]);
+    if (rigaRows.length === 0) throw new Error("Riga non trovata");
+    const { odp_id: odpId, articolo_id: articoloId } = rigaRows[0];
+
+    if (nonNecessaria && articoloId) {
+      const { rows: nettoRows } = await client.query(
+        `SELECT COALESCE(SUM(CASE WHEN tipo = 'carico' THEN -quantita ELSE quantita END), 0) AS netto,
+                MAX(odp_label) AS odp_label
+         FROM movimenti_ferramenta
+         WHERE odp_id = $1 AND articolo_id = $2 AND tipo IN ('scarico_kanban', 'scarico_a_pezzo', 'carico')`,
+        [odpId, String(articoloId)],
+      );
+      const netto = Number(nettoRows[0].netto);
+      if (netto > 0) {
+        const { rows: artRows } = await client.query(`SELECT codice_os1, giacenza_attuale FROM articoli_ferramenta WHERE id = $1 FOR UPDATE`, [articoloId]);
+        if (artRows.length === 0) throw new Error("Articolo non trovato");
+        const giacenzaPrecedente = Number(artRows[0].giacenza_attuale);
+        const giacenzaRisultante = giacenzaPrecedente + netto;
+        await updateArticoloFerramentaGiacenza(articoloId, giacenzaRisultante, client);
+        await registraMovimento({
+          articoloId: String(articoloId),
+          codiceOs1: artRows[0].codice_os1 || null,
+          tipo: "carico",
+          quantita: netto,
+          giacenzaPrecedente,
+          giacenzaRisultante,
+          operatore,
+          fonte: "mes",
+          note: `Reso a magazzino — componente non necessario${nettoRows[0].odp_label ? ` (${nettoRows[0].odp_label})` : ""}`,
+          odpId,
+          odpLabel: nettoRows[0].odp_label ?? null,
+        }, client);
+        ricaricata = netto;
+      }
+    }
+
+    await client.query(
+      nonNecessaria
+        ? `UPDATE kit_ferramenta_righe SET non_necessaria = true, non_necessaria_da = $2, non_necessaria_il = now(), stato_approvvigionamento = NULL, in_arrivo_il = NULL, aggiornato_il = now() WHERE id = $1`
+        : `UPDATE kit_ferramenta_righe SET non_necessaria = false, non_necessaria_da = NULL, non_necessaria_il = NULL, aggiornato_il = now() WHERE id = $1`,
+      nonNecessaria ? [id, operatore] : [id],
+    );
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
   const { rows } = await pool.query(`${SELECT_JOIN} WHERE r.id = $1`, [id]);
-  return mapRow(rows[0]);
+  return { riga: mapRow(rows[0]), ricaricata };
 }
 
 // Righe a testo libero (articolo_id NULL) non hanno giacenza da scaricare — "Scarica" punterebbe
