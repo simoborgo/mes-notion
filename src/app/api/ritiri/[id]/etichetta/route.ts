@@ -4,6 +4,7 @@ import QRCode from "qrcode";
 import fs from "fs";
 import path from "path";
 import { getSchedaById } from "@/lib/schedeRepository";
+import { getOrCreateQrCodice } from "@/lib/schedaQrRepository";
 import { getRitiroById } from "@/lib/ritiriRepository";
 import { getCommessaById } from "@/lib/commesseRepository";
 import { getSessionFromRequest } from "@/lib/auth";
@@ -90,17 +91,29 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const tipoLabel = isRitiro ? "RITIRO" : "CONSEGNA";
     const idShort = id.replace(/-/g, "").slice(0, 8).toUpperCase();
 
-    // QR: punta al PDF scheda (proxy MES, sempre valido) se disponibile,
-    // altrimenti fallback alla pagina Notion (utile per movimenti solo-Commessa)
-    const qrTarget = hasSchedaPdf
-      ? `${getPublicBaseUrl(req)}/api/ritiri/${id}/scheda-pdf`
-      : ritiro.notionUrl;
-    const qrCaption = hasSchedaPdf ? "Apri PDF Scheda" : "Apri Scheda";
+    // QR: punta al PDF scheda (proxy MES, sempre valido) se disponibile; senza PDF, alla scheda
+    // stessa (/q/<codice>, la stessa pagina del QR stampato sulla scheda) o, per i movimenti
+    // solo-Commessa, alla pagina della commessa. Senza nessun collegamento l'etichetta si stampa
+    // comunque, senza QR (QRCode.toString rifiuta il testo vuoto).
+    let qrTarget = "";
+    let qrCaption = "";
+    if (hasSchedaPdf) {
+      qrTarget = `${getPublicBaseUrl(req)}/api/ritiri/${id}/scheda-pdf`;
+      qrCaption = "Apri PDF Scheda";
+    } else if (ritiro.numeroOrdineId) {
+      qrTarget = `${getPublicBaseUrl(req)}/q/${await getOrCreateQrCodice(ritiro.numeroOrdineId)}`;
+      qrCaption = "Apri Scheda";
+    } else if (ritiro.commessaId) {
+      qrTarget = `${getPublicBaseUrl(req)}/commesse/${ritiro.commessaId}`;
+      qrCaption = "Apri Commessa";
+    }
 
-    const qrSvg = await QRCode.toString(qrTarget, {
-      type: "svg", width: 120, margin: 1,
-      color: { dark: "#1A1918", light: "#ffffff" },
-    });
+    const qrSvg = qrTarget
+      ? await QRCode.toString(qrTarget, {
+          type: "svg", width: 120, margin: 1,
+          color: { dark: "#1A1918", light: "#ffffff" },
+        })
+      : "";
 
     // Secondo QR — Controllo Qualità: solo sui Ritiri (materiale che rientra)
     // collegati a una Rilavorazione, punta alla pagina mobile "Segna Rientrata"
@@ -260,13 +273,13 @@ body{font-family:'Jost',sans-serif;background:#fff;margin:0;padding:0;width:100%
   ${extraRows.join("\n  ")}
   ${badgesHtml}
   <div class="qrwrap"${qrwrapStyle}>
-    <div class="qr-col">
+    ${qrSvg ? `<div class="qr-col">
       <div class="qrbox">${qrSvg}</div>
       <div class="qr-cap">
         <div class="qr-apri">${qrCaption}</div>
         <div class="qr-rif">Rif. ${codeStr}</div>
       </div>
-    </div>
+    </div>` : ""}
     ${secondColHtml}
   </div>
   <div class="ft">
