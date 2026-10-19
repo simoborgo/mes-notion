@@ -6,6 +6,7 @@ import { getMovimentiByOdp } from "@/lib/ferramentaRepository";
 import { getDistintaKitByOdp } from "@/lib/kitFerramentaRepository";
 import { getArticoliFerramenta } from "@/lib/articoliFerramentaRepository";
 import AggiungiArticoloKit from "@/components/AggiungiArticoloKit";
+import IntestazioneSchedaMagazzino from "@/components/IntestazioneSchedaMagazzino";
 import PreparataToggle from "@/components/PreparataToggle";
 import RigaKitAzioni, { STATO_APPROVVIGIONAMENTO_LABEL } from "@/components/RigaKitAzioni";
 
@@ -81,13 +82,9 @@ export default async function FoglioScaricoDettaglioPage({ params }: { params: P
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
-          Richiesta Ferramenta ODP — {scheda.numeroScheda || scheda.odp}
-        </h1>
-        <p className="text-sm mt-1" style={{ color: "var(--color-grey-mid)" }}>
-          {scheda.odp} {scheda.clienteInfo ? `— ${scheda.clienteInfo}` : ""}
-        </p>
+      <div className="space-y-2">
+        <p className="text-sm font-semibold" style={{ color: "var(--color-grey-mid)" }}>Richiesta Ferramenta ODP</p>
+        <IntestazioneSchedaMagazzino scheda={scheda} />
       </div>
 
       <div>

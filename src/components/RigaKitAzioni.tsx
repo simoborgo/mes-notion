@@ -125,6 +125,7 @@ export default function RigaKitAzioni({ schedaId, rigaId, quantita, descrizione,
           <button
             type="button"
             disabled={saving}
+            title={nonNecessaria ? undefined : "Ricarica a magazzino"}
             onClick={() => {
               if (!nonNecessaria && scaricato > 0 && !confirm(`Segnare "${descrizione}" come non necessario? ${scaricato} pz già scaricati verranno ricaricati a magazzino.`)) return;
               void chiama(`${base}/non-necessaria`, "PATCH", { nonNecessaria: !nonNecessaria });
@@ -132,7 +133,7 @@ export default function RigaKitAzioni({ schedaId, rigaId, quantita, descrizione,
             className={btn}
             style={nonNecessaria ? { color: "#374151", background: "#F3F4F6", borderColor: "#9CA3AF" } : grigio}
           >
-            {nonNecessaria ? "↺ Serve" : "Non serve"}
+            {nonNecessaria ? "↺ Serve" : "Non serve più"}
           </button>
           {!preparato && (
             <>
