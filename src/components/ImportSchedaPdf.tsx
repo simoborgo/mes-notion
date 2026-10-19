@@ -219,6 +219,9 @@ export default function ImportSchedaPdf() {
           fornitoreId: match ? match.fornitore.id : null,
           fornitoreMatch: match ? match.tipo : null,
           stato: it.stato ?? (isExternal ? "In lavorazione Esterna" : "In lavorazione"),
+          // La data del PDF di una sottoscheda esterna è la consegna del fornitore → Data Rientro Prevista.
+          // (La Data Consegna Prevista delle sottoschede è sempre quella della scheda principale.)
+          dataRientroPrevista: it.dataRientroPrevista ?? (idx > 0 && isExternal ? it.termineDiConsegna : null),
           includeAsSubitem: idx === 0 ? undefined : isExternal,
           // Deve essere un valore reale nello state fin da subito, non solo il fallback
           // visivo dell'input "Gruppo" (che mostrava idx senza mai salvarlo) — altrimenti
@@ -265,6 +268,7 @@ export default function ImportSchedaPdf() {
         next[idx] = {
           ...next[idx],
           stato: "In lavorazione Esterna",
+          dataRientroPrevista: next[idx].dataRientroPrevista ?? next[idx].termineDiConsegna,
           includeAsSubitem: true,
           gruppo: altra !== -1 ? next[altra].gruppo ?? altra : next[idx].gruppo ?? idx,
         };
@@ -599,7 +603,22 @@ export default function ImportSchedaPdf() {
                       )}
                     </div>
                   </div>
-                  {fieldRow("Data Consegna Prevista", item.termineDiConsegna ?? "", (v) => updateItem(idx, "termineDiConsegna", v || null), "date")}
+                  {idx === 0
+                    ? fieldRow("Data Consegna Prevista", item.termineDiConsegna ?? "", (v) => updateItem(idx, "termineDiConsegna", v || null), "date")
+                    : (
+                      <div className="flex gap-2 items-center" style={{ minHeight: 32 }}>
+                        <label className="text-xs shrink-0" style={{ color: "#6b6966", width: 180 }}>Data Consegna Prevista</label>
+                        <input
+                          type="date"
+                          value={items[0]?.termineDiConsegna ?? ""}
+                          disabled
+                          title="Le sottoschede hanno la stessa data di consegna della scheda principale (pagina 1)"
+                          className="flex-1 text-xs px-2 py-1 rounded"
+                          style={{ border: "1px solid #e5e4e0", background: "#f3f4f6", color: "#6b7280" }}
+                        />
+                        <span className="text-xs shrink-0" style={{ color: "#9ca3af" }}>= scheda principale</span>
+                      </div>
+                    )}
                   <div className="flex gap-2 items-center">
                     <label className="text-xs shrink-0" style={{ color: "#6b6966", width: 180 }}>
                       Quantità
@@ -619,7 +638,12 @@ export default function ImportSchedaPdf() {
                     </label>
                     <select
                       value={item.stato ?? "In lavorazione"}
-                      onChange={(e) => updateItem(idx, "stato", e.target.value)}
+                      onChange={(e) => {
+                        updateItem(idx, "stato", e.target.value);
+                        if (e.target.value === "In lavorazione Esterna" && !item.dataRientroPrevista && idx > 0) {
+                          updateItem(idx, "dataRientroPrevista", item.termineDiConsegna);
+                        }
+                      }}
                       className="text-xs px-2 py-1 rounded"
                       style={{ border: "1px solid #e5e4e0", background: "#fafaf9", color: "var(--color-black)" }}
                     >

@@ -191,7 +191,9 @@ export async function POST(req: NextRequest) {
       fornitore: sub.fornitore,
       fornitoreId: rappresentante.fornitoreId,
       quantita: sub.quantita,
-      dataProduzionePrevista: sub.termineDiConsegna ?? oggi,
+      // La consegna prevista delle sottoschede è quella della scheda principale (letta dal PDF o inserita
+      // in anteprima); la data del fornitore è dataRientroPrevista, che segue il PDF.
+      dataProduzionePrevista: parent.termineDiConsegna ?? oggi,
       dataSchedaRicevuta: oggi,
       produzioneEsterna: subStato === "In lavorazione Esterna",
       dataRientroPrevista: sub.dataRientroPrevista ?? null,
@@ -201,7 +203,7 @@ export async function POST(req: NextRequest) {
       pdfFilename: subPdfFilename,
     });
     created.push({ odp, pageId: subPage.id, numeroScheda: subPage.numeroScheda, tipologia: "Sottoscheda" });
-    console.log(`[import-scheda] Sottoscheda ${g + 1}/${orderedGroups.length} creata: ${subPage.id} (pagine ${pageIndices.map((p) => p + 1).join(",")}, dataProduzionePrevista=${sub.termineDiConsegna})`);
+    console.log(`[import-scheda] Sottoscheda ${g + 1}/${orderedGroups.length} creata: ${subPage.id} (pagine ${pageIndices.map((p) => p + 1).join(",")}, dataProduzionePrevista=${parent.termineDiConsegna}, dataRientroPrevista=${sub.dataRientroPrevista})`);
   }
 
   const n8nWebhook = process.env.N8N_WEBHOOK_IMPORT_LLM;
