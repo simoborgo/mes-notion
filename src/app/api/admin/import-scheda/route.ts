@@ -4,7 +4,7 @@ import { PDFDocument } from "pdf-lib";
 import { getSessionFromRequest } from "@/lib/auth";
 import { getNextOdp, createSchedaPage } from "@/lib/schedeRepository";
 import { findCommessaByNumber } from "@/lib/commesseRepository";
-import { findFornitoreIdByName } from "@/lib/fornitoriRepository";
+import { findFornitoreIdByNomePdf } from "@/lib/fornitoriRepository";
 import { generaQrCodice } from "@/lib/schedaQrRepository";
 import { timbraQr } from "@/lib/pdfQrStamp";
 import type { QrPosizione } from "@/lib/schedaPdfLayoutParser";
@@ -18,6 +18,7 @@ interface ParsedItem {
   codiceArticolo?: string | null;
   posizione?: string | null;
   fornitore?: string | null;
+  fornitoreId?: string | null; // scelto in anteprima dal menu dell'anagrafica: ha la precedenza sul nome
   quantita?: number | null;
   stato?: string;
   dataRientroPrevista?: string | null;
@@ -85,10 +86,13 @@ export async function POST(req: NextRequest) {
   if (thumbPayload) thumbnailBuffer = Buffer.from(thumbPayload, "base64");
   const thumbnailFilename = thumbnailBuffer ? `copertina-${odp}.jpg` : undefined;
 
-  // Resolve fornitore names → Notion relation IDs (in parallel)
-  const allFornitoriNames = items.map((it) => it.fornitore ?? null);
+  // Fornitore: l'id scelto in anteprima (menu dell'anagrafica) ha la precedenza; senza scelta
+  // esplicita si abbina il nome letto dal PDF.
   const fornitoreIds = await Promise.all(
-    allFornitoriNames.map((name) => (name ? findFornitoreIdByName(name) : Promise.resolve(null))),
+    items.map((it) => {
+      if (it.fornitoreId !== undefined) return Promise.resolve(it.fornitoreId);
+      return it.fornitore ? findFornitoreIdByNomePdf(it.fornitore) : Promise.resolve(null);
+    }),
   );
 
   // QR della scheda timbrato sul PDF allegato (e su ogni sottoscheda): il codice si genera qui, prima

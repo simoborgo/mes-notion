@@ -1,5 +1,6 @@
 import { pool } from "./db";
 import type { Fornitore } from "./types";
+import { abbinaFornitore } from "./fornitoreMatch";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapRow(r: any): Fornitore {
@@ -69,4 +70,13 @@ export async function findFornitoreMatch(name: string, codiceOs1?: string | null
 export async function findFornitoreIdByName(name: string): Promise<string | null> {
   const match = await findFornitoreMatch(name);
   return match?.id ?? null;
+}
+
+// Solo per l'import delle schede da PDF, quando l'anteprima non ha una scelta esplicita del
+// fornitore. Abbinamento per parole (ignora punteggiatura e forma societaria), più prudente del
+// match per sottostringa di findFornitoreMatch: con più candidati non sceglie. Vedi fornitoreMatch.ts.
+// Separata da findFornitoreIdByName per non cambiare il comportamento dei Ritiri.
+export async function findFornitoreIdByNomePdf(nome: string): Promise<string | null> {
+  const list = await getFornitoriList();
+  return abbinaFornitore(nome, list)?.fornitore.id ?? null;
 }

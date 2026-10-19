@@ -1,6 +1,8 @@
 "use client";
 
 import { useRef, useState, useCallback, DragEvent, ChangeEvent } from "react";
+import type { Fornitore } from "@/lib/types";
+import { abbinaFornitore } from "@/lib/fornitoreMatch";
 
 interface ParsedItem {
   pagina?: number;
@@ -12,6 +14,10 @@ interface ParsedItem {
   codiceArticolo?: string | null;
   posizione?: string | null;
   fornitore?: string | null;
+  // fornitore scelto dall'anagrafica (menu in anteprima); fornitorePdf = testo letto dal PDF, solo come riferimento
+  fornitoreId?: string | null;
+  fornitorePdf?: string | null;
+  fornitoreMatch?: "esatto" | "parziale" | null;
   quantita?: number | null;
   stato?: string;
   dataRientroPrevista?: string | null;
@@ -139,6 +145,7 @@ export default function ImportSchedaPdf() {
   const [thumbnailBase64, setThumbnailBase64] = useState<string | null>(null);
   const [pageThumbnails, setPageThumbnails] = useState<string[]>([]);
   const [pdfBase64, setPdfBase64] = useState<string | null>(null);
+  const [fornitori, setFornitori] = useState<Fornitore[]>([]);
   const [items, setItems] = useState<ParsedItem[]>([]);
   const [paginePersi, setPaginePersi] = useState<number[]>([]);
   const [result, setResult] = useState<ImportResult | null>(null);
@@ -182,21 +189,35 @@ export default function ImportSchedaPdf() {
       if (!res.ok || !data.ok) throw new Error(data.error ?? "Errore parsing");
 
       setPaginePersi(data.paginePersi ?? []);
+      // Anagrafica fornitori: il nome letto dal PDF ("PORRO", "CVM") si abbina a quella del DB e il
+      // fornitore si sceglie da un menu. Se il caricamento fallisce si prosegue senza abbinamento.
+      const anagrafica: Fornitore[] = await fetch("/api/fornitori")
+        .then((r) => (r.ok ? r.json() : []))
+        .then((j) => (Array.isArray(j) ? j : []))
+        .catch(() => []);
+      setFornitori(anagrafica);
+
       // Le pagine di uno stesso fornitore esterno (dalla seconda in poi) finiscono nella stessa
       // sottoscheda: stesso numero di gruppo = il primo indice di pagina di quel fornitore.
-      // Nome normalizzato così "C.V.M." e "CVM" coincidono; resta modificabile a mano in preview.
+      // Si raggruppa per fornitore abbinato (id), altrimenti per nome normalizzato così
+      // "C.V.M." e "CVM" coincidono; resta modificabile a mano in preview.
       const gruppoFornitore = new Map<string, number>();
       const chiaveFornitore = (f: string) => f.toUpperCase().replace(/[^A-Z0-9]/g, "");
       setItems((data.items ?? []).map((it: ParsedItem, idx: number) => {
         const isExternal = !!(it.fornitore && it.fornitore.toUpperCase() !== "MODAR");
+        const match = isExternal ? abbinaFornitore(it.fornitore!, anagrafica) : null;
         let gruppoAuto = idx;
         if (idx > 0 && isExternal) {
-          const k = chiaveFornitore(it.fornitore!);
+          const k = match ? `id:${match.fornitore.id}` : chiaveFornitore(it.fornitore!);
           if (!gruppoFornitore.has(k)) gruppoFornitore.set(k, idx);
           gruppoAuto = gruppoFornitore.get(k)!;
         }
         return {
           ...it,
+          fornitorePdf: it.fornitore ?? null,
+          fornitore: match ? match.fornitore.nome : it.fornitore,
+          fornitoreId: match ? match.fornitore.id : null,
+          fornitoreMatch: match ? match.tipo : null,
           stato: it.stato ?? (isExternal ? "In lavorazione Esterna" : "In lavorazione"),
           includeAsSubitem: idx === 0 ? undefined : isExternal,
           // Deve essere un valore reale nello state fin da subito, non solo il fallback
@@ -231,6 +252,26 @@ export default function ImportSchedaPdf() {
     },
     [processFile],
   );
+
+  // Scelta del fornitore dal menu: aggiorna id e nome. Per le pagine dopo la prima, un fornitore
+  // scelto vuol dire lavorazione esterna (sottoscheda inclusa) e la pagina si unisce al gruppo
+  // delle altre pagine dello stesso fornitore.
+  const scegliFornitore = useCallback((idx: number, fornitoreId: string | null) => {
+    setItems((prev) => {
+      const f = fornitoreId ? fornitori.find((x) => x.id === fornitoreId) : null;
+      const next = prev.map((it, i) => (i === idx ? { ...it, fornitoreId, fornitore: f ? f.nome : null, fornitoreMatch: null } : it));
+      if (idx > 0 && fornitoreId) {
+        const altra = next.findIndex((it, i) => i > 0 && i !== idx && it.fornitoreId === fornitoreId && it.includeAsSubitem === true);
+        next[idx] = {
+          ...next[idx],
+          stato: "In lavorazione Esterna",
+          includeAsSubitem: true,
+          gruppo: altra !== -1 ? next[altra].gruppo ?? altra : next[idx].gruppo ?? idx,
+        };
+      }
+      return next;
+    });
+  }, [fornitori]);
 
   const updateItem = useCallback(
     (idx: number, field: keyof ParsedItem, value: string | number | boolean | null) => {
@@ -534,7 +575,30 @@ export default function ImportSchedaPdf() {
                   {fieldRow("Commessa Nr *", item.commessaNr, (v) => updateItem(idx, "commessaNr", v))}
                   {fieldRow("Posizione", item.posizione ?? "", (v) => updateItem(idx, "posizione", v || null))}
                   {fieldRow("Codice Articolo", item.codiceArticolo ?? "", (v) => updateItem(idx, "codiceArticolo", v || null))}
-                  {fieldRow("Fornitore", item.fornitore ?? "", (v) => updateItem(idx, "fornitore", v || null))}
+                  <div className="flex gap-2 items-start" style={{ minHeight: 32 }}>
+                    <label className="text-xs shrink-0 pt-2" style={{ color: "#6b6966", width: 180 }}>Fornitore</label>
+                    <div className="flex-1 min-w-0">
+                      <select
+                        value={item.fornitoreId ?? ""}
+                        onChange={(e) => scegliFornitore(idx, e.target.value || null)}
+                        className="w-full text-xs px-2 py-1 rounded"
+                        style={{ border: "1px solid #e5e4e0", background: "#fafaf9", color: "var(--color-black)" }}
+                      >
+                        <option value="">— nessuno (lavorazione interna) —</option>
+                        {fornitori.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
+                      </select>
+                      {item.fornitorePdf && item.fornitorePdf.toUpperCase() !== "MODAR" && !item.fornitoreId && (
+                        <p className="text-xs mt-0.5" style={{ color: "#92400e" }}>
+                          Nel PDF: «{item.fornitorePdf}» — nessuna corrispondenza univoca in anagrafica, scegli dall&apos;elenco
+                        </p>
+                      )}
+                      {item.fornitoreMatch === "parziale" && item.fornitoreId && (
+                        <p className="text-xs mt-0.5" style={{ color: "#92400e" }}>
+                          Abbinato per somiglianza a «{item.fornitorePdf}»: verifica che sia il fornitore giusto
+                        </p>
+                      )}
+                    </div>
+                  </div>
                   {fieldRow("Data Consegna Prevista", item.termineDiConsegna ?? "", (v) => updateItem(idx, "termineDiConsegna", v || null), "date")}
                   <div className="flex gap-2 items-center">
                     <label className="text-xs shrink-0" style={{ color: "#6b6966", width: 180 }}>
