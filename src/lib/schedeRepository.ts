@@ -5,7 +5,7 @@ import { STATI_CHIUSI_ODP } from "./types";
 import { codiciSpecialiPerCommessa, ODP_SPECIALI } from "./attivitaSpecialiCommessa";
 import { getCommesse, getCommessaFolderId, setCommessaFolderId } from "./commesseRepository";
 import { generaFasiPerScheda } from "./schedeFasiRepository";
-import { applicaDatiEsterniAlGiroAttivo } from "./giriRepository";
+import { applicaDatiEsterniAlGiroAttivo, impostaStatoGiro } from "./giriRepository";
 import { ricalcolaPiano } from "./apsSchedulerRepository";
 import {
   getOrCreateCommessaFolder, getOrCreateSchedaFolder, getOrCreateAllegatiFolder,
@@ -467,20 +467,24 @@ export async function completaSottoschedeAperte(parentId: string): Promise<strin
   return rows.map((r) => r.id);
 }
 
-// Ritiro → Fatto: materiale rientrato dal fornitore
-export async function updateSchedaRientrato(id: string): Promise<void> {
+// Ritiro → Fatto: materiale rientrato dal fornitore. Con `giroId` agisce sul giro del movimento,
+// senza (ritiri storici non collegati a un giro) sul giro attivo della scheda.
+export async function updateSchedaRientrato(id: string, giroId?: string | null): Promise<void> {
   await pool.query(`UPDATE schede SET stato = 'In lavorazione', aggiornato_il = now() WHERE id = $1`, [id]);
-  await applicaDatiEsterniAlGiroAttivo(id, { statoProdEsterna: "Rientrato" });
+  if (giroId) await impostaStatoGiro(giroId, "Rientrato");
+  else await applicaDatiEsterniAlGiroAttivo(id, { statoProdEsterna: "Rientrato" });
 }
 
 // Ritiro rilavorazione → Fatto: pezzo tornato fisicamente, in attesa di verifica
-export async function updateRilavorazioneRientrata(id: string): Promise<void> {
-  await applicaDatiEsterniAlGiroAttivo(id, { statoProdEsterna: "Rientrato" });
+export async function updateRilavorazioneRientrata(id: string, giroId?: string | null): Promise<void> {
+  if (giroId) await impostaStatoGiro(giroId, "Rientrato");
+  else await applicaDatiEsterniAlGiroAttivo(id, { statoProdEsterna: "Rientrato" });
 }
 
 // Consegna → Fatto: materiale consegnato al fornitore, ora in lavorazione
-export async function updateSchedaConsegnaFatta(id: string): Promise<void> {
-  await applicaDatiEsterniAlGiroAttivo(id, { statoProdEsterna: "In Lavorazione" });
+export async function updateSchedaConsegnaFatta(id: string, giroId?: string | null): Promise<void> {
+  if (giroId) await impostaStatoGiro(giroId, "In Lavorazione");
+  else await applicaDatiEsterniAlGiroAttivo(id, { statoProdEsterna: "In Lavorazione" });
 }
 
 export async function updateSchedaKitFerramenta(id: string, stato: "Si" | "No" | null): Promise<Scheda> {

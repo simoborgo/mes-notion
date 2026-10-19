@@ -1,5 +1,6 @@
 import type { PoolClient } from "pg";
 import { pool, dateToStr } from "./db";
+import { dataOggiRoma } from "./oraLocale";
 import type { Giro, GiroInput } from "./types";
 
 // Giri esterni di una Scheda (vedi verifiche-backend/schema_schede_giri.sql).
@@ -199,4 +200,32 @@ export async function applicaDatiEsterniAlGiroAttivo(
     );
     await sincronizzaRiepilogo(client, schedaId, true);
   });
+}
+
+// `soloAperto`: ignora il giro se è già rientrato (un nuovo movimento non deve riaprirlo).
+export async function getGiroAttivoId(schedaId: string, soloAperto = false): Promise<string | null> {
+  const { rows } = await pool.query(
+    `SELECT id FROM schede_giri WHERE scheda_id = $1 ${soloAperto ? "AND stato <> 'Rientrato'" : ""}
+     ORDER BY (stato = 'Rientrato'), ordine DESC LIMIT 1`,
+    [schedaId],
+  );
+  return rows.length ? (rows[0].id as string) : null;
+}
+
+// Cambia lo stato di un giro (Consegna Fatta → "In Lavorazione", Ritiro Fatto o scansione QR →
+// "Rientrato"), valorizzando la data di uscita/rientro effettivo se ancora vuota.
+export async function impostaStatoGiro(giroId: string, stato: "In Lavorazione" | "Rientrato"): Promise<Giro> {
+  await inTransazione(async (client) => {
+    const { rows } = await client.query(
+      `UPDATE schede_giri SET stato = $2,
+         data_uscita = CASE WHEN $2 = 'In Lavorazione' THEN COALESCE(data_uscita, $3::date) ELSE data_uscita END,
+         data_rientro_effettiva = CASE WHEN $2 = 'Rientrato' THEN COALESCE(data_rientro_effettiva, $3::date) ELSE data_rientro_effettiva END,
+         aggiornato_il = now()
+       WHERE id = $1 RETURNING scheda_id`,
+      [giroId, stato, dataOggiRoma()],
+    );
+    if (rows.length === 0) throw new Error(`Giro non trovato: ${giroId}`);
+    await sincronizzaRiepilogo(client, rows[0].scheda_id);
+  });
+  return getGiroById(giroId);
 }

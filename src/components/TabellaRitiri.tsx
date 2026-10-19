@@ -115,6 +115,11 @@ function RifCell({ r, schedeMap }: { r: Ritiro; schedeMap: Map<string, Scheda> }
       {sub && (
         <div className="text-xs mt-0.5 tabular-nums" style={{ color: "var(--color-grey-mid)" }}>{sub}</div>
       )}
+      {r.giroOrdine != null && (
+        <div className="text-xs mt-0.5 font-medium" style={{ color: "#4338CA" }}>
+          Giro {r.giroOrdine}{r.giroLavorazione ? ` · ${r.giroLavorazione}` : ""}
+        </div>
+      )}
     </div>
   );
 }

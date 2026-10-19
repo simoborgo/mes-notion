@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
+import SelezioneGiro from "./SelezioneGiro";
 import type { Ritiro, Scheda, Commessa } from "@/lib/types";
 
 const TIPI = ["Ritiro", "Consegna"];
@@ -41,6 +42,7 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], commesse 
     schedaId: null as string | null,
     fornitoreId: null as string | null,
     commessaId: null as string | null,
+    giroId: null as string | null,
   });
   const [schedaSearch, setSchedaSearch] = useState("");
   const [schedaOpen, setSchedaOpen] = useState(false);
@@ -80,7 +82,7 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], commesse 
   function switchMode(m: "odp" | "commessa") {
     setMode(m);
     // Reset campi mutuamente esclusivi
-    setForm(prev => ({ ...prev, schedaId: null, commessaId: null }));
+    setForm(prev => ({ ...prev, schedaId: null, commessaId: null, giroId: null }));
     setSchedaSearch("");
     setCommessaSearch("");
     setTipoSuggerito(null);
@@ -173,6 +175,8 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], commesse 
           schedaId: form.schedaId,
           fornitoreId: form.fornitoreId,
           commessaId: form.commessaId,
+          // null esplicito = nessun giro (non il default "giro attivo" del server)
+          giroId: form.schedaId ? form.giroId : undefined,
           foto_base64: foto.length ? foto : undefined,
         }),
       });
@@ -378,6 +382,9 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], commesse 
                 </p>
               )}
             </div>
+            {form.schedaId && (
+              <SelezioneGiro schedaId={form.schedaId} value={form.giroId} onChange={g => set("giroId", g)} autoAttivo inputCls={inputCls} labelCls={labelCls} />
+            )}
             <div>
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Fornitore</label>
               <select className={inputCls} value={form.fornitoreId ?? ""} onChange={e => set("fornitoreId", e.target.value || null)}>

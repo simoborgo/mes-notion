@@ -78,6 +78,10 @@ export interface Ritiro {
   numeroOrdine: string;
   numeroOrdineId: string | null;
   rilavorazioneId: string | null;
+  // Giro esterno della scheda a cui appartiene il movimento (vedi Giro)
+  giroId: string | null;
+  giroOrdine: number | null;
+  giroLavorazione: string;
   commessaId: string | null;
   commessaNr: string;
   descrizioneMerce: string;
@@ -115,6 +119,7 @@ export interface RitiroUpdate {
   schedaId?: string | null;
   fornitoreId?: string | null;
   rilavorazioneId?: string | null;
+  giroId?: string | null;
 }
 
 export interface Commessa {

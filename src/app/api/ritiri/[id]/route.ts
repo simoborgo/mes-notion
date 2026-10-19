@@ -59,7 +59,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             if (updated.tipoMovimento === "Ritiro") {
               // Pezzo tornato fisicamente: Stato Produzione Esterna = "Rientrato"
               // Parent rimane "In Attesa Rilavorazione" fino a "Segna Rientrata" manuale
-              await updateRilavorazioneRientrata(updated.rilavorazioneId);
+              await updateRilavorazioneRientrata(updated.rilavorazioneId, updated.giroId);
               revalidatePath("/schede");
             }
             // Consegna → Fatto: nessun cambio stato (solo tracking logistico)
@@ -70,14 +70,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           if (updated.numeroOrdineId) {
             const schedaId = updated.numeroOrdineId;
             const tuttiRitiri = await getRitiriByScheda(schedaId);
-            const tuttiCompleti = tuttiRitiri.every(r => r.stato === "Fatto");
-            if (!tuttiCompleti) return;
+            // Movimento collegato a un giro: contano solo i movimenti dello stesso giro e tipo
+            // (la Consegna del giro 2 non deve aspettare il Ritiro, ancora da fare, del giro 1
+            // né quello del suo stesso giro). Senza giro vale la regola storica: tutti i ritiri.
+            const daVerificare = updated.giroId
+              ? tuttiRitiri.filter(r => r.giroId === updated.giroId && r.tipoMovimento === updated.tipoMovimento)
+              : tuttiRitiri;
+            if (!daVerificare.every(r => r.stato === "Fatto")) return;
 
             if (updated.tipoMovimento === "Ritiro") {
-              await updateSchedaRientrato(schedaId);
+              await updateSchedaRientrato(schedaId, updated.giroId);
               revalidatePath("/schede");
             } else if (updated.tipoMovimento === "Consegna") {
-              await updateSchedaConsegnaFatta(schedaId);
+              await updateSchedaConsegnaFatta(schedaId, updated.giroId);
               revalidatePath("/schede");
             }
           }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import SelezioneGiro from "./SelezioneGiro";
 import type { Ritiro, RitiroUpdate, Scheda, Commessa } from "@/lib/types";
 
 const STATI = ["Da Fare", "In corso", "Fatto"];
@@ -35,7 +36,7 @@ interface Props {
 
 export default function FormModificaRitiro({ ritiro, schede = [], fornitori = [], commesse = [], onClose, onSave }: Props) {
   const parsedDate = parseNotionDate(ritiro.dataTrasporto);
-  const [form, setForm] = useState<RitiroUpdate & { schedaId: string | null; fornitoreId: string | null; commessaId: string | null; dataData: string; dataOra: string }>({
+  const [form, setForm] = useState<RitiroUpdate & { schedaId: string | null; fornitoreId: string | null; commessaId: string | null; giroId: string | null; dataData: string; dataOra: string }>({
     causale:         ritiro.causale,
     descrizioneMerce: ritiro.descrizioneMerce,
     dataTrasporto:   ritiro.dataTrasporto,
@@ -49,6 +50,7 @@ export default function FormModificaRitiro({ ritiro, schede = [], fornitori = []
     totColli:        ritiro.totColli,
     schedaId:        ritiro.numeroOrdineId,
     fornitoreId:     ritiro.fornitoreId,
+    giroId:          ritiro.giroId,
     commessaId:      ritiro.commessaId,
   });
   const [schedaSearch, setSchedaSearch] = useState(() => {
@@ -96,6 +98,7 @@ export default function FormModificaRitiro({ ritiro, schede = [], fornitori = []
 
   function selectScheda(s: Scheda) {
     set("schedaId", s.id);
+    set("giroId", null);
     set("commessaId", s.commessaId ?? null);
     setSchedaSearch(`${s.odp} — ${s.numeroScheda}`);
     setSchedaOpen(false);
@@ -103,6 +106,7 @@ export default function FormModificaRitiro({ ritiro, schede = [], fornitori = []
 
   function clearScheda() {
     set("schedaId", null);
+    set("giroId", null);
     setSchedaSearch("");
   }
 
@@ -128,6 +132,7 @@ export default function FormModificaRitiro({ ritiro, schede = [], fornitori = []
         schedaId: form.schedaId,
         fornitoreId: form.fornitoreId,
         commessaId: form.commessaId,
+        giroId: form.schedaId ? form.giroId : null,
       };
       const res = await fetch(`/api/ritiri/${ritiro.id}`, {
         method: "PATCH",
@@ -289,6 +294,9 @@ export default function FormModificaRitiro({ ritiro, schede = [], fornitori = []
                 )}
               </div>
             </div>
+            {form.schedaId && (
+              <SelezioneGiro schedaId={form.schedaId} value={form.giroId} onChange={g => set("giroId", g)} inputCls={inputCls} labelCls={labelCls} />
+            )}
             <div className="col-span-2">
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Fornitore</label>
               <select className={inputCls} value={form.fornitoreId ?? ""} onChange={e => set("fornitoreId", e.target.value || null)}>

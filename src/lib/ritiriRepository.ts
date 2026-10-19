@@ -4,6 +4,7 @@ import { resolveSchedaFolder, getSchedaById, createSchedaPage, updateSchedaStato
 import { uploadFotoRitiro as driveUploadFotoRitiro, getOrCreateCommessaFolder } from "./googleDriveSchede";
 import { getCommessaFolderId, setCommessaFolderId, getCommessaById } from "./commesseRepository";
 import { findFornitoreIdByName } from "./fornitoriRepository";
+import { getGiroAttivoId } from "./giriRepository";
 
 // "ODP"/"Nr Commessa"/"Ordine Fornitore" su Ritiro erano rollup Notion dalla Scheda collegata
 // (relation "Scheda", verificato via schema Notion reale) — mai colonne proprie, quindi qui sono
@@ -15,8 +16,11 @@ const SELECT = `
     s.odp AS numero_ordine,
     s.legacy_ordine_fornitore_count AS scheda_legacy_of_count,
     sc.numero_commessa AS commessa_nr,
-    COALESCE(f.nome, '') AS fornitore_nome
+    COALESCE(f.nome, '') AS fornitore_nome,
+    g.ordine AS giro_ordine,
+    COALESCE(g.lavorazione, '') AS giro_lavorazione
   FROM ritiri r
+  LEFT JOIN schede_giri g ON g.id = r.giro_id
   LEFT JOIN schede s ON s.id = r.scheda_id
   LEFT JOIN commesse sc ON sc.id = s.commessa_id
   LEFT JOIN fornitori f ON f.id = r.fornitore_id
@@ -65,6 +69,9 @@ function mapRow(r: any, allegati: Awaited<ReturnType<typeof caricaAllegati>>): R
     numeroOrdine: r.numero_ordine ?? "",
     numeroOrdineId: r.scheda_id,
     rilavorazioneId: r.rilavorazione_id,
+    giroId: r.giro_id,
+    giroOrdine: r.giro_ordine ?? null,
+    giroLavorazione: r.giro_lavorazione ?? "",
     commessaId: r.commessa_id,
     commessaNr: r.commessa_nr ?? "",
     descrizioneMerce: r.descrizione,
@@ -125,6 +132,7 @@ export async function createRitiro({
   fornitoreId,
   rilavorazioneId,
   commessaId,
+  giroId,
 }: {
   causale: string;
   tipoMovimento?: string;
@@ -137,14 +145,16 @@ export async function createRitiro({
   fornitoreId?: string | null;
   rilavorazioneId?: string | null;
   commessaId?: string | null;
+  giroId?: string | null; // se omesso, il giro attivo della scheda collegata
 }): Promise<Ritiro> {
+  const giroEffettivo = giroId !== undefined ? giroId : (schedaId ? await getGiroAttivoId(schedaId, true) : null);
   const { rows } = await pool.query(
     `INSERT INTO ritiri (id, descrizione, tipo_movimento, data_trasporto, urgenza, nc, nr_collo, tot_colli,
-       scheda_id, fornitore_id, rilavorazione_id, commessa_id)
-     VALUES (gen_random_uuid(), $1, COALESCE($2,''), $3, COALESCE($4,false), COALESCE($5,false), $6, $7, $8, $9, $10, $11)
+       scheda_id, fornitore_id, rilavorazione_id, commessa_id, giro_id)
+     VALUES (gen_random_uuid(), $1, COALESCE($2,''), $3, COALESCE($4,false), COALESCE($5,false), $6, $7, $8, $9, $10, $11, $12)
      RETURNING id`,
     [causale, tipoMovimento || null, dataTrasporto || null, urgenza ?? false, nc ?? false, nrCollo ?? null,
-     totColli ?? null, schedaId || null, fornitoreId || null, rilavorazioneId || null, commessaId || null],
+     totColli ?? null, schedaId || null, fornitoreId || null, rilavorazioneId || null, commessaId || null, giroEffettivo || null],
   );
   return getRitiroById(rows[0].id as string);
 }
@@ -247,6 +257,7 @@ export async function updateRitiro(id: string, data: RitiroUpdate): Promise<Riti
   if (data.fornitoreId !== undefined) { sets.push(`fornitore_id = $${i++}`); values.push(data.fornitoreId || null); }
   if (data.commessaId !== undefined) { sets.push(`commessa_id = $${i++}`); values.push(data.commessaId || null); }
   if (data.rilavorazioneId !== undefined) { sets.push(`rilavorazione_id = $${i++}`); values.push(data.rilavorazioneId || null); }
+  if (data.giroId !== undefined) { sets.push(`giro_id = $${i++}`); values.push(data.giroId || null); }
   sets.push(`aggiornato_il = now()`);
 
   values.push(id);
