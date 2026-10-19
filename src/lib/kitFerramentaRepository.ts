@@ -1,6 +1,6 @@
 import { pool } from "./db";
 import { updateSchedaKitFerramentaDescrizione } from "./schedeRepository";
-import type { DistintaKitRiga } from "./types";
+import type { DistintaKitRiga, StatoApprovvigionamentoKit } from "./types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapRow(r: any): DistintaKitRiga {
@@ -16,13 +16,19 @@ function mapRow(r: any): DistintaKitRiga {
     quantita: Number(r.quantita),
     preparataDa: r.preparata_da,
     preparataIl: r.preparata_il ? new Date(r.preparata_il).toISOString() : null,
+    statoApprovvigionamento: r.stato_approvvigionamento ?? null,
+    // to_char nella query: il tipo DATE di pg diventa un Date locale e slitterebbe di fuso
+    inArrivoIl: r.in_arrivo_il ?? null,
+    nonNecessaria: !!r.non_necessaria,
+    nonNecessariaDa: r.non_necessaria_da ?? null,
     notionUrl: "", // nessuna pagina Notion per la riga: la distinta vive su Postgres
   };
 }
 
 const SELECT_JOIN = `
   SELECT r.id, r.odp_id, r.articolo_id, r.descrizione, r.codice_os1, r.quantita,
-         r.preparata_da, r.preparata_il,
+         r.preparata_da, r.preparata_il, r.stato_approvvigionamento, r.non_necessaria, r.non_necessaria_da,
+         to_char(r.in_arrivo_il, 'YYYY-MM-DD') AS in_arrivo_il,
          a.descrizione AS articolo_descrizione_live, a.codice_os1 AS articolo_codice_os1_live
   FROM kit_ferramenta_righe r
   LEFT JOIN articoli_ferramenta a ON a.id = r.articolo_id
@@ -43,7 +49,7 @@ export async function getStatoPreparazionePerOdp(odpIds: string[]): Promise<Map<
   if (odpIds.length === 0) return risultato;
 
   const { rows } = await pool.query(
-    `SELECT r.odp_id, r.articolo_id, r.quantita, r.preparata_il, COALESCE(m.scaricato, 0) AS scaricato
+    `SELECT r.odp_id, r.articolo_id, r.quantita, r.preparata_il, r.non_necessaria, COALESCE(m.scaricato, 0) AS scaricato
      FROM kit_ferramenta_righe r
      LEFT JOIN (
        SELECT odp_id, articolo_id, SUM(quantita) AS scaricato
@@ -58,6 +64,8 @@ export async function getStatoPreparazionePerOdp(odpIds: string[]): Promise<Map<
   const righePerOdp = new Map<string, StatoPreparazione[]>();
   for (const r of rows) {
     const odpId = r.odp_id as string;
+    if (!righePerOdp.has(odpId)) righePerOdp.set(odpId, []);
+    if (r.non_necessaria) continue; // componente non richiesto: non pesa sullo stato dell'ODP
     let stato: StatoPreparazione;
     if (!r.articolo_id) {
       stato = r.preparata_il ? "completo" : "mancante";
@@ -66,14 +74,17 @@ export async function getStatoPreparazionePerOdp(odpIds: string[]): Promise<Map<
       const quantita = Number(r.quantita);
       stato = scaricato >= quantita ? "completo" : scaricato > 0 ? "parziale" : "mancante";
     }
-    if (!righePerOdp.has(odpId)) righePerOdp.set(odpId, []);
     righePerOdp.get(odpId)!.push(stato);
   }
 
   for (const odpId of odpIds) {
     const stati = righePerOdp.get(odpId);
-    if (!stati || stati.length === 0) {
+    if (!stati) {
       risultato.set(odpId, "mancante");
+      continue;
+    }
+    if (stati.length === 0) {
+      risultato.set(odpId, "completo"); // tutte le righe marcate "non serve"
       continue;
     }
     if (stati.every(s => s === "completo")) risultato.set(odpId, "completo");
@@ -127,6 +138,45 @@ export async function updateDistintaRigaQuantita(id: string, quantita: number): 
     [quantita, id],
   );
   if (rows[0]) await aggiornaDescrizioneKitSuNotion(rows[0].odp_id);
+}
+
+// La descrizione è modificabile solo sulle righe a testo libero: per quelle con articolo vale
+// sempre quella live dell'anagrafica (vedi mapRow), quindi cambiarla qui non avrebbe effetto.
+export async function updateDistintaRigaDescrizione(id: string, descrizione: string): Promise<void> {
+  const { rows } = await pool.query(
+    `UPDATE kit_ferramenta_righe SET descrizione = $1, aggiornato_il = now() WHERE id = $2 AND articolo_id IS NULL RETURNING odp_id`,
+    [descrizione, id],
+  );
+  if (rows.length === 0) throw new Error("Descrizione modificabile solo sulle righe a testo libero");
+  await aggiornaDescrizioneKitSuNotion(rows[0].odp_id);
+}
+
+// Segnalazione del magazziniere sul perché un componente non è ancora pronto. La data di arrivo
+// ha senso solo per "ordinato": per gli altri stati viene azzerata.
+export async function setStatoApprovvigionamentoRiga(
+  id: string, stato: StatoApprovvigionamentoKit | null, inArrivoIl: string | null,
+): Promise<DistintaKitRiga> {
+  const { rowCount } = await pool.query(
+    `UPDATE kit_ferramenta_righe SET stato_approvvigionamento = $2, in_arrivo_il = $3, aggiornato_il = now() WHERE id = $1`,
+    [id, stato, stato === "ordinato" ? inArrivoIl : null],
+  );
+  if (!rowCount) throw new Error("Riga non trovata");
+  const { rows } = await pool.query(`${SELECT_JOIN} WHERE r.id = $1`, [id]);
+  return mapRow(rows[0]);
+}
+
+// "Non serve": il componente richiesto in distinta non è necessario. Toggle reversibile; la riga
+// resta in distinta (traccia di cosa era stato chiesto) ma esce dal calcolo dello stato ODP.
+export async function setNonNecessariaRiga(id: string, nonNecessaria: boolean, operatore: string): Promise<DistintaKitRiga> {
+  const { rowCount } = await pool.query(
+    nonNecessaria
+      ? `UPDATE kit_ferramenta_righe SET non_necessaria = true, non_necessaria_da = $2, non_necessaria_il = now(), aggiornato_il = now() WHERE id = $1`
+      : `UPDATE kit_ferramenta_righe SET non_necessaria = false, non_necessaria_da = NULL, non_necessaria_il = NULL, aggiornato_il = now() WHERE id = $1`,
+    nonNecessaria ? [id, operatore] : [id],
+  );
+  if (!rowCount) throw new Error("Riga non trovata");
+  const { rows } = await pool.query(`${SELECT_JOIN} WHERE r.id = $1`, [id]);
+  return mapRow(rows[0]);
 }
 
 // Righe a testo libero (articolo_id NULL) non hanno giacenza da scaricare — "Scarica" punterebbe

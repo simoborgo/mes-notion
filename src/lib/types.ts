@@ -317,8 +317,14 @@ export interface DistintaKitRiga {
   quantita: number;
   preparataDa: string | null;
   preparataIl: string | null;
+  statoApprovvigionamento: StatoApprovvigionamentoKit | null;
+  inArrivoIl: string | null; // YYYY-MM-DD, solo con stato "ordinato"
+  nonNecessaria: boolean;
+  nonNecessariaDa: string | null;
   notionUrl: string;
 }
+
+export type StatoApprovvigionamentoKit = "ordinato" | "consegna_parziale" | "attesa_fornitore";
 
 // 21 valori fissi — select Notion su DB_FERRAMENTA, property "Ubicazione"
 export const UBICAZIONI_FERRAMENTA: string[] = [

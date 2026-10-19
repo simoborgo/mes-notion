@@ -7,6 +7,7 @@ import { getDistintaKitByOdp } from "@/lib/kitFerramentaRepository";
 import { getArticoliFerramenta } from "@/lib/articoliFerramentaRepository";
 import AggiungiArticoloKit from "@/components/AggiungiArticoloKit";
 import PreparataToggle from "@/components/PreparataToggle";
+import RigaKitAzioni, { STATO_APPROVVIGIONAMENTO_LABEL } from "@/components/RigaKitAzioni";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,13 @@ const STATO_LABEL: Record<string, { text: string; bg: string; color: string }> =
   completo: { text: "Scaricato", bg: "#F3F4F6", color: "#374151" },
   parziale: { text: "Parziale", bg: "#FEF3C7", color: "#92400E" },
   mancante: { text: "Da scaricare", bg: "#FEE2E2", color: "#991B1B" },
+  nonServe: { text: "Non serve", bg: "#E5E7EB", color: "#6B7280" },
 };
+
+function fmtData(ymd: string) {
+  const [y, m, d] = ymd.split("-");
+  return `${d}/${m}/${y}`;
+}
 
 function fmt(d: string) {
   return new Date(d).toLocaleString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -59,6 +66,7 @@ export default async function FoglioScaricoDettaglioPage({ params }: { params: P
   // movimento in movimenti_ferramenta le riguarderà mai. Il loro stato segue invece la conferma
   // manuale "preparata" (vedi PreparataToggle), non un conteggio di quantità.
   const righeDistinta = distinta.map(r => {
+    if (r.nonNecessaria) return { ...r, scaricato: scaricatoPerArticolo.get(r.articoloId ?? "") ?? null, stato: "nonServe" };
     if (!r.articoloId) {
       const stato = r.preparataIl ? "completo" : "mancante";
       return { ...r, scaricato: null as number | null, stato };
@@ -112,9 +120,18 @@ export default async function FoglioScaricoDettaglioPage({ params }: { params: P
                       <td className="px-4 py-3 tabular-nums">{r.articoloId ? r.scaricato : "—"}</td>
                       <td className="px-4 py-3">
                         <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: s.bg, color: s.color }}>{s.text}</span>
+                        {r.statoApprovvigionamento && !r.nonNecessaria && r.stato !== "completo" && (
+                          <div className="mt-1">
+                            <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: "#DBEAFE", color: "#1E40AF" }}>
+                              {STATO_APPROVVIGIONAMENTO_LABEL[r.statoApprovvigionamento]}
+                              {r.statoApprovvigionamento === "ordinato" && r.inArrivoIl ? ` — in arrivo al ${fmtData(r.inArrivoIl)}` : ""}
+                            </span>
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3">
-                        {r.articoloId ? (
+                        <div className="flex flex-col items-end gap-2">
+                        {r.nonNecessaria ? null : r.articoloId ? (
                           r.stato !== "completo" && (
                             <Link
                               href={`/ferramenta/scarico/${r.articoloId}?odp=${odpId}&ritorno=${encodeURIComponent(`/ferramenta/fogli-scarico/${odpId}`)}`}
@@ -127,6 +144,17 @@ export default async function FoglioScaricoDettaglioPage({ params }: { params: P
                         ) : (
                           <PreparataToggle schedaId={odpId} rigaId={r.id} preparata={!!r.preparataIl} />
                         )}
+                        <RigaKitAzioni
+                          schedaId={odpId}
+                          rigaId={r.id}
+                          quantita={r.quantita}
+                          descrizione={r.articoloDescrizione}
+                          testoLibero={!r.articoloId}
+                          stato={r.statoApprovvigionamento}
+                          inArrivoIl={r.inArrivoIl}
+                          nonNecessaria={r.nonNecessaria}
+                        />
+                        </div>
                       </td>
                     </tr>
                   );
