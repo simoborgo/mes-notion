@@ -678,3 +678,34 @@ export interface SchedaVerniciatura {
   fasi?: SchedaFase[];
   foto?: SchedaVerniciaturaFoto[];
 }
+
+
+// ── Giri esterni di una Scheda ────────────────────────────────────────────────────────────────
+// Un "giro" è un viaggio verso un fornitore (vedi schema_schede_giri.sql). I campi esterni su
+// Scheda restano come riepilogo del giro attivo.
+export const STATI_GIRO = ["Da Ordinare", "Da Inviare", "In Lavorazione", "Rientrato", "In attesa Preventivo", "Fornitore in attesa materiale"] as const;
+
+export interface Giro {
+  id: string;
+  schedaId: string;
+  ordine: number;
+  fornitoreId: string | null;
+  fornitore: string;
+  lavorazione: string;
+  stato: string;
+  dataUscita: string | null;
+  dataRientroPrevista: string | null;
+  dataRientroEffettiva: string | null;
+  note: string;
+  foto: { id: string; name: string; url: string }[];
+}
+
+export interface GiroInput {
+  fornitoreId?: string | null;
+  lavorazione?: string;
+  stato?: string;
+  dataUscita?: string | null;
+  dataRientroPrevista?: string | null;
+  dataRientroEffettiva?: string | null;
+  note?: string;
+}

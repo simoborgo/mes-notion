@@ -5,6 +5,7 @@ import { STATI_CHIUSI_ODP } from "./types";
 import { codiciSpecialiPerCommessa, ODP_SPECIALI } from "./attivitaSpecialiCommessa";
 import { getCommesse, getCommessaFolderId, setCommessaFolderId } from "./commesseRepository";
 import { generaFasiPerScheda } from "./schedeFasiRepository";
+import { applicaDatiEsterniAlGiroAttivo } from "./giriRepository";
 import { ricalcolaPiano } from "./apsSchedulerRepository";
 import {
   getOrCreateCommessaFolder, getOrCreateSchedaFolder, getOrCreateAllegatiFolder,
@@ -298,6 +299,11 @@ export async function createSchedaPage({
   );
   const id = rows[0].id as string;
 
+  // Fornitore e rientro previsto dati alla creazione sono il primo giro esterno della scheda.
+  if (fornitoreId || dataRientroPrevista) {
+    await applicaDatiEsterniAlGiroAttivo(id, { fornitoreId: fornitoreId || null, dataRientroPrevista: dataRientroPrevista || null });
+  }
+
   if (pdfBuffer && pdfFilename) {
     const folderId = await resolveSchedaFolder(id);
     const uploaded = await driveUploadPdfAllegato(folderId, pdfBuffer, pdfFilename);
@@ -400,10 +406,6 @@ export async function updateScheda(id: string, data: SchedaUpdate): Promise<Sche
     }
   }
   if (produzioneEsterna !== undefined) { sets.push(`produzione_esterna = $${i++}`); values.push(produzioneEsterna); }
-  if (data.statoProdEsterna !== undefined) { sets.push(`stato_prod_esterna = $${i++}`); values.push(data.statoProdEsterna || ""); }
-  if (data.dataRientroPrevista !== undefined) { sets.push(`data_rientro_prevista = $${i++}`); values.push(data.dataRientroPrevista); }
-  if (data.dataUscitaMateriale !== undefined) { sets.push(`data_uscita_materiale = $${i++}`); values.push(data.dataUscitaMateriale); }
-  if (data.dataRientroEffettiva !== undefined) { sets.push(`data_rientro_effettiva = $${i++}`); values.push(data.dataRientroEffettiva); }
   if (data.note !== undefined) { sets.push(`descrizione_fasi = $${i++}`); values.push(data.note); }
   if (data.codiceArticolo !== undefined) { sets.push(`codice_articolo = $${i++}`); values.push(data.codiceArticolo); }
   if (data.posizione !== undefined) { sets.push(`posizione = $${i++}`); values.push(data.posizione); }
@@ -412,15 +414,20 @@ export async function updateScheda(id: string, data: SchedaUpdate): Promise<Sche
   if (data.noteStato !== undefined) { sets.push(`note_stato = $${i++}`); values.push(data.noteStato); }
   if (data.areaId !== undefined) { sets.push(`area_id = $${i++}`); values.push(data.areaId); }
   if (data.priorita !== undefined) { sets.push(`priorita = $${i++}`); values.push(data.priorita); }
-  // fornitore (testo) ignorato: "Nome Fornitore" non era mai scrivibile nemmeno su Notion (rollup),
-  // l'unico modo reale è la FK fornitoreId sotto.
-  if (data.fornitoreId !== undefined) { sets.push(`fornitore_id = $${i++}`); values.push(data.fornitoreId); }
+  // fornitore (testo) ignorato: "Nome Fornitore" non era mai scrivibile nemmeno su Notion (rollup).
+  // Fornitore, stato esterno e le tre date non si scrivono più direttamente su `schede`: sono il
+  // riepilogo del giro attivo, quindi la modifica va sul giro (applicaDatiEsterniAlGiroAttivo
+  // sotto) che poi li ricopia qui.
   if (data.schedaVerniciaturaId !== undefined) { sets.push(`scheda_verniciatura_id = $${i++}`); values.push(data.schedaVerniciaturaId); }
   sets.push(`aggiornato_il = now()`);
 
   values.push(id);
   const { rows } = await pool.query(`UPDATE schede SET ${sets.join(", ")} WHERE id = $${i} RETURNING id`, values);
   if (rows.length === 0) throw new Error(`Scheda non trovata: ${id}`);
+  await applicaDatiEsterniAlGiroAttivo(id, {
+    fornitoreId: data.fornitoreId, statoProdEsterna: data.statoProdEsterna, dataUscitaMateriale: data.dataUscitaMateriale,
+    dataRientroPrevista: data.dataRientroPrevista, dataRientroEffettiva: data.dataRientroEffettiva,
+  });
   const scheda = await getSchedaById(id);
   // Solo se questa chiamata ha toccato codice_articolo — non ha senso riverificare a ogni
   // modifica (es. una nota), generaFasiPerScheda è comunque idempotente da sola.
@@ -462,20 +469,18 @@ export async function completaSottoschedeAperte(parentId: string): Promise<strin
 
 // Ritiro → Fatto: materiale rientrato dal fornitore
 export async function updateSchedaRientrato(id: string): Promise<void> {
-  await pool.query(
-    `UPDATE schede SET stato = 'In lavorazione', stato_prod_esterna = 'Rientrato', aggiornato_il = now() WHERE id = $1`,
-    [id],
-  );
+  await pool.query(`UPDATE schede SET stato = 'In lavorazione', aggiornato_il = now() WHERE id = $1`, [id]);
+  await applicaDatiEsterniAlGiroAttivo(id, { statoProdEsterna: "Rientrato" });
 }
 
 // Ritiro rilavorazione → Fatto: pezzo tornato fisicamente, in attesa di verifica
 export async function updateRilavorazioneRientrata(id: string): Promise<void> {
-  await pool.query(`UPDATE schede SET stato_prod_esterna = 'Rientrato', aggiornato_il = now() WHERE id = $1`, [id]);
+  await applicaDatiEsterniAlGiroAttivo(id, { statoProdEsterna: "Rientrato" });
 }
 
 // Consegna → Fatto: materiale consegnato al fornitore, ora in lavorazione
 export async function updateSchedaConsegnaFatta(id: string): Promise<void> {
-  await pool.query(`UPDATE schede SET stato_prod_esterna = 'In Lavorazione', aggiornato_il = now() WHERE id = $1`, [id]);
+  await applicaDatiEsterniAlGiroAttivo(id, { statoProdEsterna: "In Lavorazione" });
 }
 
 export async function updateSchedaKitFerramenta(id: string, stato: "Si" | "No" | null): Promise<Scheda> {
@@ -524,7 +529,7 @@ export async function resolveSchedaFolder(schedaId: string): Promise<string> {
 // base64) un match con `.+$` può far esplodere lo stack di V8 ("Maximum call stack size
 // exceeded") per il backtracking dell'engine su stringhe così lunghe. indexOf/slice sono O(n)
 // senza backtracking e funzionano per qualunque dimensione.
-function decodeBase64File(base64: string): { buffer: Buffer; mimeType: string } {
+export function decodeBase64File(base64: string): { buffer: Buffer; mimeType: string } {
   const marker = ";base64,";
   const markerIdx = base64.indexOf(marker);
   if (!base64.startsWith("data:") || markerIdx === -1) throw new Error("File non valido");

@@ -119,6 +119,12 @@ export async function uploadFotoRitiro(folderId: string, buffer: Buffer, progres
   return uploadBuffer(folderId, buffer, `ritiro_foto_${String(progressivo).padStart(2, "0")}.${ext}`, mimeType);
 }
 
+// Foto di un Giro esterno — stessa cartella MP della Scheda, prefisso distinto da Foto Scheda e Ritiri.
+export async function uploadFotoGiro(folderId: string, buffer: Buffer, progressivo: number, mimeType = "image/jpeg"): Promise<{ id: string; webViewLink?: string | null }> {
+  const ext = mimeType === "image/png" ? "png" : "jpg";
+  return uploadBuffer(folderId, buffer, `giro_foto_${String(progressivo).padStart(2, "0")}.${ext}`, mimeType);
+}
+
 export async function deleteDriveFile(fileId: string): Promise<void> {
   await drive().files.delete({ fileId });
 }
