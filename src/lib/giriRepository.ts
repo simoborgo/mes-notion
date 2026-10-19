@@ -229,3 +229,24 @@ export async function impostaStatoGiro(giroId: string, stato: "In Lavorazione" |
   });
   return getGiroById(giroId);
 }
+
+// Azioni da scansione QR sul giro attivo (uscita verso il fornitore / rientro in azienda). Oltre al
+// giro aggiorna lo Stato Produzione della scheda: l'uscita la porta in "In lavorazione Esterna"
+// (tranne se già chiusa o in attesa di rilavorazione), il rientro la riporta "In lavorazione" solo
+// se era in "In lavorazione Esterna", senza toccare altri stati scelti a mano.
+export async function segnaMovimentoGiro(giroId: string, azione: "uscita" | "rientro"): Promise<Giro> {
+  const giro = await impostaStatoGiro(giroId, azione === "uscita" ? "In Lavorazione" : "Rientrato");
+  if (azione === "uscita") {
+    await pool.query(
+      `UPDATE schede SET stato = 'In lavorazione Esterna', aggiornato_il = now()
+       WHERE id = $1 AND stato NOT IN ('In lavorazione Esterna', 'Completato', 'Annullata', 'In Attesa Rilavorazione')`,
+      [giro.schedaId],
+    );
+  } else {
+    await pool.query(
+      `UPDATE schede SET stato = 'In lavorazione', aggiornato_il = now() WHERE id = $1 AND stato = 'In lavorazione Esterna'`,
+      [giro.schedaId],
+    );
+  }
+  return giro;
+}

@@ -1,4 +1,5 @@
 import { getSchedaByQrCodice } from "@/lib/schedaQrRepository";
+import { getGiroAttivo } from "@/lib/giriRepository";
 import ScansioneScheda, { type SchedaScansionata } from "@/components/ScansioneScheda";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,9 @@ export default async function ScansioneSchedaPage({ params }: { params: Promise<
 
   let dati: SchedaScansionata | null = null;
   if (scheda) {
+    // Solo un giro ancora aperto offre le azioni di uscita/rientro.
+    const giroAttivo = await getGiroAttivo(scheda.id);
+    const giro = giroAttivo && giroAttivo.stato !== "Rientrato" ? giroAttivo : null;
     dati = {
       id: scheda.id,
       odp: scheda.odp,
@@ -24,6 +28,7 @@ export default async function ScansioneSchedaPage({ params }: { params: Promise<
       statoProduzione: scheda.statoProduzione,
       fornitore: scheda.fornitore,
       pdfUrl: scheda.pdfAllegato[0]?.url ?? null,
+      giro: giro ? { id: giro.id, ordine: giro.ordine, fornitore: giro.fornitore, lavorazione: giro.lavorazione, stato: giro.stato } : null,
     };
   }
 

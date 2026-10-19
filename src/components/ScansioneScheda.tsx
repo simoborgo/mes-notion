@@ -3,6 +3,14 @@
 import { useState } from "react";
 import { Tastierino, STORAGE_KEY, type OperatoreLoggato } from "./OperatoreTablet";
 
+export interface GiroScansione {
+  id: string;
+  ordine: number;
+  fornitore: string;
+  lavorazione: string;
+  stato: string;
+}
+
 export interface SchedaScansionata {
   id: string;
   odp: string;
@@ -16,12 +24,15 @@ export interface SchedaScansionata {
   statoProduzione: string;
   fornitore: string;
   pdfUrl: string | null;
+  giro: GiroScansione | null; // giro esterno ancora aperto, se c'è
 }
 
 interface ContestoAzione {
   scheda: SchedaScansionata;
   operatore: OperatoreLoggato | null; // sempre valorizzato se l'azione dichiara richiedeOperatore
   vai: (url: string) => void;
+  aggiornaGiro: (giro: GiroScansione | null) => void; // dopo un'azione che cambia il giro
+  segnala: (messaggio: string) => void; // esito mostrato sopra l'elenco azioni
 }
 
 interface AzioneScheda {
@@ -31,7 +42,7 @@ interface AzioneScheda {
   // true = prima di eseguire si chiede il PIN (identifica chi sta agendo)
   richiedeOperatore: boolean;
   visibile: (s: SchedaScansionata) => boolean;
-  esegui: (ctx: ContestoAzione) => void;
+  esegui: (ctx: ContestoAzione) => void | Promise<void>;
 }
 
 // Elenco delle azioni offerte dopo la scansione. Per aggiungere un comportamento basta una voce
@@ -52,6 +63,22 @@ const AZIONI: AzioneScheda[] = [
     },
   },
   {
+    id: "giro-uscita",
+    titolo: "Segna uscita",
+    descrizione: (s) => `Il materiale parte per ${s.giro?.fornitore || "il fornitore"}${s.giro?.lavorazione ? ` (${s.giro.lavorazione})` : ""}`,
+    richiedeOperatore: true,
+    visibile: (s) => !!s.giro && s.giro.stato !== "In Lavorazione",
+    esegui: (ctx) => segnaGiro("uscita", ctx),
+  },
+  {
+    id: "giro-rientro",
+    titolo: "Segna rientro",
+    descrizione: (s) => `Il materiale è tornato da ${s.giro?.fornitore || "il fornitore"}${s.giro?.lavorazione ? ` (${s.giro.lavorazione})` : ""}`,
+    richiedeOperatore: true,
+    visibile: (s) => !!s.giro,
+    esegui: (ctx) => segnaGiro("rientro", ctx),
+  },
+  {
     id: "pdf",
     titolo: "Apri PDF",
     descrizione: () => "Disegno e cartiglio della scheda",
@@ -60,6 +87,20 @@ const AZIONI: AzioneScheda[] = [
     esegui: ({ scheda, vai }) => vai(scheda.pdfUrl!),
   },
 ];
+
+// Uscita verso il fornitore / rientro in azienda sul giro esterno ancora aperto della scheda.
+async function segnaGiro(azione: "uscita" | "rientro", { scheda, operatore, aggiornaGiro, segnala }: ContestoAzione) {
+  const giro = scheda.giro!;
+  const res = await fetch(`/api/schede/${scheda.id}/giri/${giro.id}/movimento`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${operatore!.token}` },
+    body: JSON.stringify({ azione }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error ?? "Operazione non riuscita");
+  aggiornaGiro(azione === "rientro" ? null : { ...giro, stato: data.stato });
+  segnala(azione === "uscita" ? `Uscita registrata${giro.fornitore ? ` verso ${giro.fornitore}` : ""}.` : `Rientro registrato${giro.fornitore ? ` da ${giro.fornitore}` : ""}.`);
+}
 
 function Riga({ etichetta, valore }: { etichetta: string; valore: string }) {
   return (
@@ -83,6 +124,8 @@ export default function ScansioneScheda({ codice, scheda }: { codice: string; sc
   const [pin, setPin] = useState("");
   const [errore, setErrore] = useState("");
   const [verificando, setVerificando] = useState(false);
+  const [giro, setGiro] = useState<GiroScansione | null>(scheda?.giro ?? null); // cambia dopo uscita/rientro
+  const [esito, setEsito] = useState<{ ok: boolean; testo: string } | null>(null);
 
   if (!scheda) {
     return (
@@ -99,12 +142,24 @@ export default function ScansioneScheda({ codice, scheda }: { codice: string; sc
   }
 
   const vai = (url: string) => window.location.assign(url);
-  const azioni = AZIONI.filter(a => a.visibile(scheda));
+  const sc: SchedaScansionata = { ...scheda, giro };
+  const azioni = AZIONI.filter(a => a.visibile(sc));
+
+  async function eseguiAzione(a: AzioneScheda, operatore: OperatoreLoggato | null) {
+    setEsito(null);
+    try {
+      await a.esegui({ scheda: sc, operatore, vai, aggiornaGiro: setGiro, segnala: (testo) => setEsito({ ok: true, testo }) });
+    } catch (e) {
+      setEsito({ ok: false, testo: e instanceof Error ? e.message : "Operazione non riuscita" });
+    } finally {
+      setAzionePin(null);
+      setPin("");
+    }
+  }
 
   function avvia(a: AzioneScheda) {
-    if (!scheda) return;
     if (a.richiedeOperatore) { setAzionePin(a); setPin(""); setErrore(""); return; }
-    a.esegui({ scheda, operatore: null, vai });
+    void eseguiAzione(a, null);
   }
 
   async function handleDigit(d: string) {
@@ -126,7 +181,7 @@ export default function ScansioneScheda({ codice, scheda }: { codice: string; sc
         matricola: json.matricola, cognome: json.cognome, nome: json.nome,
         reparto: json.reparto, azienda: json.azienda, token: json.token,
       };
-      azionePin.esegui({ scheda, operatore, vai });
+      await eseguiAzione(azionePin, operatore);
     } catch {
       setErrore("Errore di rete");
       setPin("");
@@ -151,8 +206,18 @@ export default function ScansioneScheda({ codice, scheda }: { codice: string; sc
           <Riga etichetta="Posizione" valore={scheda.posizione} />
           <Riga etichetta="Quantità" valore={scheda.quantita != null ? String(scheda.quantita) : ""} />
           {scheda.fornitore && <Riga etichetta="Fornitore" valore={scheda.fornitore} />}
+          {sc.giro && (
+            <Riga etichetta={`Giro ${sc.giro.ordine}`} valore={`${sc.giro.lavorazione || "Lavorazione esterna"} · ${sc.giro.stato || "senza stato"}`} />
+          )}
         </div>
       </div>
+
+      {esito && (
+        <p className="rounded-2xl border px-5 py-3 text-base font-semibold"
+          style={esito.ok ? { background: "#ECFDF5", borderColor: "#6EE7B7", color: "#065F46" } : { background: "#FEF2F2", borderColor: "#FCA5A5", color: "#991B1B" }}>
+          {esito.ok ? "✓ " : ""}{esito.testo}
+        </p>
+      )}
 
       {azionePin ? (
         <div className="rounded-2xl border bg-white p-5 space-y-4" style={{ borderColor: "#E4E0DA" }}>
