@@ -24,8 +24,13 @@ export interface PdfTextItem {
 
 export interface PdfPageData {
   n: number; // numero pagina 1-based
+  width?: number; // larghezza viewport: limita la ricerca dello spazio libero al foglio
   items: PdfTextItem[];
 }
+
+// Posizione del QR sulla pagina: angolo in alto a sinistra e lato, in coordinate viewport
+// (le stesse degli item: rotazione di pagina già applicata, origine in alto a sinistra).
+export interface QrPosizione { x: number; y: number; size: number }
 
 export interface LayoutItem {
   pagina: number;
@@ -38,6 +43,7 @@ export interface LayoutItem {
   quantita: number | null;
   otherFields: Record<string, string>;
   warnings: string[];
+  qr: QrPosizione | null; // dove timbrare il QR della scheda; null = nessuno spazio libero trovato
   source: "layout";
 }
 
@@ -180,6 +186,60 @@ export function parseDataCartiglio(raw: string): string | null {
   return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
+
+// Cerca nel cartiglio il punto libero più "arioso" per il QR: tra le posizioni in cui un quadrato
+// (QR + zona bianca) non tocca nessun testo, sceglie quella più lontana dal testo. Si limita alla
+// fascia verticale delle etichette, dove ci sono solo righe di testo e filetti (i loghi stanno
+// sopra e sotto); un filetto coperto dal fondo bianco del QR non crea problemi. Prova prima un QR
+// più grande poi più piccolo (30% → 22% della larghezza del cartiglio); se non c'è spazio, null.
+function trovaPosizioneQr(frags: PdfTextItem[], labels: LabelFrag[], cartiglio: PdfTextItem[], width: number | undefined): QrPosizione | null {
+  const hs = labels.map((l) => l.h).sort((a, b) => a - b);
+  const hRef = hs[Math.floor(hs.length / 2)];
+  const colLeft = Math.min(...labels.map((l) => l.x)) - 2;
+  const yMin = Math.min(...labels.map((l) => l.y)) - 1.5 * hRef;
+  const yMax = Math.max(...labels.map((l) => l.y)) + 3 * hRef;
+
+  // Bordo destro: dai soli testi del cartiglio (etichette e valori assegnati), non dal disegno che
+  // può iniziare dentro la fascia; mai oltre una colonna massima.
+  let colRight = Math.max(colLeft + 21 * hRef, ...cartiglio.map((f) => f.x + f.w));
+  colRight = Math.min(colRight, colLeft + COLONNA_MAX_H * hRef);
+  if (width) colRight = Math.min(colRight, width - 6);
+  const colWidth = colRight - colLeft;
+  if (colWidth < 10 * hRef) return null;
+
+  // Riquadri occupati dal testo (baseline y: il glifo sale di ~0.85h e scende di ~0.3h)
+  const boxes = frags.map((f) => ({ x0: f.x, x1: f.x + f.w, y0: f.y - 0.85 * f.h, y1: f.y + 0.3 * f.h }));
+  const step = Math.max(2, hRef * 0.3);
+
+  for (const k of [0.30, 0.26, 0.22]) {
+    const size = k * colWidth;
+    const foot = size * 1.12; // QR + zona bianca attorno
+    const cap = colWidth * 0.2; // oltre questa distanza dal testo non serve "più arioso"
+    let migliore: { x: number; y: number; chiarezza: number } | null = null;
+    for (let y = yMin; y + foot <= yMax; y += step) {
+      for (let x = colLeft; x + foot <= colRight; x += step) {
+        let chiarezza = Infinity;
+        for (const b of boxes) {
+          const dx = Math.max(b.x0 - (x + foot), x - b.x1, 0);
+          const dy = Math.max(b.y0 - (y + foot), y - b.y1, 0);
+          const d = Math.hypot(dx, dy);
+          if (d < chiarezza) { chiarezza = d; if (chiarezza < 1.5) break; }
+        }
+        if (chiarezza < 1.5) continue;
+        const c = Math.min(chiarezza, cap);
+        if (!migliore || c > migliore.chiarezza + 0.01 || (Math.abs(c - migliore.chiarezza) <= 0.01 && x > migliore.x)) {
+          migliore = { x, y, chiarezza: c };
+        }
+      }
+    }
+    if (migliore) {
+      const margine = (foot - size) / 2;
+      return { x: migliore.x + margine, y: migliore.y + margine, size };
+    }
+  }
+  return null;
+}
+
 const CONNETTIVI = /^(PER|DI|DEL|DELLA|DELLE|DEI|E|IN|CON|DA|A|SU|TRA|FRA)$/;
 
 // La DESCRIZIONE è spesso su più righe: la prima è il titolo, le successive sono specifiche
@@ -299,12 +359,17 @@ export function parsePage(page: PdfPageData): LayoutPageResult {
     if (txt && !(l.nome in otherFields)) otherFields[l.nome] = txt;
   }
 
+  const cartiglio = [...labels.map((l) => l.src), ...[...values.values()].flat()];
+  const qr = trovaPosizioneQr(frags, activeLabels, cartiglio, page.width);
+  if (!qr) warnings.push("QR non inseribile: nessuno spazio libero nel cartiglio");
+
   return {
     pagina: page.n,
     ok: !!commessaNr && !!numeroScheda,
     item: {
       pagina: page.n, numeroScheda, commessaNr, termineDiConsegna, codiceArticolo,
       posizione, fornitore, quantita, otherFields, warnings, source: "layout",
+      qr,
     },
   };
 }

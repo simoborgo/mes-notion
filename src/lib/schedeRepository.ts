@@ -255,7 +255,7 @@ export async function getNextRilavorazioneOdp(_parentId: string, parentOdp: stri
 export async function createSchedaPage({
   numeroScheda, commessaId, odp, tipologia = "Scheda", stato, codiceArticolo, posizione,
   fornitoreId, quantita, dataProduzionePrevista, dataSchedaRicevuta, produzioneEsterna,
-  dataRientroPrevista, note, parentId, areaId,
+  dataRientroPrevista, note, parentId, areaId, qrCodice,
   pdfBuffer, pdfFilename, thumbnailBuffer, thumbnailFilename,
 }: {
   numeroScheda: string;
@@ -275,6 +275,7 @@ export async function createSchedaPage({
   note?: string | null;
   parentId?: string | null;
   areaId?: string | null;
+  qrCodice?: string | null; // codice del QR già timbrato sul PDF allegato (vedi schedaQrRepository)
   pdfBuffer?: Buffer;
   pdfFilename?: string;
   thumbnailBuffer?: Buffer;
@@ -283,13 +284,14 @@ export async function createSchedaPage({
   const { rows } = await pool.query(
     `INSERT INTO schede (id, numero_scheda, commessa_id, odp, tipologia, stato, codice_articolo, posizione,
        fornitore_id, quantita, data_produzione_prevista, data_scheda_ricevuta, produzione_esterna,
-       data_rientro_prevista, descrizione_fasi, parent_id, area_id)
-     VALUES (gen_random_uuid(), $1,$2,$3,$4,COALESCE($5,'Da Iniziare'),$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+       data_rientro_prevista, descrizione_fasi, parent_id, area_id, qr_codice)
+     VALUES (gen_random_uuid(), $1,$2,$3,$4,COALESCE($5,'Da Iniziare'),$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
      RETURNING id`,
     [
       numeroScheda, commessaId, odp, tipologia, stato || null, codiceArticolo || "", posizione || "",
       fornitoreId || null, quantita ?? null, dataProduzionePrevista || null, dataSchedaRicevuta || null,
       produzioneEsterna ?? false, dataRientroPrevista || null, note || "", parentId || null, areaId || null,
+      qrCodice || null,
     ],
   );
   const id = rows[0].id as string;

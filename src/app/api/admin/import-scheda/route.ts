@@ -5,6 +5,10 @@ import { getSessionFromRequest } from "@/lib/auth";
 import { getNextOdp, createSchedaPage } from "@/lib/schedeRepository";
 import { findCommessaByNumber } from "@/lib/commesseRepository";
 import { findFornitoreIdByName } from "@/lib/fornitoriRepository";
+import { generaQrCodice } from "@/lib/schedaQrRepository";
+import { timbraQr } from "@/lib/pdfQrStamp";
+import type { QrPosizione } from "@/lib/schedaPdfLayoutParser";
+import { getPublicBaseUrl } from "@/lib/url";
 
 interface ParsedItem {
   numeroScheda: string;
@@ -20,6 +24,9 @@ interface ParsedItem {
   pageIndex: number;
   gruppo?: number | null;
   otherFields?: Record<string, string>;
+  qr?: QrPosizione | null;
+  warnings?: string[];
+  source?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -32,9 +39,12 @@ export async function POST(req: NextRequest) {
     items: ParsedItem[];
     pdfBase64: string;
     thumbnailBase64?: string;
+    // posizione del QR su ogni pagina del PDF originale (null = nessuno spazio), indicizzata per pagina:
+    // `items` contiene solo scheda principale e sottoschede incluse, non tutte le pagine
+    qrPos?: Array<QrPosizione | null>;
   };
 
-  const { items, pdfBase64, thumbnailBase64 } = body;
+  const { items, pdfBase64, thumbnailBase64, qrPos } = body;
   if (!items?.length || !pdfBase64) {
     return NextResponse.json({ ok: false, error: "Dati mancanti (items o pdfBase64)" }, { status: 400 });
   }
@@ -81,6 +91,25 @@ export async function POST(req: NextRequest) {
     allFornitoriNames.map((name) => (name ? findFornitoreIdByName(name) : Promise.resolve(null))),
   );
 
+  // QR della scheda timbrato sul PDF allegato (e su ogni sottoscheda): il codice si genera qui, prima
+  // di creare la scheda, perché il QR deve essere già sul PDF che viene caricato su Drive.
+  // Un errore nel timbro non blocca l'import: il PDF resta senza QR (l'etichetta si stampa a richiesta).
+  const baseUrl = getPublicBaseUrl(req);
+  const timbra = async (pdf: Buffer, codice: string, posizioni: Array<QrPosizione | null | undefined>) => {
+    try {
+      const r = await timbraQr(pdf, `${baseUrl}/q/${codice}`, posizioni);
+      return { pdf: Buffer.from(r.bytes), senzaQr: r.paginaSenzaQr };
+    } catch (e) {
+      console.error("[import-scheda] timbro QR fallito:", e instanceof Error ? e.message : String(e));
+      return { pdf, senzaQr: posizioni.map((_, i) => i + 1) };
+    }
+  };
+
+  const parentCodice = generaQrCodice();
+  const parentTimbrato = await timbra(pdfBuffer, parentCodice, qrPos ?? []);
+  const qrPagineSenzaQr = parentTimbrato.senzaQr;
+  console.log(`[import-scheda] QR timbrato sul PDF principale (${parentCodice})${qrPagineSenzaQr.length ? `, pagine senza QR: ${qrPagineSenzaQr.join(",")}` : ""}`);
+
   const parent = items[0];
   const parentPage = await createSchedaPage({
     numeroScheda: parent.numeroScheda,
@@ -97,7 +126,8 @@ export async function POST(req: NextRequest) {
     dataSchedaRicevuta: oggi,
     produzioneEsterna: parent.stato === "In lavorazione Esterna",
     dataRientroPrevista: parent.dataRientroPrevista ?? null,
-    pdfBuffer,
+    qrCodice: parentCodice,
+    pdfBuffer: parentTimbrato.pdf,
     pdfFilename,
     thumbnailBuffer,
     thumbnailFilename,
@@ -137,7 +167,8 @@ export async function POST(req: NextRequest) {
     const groupPdf = await PDFDocument.create();
     const copiedPages = await groupPdf.copyPages(originalPdf, pageIndices);
     copiedPages.forEach((p) => groupPdf.addPage(p));
-    const subPdfBuffer = Buffer.from(await groupPdf.save());
+    const subCodice = generaQrCodice();
+    const subPdfBuffer = (await timbra(Buffer.from(await groupPdf.save()), subCodice, pageIndices.map((i) => qrPos?.[i] ?? null))).pdf;
     const subPdfFilename = `scheda-${odp}-sub-${g + 1}.pdf`;
 
     const subStato = sub.stato ?? (
@@ -161,6 +192,7 @@ export async function POST(req: NextRequest) {
       produzioneEsterna: subStato === "In lavorazione Esterna",
       dataRientroPrevista: sub.dataRientroPrevista ?? null,
       parentId: parentPage.id,
+      qrCodice: subCodice,
       pdfBuffer: subPdfBuffer,
       pdfFilename: subPdfFilename,
     });
@@ -180,7 +212,11 @@ export async function POST(req: NextRequest) {
           commessaNr,
           pageId: parentPage.id,
           operatore: session.name,
-          items: items.map((it) => ({ ...it, otherFields: it.otherFields ?? {} })),
+          items: items.map((it) => {
+            const payload = { ...it, otherFields: it.otherFields ?? {} };
+            delete payload.qr; // geometria interna del timbro QR, non interessa a n8n
+            return payload;
+          }),
         }),
         signal: AbortSignal.timeout(10000),
       });
@@ -193,5 +229,5 @@ export async function POST(req: NextRequest) {
   revalidatePath("/schede");
 
   console.log(`[import-scheda] import completato — ODP ${odp}, ${created.length} pagine create`);
-  return NextResponse.json({ ok: true, odp, created, n8nError });
+  return NextResponse.json({ ok: true, odp, created, n8nError, qrPagineSenzaQr });
 }

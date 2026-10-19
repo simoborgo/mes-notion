@@ -21,6 +21,8 @@ interface ParsedItem {
   // "layout" = letto dal cartiglio per posizione, "ai" = fallback LLM; i warnings segnalano campi da verificare
   source?: "layout" | "ai";
   warnings?: string[];
+  // dove timbrare il QR della scheda su questa pagina del PDF (coordinate viewport); null = nessuno spazio
+  qr?: { x: number; y: number; size: number } | null;
 }
 
 type Status = "idle" | "extracting" | "parsing" | "preview" | "importing" | "done" | "error";
@@ -29,6 +31,7 @@ interface ImportResult {
   odp: string;
   created: Array<{ odp: string; pageId: string; numeroScheda: string; tipologia: string }>;
   n8nError?: string;
+  qrPagineSenzaQr?: number[];
 }
 
 async function getPdfjsLib() {
@@ -43,7 +46,7 @@ async function getPdfjsLib() {
 
 // Elemento di testo con coordinate nello spazio della viewport (rotazione di pagina già applicata):
 // serve al parser del cartiglio, che associa i valori alle etichette per posizione.
-interface PageTextItems { n: number; items: Array<{ s: string; x: number; y: number; w: number; h: number }> }
+interface PageTextItems { n: number; width: number; items: Array<{ s: string; x: number; y: number; w: number; h: number }> }
 
 async function extractPdfData(file: File): Promise<{ pageTexts: string[]; pageItems: PageTextItems[]; thumbnailBase64: string; pageThumbnails: string[] }> {
   const pdfjs = await getPdfjsLib();
@@ -72,6 +75,7 @@ async function extractPdfData(file: File): Promise<{ pageTexts: string[]; pageIt
     const vpSmall0 = page.getViewport({ scale: 1 }) as any;
     pageItems.push({
       n: i,
+      width: vpSmall0.width,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       items: content.items.filter((it: any) => it.str.trim()).map((it: any) => {
         const t = pdfjs.Util.transform(vpSmall0.transform, it.transform);
@@ -250,11 +254,12 @@ export default function ImportSchedaPdf() {
           items: [itemsWithIndex[0], ...itemsWithIndex.slice(1).filter((it) => it.includeAsSubitem === true)],
           pdfBase64,
           thumbnailBase64,
+          qrPos: itemsWithIndex.map((it) => it.qr ?? null),
         }),
       });
-      const data = (await res.json()) as { ok: boolean; odp?: string; created?: ImportResult["created"]; error?: string; n8nError?: string };
+      const data = (await res.json()) as { ok: boolean; odp?: string; created?: ImportResult["created"]; error?: string; n8nError?: string; qrPagineSenzaQr?: number[] };
       if (!res.ok || !data.ok) throw new Error(data.error ?? "Errore import");
-      setResult({ odp: data.odp!, created: data.created!, n8nError: data.n8nError });
+      setResult({ odp: data.odp!, created: data.created!, n8nError: data.n8nError, qrPagineSenzaQr: data.qrPagineSenzaQr });
       setStatus("done");
     } catch (e) {
       setError((e as Error).message);
@@ -311,6 +316,12 @@ export default function ImportSchedaPdf() {
             </div>
           ))}
         </div>
+        {!!result.qrPagineSenzaQr?.length && (
+          <p className="text-xs mb-3" style={{ color: "#92400e" }}>
+            QR non timbrato sulle pagine {result.qrPagineSenzaQr.join(", ")} del PDF (nessuno spazio libero nel cartiglio):
+            si può stampare l&apos;etichetta dalla scheda.
+          </p>
+        )}
         {result.n8nError && (
           <p className="text-xs mb-3" style={{ color: "#92400e" }}>
             Avviso n8n: {result.n8nError}
