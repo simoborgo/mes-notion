@@ -191,7 +191,7 @@ export async function setPreparataRiga(id: string, preparata: boolean, operatore
 
   await pool.query(
     preparata
-      ? `UPDATE kit_ferramenta_righe SET preparata_da = $2, preparata_il = now(), aggiornato_il = now() WHERE id = $1`
+      ? `UPDATE kit_ferramenta_righe SET preparata_da = $2, preparata_il = now(), stato_approvvigionamento = NULL, in_arrivo_il = NULL, aggiornato_il = now() WHERE id = $1`
       : `UPDATE kit_ferramenta_righe SET preparata_da = NULL, preparata_il = NULL, aggiornato_il = now() WHERE id = $1`,
     preparata ? [id, operatore] : [id],
   );

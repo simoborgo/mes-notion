@@ -58,6 +58,18 @@ export async function registraMovimento(entry: {
      RETURNING *`,
     [entry.articoloId, entry.codiceOs1, entry.tipo, entry.quantita, entry.giacenzaPrecedente, entry.giacenzaRisultante, entry.operatore, entry.fonte, entry.note ?? null, entry.odpId ?? null, entry.odpLabel ?? null]
   );
+  // Materiale preparato (scaricato per intero) per una riga del kit: la segnalazione di
+  // approvvigionamento (ordinato / parziale / in attesa) non ha più senso, quindi si azzera.
+  if (entry.odpId && (entry.tipo === "scarico_kanban" || entry.tipo === "scarico_a_pezzo")) {
+    await executor.query(
+      `UPDATE kit_ferramenta_righe r
+       SET stato_approvvigionamento = NULL, in_arrivo_il = NULL, aggiornato_il = now()
+       WHERE r.odp_id = $1 AND r.articolo_id::text = $2 AND r.stato_approvvigionamento IS NOT NULL
+         AND (SELECT COALESCE(SUM(quantita), 0) FROM movimenti_ferramenta
+              WHERE odp_id = $1 AND articolo_id = $2 AND tipo IN ('scarico_kanban', 'scarico_a_pezzo')) >= r.quantita`,
+      [entry.odpId, entry.articoloId]
+    );
+  }
   return mapRow(rows[0]);
 }
 
