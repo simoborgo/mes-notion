@@ -1,4 +1,5 @@
 import { pool, dateToStr } from "./db";
+import { dataOggiRoma } from "./oraLocale";
 import type { Scheda, SchedaUpdate, OdpAttivo } from "./types";
 import { STATI_CHIUSI_ODP } from "./types";
 import { codiciSpecialiPerCommessa, ODP_SPECIALI } from "./attivitaSpecialiCommessa";
@@ -98,6 +99,7 @@ function mapRow(r: any, allegati: Awaited<ReturnType<typeof caricaAllegati>>): S
     faseCorrente: r.fase_corrente,
     dataSchedaRicevuta: r.data_scheda_ricevuta ? dateToStr(r.data_scheda_ricevuta) : null,
     dataProduzionePrevista: r.data_produzione_prevista ? dateToStr(r.data_produzione_prevista) : null,
+    dataProduzioneEffettiva: r.data_produzione_effettiva ? dateToStr(r.data_produzione_effettiva) : null,
     pdfAllegato,
     foto,
     allegati: allegatiVari,
@@ -349,6 +351,26 @@ export async function updateScheda(id: string, data: SchedaUpdate): Promise<Sche
   if (data.commessaId !== undefined) { sets.push(`commessa_id = $${i++}`); values.push(data.commessaId); }
   if (data.statoProduzione !== undefined) { sets.push(`stato = $${i++}`); values.push(data.statoProduzione); }
   if (data.dataProduzionePrevista !== undefined) { sets.push(`data_produzione_prevista = $${i++}`); values.push(data.dataProduzionePrevista); }
+  // Data produzione effettiva (fine ciclo, base del KPI Lead Time). Regole:
+  //  - stato finale "Completato": usa la data esplicita se c'è, altrimenti quella già salvata,
+  //    altrimenti oggi. Il form di modifica rimanda sempre tutti i campi, quindi un salvataggio
+  //    qualunque di una scheda già completata non deve spostarla;
+  //  - esce da "Completato" (riapertura/rilavorazione): azzerata;
+  //  - altrimenti non si tocca.
+  if (data.statoProduzione !== undefined || data.dataProduzioneEffettiva !== undefined) {
+    const { rows: curRows } = await pool.query(`SELECT stato, data_produzione_effettiva FROM schede WHERE id = $1`, [id]);
+    const cur = curRows[0];
+    if (cur) {
+      const statoFinale = data.statoProduzione ?? cur.stato;
+      let effettiva: string | null | undefined;
+      if (statoFinale === "Completato") {
+        effettiva = data.dataProduzioneEffettiva || (cur.data_produzione_effettiva ? dateToStr(cur.data_produzione_effettiva) : dataOggiRoma());
+      } else if (cur.stato === "Completato" || data.dataProduzioneEffettiva !== undefined) {
+        effettiva = null;
+      }
+      if (effettiva !== undefined) { sets.push(`data_produzione_effettiva = $${i++}`); values.push(effettiva); }
+    }
+  }
   // Il flag produzione_esterna non è più un campo editabile a sé: segue lo Stato Produzione.
   // Se questa chiamata porta lo stato a "In lavorazione Esterna" e nessuno ha già specificato
   // esplicitamente produzioneEsterna, lo forziamo a true — così la tab Fornitore Esterno si
@@ -410,7 +432,19 @@ export async function updateScheda(id: string, data: SchedaUpdate): Promise<Sche
 }
 
 export async function updateSchedaStato(id: string, stato: string): Promise<void> {
-  await pool.query(`UPDATE schede SET stato = $1, aggiornato_il = now() WHERE id = $2`, [stato, id]);
+  // Data produzione effettiva: al primo passaggio a "Completato" si imposta a oggi (una data già
+  // presente, magari corretta a mano, non si sposta); uscendo da "Completato" si azzera. Nel SET
+  // `stato` è ancora il valore precedente all'UPDATE.
+  await pool.query(
+    `UPDATE schede SET
+       data_produzione_effettiva = CASE
+         WHEN $1::text = 'Completato' THEN COALESCE(data_produzione_effettiva, $3::date)
+         WHEN stato = 'Completato' THEN NULL
+         ELSE data_produzione_effettiva END,
+       stato = $1::text, aggiornato_il = now()
+     WHERE id = $2`,
+    [stato, id, dataOggiRoma()],
+  );
 }
 
 // Bottone admin "Completa tutte le sottoschede" — chiude in blocco le sottoschede/rilavorazioni
@@ -418,10 +452,10 @@ export async function updateSchedaStato(id: string, stato: string): Promise<void
 // così il chiamante può loggarli uno per uno nell'audit.
 export async function completaSottoschedeAperte(parentId: string): Promise<string[]> {
   const { rows } = await pool.query(
-    `UPDATE schede SET stato = 'Completato', aggiornato_il = now()
+    `UPDATE schede SET stato = 'Completato', data_produzione_effettiva = COALESCE(data_produzione_effettiva, $2::date), aggiornato_il = now()
      WHERE parent_id = $1 AND stato NOT IN ('Completato', 'Annullata') AND archiviata = false
      RETURNING id`,
-    [parentId],
+    [parentId, dataOggiRoma()],
   );
   return rows.map((r) => r.id);
 }

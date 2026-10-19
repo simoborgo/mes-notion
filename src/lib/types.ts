@@ -14,6 +14,8 @@ export interface Scheda {
   faseCorrente: string;
   dataSchedaRicevuta: string | null;
   dataProduzionePrevista: string | null;
+  // Giorno di passaggio a "Completato" (fine ciclo): base del KPI Lead Time. Null se non completata.
+  dataProduzioneEffettiva: string | null;
   pdfAllegato: { id: string | null; name: string; url: string }[];
   foto: { id: string | null; name: string; url: string }[];
   allegati: { id: string; name: string; url: string }[];
@@ -51,6 +53,7 @@ export interface SchedaUpdate {
   priorita?: PrioritaOdp;
   statoProduzione?: string;
   dataProduzionePrevista?: string | null;
+  dataProduzioneEffettiva?: string | null;
   produzioneEsterna?: boolean;
   statoProdEsterna?: string;
   fornitore?: string;

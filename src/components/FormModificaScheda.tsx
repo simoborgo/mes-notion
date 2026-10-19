@@ -95,6 +95,7 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
     commessaId: scheda.commessaId,
     statoProduzione: scheda.statoProduzione,
     dataProduzionePrevista: scheda.dataProduzionePrevista ?? "",
+    dataProduzioneEffettiva: scheda.dataProduzioneEffettiva ?? "",
     note: scheda.note,
     codiceArticolo: scheda.codiceArticolo,
     posizione: scheda.posizione,
@@ -150,6 +151,18 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
     setForm((prev) => ({ ...prev, [k]: v }));
   }
 
+  // Portando lo stato a "Completato" la data effettiva si precompila a oggi (modificabile);
+  // uscendo da "Completato" si svuota, coerente con l'azzeramento lato server.
+  function handleStatoChange(stato: string) {
+    setForm((prev) => ({
+      ...prev,
+      statoProduzione: stato,
+      dataProduzioneEffettiva: stato !== "Completato"
+        ? ""
+        : (prev.dataProduzioneEffettiva || scheda.dataProduzioneEffettiva || new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Rome" })),
+    }));
+  }
+
   function handleClose() {
     if (isDirty && !confirm("Ci sono modifiche non salvate. Chiudere comunque senza salvare?")) return;
     onClose();
@@ -173,6 +186,7 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
         odp,
         numeroScheda: (form.numeroScheda ?? "").trim(),
         dataProduzionePrevista: form.dataProduzionePrevista || null,
+        dataProduzioneEffettiva: form.dataProduzioneEffettiva || null,
       };
       const res = await fetch(`/api/schede/${scheda.id}`, {
         method: "PATCH",
@@ -456,7 +470,7 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Stato Produzione</label>
-              <select className={inputCls} value={form.statoProduzione} onChange={(e) => set("statoProduzione", e.target.value)}>
+              <select className={inputCls} value={form.statoProduzione} onChange={(e) => handleStatoChange(e.target.value)}>
                 <option value="">— nessuno —</option>
                 {STATI.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
@@ -466,6 +480,16 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
               <input type="date" className={inputCls} value={form.dataProduzionePrevista ?? ""} onChange={(e) => set("dataProduzionePrevista", e.target.value)} />
             </div>
           </div>
+
+          {form.statoProduzione === "Completato" && (
+            <div>
+              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Data Produzione Effettiva</label>
+              <input type="date" className={inputCls} value={form.dataProduzioneEffettiva ?? ""} onChange={(e) => set("dataProduzioneEffettiva", e.target.value)} />
+              <p className="text-xs mt-1" style={{ color: "var(--color-grey-mid)" }}>
+                Giorno in cui si è concluso il ciclo (base del Lead Time). Lasciata vuota, al salvataggio viene impostata a oggi.
+              </p>
+            </div>
+          )}
 
           <p className="text-xs" style={{ color: "var(--color-grey-mid)" }}>
             Fornitore, stato produzione esterna, date di uscita/rientro e Ordine Fornitore si gestiscono dalla tab &quot;Fornitore Esterno&quot;.

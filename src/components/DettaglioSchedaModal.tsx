@@ -539,6 +539,18 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
               </span>
             </div>
 
+            {s.statoProduzione === "Completato" && s.dataProduzioneEffettiva && (
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                <span className="text-[12.1px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>Produzione Effettiva</span>
+                <span
+                  className="text-[15.4px] font-semibold"
+                  style={{ color: s.dataProduzionePrevista && s.dataProduzioneEffettiva > s.dataProduzionePrevista ? "#DC2626" : "#16A34A" }}
+                >
+                  {fmt(s.dataProduzioneEffettiva)}
+                </span>
+              </div>
+            )}
+
             {/* ── Riga comandi ── */}
             <div className="flex items-center gap-2 flex-wrap mt-4">
             {(userRole === "admin" || userRole === "produzione") && (

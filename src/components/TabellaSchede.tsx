@@ -60,6 +60,25 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
   );
 }
 
+// Sotto la Data Prod. Prevista di una scheda Completata: giorno di fine ciclo (data produzione
+// effettiva) con lo scarto in giorni rispetto alla prevista (+ ritardo, − anticipo).
+function DataEffettiva({ scheda }: { scheda: Scheda }) {
+  if (scheda.statoProduzione !== "Completato" || !scheda.dataProduzioneEffettiva) return null;
+  const prev = scheda.dataProduzionePrevista;
+  const delta = prev ? Math.round((Date.parse(scheda.dataProduzioneEffettiva) - Date.parse(prev)) / 86400000) : null;
+  const colore = delta == null ? "var(--color-grey-mid)" : delta > 0 ? "#B91C1C" : "#15803D";
+  return (
+    <div className="text-xs mt-1 tabular-nums whitespace-nowrap" style={{ color: "var(--color-grey-mid)" }}>
+      Prodotto il {fmt(scheda.dataProduzioneEffettiva)}
+      {delta != null && (
+        <span className="font-semibold ml-1" style={{ color: colore }}>
+          ({delta === 0 ? "in data" : `${delta > 0 ? "+" : "−"}${Math.abs(delta)} gg`})
+        </span>
+      )}
+    </div>
+  );
+}
+
 function DataCell({ date, inRitardo }: { date: string | null; inRitardo: boolean }) {
   if (!date) return <span style={{ color: "var(--color-grey-icon)" }}>—</span>;
   if (inRitardo) {
@@ -723,7 +742,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3"><DataCell date={s.dataProduzionePrevista} inRitardo={ritardo.produzione} /><div><BadgeCarico carico={caricoDi(s)} /></div></td>
+                    <td className="px-4 py-3"><DataCell date={s.dataProduzionePrevista} inRitardo={ritardo.produzione} /><DataEffettiva scheda={s} /><div><BadgeCarico carico={caricoDi(s)} /></div></td>
                     <td className="px-4 py-3 text-xs max-w-[180px] truncate" title={s.fornitore || ""}>{s.fornitore || "—"}</td>
                     <td className="px-4 py-3"><DataCell date={s.dataRientroPrevista} inRitardo={ritardo.rientro} /></td>
                     <td className="px-4 py-3"><PdfLinks pdfAllegato={s.pdfAllegato} /></td>
@@ -790,7 +809,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                             <div className="text-xs mt-0.5" style={{ color: "var(--color-grey-mid)" }}>({f.faseCorrente})</div>
                           )}
                         </td>
-                        <td className="px-4 py-2"><DataCell date={f.dataProduzionePrevista} inRitardo={fRitardo.produzione} /><div><BadgeCarico carico={caricoDi(f)} /></div></td>
+                        <td className="px-4 py-2"><DataCell date={f.dataProduzionePrevista} inRitardo={fRitardo.produzione} /><DataEffettiva scheda={f} /><div><BadgeCarico carico={caricoDi(f)} /></div></td>
                         <td className="px-4 py-2 text-xs max-w-[180px] truncate" title={f.fornitore || ""}>{f.fornitore || "—"}</td>
                         <td className="px-4 py-2"><DataCell date={f.dataRientroPrevista} inRitardo={fRitardo.rientro} /></td>
                         <td className="px-4 py-2"><PdfLinks pdfAllegato={f.pdfAllegato} /></td>
@@ -827,7 +846,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                             <td className="px-4 py-2 text-xs whitespace-nowrap">{n.posizione || "—"}</td>
                             <td className="px-4 py-2 text-xs text-right tabular-nums">{n.quantita ?? "—"}</td>
                             <td className="px-4 py-2"><BadgeStato stato={n.statoProduzione} /></td>
-                            <td className="px-4 py-2"><DataCell date={n.dataProduzionePrevista} inRitardo={nRitardo.produzione} /><div><BadgeCarico carico={caricoDi(n)} /></div></td>
+                            <td className="px-4 py-2"><DataCell date={n.dataProduzionePrevista} inRitardo={nRitardo.produzione} /><DataEffettiva scheda={n} /><div><BadgeCarico carico={caricoDi(n)} /></div></td>
                             <td className="px-4 py-2 text-xs max-w-[180px] truncate" title={n.fornitore || ""}>{n.fornitore || "—"}</td>
                             <td className="px-4 py-2"><DataCell date={n.dataRientroPrevista} inRitardo={nRitardo.rientro} /></td>
                             <td className="px-4 py-2"><PdfLinks pdfAllegato={n.pdfAllegato} /></td>

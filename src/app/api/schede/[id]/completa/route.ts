@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getSessionFromRequest, SPEDIZIONI_ROLES } from "@/lib/auth";
 import { updateSchedaStato } from "@/lib/schedeRepository";
+import { logOperation } from "@/lib/audit";
 
 // Bottone "Completato e messo in cassa" nella pagina Spedizioni Merci — chiude il ciclo
 // Materiale Pronto -> Verificato (automatico da finalize/force-verify) -> Completato (qui,
@@ -16,6 +17,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const { id } = await params;
     await updateSchedaStato(id, "Completato");
+    void logOperation(session.name, "UPDATE", "scheda", id, { statoProduzione: "Completato", motivo: "spedizioni: completato e messo in cassa" });
 
     revalidatePath("/spedizioni");
     revalidatePath("/schede");
