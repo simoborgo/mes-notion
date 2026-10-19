@@ -16,7 +16,7 @@ interface OdpKitRow {
 const STATO_LABEL: Record<StatoPreparazione, { text: string; bg: string; color: string }> = {
   mancante: { text: "Da scaricare", bg: "#FEE2E2", color: "#991B1B" },
   parziale: { text: "Parziale", bg: "#FEF3C7", color: "#92400E" },
-  completo: { text: "Registrati", bg: "#F3F4F6", color: "#374151" },
+  completo: { text: "Evaso", bg: "#F3F4F6", color: "#374151" },
 };
 
 const COLONNE: { stato: StatoPreparazione; titolo: string; band: string; accentBg: string; accentBorder: string }[] = [
