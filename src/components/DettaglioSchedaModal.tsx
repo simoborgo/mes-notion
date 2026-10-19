@@ -787,8 +787,7 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
             </div>
           )}
 
-          {/* A pagina piena: dati a sinistra, anteprima PDF a destra; nel modale tutto in colonna. */}
-          <div className={isPagina ? "grid gap-6 xl:grid-cols-2 items-start" : "space-y-5"}>
+          <div className="space-y-5">
           <div className="space-y-5 min-w-0">
           {s.copertina && (
             // eslint-disable-next-line @next/next/no-img-element
@@ -818,10 +817,6 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
           {s.pdfAllegato.length > 0 && (
             <section className="space-y-2 min-w-0">
               <h3 className="text-[12.1px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>PDF allegati</h3>
-              {isPagina && (
-                <iframe src={`${s.pdfAllegato[0].url}#navpanes=0&view=FitH`} title={`Anteprima ${s.pdfAllegato[0].name || "PDF"}`}
-                  className="w-full rounded-lg border bg-white" style={{ height: 680, borderColor: "#ebe9e5" }} />
-              )}
               <div className="flex flex-col gap-1.5">
                 {s.pdfAllegato.map((pdf, i) => (
                   <a key={i} href={pdf.url} target="_blank" rel="noopener noreferrer"
