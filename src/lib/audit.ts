@@ -111,3 +111,42 @@ export async function getAuditLog(limit = 100): Promise<AuditEntry[]> {
     return [];
   }
 }
+
+export interface VoceAttivita {
+  data: string; // ISO
+  operatore: string;
+  testo: string;
+}
+
+const ATTIVITA_TESTI: Record<string, string> = {
+  "CREATE scheda": "Scheda creata",
+  "UPDATE scheda": "Scheda modificata",
+  "DELETE scheda": "Scheda eliminata",
+  "UPLOAD_FOTO scheda": "Foto aggiunte",
+};
+
+// Ultime operazioni registrate sulla scheda (audit_log), in forma leggibile per la colonna
+// laterale della pagina piena. Solo le voci che hanno la scheda come risorsa: i giri hanno la
+// propria risorsa e non compaiono qui.
+export async function getAttivitaScheda(schedaId: string, limit = 8): Promise<VoceAttivita[]> {
+  try {
+    const { rows } = await pool.query(
+      `SELECT operatore, azione, modifiche, creato_il FROM audit_log
+       WHERE id_risorsa = $1 AND azione LIKE '% scheda' ORDER BY creato_il DESC LIMIT $2`,
+      [schedaId, limit],
+    );
+    return rows.map((r) => {
+      let dettaglio = "";
+      try {
+        const m = JSON.parse(r.modifiche as string) as Record<string, unknown>;
+        if (typeof m.azione === "string") dettaglio = m.azione.replace(/_/g, " ");
+        else if (typeof m.statoProduzione === "string") dettaglio = `stato: ${m.statoProduzione}`;
+      } catch { /* modifiche non JSON: si ignora il dettaglio */ }
+      const base = ATTIVITA_TESTI[r.azione as string] ?? (r.azione as string);
+      return { data: (r.creato_il as Date).toISOString(), operatore: r.operatore as string, testo: dettaglio ? `${base} (${dettaglio})` : base };
+    });
+  } catch (e) {
+    console.error("[audit] getAttivitaScheda failed:", e instanceof Error ? e.message : String(e));
+    return [];
+  }
+}

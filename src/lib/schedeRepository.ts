@@ -158,6 +158,12 @@ export async function getSchedaById(id: string): Promise<Scheda> {
   return (await mapRows(rows))[0];
 }
 
+// Sottoschede e rilavorazioni dirette di una scheda (pagina piena), le più vecchie prima.
+export async function getSchedeFiglie(parentId: string): Promise<Scheda[]> {
+  const { rows } = await pool.query(`${SELECT} WHERE s.parent_id = $1 AND s.archiviata = false ORDER BY s.creato_il`, [parentId]);
+  return mapRows(rows);
+}
+
 export async function getSchedeByArea(areaId: string): Promise<Scheda[]> {
   const { rows } = await pool.query(`${SELECT} WHERE s.area_id = $1 AND s.tipologia = 'Scheda' AND s.archiviata = false`, [areaId]);
   return mapRows(rows);

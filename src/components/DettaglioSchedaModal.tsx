@@ -7,7 +7,10 @@ import BadgeStato from "./BadgeStato";
 import PdfAnnotatoreModal, { type AnnotazioneData } from "./PdfAnnotatoreModal";
 import FormModificaScheda from "./FormModificaScheda";
 import FormNuovaSottoscheda from "./FormNuovaSottoscheda";
+import Link from "next/link";
 import KitFerramentaTab from "./KitFerramentaTab";
+import SchedaColonnaLaterale from "./SchedaColonnaLaterale";
+import type { VoceAttivita } from "@/lib/audit";
 import SchedaFasiApsTab from "./SchedaFasiApsTab";
 import FornitoreEsternoTab from "./FornitoreEsternoTab";
 import VerniciaturaOdpTab from "./VerniciaturaOdpTab";
@@ -21,6 +24,10 @@ interface Props {
   userRole?: Role;
   onSchedaAggiornata?: (updated: Scheda) => void;
   tabIniziale?: "info" | "fornitore" | "kit" | "aps" | "verniciatura";
+  // "pagina" = scheda a tutta pagina (/schede/[id]): niente overlay, colonna laterale fissa a destra
+  // e anteprima PDF; "modale" (default) = la scheda veloce aperta dall'elenco.
+  modalita?: "modale" | "pagina";
+  attivita?: VoceAttivita[];
 }
 
 function fmt(d: string | null) {
@@ -296,7 +303,8 @@ function RilavorazioneWizard({
   );
 }
 
-export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, onRilavorazioneCreata, onViewScheda, userRole, onSchedaAggiornata, tabIniziale }: Props) {
+export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, onRilavorazioneCreata, onViewScheda, userRole, onSchedaAggiornata, tabIniziale, modalita = "modale", attivita = [] }: Props) {
+  const isPagina = modalita === "pagina";
   const overlayRef = useRef<HTMLDivElement>(null);
   const [showWizard, setShowWizard] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
@@ -368,6 +376,7 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
   ];
 
   useEffect(() => {
+    if (isPagina) return; // a pagina piena non c'è overlay: né Esc né blocco dello scroll
     function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
     document.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
@@ -375,12 +384,12 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
     };
-  }, [onClose]);
+  }, [onClose, isPagina]);
 
   const today = new Date().toISOString().slice(0, 10);
   const inLavorazione = !["Completato", "Annullata"].includes(s.statoProduzione);
   const inRitardoProd = inLavorazione && !!s.dataProduzionePrevista && s.dataProduzionePrevista < today;
-  const inRitardoRientro = inLavorazione && s.produzioneEsterna && !!s.dataRientroPrevista && s.dataRientroPrevista < today;
+  const inRitardoRientro = inLavorazione && (s.produzioneEsterna || s.statoProduzione === "In lavorazione Esterna") && s.statoProdEsterna !== "Rientrato" && !!s.dataRientroPrevista && s.dataRientroPrevista < today;
   // Solo mentre "in lavorazione": una volta Completata/Annullata i giorni trascorsi da allora
   // non sono più "lavoro in corso" — mostrare comunque il conteggio sarebbe fuorviante (WIP =
   // Work In Progress), e non esiste una data di completamento da cui congelarlo.
@@ -445,114 +454,10 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
     }
   }
 
-  return (
-    <div
-      ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(2px)" }}
-      onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
-    >
-      <div
-        className="relative flex flex-col rounded-2xl shadow-2xl overflow-hidden"
-        style={{ width: "min(920px, 100%)", maxHeight: "92vh", background: "white" }}
-      >
-        {/* ── Header ── */}
-        <div className="shrink-0">
-          {/* ── Banda titolo — colorata per tipologia: arancio per le Schede, gli stessi colori
-               usati altrove per i badge di Sottoscheda/Rilavorazione, per riconoscerle a colpo
-               d'occhio anche aprendole direttamente (non solo dall'elenco delle schede figlie). ── */}
-          <div className="px-6 pt-5 pb-4 border-b" style={{ background: bandTheme.bg, borderColor: bandTheme.border }}>
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                {s.tipologia !== "Scheda" && (
-                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                    <span className="inline-flex items-center gap-1 text-[12.1px] font-bold uppercase tracking-widest" style={{ color: bandTheme.accent }}>
-                      {s.tipologia === "Rilavorazione" ? "⚙" : "↳"} {s.tipologia}
-                    </span>
-                    {schedaPadre && (
-                      onViewScheda ? (
-                        <button type="button" onClick={() => onViewScheda(schedaPadre)}
-                          className="text-[13.2px] font-medium underline decoration-dotted"
-                          style={{ color: bandTheme.accent }}>
-                          di {schedaPadre.odp || schedaPadre.numeroScheda}
-                        </button>
-                      ) : (
-                        <span className="text-[13.2px] font-medium" style={{ color: bandTheme.accent }}>
-                          di {schedaPadre.odp || schedaPadre.numeroScheda}
-                        </span>
-                      )
-                    )}
-                  </div>
-                )}
-                <div className="font-mono font-bold text-[26.4px] tracking-tight truncate" style={{ color: "var(--color-black)" }}>
-                  {s.odp || "—"}{s.numeroScheda ? ` - ${s.numeroScheda}` : ""}
-                </div>
-                {(s.commessaNr || s.clienteInfo) && (
-                  <div className="text-[17.6px] font-medium mt-0.5 truncate" style={{ color: "var(--color-grey-mid)" }}>
-                    {s.commessaNr}{s.commessaNr && s.clienteInfo ? " - " : ""}{s.clienteInfo}
-                  </div>
-                )}
-              </div>
-              <button onClick={onClose}
-                className="flex items-center justify-center w-8 h-8 rounded-full transition-colors hover:bg-black/10 shrink-0"
-                style={{ color: bandTheme.accent }} aria-label="Chiudi">
-                ✕
-              </button>
-            </div>
-          </div>
-
-          {/* ── Info secondarie + comandi ── */}
-          <div className="px-6 pt-4 pb-4 border-b" style={{ background: "#f3f2ef", borderColor: "#e5e4e0" }}>
-            {giorniWip != null && (
-              <div className="text-[13.2px]" style={{ color: "var(--color-grey-mid)" }}>
-                In produzione da {fmt(s.dataSchedaRicevuta)} · Giorni in produzione (WIP): <strong style={{ color: "var(--color-black)" }}>{giorniWip}</strong>
-              </div>
-            )}
-            <div className="flex items-center gap-2 mt-2 flex-wrap">
-              <span className="text-[12.1px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>Stato di produzione</span>
-              <BadgeStato stato={s.statoProduzione} className="text-[15.4px] px-3 py-1" />
-              {s.faseCorrente && <span className="text-[13.2px]" style={{ color: "var(--color-grey-mid)" }}>· {s.faseCorrente}</span>}
-              {s.noteStato && (
-                <button
-                  type="button"
-                  onClick={() => setShowNoteStato(v => !v)}
-                  title={s.noteStato}
-                  className="text-[13.2px] underline decoration-dotted"
-                  style={{ color: "var(--color-primary)" }}
-                >
-                  note ⓘ
-                </button>
-              )}
-            </div>
-            {showNoteStato && s.noteStato && (
-              <div className="mt-2 text-[13.2px] rounded-lg px-3 py-2" style={{ background: "white", border: "1px solid #e5e4e0", color: "var(--color-black)", maxWidth: 420 }}>
-                {s.noteStato}
-              </div>
-            )}
-            <div className="flex items-center gap-2 mt-2 flex-wrap">
-              <span className="text-[12.1px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>Produzione Prevista</span>
-              <span
-                className="text-[15.4px] font-semibold"
-                style={{ color: !s.dataProduzionePrevista ? "var(--color-grey-mid)" : inRitardoProd ? "#DC2626" : "#16A34A" }}
-              >
-                {fmt(s.dataProduzionePrevista)}
-              </span>
-            </div>
-
-            {s.statoProduzione === "Completato" && s.dataProduzioneEffettiva && (
-              <div className="flex items-center gap-2 mt-2 flex-wrap">
-                <span className="text-[12.1px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>Produzione Effettiva</span>
-                <span
-                  className="text-[15.4px] font-semibold"
-                  style={{ color: s.dataProduzionePrevista && s.dataProduzioneEffettiva > s.dataProduzionePrevista ? "#DC2626" : "#16A34A" }}
-                >
-                  {fmt(s.dataProduzioneEffettiva)}
-                </span>
-              </div>
-            )}
-
+  const comandi = (
+    <>
             {/* ── Riga comandi ── */}
-            <div className="flex items-center gap-2 flex-wrap mt-4">
+            <div className={isPagina ? "flex items-center gap-2 flex-wrap" : "flex items-center gap-2 flex-wrap mt-4"}>
             {(userRole === "admin" || userRole === "produzione") && (
               <button onClick={() => setShowEditForm(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13.2px] font-medium transition-colors hover:bg-gray-100"
@@ -613,6 +518,137 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
             )}
             </div>
             {eliminaError && <p className="text-[13.2px] mt-2" style={{ color: "#DC2626" }}>{eliminaError}</p>}
+    </>
+  );
+
+  return (
+    <div
+      ref={overlayRef}
+      className={isPagina ? undefined : "fixed inset-0 z-50 flex items-center justify-center p-4"}
+      style={isPagina ? undefined : { background: "rgba(0,0,0,0.45)", backdropFilter: "blur(2px)" }}
+      onClick={isPagina ? undefined : (e) => { if (e.target === overlayRef.current) onClose(); }}
+    >
+      <div
+        className={isPagina ? "relative flex flex-col rounded-xl border overflow-hidden" : "relative flex flex-col rounded-2xl shadow-2xl overflow-hidden"}
+        style={isPagina ? { background: "white", borderColor: "#e5e4e0" } : { width: "min(920px, 100%)", maxHeight: "92vh", background: "white" }}
+      >
+        {/* ── Header ── */}
+        <div className="shrink-0">
+          {/* ── Banda titolo — colorata per tipologia: arancio per le Schede, gli stessi colori
+               usati altrove per i badge di Sottoscheda/Rilavorazione, per riconoscerle a colpo
+               d'occhio anche aprendole direttamente (non solo dall'elenco delle schede figlie). ── */}
+          <div className="px-6 pt-5 pb-4 border-b" style={{ background: bandTheme.bg, borderColor: bandTheme.border }}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                {s.tipologia !== "Scheda" && (
+                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                    <span className="inline-flex items-center gap-1 text-[12.1px] font-bold uppercase tracking-widest" style={{ color: bandTheme.accent }}>
+                      {s.tipologia === "Rilavorazione" ? "⚙" : "↳"} {s.tipologia}
+                    </span>
+                    {schedaPadre && (
+                      onViewScheda ? (
+                        <button type="button" onClick={() => onViewScheda(schedaPadre)}
+                          className="text-[13.2px] font-medium underline decoration-dotted"
+                          style={{ color: bandTheme.accent }}>
+                          di {schedaPadre.odp || schedaPadre.numeroScheda}
+                        </button>
+                      ) : (
+                        <span className="text-[13.2px] font-medium" style={{ color: bandTheme.accent }}>
+                          di {schedaPadre.odp || schedaPadre.numeroScheda}
+                        </span>
+                      )
+                    )}
+                  </div>
+                )}
+                <div className="font-mono font-bold text-[26.4px] tracking-tight truncate" style={{ color: "var(--color-black)" }}>
+                  {s.odp || "—"}{s.numeroScheda ? ` - ${s.numeroScheda}` : ""}
+                </div>
+                {(s.commessaNr || s.clienteInfo) && (
+                  <div className="text-[17.6px] font-medium mt-0.5 truncate" style={{ color: "var(--color-grey-mid)" }}>
+                    {s.commessaNr}{s.commessaNr && s.clienteInfo ? " - " : ""}{s.clienteInfo}
+                  </div>
+                )}
+              </div>
+              {isPagina ? null : (
+                <div className="flex items-center gap-1 shrink-0">
+                  {/* Solo da desktop: la pagina piena serve a chi ha lo spazio per usarla */}
+                  <Link href={`/schede/${s.id}`}
+                    className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13.2px] font-semibold transition-colors hover:bg-black/10"
+                    style={{ color: bandTheme.accent }}>
+                    Apri a pagina piena ↗
+                  </Link>
+                  <button onClick={onClose}
+                    className="flex items-center justify-center w-8 h-8 rounded-full transition-colors hover:bg-black/10 shrink-0"
+                    style={{ color: bandTheme.accent }} aria-label="Chiudi">
+                    ✕
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Info secondarie + comandi ── */}
+          <div className={isPagina ? "px-6 py-4 border-b flex items-start justify-between gap-x-8 gap-y-3 flex-wrap" : "px-6 pt-4 pb-4 border-b"}
+            style={{ background: "#f3f2ef", borderColor: "#e5e4e0" }}>
+            <div className="min-w-0">
+            {giorniWip != null && (
+              <div className="text-[13.2px]" style={{ color: "var(--color-grey-mid)" }}>
+                In produzione da {fmt(s.dataSchedaRicevuta)} · Giorni in produzione (WIP): <strong style={{ color: "var(--color-black)" }}>{giorniWip}</strong>
+              </div>
+            )}
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <span className="text-[12.1px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>Stato di produzione</span>
+              <BadgeStato stato={s.statoProduzione} className="text-[15.4px] px-3 py-1" />
+              {s.faseCorrente && <span className="text-[13.2px]" style={{ color: "var(--color-grey-mid)" }}>· {s.faseCorrente}</span>}
+              {s.noteStato && (
+                <button
+                  type="button"
+                  onClick={() => setShowNoteStato(v => !v)}
+                  title={s.noteStato}
+                  className="text-[13.2px] underline decoration-dotted"
+                  style={{ color: "var(--color-primary)" }}
+                >
+                  note ⓘ
+                </button>
+              )}
+            </div>
+            {showNoteStato && s.noteStato && (
+              <div className="mt-2 text-[13.2px] rounded-lg px-3 py-2" style={{ background: "white", border: "1px solid #e5e4e0", color: "var(--color-black)", maxWidth: 420 }}>
+                {s.noteStato}
+              </div>
+            )}
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <span className="text-[12.1px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>Produzione Prevista</span>
+              <span
+                className="text-[15.4px] font-semibold"
+                style={{ color: !s.dataProduzionePrevista ? "var(--color-grey-mid)" : inRitardoProd ? "#DC2626" : "#16A34A" }}
+              >
+                {fmt(s.dataProduzionePrevista)}
+              </span>
+              {isPagina && s.produzioneEsterna && (
+                <>
+                  <span className="text-[12.1px] font-bold uppercase tracking-widest ml-4" style={{ color: "#9c9894" }}>Rientro previsto</span>
+                  <span className="text-[15.4px] font-semibold" style={{ color: inRitardoRientro ? "#DC2626" : !s.dataRientroPrevista ? "var(--color-grey-mid)" : "#16A34A" }}>
+                    {fmt(s.dataRientroPrevista)}
+                  </span>
+                </>
+              )}
+            </div>
+
+            {s.statoProduzione === "Completato" && s.dataProduzioneEffettiva && (
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                <span className="text-[12.1px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>Produzione Effettiva</span>
+                <span
+                  className="text-[15.4px] font-semibold"
+                  style={{ color: s.dataProduzionePrevista && s.dataProduzioneEffettiva > s.dataProduzionePrevista ? "#DC2626" : "#16A34A" }}
+                >
+                  {fmt(s.dataProduzioneEffettiva)}
+                </span>
+              </div>
+            )}
+            </div>
+
+            {comandi}
           </div>
         </div>
 
@@ -631,13 +667,17 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
               >
                 <span style={{ color: activeTab === t.key ? "var(--color-primary)" : "currentColor" }}>{t.icon}</span>
                 {t.label}
+                {t.key === "fornitore" && inRitardoRientro && (
+                  <span className="w-2 h-2 rounded-full" style={{ background: "#DC2626" }} title="Rientro in ritardo" />
+                )}
               </button>
             ))}
           </div>
         )}
 
         {/* ── Body ── */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+        <div className={isPagina ? "lg:grid lg:grid-cols-[minmax(0,1fr)_340px]" : "flex-1 overflow-y-auto"}>
+        <div className="px-6 py-5 space-y-5 min-w-0">
 
           {activeTab === "kit" && canFerramenta && <KitFerramentaTab scheda={s} />}
 
@@ -747,6 +787,9 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
             </div>
           )}
 
+          {/* A pagina piena: dati a sinistra, anteprima PDF a destra; nel modale tutto in colonna. */}
+          <div className={isPagina ? "grid gap-6 xl:grid-cols-2 items-start" : "space-y-5"}>
+          <div className="space-y-5 min-w-0">
           {s.copertina && (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={s.copertina} alt="Copertina" className="w-full rounded-xl object-contain border"
@@ -770,10 +813,15 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
               </div>
             )}
           </section>
+          </div>
 
           {s.pdfAllegato.length > 0 && (
-            <section className="space-y-2">
+            <section className="space-y-2 min-w-0">
               <h3 className="text-[12.1px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>PDF allegati</h3>
+              {isPagina && (
+                <iframe src={`${s.pdfAllegato[0].url}#navpanes=0&view=FitH`} title={`Anteprima ${s.pdfAllegato[0].name || "PDF"}`}
+                  className="w-full rounded-lg border bg-white" style={{ height: 680, borderColor: "#ebe9e5" }} />
+              )}
               <div className="flex flex-col gap-1.5">
                 {s.pdfAllegato.map((pdf, i) => (
                   <a key={i} href={pdf.url} target="_blank" rel="noopener noreferrer"
@@ -788,9 +836,12 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
               </div>
             </section>
           )}
+          </div>
 
           </>}
 
+        </div>
+        {isPagina && <SchedaColonnaLaterale scheda={s} attivita={attivita} />}
         </div>
       </div>
 
