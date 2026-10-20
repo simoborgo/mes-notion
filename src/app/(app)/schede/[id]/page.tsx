@@ -15,9 +15,9 @@ export default async function SchedaDettaglioPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; modifica?: string }>;
 }) {
-  const [{ id }, { tab }] = await Promise.all([params, searchParams]);
+  const [{ id }, { tab, modifica }] = await Promise.all([params, searchParams]);
 
   let scheda, figlie, attivita;
   try {
@@ -40,6 +40,7 @@ export default async function SchedaDettaglioPage({
       padre={padre}
       userRole={session?.role}
       tabIniziale={tabIniziale}
+      modificaIniziale={modifica === "1"}
     />
   );
 }

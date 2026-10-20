@@ -8,6 +8,8 @@ import PdfAnnotatoreModal, { type AnnotazioneData } from "./PdfAnnotatoreModal";
 import FormModificaScheda from "./FormModificaScheda";
 import FormNuovaSottoscheda from "./FormNuovaSottoscheda";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import SchedaModificaInline from "./SchedaModificaInline";
 import KitFerramentaTab from "./KitFerramentaTab";
 import SchedaColonnaLaterale from "./SchedaColonnaLaterale";
 import type { VoceAttivita } from "@/lib/audit";
@@ -27,6 +29,7 @@ interface Props {
   // "pagina" = scheda a tutta pagina (/schede/[id]): niente overlay, colonna laterale fissa a destra
   // e anteprima PDF; "modale" (default) = la scheda veloce aperta dall'elenco.
   modalita?: "modale" | "pagina";
+  modificaIniziale?: boolean; // pagina piena: apre subito la modifica sul posto (?modifica=1)
   onTabChange?: (tab: "info" | "fornitore" | "kit" | "aps" | "verniciatura") => void; // la pagina piena la riporta nell'indirizzo
   attivita?: VoceAttivita[];
 }
@@ -304,8 +307,11 @@ function RilavorazioneWizard({
   );
 }
 
-export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, onRilavorazioneCreata, onViewScheda, userRole, onSchedaAggiornata, tabIniziale, modalita = "modale", attivita = [], onTabChange }: Props) {
+export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, onRilavorazioneCreata, onViewScheda, userRole, onSchedaAggiornata, tabIniziale, modalita = "modale", attivita = [], onTabChange, modificaIniziale = false }: Props) {
   const isPagina = modalita === "pagina";
+  const router = useRouter();
+  // Modifica sul posto (solo pagina piena): la tab Info diventa un modulo, il resto della pagina resta.
+  const [inModifica, setInModifica] = useState(isPagina && modificaIniziale && (userRole === "admin" || userRole === "produzione"));
   const overlayRef = useRef<HTMLDivElement>(null);
   const [showWizard, setShowWizard] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
@@ -455,12 +461,20 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
     }
   }
 
+  // Dalla pagina piena la modifica è sul posto. Dal modale, su schermo largo si passa alla pagina
+  // piena già in modifica (il modale resta di consultazione); su schermo stretto resta il vecchio modulo.
+  function apriModifica() {
+    if (isPagina) { setActiveTab("info"); setInModifica(true); return; }
+    if (window.matchMedia("(min-width: 1024px)").matches) router.push(`/schede/${s.id}?modifica=1`);
+    else setShowEditForm(true);
+  }
+
   const comandi = (
     <>
             {/* ── Riga comandi ── */}
             <div className={isPagina ? "flex items-center gap-2 flex-wrap" : "flex items-center gap-2 flex-wrap mt-4"}>
-            {(userRole === "admin" || userRole === "produzione") && (
-              <button onClick={() => setShowEditForm(true)}
+            {(userRole === "admin" || userRole === "produzione") && !inModifica && (
+              <button onClick={apriModifica}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13.2px] font-medium transition-colors hover:bg-gray-100"
                 style={{ color: "var(--color-grey-mid)", border: "1px solid #d1d5db", background: "white" }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -668,6 +682,9 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
               >
                 <span style={{ color: activeTab === t.key ? "var(--color-primary)" : "currentColor" }}>{t.icon}</span>
                 {t.label}
+                {t.key === "info" && inModifica && (
+                  <span className="w-2 h-2 rounded-full" style={{ background: "var(--color-primary)" }} title="Modifica in corso" />
+                )}
                 {t.key === "fornitore" && inRitardoRientro && (
                   <span className="w-2 h-2 rounded-full" style={{ background: "#DC2626" }} title="Rientro in ritardo" />
                 )}
@@ -692,7 +709,19 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
             <VerniciaturaOdpTab key={s.id} scheda={s} userRole={userRole} onSchedaAggiornata={onSchedaAggiornata} />
           )}
 
-          {activeTab === "info" && <>
+          {inModifica && (
+            // Sempre montato mentre si modifica (nascosto sulle altre tab): cambiare tab non perde le modifiche
+            <div hidden={activeTab !== "info"}>
+              <SchedaModificaInline
+                scheda={s}
+                onSalvata={(updated) => { setInModifica(false); onSchedaAggiornata?.(updated); }}
+                onAnnulla={() => setInModifica(false)}
+                onAllegatiAggiornati={(upd) => onSchedaAggiornata?.(upd)}
+              />
+            </div>
+          )}
+
+          {activeTab === "info" && !inModifica && <>
 
           {showWizard && (
             <RilavorazioneWizard

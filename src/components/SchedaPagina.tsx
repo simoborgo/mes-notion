@@ -10,13 +10,14 @@ import DettaglioSchedaModal from "./DettaglioSchedaModal";
 
 export type TabScheda = "info" | "fornitore" | "kit" | "aps" | "verniciatura";
 
-export default function SchedaPagina({ scheda: iniziale, figlie, attivita, padre, userRole, tabIniziale }: {
+export default function SchedaPagina({ scheda: iniziale, figlie, attivita, padre, userRole, tabIniziale, modificaIniziale }: {
   scheda: Scheda;
   padre: Scheda | null;
   figlie: Scheda[];
   attivita: VoceAttivita[];
   userRole?: Role;
   tabIniziale?: TabScheda;
+  modificaIniziale?: boolean;
 }) {
   const router = useRouter();
   const [scheda, setScheda] = useState(iniziale);
@@ -64,6 +65,7 @@ export default function SchedaPagina({ scheda: iniziale, figlie, attivita, padre
         attivita={attivita}
         userRole={userRole}
         tabIniziale={tabIniziale}
+        modificaIniziale={modificaIniziale}
         onTabChange={cambiaTab}
         onClose={() => router.push(padre ? `/schede/${padre.id}` : "/schede")}
         onViewScheda={(s) => router.push(`/schede/${s.id}`)}
