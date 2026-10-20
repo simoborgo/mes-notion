@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import type { Area, Commessa, Scheda, SchedaUpdate } from "@/lib/types";
 import FormArea from "./FormArea";
 import AllegatiScheda from "./AllegatiScheda";
+import SezioneValoriScheda from "./SezioneValoriScheda";
+import type { EconomiaScheda } from "@/lib/valoriScheda";
 
 const STATI = [
   "Da Iniziare", "In lavorazione", "In lavorazione Esterna", "Materiale Pronto", "Verificato", "Completato",
@@ -49,8 +51,9 @@ function Campo({ label, prima, modificato, larga, children }: {
 
 // Modifica della scheda direttamente nella tab Info della pagina piena, al posto del modale. I campi
 // sono quelli di FormModificaScheda; gli allegati si caricano subito (non passano dal Salva).
-export default function SchedaModificaInline({ scheda, puoModificareIdentita, onSalvata, onAnnulla, onAllegatiAggiornati }: {
+export default function SchedaModificaInline({ scheda, economia, puoModificareIdentita, onSalvata, onAnnulla, onAllegatiAggiornati }: {
   scheda: Scheda;
+  economia?: EconomiaScheda | null; // presente per le Schede madre: abilita la sezione Valori
   puoModificareIdentita: boolean; // ODP e titolo (numero scheda): solo admin
   onSalvata: (updated: Scheda) => void;
   onAnnulla: () => void;
@@ -70,6 +73,8 @@ export default function SchedaModificaInline({ scheda, puoModificareIdentita, on
     noteStato: scheda.noteStato,
     areaId: scheda.areaId,
     priorita: scheda.priorita,
+    ...(economia ? { oreManodoperaPreviste: scheda.oreManodoperaPreviste } : {}),
+    ...(economia?.admin ? { valoreVendita: economia.admin.valoreVendita } : {}),
   });
   const [iniziale] = useState(form);
   const [salvando, setSalvando] = useState(false);
@@ -238,6 +243,17 @@ export default function SchedaModificaInline({ scheda, puoModificareIdentita, on
           </Campo>
         </div>
       </section>
+
+      {economia && (
+        <section>
+          <Titolo nota={economia.admin ? "Il costo è il 60% della vendita; la manodopera si converte con la tariffa oraria." : "Gli importi li vede e li imposta solo l'admin."}>Valori</Titolo>
+          <SezioneValoriScheda
+            admin={economia.admin ? { tariffa: economia.admin.tariffa } : null}
+            vendita={form.valoreVendita ?? null} ore={form.oreManodoperaPreviste ?? null}
+            venditaIniziale={iniziale.valoreVendita ?? null} oreIniziali={iniziale.oreManodoperaPreviste ?? null}
+            onVendita={(v) => set("valoreVendita", v)} onOre={(v) => set("oreManodoperaPreviste", v)} />
+        </section>
+      )}
 
       <section>
         <Titolo>Collegamenti</Titolo>

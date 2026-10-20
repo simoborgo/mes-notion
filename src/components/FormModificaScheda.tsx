@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import type { Scheda, SchedaUpdate, Area, Commessa } from "@/lib/types";
 import FormArea from "./FormArea";
 import AllegatiScheda from "./AllegatiScheda";
+import SezioneValoriScheda from "./SezioneValoriScheda";
+import type { EconomiaScheda } from "@/lib/valoriScheda";
 
 const STATI = [
   "Da Iniziare",
@@ -21,12 +23,13 @@ const STATI = [
 
 interface Props {
   scheda: Scheda;
+  economia?: EconomiaScheda | null; // presente per le Schede madre: abilita la sezione Valori
   puoModificareIdentita: boolean; // ODP e titolo (numero scheda): solo admin
   onClose: () => void;
   onSave: (updated: Scheda) => void;
 }
 
-export default function FormModificaScheda({ scheda, puoModificareIdentita, onClose, onSave }: Props) {
+export default function FormModificaScheda({ scheda, economia, puoModificareIdentita, onClose, onSave }: Props) {
   const [form, setForm] = useState<SchedaUpdate>({
     odp: scheda.odp,
     numeroScheda: scheda.numeroScheda,
@@ -41,6 +44,8 @@ export default function FormModificaScheda({ scheda, puoModificareIdentita, onCl
     noteStato: scheda.noteStato,
     areaId: scheda.areaId,
     priorita: scheda.priorita,
+    ...(economia ? { oreManodoperaPreviste: scheda.oreManodoperaPreviste } : {}),
+    ...(economia?.admin ? { valoreVendita: economia.admin.valoreVendita } : {}),
   });
   const [initialForm] = useState(form);
   const isDirty = JSON.stringify(form) !== JSON.stringify(initialForm);
@@ -191,6 +196,14 @@ export default function FormModificaScheda({ scheda, puoModificareIdentita, onCl
               </select>
             </div>
           </div>
+
+          {economia && (
+            <SezioneValoriScheda
+              admin={economia.admin ? { tariffa: economia.admin.tariffa } : null}
+              vendita={form.valoreVendita ?? null} ore={form.oreManodoperaPreviste ?? null}
+              venditaIniziale={initialForm.valoreVendita ?? null} oreIniziali={initialForm.oreManodoperaPreviste ?? null}
+              onVendita={(v) => set("valoreVendita", v)} onOre={(v) => set("oreManodoperaPreviste", v)} />
+          )}
 
           <div>
             <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Commessa</label>
