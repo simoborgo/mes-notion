@@ -304,6 +304,9 @@ export function parsePage(page: PdfPageData): LayoutPageResult {
   const descr = get("descrizione");
   const descrPrincipale = titoloDescrizione(descr.parts.map((p) => p.s));
   const numeroScheda = [posizione, descrPrincipale].filter(Boolean).join(" - ");
+  // Cartiglio riconosciuto ma POSIZIONE e DESCRIZIONE vuote (succede): il nome si compila a mano in
+  // anteprima; la pagina resta del parser, così il QR viene timbrato comunque.
+  if (!numeroScheda) warnings.push("Posizione e descrizione vuote nel cartiglio: inserire il nome scheda a mano");
 
   const quantitaTxt = get("quantita").text;
   let quantita = quantitaTxt.match(/\d+/) ? parseInt(quantitaTxt.match(/\d+/)![0], 10) : null;
@@ -365,7 +368,7 @@ export function parsePage(page: PdfPageData): LayoutPageResult {
 
   return {
     pagina: page.n,
-    ok: !!commessaNr && !!numeroScheda,
+    ok: !!commessaNr,
     item: {
       pagina: page.n, numeroScheda, commessaNr, termineDiConsegna, codiceArticolo,
       posizione, fornitore, quantita, otherFields, warnings, source: "layout",
