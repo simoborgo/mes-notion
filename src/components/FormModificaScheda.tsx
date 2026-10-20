@@ -21,11 +21,12 @@ const STATI = [
 
 interface Props {
   scheda: Scheda;
+  puoModificareIdentita: boolean; // ODP e titolo (numero scheda): solo admin
   onClose: () => void;
   onSave: (updated: Scheda) => void;
 }
 
-export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
+export default function FormModificaScheda({ scheda, puoModificareIdentita, onClose, onSave }: Props) {
   const [form, setForm] = useState<SchedaUpdate>({
     odp: scheda.odp,
     numeroScheda: scheda.numeroScheda,
@@ -154,14 +155,16 @@ export default function FormModificaScheda({ scheda, onClose, onSave }: Props) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>ODP</label>
-              <input type="text" className={inputCls} value={form.odp ?? ""} onChange={(e) => set("odp", e.target.value)} />
-              <p className="text-xs mt-1" style={{ color: "#991B1B" }}>
-                Correggi solo per un inserimento errato/doppio: le ore e lo storico già registrati restano collegati al vecchio ODP.
+              <input type="text" className={inputCls + " disabled:bg-gray-50 disabled:text-gray-500"} value={form.odp ?? ""} onChange={(e) => set("odp", e.target.value)} disabled={!puoModificareIdentita} />
+              <p className="text-xs mt-1" style={{ color: puoModificareIdentita ? "#991B1B" : "var(--color-grey-mid)" }}>
+                {puoModificareIdentita
+                  ? "Correggi solo per un inserimento errato/doppio: le ore e lo storico già registrati restano collegati al vecchio ODP."
+                  : "Solo l'admin può modificare ODP e titolo."}
               </p>
             </div>
             <div>
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Numero Scheda</label>
-              <input type="text" className={inputCls} value={form.numeroScheda ?? ""} onChange={(e) => set("numeroScheda", e.target.value)} />
+              <input type="text" className={inputCls + " disabled:bg-gray-50 disabled:text-gray-500"} value={form.numeroScheda ?? ""} onChange={(e) => set("numeroScheda", e.target.value)} disabled={!puoModificareIdentita} />
             </div>
           </div>
 

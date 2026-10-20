@@ -714,6 +714,7 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
             <div hidden={activeTab !== "info"}>
               <SchedaModificaInline
                 scheda={s}
+                puoModificareIdentita={userRole === "admin"}
                 onSalvata={(updated) => { setInModifica(false); onSchedaAggiornata?.(updated); }}
                 onAnnulla={() => setInModifica(false)}
                 onAllegatiAggiornati={(upd) => onSchedaAggiornata?.(upd)}
@@ -873,6 +874,7 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
       {showEditForm && (
         <FormModificaScheda
           scheda={s}
+          puoModificareIdentita={userRole === "admin"}
           onClose={() => setShowEditForm(false)}
           onSave={(updated) => {
             setShowEditForm(false);

@@ -25,6 +25,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
     const body: SchedaUpdate = await req.json();
 
+    // ODP e titolo (numero scheda) li cambia solo l'admin. I moduli inviano sempre tutti i campi,
+    // quindi si rifiuta solo se il valore è davvero diverso da quello salvato.
+    if (session.role !== "admin" && (body.odp !== undefined || body.numeroScheda !== undefined)) {
+      const attuale = await getSchedaById(id);
+      const odpCambiato = body.odp !== undefined && body.odp.trim() !== (attuale.odp ?? "");
+      const titoloCambiato = body.numeroScheda !== undefined && body.numeroScheda.trim() !== (attuale.numeroScheda ?? "");
+      if (odpCambiato || titoloCambiato) {
+        return NextResponse.json({ error: "Solo l'admin può modificare ODP e titolo della scheda" }, { status: 403 });
+      }
+    }
+
     const updated = await updateScheda(id, body);
 
     revalidatePath("/schede");

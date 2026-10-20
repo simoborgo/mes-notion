@@ -16,6 +16,7 @@ const PRIORITA: { v: string; l: string }[] = [
 const norm = (v: unknown) => (v === null || v === undefined ? "" : String(v));
 const inputCls = "w-full text-[15.4px] px-3 py-1.5 rounded-md border focus:outline-none focus:ring-2 focus:ring-orange-300 transition-shadow bg-white";
 const inputStyle = { border: "1px solid #e5e4e0", color: "var(--color-black)" };
+const inputCls_disabled = " disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed";
 
 function Titolo({ children, nota }: { children: React.ReactNode; nota?: React.ReactNode }) {
   return (
@@ -48,8 +49,9 @@ function Campo({ label, prima, modificato, larga, children }: {
 
 // Modifica della scheda direttamente nella tab Info della pagina piena, al posto del modale. I campi
 // sono quelli di FormModificaScheda; gli allegati si caricano subito (non passano dal Salva).
-export default function SchedaModificaInline({ scheda, onSalvata, onAnnulla, onAllegatiAggiornati }: {
+export default function SchedaModificaInline({ scheda, puoModificareIdentita, onSalvata, onAnnulla, onAllegatiAggiornati }: {
   scheda: Scheda;
+  puoModificareIdentita: boolean; // ODP e titolo (numero scheda): solo admin
   onSalvata: (updated: Scheda) => void;
   onAnnulla: () => void;
   onAllegatiAggiornati?: (s: Scheda) => void;
@@ -210,11 +212,15 @@ export default function SchedaModificaInline({ scheda, onSalvata, onAnnulla, onA
         <Titolo>Identificazione</Titolo>
         <div className="grid gap-2.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))" }}>
           <Campo label="ODP" modificato={mod("odp")} prima={norm(iniziale.odp)}>
-            <input className={`${inputCls} font-mono`} style={inputStyle} value={form.odp ?? ""} onChange={(e) => set("odp", e.target.value)} />
+            <input className={`${inputCls}${inputCls_disabled} font-mono`} style={inputStyle} value={form.odp ?? ""} onChange={(e) => set("odp", e.target.value)}
+              disabled={!puoModificareIdentita} title={puoModificareIdentita ? undefined : "Solo l'admin può modificare l'ODP"} />
+            {!puoModificareIdentita && <p className="text-[12.1px] mt-1" style={{ color: "var(--color-grey-mid)" }}>Solo l&apos;admin può modificarlo.</p>}
             {mod("odp") && <p className="text-[12.1px] mt-1" style={{ color: "#991B1B" }}>Ore e storico già registrati restano collegati al vecchio ODP.</p>}
           </Campo>
           <Campo label="Numero scheda" modificato={mod("numeroScheda")} prima={norm(iniziale.numeroScheda)}>
-            <input className={inputCls} style={inputStyle} value={form.numeroScheda ?? ""} onChange={(e) => set("numeroScheda", e.target.value)} />
+            <input className={`${inputCls}${inputCls_disabled}`} style={inputStyle} value={form.numeroScheda ?? ""} onChange={(e) => set("numeroScheda", e.target.value)}
+              disabled={!puoModificareIdentita} title={puoModificareIdentita ? undefined : "Solo l'admin può modificare il titolo"} />
+            {!puoModificareIdentita && <p className="text-[12.1px] mt-1" style={{ color: "var(--color-grey-mid)" }}>Solo l&apos;admin può modificarlo.</p>}
           </Campo>
           <Campo label="Codice articolo" modificato={mod("codiceArticolo")} prima={norm(iniziale.codiceArticolo)}>
             <input className={`${inputCls} font-mono`} style={inputStyle} value={form.codiceArticolo ?? ""} onChange={(e) => set("codiceArticolo", e.target.value)} />
