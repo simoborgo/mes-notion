@@ -305,9 +305,16 @@ export async function createSchedaPage({
   );
   const id = rows[0].id as string;
 
-  // Fornitore e rientro previsto dati alla creazione sono il primo giro esterno della scheda.
-  if (fornitoreId || dataRientroPrevista) {
-    await applicaDatiEsterniAlGiroAttivo(id, { fornitoreId: fornitoreId || null, dataRientroPrevista: dataRientroPrevista || null });
+  // Fornitore e rientro previsto dati alla creazione sono il primo giro esterno della scheda. Una
+  // scheda che nasce già "In lavorazione Esterna" (import PDF con fornitore, rilavorazioni) ha il
+  // giro anche senza altri dati, e parte da "Da Ordinare" (scelto dall'utente 2026-10-20).
+  const nascEsterna = stato === "In lavorazione Esterna";
+  if (fornitoreId || dataRientroPrevista || nascEsterna) {
+    await applicaDatiEsterniAlGiroAttivo(id, {
+      fornitoreId: fornitoreId || null,
+      dataRientroPrevista: dataRientroPrevista || null,
+      statoProdEsterna: nascEsterna ? "Da Ordinare" : undefined,
+    });
   }
 
   if (pdfBuffer && pdfFilename) {
