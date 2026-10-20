@@ -112,13 +112,21 @@ export default function FornitoreEsternoTab({ scheda, userRole, onSchedaAggiorna
   }, [scheda.id]);
 
   useEffect(() => {
-    carica().catch(() => setErrore("Impossibile leggere i giri esterni."));
+    let annullato = false;
+    (async () => {
+      try { await carica(); } catch { if (!annullato) setErrore("Impossibile leggere i giri esterni."); }
+    })();
+    return () => { annullato = true; };
   }, [carica]);
 
-  useEffect(() => {
+  // Il modulo si riallinea al giro selezionato quando cambia giro o i suoi dati (aggiornamento
+  // di stato durante il rendering, il modo previsto da React per derivare stato da altro stato).
+  const chiaveGiro = giroSel ? `${giroSel.id}|${JSON.stringify(formDa(giroSel))}` : null;
+  const [chiaveForm, setChiaveForm] = useState<string | null>(null);
+  if (chiaveGiro !== chiaveForm) {
+    setChiaveForm(chiaveGiro);
     if (giroSel) setForm(formDa(giroSel));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [giroSel?.id, giri]);
+  }
 
   useEffect(() => {
     if (!canEdit && !canMovimenti) return;

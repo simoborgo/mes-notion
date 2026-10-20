@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
       rilavorazioneId,
       // Giro scelto nel form; se omesso createRitiro usa il giro attivo della scheda (anche per
       // la rilavorazione appena creata: il suo giro 1 è già stato aperto da createRilavorazione).
-      giroId: giroId || undefined,
+      giroId: giroId === undefined ? undefined : (giroId || null), // null = nessun giro, scelto esplicitamente
     });
 
     const fotoArray: string[] = Array.isArray(foto_base64) ? foto_base64 : foto_base64 ? [foto_base64] : [];
