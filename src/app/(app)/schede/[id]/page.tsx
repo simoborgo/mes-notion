@@ -25,6 +25,9 @@ export default async function SchedaDettaglioPage({
   } catch {
     notFound();
   }
+  // La madre arriva dal server (non da un fetch del client) così il percorso in alto è completo
+  // fin dal primo rendering, senza comparire in ritardo.
+  const padre = scheda.parentId ? await getSchedaById(scheda.parentId).catch(() => null) : null;
   const session = await getSession();
   const tabIniziale = TAB_VALIDE.find((t) => t === tab);
 
@@ -34,6 +37,7 @@ export default async function SchedaDettaglioPage({
       scheda={scheda}
       figlie={figlie}
       attivita={attivita}
+      padre={padre}
       userRole={session?.role}
       tabIniziale={tabIniziale}
     />

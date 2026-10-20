@@ -27,6 +27,7 @@ interface Props {
   // "pagina" = scheda a tutta pagina (/schede/[id]): niente overlay, colonna laterale fissa a destra
   // e anteprima PDF; "modale" (default) = la scheda veloce aperta dall'elenco.
   modalita?: "modale" | "pagina";
+  onTabChange?: (tab: "info" | "fornitore" | "kit" | "aps" | "verniciatura") => void; // la pagina piena la riporta nell'indirizzo
   attivita?: VoceAttivita[];
 }
 
@@ -303,7 +304,7 @@ function RilavorazioneWizard({
   );
 }
 
-export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, onRilavorazioneCreata, onViewScheda, userRole, onSchedaAggiornata, tabIniziale, modalita = "modale", attivita = [] }: Props) {
+export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, onRilavorazioneCreata, onViewScheda, userRole, onSchedaAggiornata, tabIniziale, modalita = "modale", attivita = [], onTabChange }: Props) {
   const isPagina = modalita === "pagina";
   const overlayRef = useRef<HTMLDivElement>(null);
   const [showWizard, setShowWizard] = useState(false);
@@ -659,7 +660,7 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
             {tabs.map((t) => (
               <button
                 key={t.key}
-                onClick={() => setActiveTab(t.key)}
+                onClick={() => { setActiveTab(t.key); onTabChange?.(t.key); }}
                 className="flex items-center gap-2 px-5 py-3 text-[15.4px] font-semibold transition-all"
                 style={activeTab === t.key
                   ? { background: "white", color: "var(--color-black)", borderTop: "2px solid var(--color-primary)", marginBottom: -1 }
