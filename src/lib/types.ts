@@ -42,6 +42,9 @@ export interface Scheda {
   // Ricetta di verniciatura usata per questo ODP (1 scheda_verniciatura può essere referenziata da
   // molti ODP nel tempo — cardinalità 1:N, vedi VerniciaturaOdpTab.tsx).
   schedaVerniciaturaId: string | null;
+  // Manodopera prevista per l'ODP (ore): visibile a tutti. Il valore di vendita NON è qui di
+  // proposito (questo oggetto arriva a tutti i ruoli): vedi schedeEconomiaRepository.ts.
+  oreManodoperaPreviste: number | null;
 }
 
 export type PrioritaOdp = "critica" | "alta" | "media" | "bassa";
@@ -70,6 +73,9 @@ export interface SchedaUpdate {
   noteStato?: string;
   areaId?: string | null;
   schedaVerniciaturaId?: string | null;
+  oreManodoperaPreviste?: number | null;
+  // Solo admin: non passa da updateScheda, lo smista la route PATCH (schedeEconomiaRepository.ts).
+  valoreVendita?: number | null;
 }
 
 export interface Ritiro {

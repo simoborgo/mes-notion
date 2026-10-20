@@ -125,6 +125,7 @@ function mapRow(r: any, allegati: Awaited<ReturnType<typeof caricaAllegati>>): S
     noteStato: r.note_stato,
     priorita: r.priorita,
     schedaVerniciaturaId: r.scheda_verniciatura_id,
+    oreManodoperaPreviste: r.ore_manodopera_previste != null ? Number(r.ore_manodopera_previste) : null,
   };
 }
 
@@ -431,6 +432,7 @@ export async function updateScheda(id: string, data: SchedaUpdate): Promise<Sche
   // Fornitore, stato esterno e le tre date non si scrivono più direttamente su `schede`: sono il
   // riepilogo del giro attivo, quindi la modifica va sul giro (applicaDatiEsterniAlGiroAttivo
   // sotto) che poi li ricopia qui.
+  if (data.oreManodoperaPreviste !== undefined) { sets.push(`ore_manodopera_previste = $${i++}`); values.push(data.oreManodoperaPreviste); }
   if (data.schedaVerniciaturaId !== undefined) { sets.push(`scheda_verniciatura_id = $${i++}`); values.push(data.schedaVerniciaturaId); }
   sets.push(`aggiornato_il = now()`);
 

@@ -4,6 +4,7 @@ import { getSchedaById, updateScheda, archiveScheda } from "@/lib/schedeReposito
 import type { SchedaUpdate } from "@/lib/types";
 import { getSessionFromRequest, MODIFICA_SCHEDA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
+import { setValoreVendita } from "@/lib/schedeEconomiaRepository";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -36,7 +37,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
     }
 
-    const updated = await updateScheda(id, body);
+    // Il valore di vendita lo scrive solo l'admin e non passa da updateScheda (non fa parte dell'oggetto Scheda).
+    const { valoreVendita, ...datiScheda } = body;
+    if (valoreVendita !== undefined) {
+      if (session.role !== "admin") return NextResponse.json({ error: "Solo l'admin può modificare il valore di vendita" }, { status: 403 });
+      if (valoreVendita !== null && !(Number.isFinite(valoreVendita) && valoreVendita >= 0)) {
+        return NextResponse.json({ error: "Valore di vendita non valido" }, { status: 400 });
+      }
+    }
+    const ore = datiScheda.oreManodoperaPreviste;
+    if (ore != null && !(Number.isFinite(ore) && ore >= 0)) {
+      return NextResponse.json({ error: "Ore manodopera non valide" }, { status: 400 });
+    }
+
+    const updated = await updateScheda(id, datiScheda);
+    if (valoreVendita !== undefined) await setValoreVendita(id, valoreVendita);
 
     revalidatePath("/schede");
 
