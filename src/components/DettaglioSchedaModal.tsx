@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Scheda } from "@/lib/types";
 import { FERRAMENTA_ROLES, type Role } from "@/lib/roles";
 import BadgeStato from "./BadgeStato";
@@ -16,6 +16,8 @@ import type { VoceAttivita } from "@/lib/audit";
 import SchedaFasiApsTab from "./SchedaFasiApsTab";
 import FornitoreEsternoTab from "./FornitoreEsternoTab";
 import VerniciaturaOdpTab from "./VerniciaturaOdpTab";
+import ContatoriOreScheda from "./ContatoriOreScheda";
+import type { EconomiaScheda } from "@/lib/valoriScheda";
 
 interface Props {
   scheda: Scheda;
@@ -332,6 +334,16 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
   // chi discende — risolto autonomamente qui (fetch diretta del padre) così funziona indipendente
   // da quale pagina apre il modal, non solo da quelle che già hanno l'intera lista schede a mano.
   const [schedaPadre, setSchedaPadre] = useState<Scheda | null>(null);
+
+  // Ore consumate/standard (tutti) e importi (solo admin) della scheda madre; li serve
+  // /api/schede/[id]/economia, mai incluso nell'oggetto scheda. Ricaricati dopo ogni salvataggio.
+  const [economia, setEconomia] = useState<EconomiaScheda | null>(null);
+  const haEconomia = s.tipologia === "Scheda";
+  const caricaEconomia = useCallback(() => {
+    if (!haEconomia) return;
+    fetch(`/api/schede/${s.id}/economia`).then((r) => (r.ok ? r.json() : null)).then((d) => setEconomia(d)).catch(() => {});
+  }, [s.id, haEconomia]);
+  useEffect(() => { caricaEconomia(); }, [caricaEconomia]);
   useEffect(() => {
     if (!s.parentId) return;
     let cancelled = false;
@@ -712,17 +724,20 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
           {inModifica && (
             // Sempre montato mentre si modifica (nascosto sulle altre tab): cambiare tab non perde le modifiche
             <div hidden={activeTab !== "info"}>
-              <SchedaModificaInline
+              {haEconomia && !economia ? <p className="text-[15.4px]" style={{ color: "var(--color-grey-mid)" }}>Caricamento…</p> : <SchedaModificaInline
                 scheda={s}
+                economia={haEconomia ? economia : undefined}
                 puoModificareIdentita={userRole === "admin"}
-                onSalvata={(updated) => { setInModifica(false); onSchedaAggiornata?.(updated); }}
+                onSalvata={(updated) => { setInModifica(false); caricaEconomia(); onSchedaAggiornata?.(updated); }}
                 onAnnulla={() => setInModifica(false)}
                 onAllegatiAggiornati={(upd) => onSchedaAggiornata?.(upd)}
-              />
+              />}
             </div>
           )}
 
           {activeTab === "info" && !inModifica && <>
+
+          {haEconomia && <ContatoriOreScheda economia={economia} orePreviste={s.oreManodoperaPreviste} />}
 
           {showWizard && (
             <RilavorazioneWizard
@@ -871,13 +886,15 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
         </div>
       </div>
 
-      {showEditForm && (
+      {showEditForm && (!haEconomia || economia) && (
         <FormModificaScheda
           scheda={s}
+          economia={haEconomia ? economia : undefined}
           puoModificareIdentita={userRole === "admin"}
           onClose={() => setShowEditForm(false)}
           onSave={(updated) => {
             setShowEditForm(false);
+            caricaEconomia();
             onSchedaAggiornata?.(updated);
           }}
         />
