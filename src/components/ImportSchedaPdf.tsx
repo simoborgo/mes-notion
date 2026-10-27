@@ -88,7 +88,7 @@ async function extractPdfData(file: File): Promise<{ pageTexts: string[]; pageIt
         return { s: it.str, x: Math.round(t[4] * 10) / 10, y: Math.round(t[5] * 10) / 10, w: Math.round(it.width * 10) / 10, h: Math.round(Math.hypot(t[2], t[3]) * 10) / 10 };
       }),
     });
-    const smallScale = 480 / vpSmall0.width;
+    const smallScale = 800 / vpSmall0.width;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const vpSmall = page.getViewport({ scale: smallScale }) as any;
     canvas.width = vpSmall.width;
@@ -299,6 +299,8 @@ export default function ImportSchedaPdf() {
           items: [itemsWithIndex[0], ...itemsWithIndex.slice(1).filter((it) => it.includeAsSubitem === true)],
           pdfBase64,
           thumbnailBase64,
+          // copertina di ogni sottoscheda: l'anteprima della sua prima pagina (solo per quelle incluse)
+          pageThumbnails: itemsWithIndex.map((it, idx) => (idx > 0 && it.includeAsSubitem === true ? pageThumbnails[idx] ?? null : null)),
           qrPos: itemsWithIndex.map((it) => it.qr ?? null),
         }),
       });
@@ -310,7 +312,7 @@ export default function ImportSchedaPdf() {
       setError((e as Error).message);
       setStatus("error");
     }
-  }, [pdfBase64, items, thumbnailBase64]);
+  }, [pdfBase64, items, thumbnailBase64, pageThumbnails]);
 
   const reset = useCallback(() => {
     setStatus("idle");

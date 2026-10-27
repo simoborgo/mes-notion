@@ -40,12 +40,14 @@ export async function POST(req: NextRequest) {
     items: ParsedItem[];
     pdfBase64: string;
     thumbnailBase64?: string;
+    // anteprima di ogni pagina (null = pagina non importata come sottoscheda), indicizzata per pagina
+    pageThumbnails?: Array<string | null>;
     // posizione del QR su ogni pagina del PDF originale (null = nessuno spazio), indicizzata per pagina:
     // `items` contiene solo scheda principale e sottoschede incluse, non tutte le pagine
     qrPos?: Array<QrPosizione | null>;
   };
 
-  const { items, pdfBase64, thumbnailBase64, qrPos } = body;
+  const { items, pdfBase64, thumbnailBase64, pageThumbnails, qrPos } = body;
   if (!items?.length || !pdfBase64) {
     return NextResponse.json({ ok: false, error: "Dati mancanti (items o pdfBase64)" }, { status: 400 });
   }
@@ -115,12 +117,21 @@ export async function POST(req: NextRequest) {
   console.log(`[import-scheda] QR timbrato sul PDF principale (${parentCodice})${qrPagineSenzaQr.length ? `, pagine senza QR: ${qrPagineSenzaQr.join(",")}` : ""}`);
 
   const parent = items[0];
+
+  // Assieme di Modar con tutte le sottoschede in lavorazione esterna: resta fermo finché non rientrano
+  // i pezzi, quindi parte "In attesa materiale". Se anche solo una sottoscheda si fa in Modar, o la
+  // principale ha già un fornitore o uno stato scelto in anteprima, lo stato non si tocca.
+  const subEsterna = (it: ParsedItem) => (it.stato ?? (it.fornitore && it.fornitore.toUpperCase() !== "MODAR" ? "In lavorazione Esterna" : "In lavorazione")) === "In lavorazione Esterna";
+  const sottoschede = items.slice(1);
+  const parentInModar = !fornitoreIds[0] && (!parent.fornitore || parent.fornitore.toUpperCase() === "MODAR");
+  const parentInAttesa = parentInModar && (!parent.stato || parent.stato === "In lavorazione") && sottoschede.length > 0 && sottoschede.every(subEsterna);
+
   const parentPage = await createSchedaPage({
     numeroScheda: parent.numeroScheda,
     commessaId: commessa.id,
     odp,
     tipologia: "Scheda",
-    stato: parent.stato || "In lavorazione",
+    stato: parentInAttesa ? "In attesa materiale" : parent.stato || "In lavorazione",
     codiceArticolo: parent.codiceArticolo,
     posizione: parent.posizione,
     fornitore: parent.fornitore,
@@ -174,6 +185,9 @@ export async function POST(req: NextRequest) {
     const subCodice = generaQrCodice();
     const subPdfBuffer = (await timbra(Buffer.from(await groupPdf.save()), subCodice, pageIndices.map((i) => qrPos?.[i] ?? null))).pdf;
     const subPdfFilename = `scheda-${odp}-sub-${g + 1}.pdf`;
+    // Copertina della sottoscheda: anteprima della sua prima pagina (come la principale usa la pagina 1).
+    const subThumbPayload = pageThumbnails?.[sub.pageIndex] ? dataUrlPayload(pageThumbnails[sub.pageIndex]!) : null;
+    const subThumbBuffer = subThumbPayload ? Buffer.from(subThumbPayload, "base64") : undefined;
 
     const subStato = sub.stato ?? (
       sub.fornitore && sub.fornitore.toUpperCase() !== "MODAR"
@@ -201,6 +215,8 @@ export async function POST(req: NextRequest) {
       qrCodice: subCodice,
       pdfBuffer: subPdfBuffer,
       pdfFilename: subPdfFilename,
+      thumbnailBuffer: subThumbBuffer,
+      thumbnailFilename: subThumbBuffer ? `copertina-${odp}-sub-${g + 1}.jpg` : undefined,
     });
     created.push({ odp, pageId: subPage.id, numeroScheda: subPage.numeroScheda, tipologia: "Sottoscheda" });
     console.log(`[import-scheda] Sottoscheda ${g + 1}/${orderedGroups.length} creata: ${subPage.id} (pagine ${pageIndices.map((p) => p + 1).join(",")}, dataProduzionePrevista=${parent.termineDiConsegna}, dataRientroPrevista=${sub.dataRientroPrevista})`);
