@@ -56,7 +56,7 @@ function Titolo({ children, azione }: { children: React.ReactNode; azione?: Reac
   );
 }
 
-const bottoneSecondario = "text-[13.2px] px-3 py-1.5 rounded-lg font-semibold border transition-colors disabled:opacity-50";
+const bottoneSecondario = "text-[15.4px] px-3.5 py-1.5 rounded-lg font-semibold border transition-colors disabled:opacity-50";
 const stileSecondario = { color: "var(--color-primary)", borderColor: "rgba(240,143,37,0.3)", background: "rgba(240,143,37,0.06)" };
 
 interface Props {
@@ -167,8 +167,25 @@ export default function FornitoreEsternoTab({ scheda, userRole, onSchedaAggiorna
     if (!confirm(`Eliminare il giro ${giroSel.ordine}? I movimenti collegati restano in Ritiri e Consegne, senza giro.`)) return;
     esegui(() => fetch(`/api/schede/${scheda.id}/giri/${giroSel.id}`, { method: "DELETE" }), null);
   }
-  const segnaUscita = () => setForm((f) => ({ ...f, stato: "In Lavorazione", dataUscita: f.dataUscita || oggi() }));
-  const segnaRientro = () => setForm((f) => ({ ...f, stato: "Rientrato", dataRientroEffettiva: f.dataRientroEffettiva || oggi() }));
+  // Uscita e rientro si salvano subito (con conferma), senza passare da "Salva modifiche": le altre
+  // modifiche in sospeso nel modulo vengono salvate insieme.
+  const segnaMovimento = (tipo: "uscita" | "rientro") => {
+    if (!giroSel || !confirm(`Segnare ${tipo} oggi per il giro ${giroSel.ordine}?`)) return;
+    const dati = tipo === "uscita"
+      ? { ...form, stato: "In Lavorazione", dataUscita: form.dataUscita || oggi() }
+      : { ...form, stato: "Rientrato", dataRientroEffettiva: form.dataRientroEffettiva || oggi() };
+    setForm(dati);
+    esegui(() => fetch(`/api/schede/${scheda.id}/giri/${giroSel.id}`, { method: "PATCH", headers: json, body: JSON.stringify(dati) }), giroSel.id);
+  };
+  const segnaUscita = () => segnaMovimento("uscita");
+  const segnaRientro = () => segnaMovimento("rientro");
+  // Uscita e rientro effettivo non si digitano: si valorizzano col cambio di stato (menu o bottoni "Segna ... oggi")
+  const cambiaStato = (stato: string) => setForm((f) => ({
+    ...f,
+    stato,
+    dataUscita: stato === "In Lavorazione" ? f.dataUscita || oggi() : f.dataUscita,
+    dataRientroEffettiva: stato === "Rientrato" ? f.dataRientroEffettiva || oggi() : f.dataRientroEffettiva,
+  }));
 
   const fotoInputRef = useRef<HTMLInputElement>(null);
   async function caricaFoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -368,20 +385,16 @@ export default function FornitoreEsternoTab({ scheda, userRole, onSchedaAggiorna
                 <input className={inputCls} style={inputStyle} placeholder="es. Verniciatura" value={form.lavorazione} onChange={(e) => setForm((f) => ({ ...f, lavorazione: e.target.value }))} />
               </Card>
               <Card label="Stato">
-                <select className={inputCls} style={inputStyle} value={form.stato} onChange={(e) => setForm((f) => ({ ...f, stato: e.target.value }))}>
+                <select className={inputCls} style={inputStyle} value={form.stato} onChange={(e) => cambiaStato(e.target.value)}>
                   <option value="">— nessuno —</option>
                   {STATI_GIRO.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </Card>
-              <Card label="Uscita materiale">
-                <input type="date" className={inputCls} style={inputStyle} value={form.dataUscita} onChange={(e) => setForm((f) => ({ ...f, dataUscita: e.target.value }))} />
-              </Card>
+              <Card label="Uscita materiale">{fmt(form.dataUscita || null)}</Card>
               <Card label="Rientro previsto">
                 <input type="date" className={inputCls} style={inputStyle} value={form.dataRientroPrevista} onChange={(e) => setForm((f) => ({ ...f, dataRientroPrevista: e.target.value }))} />
               </Card>
-              <Card label="Rientro effettivo">
-                <input type="date" className={inputCls} style={inputStyle} value={form.dataRientroEffettiva} onChange={(e) => setForm((f) => ({ ...f, dataRientroEffettiva: e.target.value }))} />
-              </Card>
+              <Card label="Rientro effettivo">{fmt(form.dataRientroEffettiva || null)}</Card>
               <div className="sm:col-span-2 xl:col-span-3">
                 <Card label="Note">
                   <textarea className={inputCls} style={inputStyle} rows={2} value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} />

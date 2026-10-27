@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Scheda } from "@/lib/types";
 import { FERRAMENTA_ROLES, type Role } from "@/lib/roles";
 import BadgeStato from "./BadgeStato";
+import GalleriaAllegatiScheda from "./GalleriaAllegatiScheda";
 import PdfAnnotatoreModal, { type AnnotazioneData } from "./PdfAnnotatoreModal";
 import FormModificaScheda from "./FormModificaScheda";
 import FormNuovaSottoscheda from "./FormNuovaSottoscheda";
@@ -575,12 +576,12 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
                     {schedaPadre && (
                       onViewScheda ? (
                         <button type="button" onClick={() => onViewScheda(schedaPadre)}
-                          className="text-[13.2px] font-medium underline decoration-dotted"
+                          className="text-[15.4px] font-semibold underline hover:opacity-70"
                           style={{ color: bandTheme.accent }}>
                           di {schedaPadre.odp || schedaPadre.numeroScheda}
                         </button>
                       ) : (
-                        <span className="text-[13.2px] font-medium" style={{ color: bandTheme.accent }}>
+                        <span className="text-[15.4px] font-medium" style={{ color: bandTheme.accent }}>
                           di {schedaPadre.odp || schedaPadre.numeroScheda}
                         </span>
                       )
@@ -860,23 +861,7 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
           </section>
           </div>
 
-          {s.pdfAllegato.length > 0 && (
-            <section className="space-y-2 min-w-0">
-              <h3 className="text-[12.1px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>PDF allegati</h3>
-              <div className="flex flex-col gap-1.5">
-                {s.pdfAllegato.map((pdf, i) => (
-                  <a key={i} href={pdf.url} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-[15.4px] font-medium transition-colors hover:opacity-80"
-                    style={{ borderColor: "#FCA5A5", color: "#DC2626", background: "#FFF5F5" }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/>
-                    </svg>
-                    {pdf.name || (s.pdfAllegato.length > 1 ? `PDF ${i + 1}` : "Apri PDF")}
-                  </a>
-                ))}
-              </div>
-            </section>
-          )}
+          <GalleriaAllegatiScheda scheda={s} />
           </div>
 
           </>}
