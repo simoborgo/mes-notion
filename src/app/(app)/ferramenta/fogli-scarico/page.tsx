@@ -4,6 +4,7 @@ import { getSchedeOdpAvviate } from "@/lib/schedeRepository";
 import { getStatoPreparazionePerOdp } from "@/lib/kitFerramentaRepository";
 import FogliScaricoList from "@/components/FogliScaricoList";
 import FerramentaSubNav from "@/components/FerramentaSubNav";
+import RichiesteTabs from "@/components/RichiesteTabs";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,7 @@ export default async function FogliScaricoPage() {
   return (
     <div className="space-y-4">
       <FerramentaSubNav canManage={FERRAMENTA_ROLES.includes(session.role)} />
+      <RichiesteTabs />
       <div>
         <h1 className="text-2xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
           Richieste Ferramenta ODP

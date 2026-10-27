@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getSession, FERRAMENTA_ROLES } from "@/lib/auth";
 import { getSchedaById } from "@/lib/schedeRepository";
-import { getDistintaKitByOdp } from "@/lib/kitFerramentaRepository";
+import { getDistintaKitConStato } from "@/lib/kitFerramentaRepository";
 import { getArticoliFerramenta } from "@/lib/articoliFerramentaRepository";
 import GestioneKitOdp from "@/components/GestioneKitOdp";
 
@@ -22,7 +22,7 @@ export default async function KitOdpDettaglioPage({ params }: { params: Promise<
   }
   if (!scheda) notFound();
 
-  const [righe, articoli] = await Promise.all([getDistintaKitByOdp(schedaId), getArticoliFerramenta()]);
+  const [righe, articoli] = await Promise.all([getDistintaKitConStato(schedaId), getArticoliFerramenta()]);
   const articoliAPezzo = articoli.filter(a => a.attivo && a.metodoGestione === "A Pezzo");
 
   return (

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { updateSchedaKitFerramenta, getSchedaById } from "@/lib/schedeRepository";
-import { deleteDistintaKitByOdp, getDistintaKitByOdp } from "@/lib/kitFerramentaRepository";
+import { deleteDistintaKitByOdp, getDistintaKitConStato } from "@/lib/kitFerramentaRepository";
 import { getSessionFromRequest, FERRAMENTA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 import { sendNotifica } from "@/lib/notify";
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ sche
     return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
   }
   const { schedaId } = await params;
-  const righe = await getDistintaKitByOdp(schedaId);
+  const righe = await getDistintaKitConStato(schedaId);
   return NextResponse.json(righe);
 }
 

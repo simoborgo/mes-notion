@@ -25,41 +25,80 @@ function OdpGrid({ schede, value, onChange, occupati, commessaId }: { schede: Sc
   const [conSottoschede, setConSottoschede] = useState(false);
   const schedeMap = useMemo(() => new Map(schede.map((s) => [s.id, s])), [schede]);
 
+  const selezionati = new Set(value);
+
+  const nellaCommessa = useMemo(
+    () => schede.filter((s) => s.odp && !occupati.has(s.id) && commessaDi(s, schedeMap) === commessaId),
+    [schede, schedeMap, occupati, commessaId],
+  );
+  const perOdp = (a: Scheda, b: Scheda) => a.odp.localeCompare(b.odp, "it", { numeric: true });
+
+  // Gli ODP già nel carico si vedono sempre (anche sottoschede, senza filtro di ricerca)
+  const inCarico = useMemo(() => nellaCommessa.filter((s) => value.includes(s.id)).sort(perOdp), [nellaCommessa, value]);
+
   const visibili = useMemo(() => {
     const q = search.toLowerCase().trim();
-    return schede
-      .filter((s) => s.odp && !occupati.has(s.id) && commessaDi(s, schedeMap) === commessaId)
-      .filter((s) => conSottoschede || s.tipologia === "Scheda" || value.includes(s.id))
+    return nellaCommessa
+      .filter((s) => !value.includes(s.id))
+      .filter((s) => conSottoschede || s.tipologia === "Scheda")
       .filter((s) => !q || `${s.odp} ${s.numeroScheda} ${s.clienteInfo} ${s.codiceArticolo}`.toLowerCase().includes(q))
-      .sort((a, b) => a.odp.localeCompare(b.odp, "it", { numeric: true }));
-  }, [schede, schedeMap, search, conSottoschede, occupati, commessaId, value]);
+      .sort(perOdp);
+  }, [nellaCommessa, search, conSottoschede, value]);
 
-  // Raggruppa per ODP principale: l'ODP (se visibile) e poi le sue sottoschede
-  const gruppi = useMemo(() => {
+  // Raggruppa per ODP principale: l'ODP (se presente) e poi le sue sottoschede
+  function raggruppa(lista: Scheda[]) {
     const rootDi = (s: Scheda): Scheda => {
       let cur = s;
       while (cur.parentId && schedeMap.get(cur.parentId)) cur = schedeMap.get(cur.parentId)!;
       return cur;
     };
     const map = new Map<string, { root: Scheda; items: Scheda[] }>();
-    for (const s of visibili) {
+    for (const s of lista) {
       const root = rootDi(s);
       const g = map.get(root.id) ?? { root, items: [] };
       g.items.push(s);
       map.set(root.id, g);
     }
-    for (const g of map.values()) g.items.sort((a, b) => (a.id === g.root.id ? -1 : b.id === g.root.id ? 1 : a.odp.localeCompare(b.odp, "it", { numeric: true })));
-    return [...map.values()].sort((a, b) => a.root.odp.localeCompare(b.root.odp, "it", { numeric: true }));
-  }, [visibili, schedeMap]);
+    for (const g of map.values()) g.items.sort((a, b) => (a.id === g.root.id ? -1 : b.id === g.root.id ? 1 : perOdp(a, b)));
+    return [...map.values()].sort((a, b) => perOdp(a.root, b.root));
+  }
+  const gruppiInCarico = useMemo(() => raggruppa(inCarico), [inCarico, schedeMap]); // eslint-disable-line react-hooks/exhaustive-deps
+  const gruppiDisponibili = useMemo(() => raggruppa(visibili), [visibili, schedeMap]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const selezionati = new Set(value);
   function toggle(id: string) {
     onChange(selezionati.has(id) ? value.filter((v) => v !== id) : [...value, id]);
   }
-  const tuttiSelezionati = visibili.length > 0 && visibili.every((s) => selezionati.has(s.id));
-  function toggleTutti() {
-    const ids = new Set(visibili.map((s) => s.id));
-    onChange(tuttiSelezionati ? value.filter((v) => !ids.has(v)) : [...value, ...visibili.filter((s) => !selezionati.has(s.id)).map((s) => s.id)]);
+  function aggiungiVisibili() {
+    onChange([...value, ...visibili.map((s) => s.id)]);
+  }
+  function rimuoviTutti() {
+    const ids = new Set(inCarico.map((s) => s.id));
+    onChange(value.filter((v) => !ids.has(v)));
+  }
+
+  function renderGruppi(gruppi: { root: Scheda; items: Scheda[] }[], selected: boolean) {
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        {gruppi.map(({ root, items }) => {
+          if (items.length === 1 && items[0].id === root.id) {
+            return <SchedaCard key={root.id} s={root} selected={selected} onClick={() => toggle(root.id)} />;
+          }
+          // ODP con sottoschede: riquadro unico con l'ODP in testata, così si vede a chi appartengono
+          return (
+            <div key={root.id} className="col-span-full rounded-xl border-2 border-dashed p-3 space-y-2" style={{ borderColor: "#FCD34D", background: "#FFFBEB" }}>
+              <p className="text-xs font-semibold" style={{ color: "#92400E" }}>
+                {root.odp}{root.clienteInfo ? ` · ${root.clienteInfo}` : ""} — sottoschede
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                {items.map((s) => (
+                  <SchedaCard key={s.id} s={s} sottoscheda={s.id !== root.id} selected={selected} onClick={() => toggle(s.id)} />
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
   }
 
   if (!commessaId) {
@@ -71,50 +110,52 @@ function OdpGrid({ schede, value, onChange, occupati, commessaId }: { schede: Sc
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <input
-          type="text"
-          className="flex-1 min-w-[200px] border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-          placeholder="Cerca per ODP, scheda, cliente, articolo…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <label className="flex items-center gap-1.5 text-sm cursor-pointer">
-          <input type="checkbox" checked={conSottoschede} onChange={(e) => setConSottoschede(e.target.checked)} className="accent-orange-500" />
-          Mostra sottoschede
-        </label>
-        <button type="button" onClick={toggleTutti} disabled={visibili.length === 0} className="px-3 py-2 text-sm rounded border font-medium hover:bg-gray-50 disabled:opacity-50">
-          {tuttiSelezionati ? "Deseleziona visibili" : "Seleziona tutti i visibili"}
-        </button>
-        <span className="text-sm font-semibold" style={{ color: "var(--color-primary)" }}>{value.length} selezionati</span>
-      </div>
-      {visibili.length === 0 ? (
-        <p className="text-sm text-center py-10 rounded-xl border border-dashed" style={{ color: "var(--color-grey-mid)", borderColor: "#e5e4e0" }}>
-          Nessun ODP disponibile: quelli della commessa sono già tutti in un carico.
-        </p>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {gruppi.map(({ root, items }) => {
-            if (items.length === 1 && items[0].id === root.id) {
-              return <SchedaCard key={root.id} s={root} selected={selezionati.has(root.id)} onClick={() => toggle(root.id)} />;
-            }
-            // ODP con sottoschede: riquadro unico con l'ODP in testata, così si vede a chi appartengono
-            return (
-              <div key={root.id} className="col-span-full rounded-xl border-2 border-dashed p-3 space-y-2" style={{ borderColor: "#FCD34D", background: "#FFFBEB" }}>
-                <p className="text-xs font-semibold" style={{ color: "#92400E" }}>
-                  {root.odp}{root.clienteInfo ? ` · ${root.clienteInfo}` : ""} — sottoschede
-                </p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {items.map((s) => (
-                    <SchedaCard key={s.id} s={s} sottoscheda={s.id !== root.id} selected={selezionati.has(s.id)} onClick={() => toggle(s.id)} />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
+    <div className="space-y-5">
+      <section className="space-y-2">
+        <div className="flex items-center gap-3">
+          <h3 className="text-sm font-semibold" style={{ color: "var(--color-primary)" }}>Nel carico ({inCarico.length})</h3>
+          {inCarico.length > 0 && (
+            <button type="button" onClick={rimuoviTutti} className="px-3 py-1 text-xs rounded border font-medium hover:bg-gray-50">
+              Rimuovi tutti
+            </button>
+          )}
+          <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>Clicca una card per toglierla dal carico</span>
         </div>
-      )}
+        {inCarico.length === 0 ? (
+          <p className="text-sm text-center py-6 rounded-xl border border-dashed" style={{ color: "var(--color-grey-mid)", borderColor: "#e5e4e0" }}>
+            Nessun ODP nel carico: sceglili tra i disponibili qui sotto.
+          </p>
+        ) : (
+          renderGruppi(gruppiInCarico, true)
+        )}
+      </section>
+
+      <section className="space-y-3 pt-4 border-t" style={{ borderColor: "#E4E0DA" }}>
+        <div className="flex flex-wrap items-center gap-3">
+          <h3 className="text-sm font-semibold">Disponibili ({visibili.length})</h3>
+          <input
+            type="text"
+            className="flex-1 min-w-[200px] border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+            placeholder="Cerca per ODP, scheda, cliente, articolo…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+            <input type="checkbox" checked={conSottoschede} onChange={(e) => setConSottoschede(e.target.checked)} className="accent-orange-500" />
+            Mostra sottoschede
+          </label>
+          <button type="button" onClick={aggiungiVisibili} disabled={visibili.length === 0} className="px-3 py-2 text-sm rounded border font-medium hover:bg-gray-50 disabled:opacity-50">
+            Aggiungi tutti i visibili
+          </button>
+        </div>
+        {visibili.length === 0 ? (
+          <p className="text-sm text-center py-8 rounded-xl border border-dashed" style={{ color: "var(--color-grey-mid)", borderColor: "#e5e4e0" }}>
+            Nessun ODP disponibile: quelli della commessa sono già tutti in un carico.
+          </p>
+        ) : (
+          renderGruppi(gruppiDisponibili, false)
+        )}
+      </section>
     </div>
   );
 }

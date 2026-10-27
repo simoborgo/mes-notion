@@ -2,7 +2,9 @@ import { pool } from "./db";
 import { updateArticoloFerramentaGiacenza } from "./articoliFerramentaRepository";
 import { registraMovimento } from "./ferramentaRepository";
 import { updateSchedaKitFerramentaDescrizione } from "./schedeRepository";
-import type { DistintaKitRiga, StatoApprovvigionamentoKit } from "./types";
+import { getArticoliFerramenta } from "./articoliFerramentaRepository";
+import { getSchedeOdpAvviate } from "./schedeRepository";
+import type { DistintaKitRiga, StatoApprovvigionamentoKit, StatoRigaKit } from "./types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapRow(r: any): DistintaKitRiga {
@@ -39,6 +41,104 @@ const SELECT_JOIN = `
 export async function getDistintaKitByOdp(odpId: string): Promise<DistintaKitRiga[]> {
   const { rows } = await pool.query(`${SELECT_JOIN} WHERE r.odp_id = $1 ORDER BY r.descrizione`, [odpId]);
   return rows.map(mapRow);
+}
+
+// Quantità netta scaricata per (ODP, articolo): scarichi meno carichi legati all'ODP (materiale
+// reso a magazzino). Chiave `${odpId}|${articoloId}`.
+async function getScaricatoPerOdpArticolo(odpIds: string[]): Promise<Map<string, number>> {
+  const mappa = new Map<string, number>();
+  if (odpIds.length === 0) return mappa;
+  const { rows } = await pool.query(
+    `SELECT odp_id, articolo_id, SUM(CASE WHEN tipo = 'carico' THEN -quantita ELSE quantita END) AS scaricato
+     FROM movimenti_ferramenta
+     WHERE tipo IN ('scarico_kanban', 'scarico_a_pezzo', 'carico') AND odp_id = ANY($1)
+     GROUP BY odp_id, articolo_id`,
+    [odpIds]
+  );
+  for (const r of rows) mappa.set(`${r.odp_id}|${r.articolo_id}`, Number(r.scaricato));
+  return mappa;
+}
+
+// Stesso criterio del Foglio di scarico: riga da anagrafica → scaricato vs pianificato; riga a
+// testo libero (nessun movimento possibile) → conferma manuale "preparata".
+function statoRiga(r: DistintaKitRiga, scaricato: number): StatoRigaKit {
+  if (r.nonNecessaria) return "nonServe";
+  if (!r.articoloId) return r.preparataIl ? "completo" : "mancante";
+  return scaricato >= r.quantita ? "completo" : scaricato > 0 ? "parziale" : "mancante";
+}
+
+export async function getDistintaKitConStato(odpId: string): Promise<DistintaKitRiga[]> {
+  const [righe, scaricati] = await Promise.all([getDistintaKitByOdp(odpId), getScaricatoPerOdpArticolo([odpId])]);
+  return righe.map(r => {
+    const scaricato = r.articoloId ? scaricati.get(`${odpId}|${r.articoloId}`) ?? 0 : null;
+    return { ...r, scaricato, stato: statoRiga(r, scaricato ?? 0) };
+  });
+}
+
+export interface FabbisognoOdp { odpId: string; odp: string; numeroScheda: string; clienteInfo: string; residuo: number }
+export interface FabbisognoArticolo {
+  chiave: string;
+  articoloId: string | null; // null = testo libero
+  descrizione: string;
+  codiceOs1: string;
+  fornitore: string;
+  ubicazione: string;
+  giacenza: number | null; // null per testo libero
+  totaleDaPreparare: number;
+  mancante: number | null;
+  statoApprovvigionamento: StatoApprovvigionamentoKit | null;
+  inArrivoIl: string | null;
+  odp: FabbisognoOdp[];
+}
+
+// BOM aggregata: ciò che resta da preparare su tutti gli ODP avviati con kit confermato, per articolo.
+export async function getFabbisognoFerramenta(): Promise<FabbisognoArticolo[]> {
+  const schede = (await getSchedeOdpAvviate()).filter(s => s.kitFerramenta === "Si");
+  if (schede.length === 0) return [];
+  const schedaPerId = new Map(schede.map(s => [s.id, s]));
+  const odpIds = schede.map(s => s.id);
+
+  const [{ rows }, scaricati, articoli] = await Promise.all([
+    pool.query(`${SELECT_JOIN} WHERE r.odp_id = ANY($1) AND r.non_necessaria = false`, [odpIds]),
+    getScaricatoPerOdpArticolo(odpIds),
+    getArticoliFerramenta(),
+  ]);
+  const articoloPerId = new Map(articoli.map(a => [a.id, a]));
+
+  const perChiave = new Map<string, FabbisognoArticolo>();
+  for (const riga of rows.map(mapRow)) {
+    const scaricato = riga.articoloId ? scaricati.get(`${riga.odpId}|${riga.articoloId}`) ?? 0 : 0;
+    const residuo = !riga.articoloId
+      ? (riga.preparataIl ? 0 : riga.quantita)
+      : Math.max(0, riga.quantita - scaricato);
+    if (residuo <= 0) continue;
+    const scheda = schedaPerId.get(riga.odpId)!;
+    const chiave = riga.articoloId ?? `libero:${riga.articoloDescrizione.trim().toLowerCase()}`;
+    let voce = perChiave.get(chiave);
+    if (!voce) {
+      const a = riga.articoloId ? articoloPerId.get(riga.articoloId) : undefined;
+      voce = {
+        chiave, articoloId: riga.articoloId,
+        descrizione: riga.articoloDescrizione, codiceOs1: riga.articoloCodiceOs1,
+        fornitore: a?.fornitoreNome ?? "", ubicazione: a?.ubicazione ?? "",
+        giacenza: a ? a.giacenzaAttuale : null,
+        totaleDaPreparare: 0, mancante: null,
+        statoApprovvigionamento: null, inArrivoIl: null, odp: [],
+      };
+      perChiave.set(chiave, voce);
+    }
+    voce.totaleDaPreparare += residuo;
+    voce.odp.push({ odpId: riga.odpId, odp: scheda.odp, numeroScheda: scheda.numeroScheda, clienteInfo: scheda.clienteInfo, residuo });
+    if (riga.statoApprovvigionamento && !voce.statoApprovvigionamento) {
+      voce.statoApprovvigionamento = riga.statoApprovvigionamento;
+      voce.inArrivoIl = riga.inArrivoIl;
+    }
+  }
+  for (const v of perChiave.values()) {
+    v.mancante = v.giacenza === null ? null : Math.max(0, v.totaleDaPreparare - v.giacenza);
+  }
+  return [...perChiave.values()].sort((a, b) =>
+    a.fornitore.localeCompare(b.fornitore, "it") || a.descrizione.localeCompare(b.descrizione, "it"));
 }
 
 export type StatoPreparazione = "mancante" | "parziale" | "completo";

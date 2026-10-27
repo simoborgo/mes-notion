@@ -336,7 +336,12 @@ export interface DistintaKitRiga {
   nonNecessaria: boolean;
   nonNecessariaDa: string | null;
   notionUrl: string;
+  // Solo da getDistintaKitConStato: quantità già scaricata a magazzino e stato di preparazione
+  scaricato?: number | null;
+  stato?: StatoRigaKit;
 }
+
+export type StatoRigaKit = "completo" | "parziale" | "mancante" | "nonServe";
 
 export type StatoApprovvigionamentoKit = "ordinato" | "consegna_parziale" | "attesa_fornitore";
 

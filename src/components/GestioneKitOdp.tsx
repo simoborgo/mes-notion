@@ -84,15 +84,32 @@ export default function GestioneKitOdp({
         <h3 className="text-sm font-semibold" style={{ color: "var(--color-black)" }}>Distinta articoli</h3>
 
         {righe.length > 0 && (
-          <div className="space-y-2">
-            {righe.map(r => (
-              <div key={r.id} className="flex items-center gap-3 px-3 py-2 rounded-lg" style={{ background: "#F5F2EE" }}>
-                <div className="flex-1 min-w-0">
-                  <span className="font-medium text-sm">{r.articoloDescrizione}</span>
-                  <span className="text-xs ml-2" style={{ color: "var(--color-grey-mid)" }}>{r.articoloCodiceOs1}</span>
-                </div>
-                <span className="text-sm font-semibold tabular-nums">{r.quantita}</span>
-                <button onClick={() => rimuoviRiga(r.id)} className="text-gray-400 hover:text-gray-600 text-base leading-none px-1">×</button>
+          <div className="space-y-3">
+            {[
+              { titolo: "Da preparare", lista: righe.filter(r => r.stato !== "completo" && r.stato !== "nonServe") },
+              { titolo: "Preparate", lista: righe.filter(r => r.stato === "completo") },
+              { titolo: "Non necessarie", lista: righe.filter(r => r.stato === "nonServe") },
+            ].filter(g => g.lista.length > 0).map(g => (
+              <div key={g.titolo} className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-grey-mid)" }}>
+                  {g.titolo} ({g.lista.length})
+                </p>
+                {g.lista.map(r => (
+                  <div key={r.id} className="flex items-center gap-3 px-3 py-2 rounded-lg" style={{ background: r.stato === "completo" ? "#F0FDF4" : "#F5F2EE" }}>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium text-sm">{r.articoloDescrizione}</span>
+                      <span className="text-xs ml-2" style={{ color: "var(--color-grey-mid)" }}>{r.articoloCodiceOs1}</span>
+                      {r.stato === "completo" && (
+                        <div className="text-xs mt-0.5" style={{ color: "#166534" }}>✓ Preparato</div>
+                      )}
+                      {r.stato === "parziale" && (
+                        <div className="text-xs mt-0.5" style={{ color: "#92400E" }}>Parziale: scaricati {r.scaricato} su {r.quantita}</div>
+                      )}
+                    </div>
+                    <span className="text-sm font-semibold tabular-nums">{r.quantita}</span>
+                    <button onClick={() => rimuoviRiga(r.id)} className="text-gray-400 hover:text-gray-600 text-base leading-none px-1">×</button>
+                  </div>
+                ))}
               </div>
             ))}
           </div>
