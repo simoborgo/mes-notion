@@ -64,6 +64,7 @@ export interface SchedeFiltro {
   cliente?: string;
   codicePubblico?: string;
   soloAttive?: boolean;
+  commessaId?: string;
 }
 
 export async function getSchede(filtro: SchedeFiltro = {}): Promise<SchedaVerniciatura[]> {
@@ -75,6 +76,7 @@ export async function getSchede(filtro: SchedeFiltro = {}): Promise<SchedaVernic
   if (filtro.stato) { where.push(`sv.stato = $${i++}`); values.push(filtro.stato); }
   if (filtro.nome) { where.push(`sv.nome ILIKE $${i++}`); values.push(`%${filtro.nome}%`); }
   if (filtro.cliente) { where.push(`cv.nome = $${i++}`); values.push(filtro.cliente); }
+  if (filtro.commessaId) { where.push(`sv.commessa_id = $${i++}`); values.push(filtro.commessaId); }
   if (filtro.codicePubblico) { where.push(`sv.codice_pubblico = $${i++}`); values.push(filtro.codicePubblico); }
 
   const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
@@ -94,6 +96,18 @@ async function fetchFasiEFoto(scheda: SchedaVerniciatura, executor: Pool | PoolC
   const { rows: fotoRows } = await executor.query(`SELECT * FROM schede_verniciatura_foto WHERE scheda_id = $1 ORDER BY ordine NULLS LAST, created_at`, [scheda.id]);
   scheda.foto = fotoRows.map(mapFotoRow);
   return scheda;
+}
+
+// Schede attive di una commessa, con le sole foto (niente fasi): per la tab Campionature.
+export async function getSchedeConFotoByCommessa(commessaId: string): Promise<SchedaVerniciatura[]> {
+  const schede = await getSchede({ commessaId });
+  if (schede.length === 0) return schede;
+  const { rows } = await pool.query(
+    `SELECT * FROM schede_verniciatura_foto WHERE scheda_id = ANY($1) ORDER BY ordine NULLS LAST, created_at`,
+    [schede.map((x) => x.id)],
+  );
+  for (const sc of schede) sc.foto = rows.filter((f) => f.scheda_id === sc.id).map(mapFotoRow);
+  return schede;
 }
 
 export async function getSchedaById(id: string, executor: Pool | PoolClient = pool): Promise<SchedaVerniciatura> {

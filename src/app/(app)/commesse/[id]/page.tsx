@@ -1,7 +1,10 @@
 import { getSchedeByCommessa } from "@/lib/schedeRepository";
-import { getCommessaById } from "@/lib/commesseRepository";
+import { getCommessaById, getRiepilogoCommessa } from "@/lib/commesseRepository";
+import { getSchedeConFotoByCommessa } from "@/lib/schedeVerniciaturaRepository";
 import { getAreeByCommessa } from "@/lib/areeRepository";
-import { getSession } from "@/lib/auth";
+import { getSession, VERNICIATURA_ROLES } from "@/lib/auth";
+import CommessaTabs from "@/components/CommessaTabs";
+import CommessaCampionature from "@/components/CommessaCampionature";
 import BadgeStato from "@/components/BadgeStato";
 import AreeSection from "@/components/AreeSection";
 import Link from "next/link";
@@ -14,12 +17,16 @@ function fmt(d: string | null) {
   return new Date(d).toLocaleDateString("it-IT", { timeZone: "Europe/Rome" });
 }
 
-export default async function CommessaPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function CommessaPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
   const { id } = await params;
+  const { tab } = await searchParams;
+  const tabAttiva = tab === "campionature" ? "campionature" : "panoramica";
 
-  let commessa, aree, schede;
+  let commessa, aree, schede, riepilogo, campionature;
   try {
-    [commessa, aree, schede] = await Promise.all([getCommessaById(id), getAreeByCommessa(id), getSchedeByCommessa(id)]);
+    [commessa, aree, schede, riepilogo, campionature] = await Promise.all([
+      getCommessaById(id), getAreeByCommessa(id), getSchedeByCommessa(id), getRiepilogoCommessa(id), getSchedeConFotoByCommessa(id),
+    ]);
   } catch {
     notFound();
   }
@@ -49,25 +56,52 @@ export default async function CommessaPage({ params }: { params: Promise<{ id: s
         Arrivo disegni nel tempo →
       </Link>
 
-      {/* Info commessa */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 rounded-lg border border-gray-200 bg-white p-4">
-        {[
-          { label: "Responsabile", value: commessa.responsabile },
-          { label: "Inizio Produzione", value: fmt(commessa.inizioProduzione) },
-          { label: "Fine Produzione", value: fmt(commessa.fineProduzione) },
-          { label: "Prossimo Carico", value: fmt(commessa.dataCarico) },
-          { label: "Inizio Montaggio", value: fmt(commessa.inizioMontaggio) },
-          { label: "Fine Montaggio", value: fmt(commessa.fineMontaggio) },
-        ].map(({ label, value }) => (
-          <div key={label}>
-            <p className="text-xs mb-0.5" style={{ color: "var(--color-grey-mid)" }}>{label}</p>
-            <p className="text-sm font-medium">{value || "—"}</p>
-          </div>
-        ))}
-      </div>
+      <CommessaTabs
+        commessaId={commessa.id}
+        attiva={tabAttiva}
+        tabs={[{ key: "panoramica", label: "Panoramica" }, { key: "campionature", label: "Campionature", count: riepilogo.campionature }]}
+      />
 
-      {/* Aree */}
-      <AreeSection commessaId={commessa.id} areeIniziali={aree} schede={schede} userRole={session?.role} />
+      {tabAttiva === "campionature" ? (
+        <CommessaCampionature schede={campionature} canVerniciatura={!!session && VERNICIATURA_ROLES.includes(session.role)} />
+      ) : (
+        <>
+          {/* Info commessa */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 rounded-lg border border-gray-200 bg-white p-4">
+            {[
+              { label: "Responsabile", value: commessa.responsabile },
+              { label: "Inizio Produzione", value: fmt(commessa.inizioProduzione) },
+              { label: "Fine Produzione", value: fmt(commessa.fineProduzione) },
+              { label: "Prossimo Carico", value: fmt(commessa.dataCarico) },
+              { label: "Inizio Montaggio", value: fmt(commessa.inizioMontaggio) },
+              { label: "Fine Montaggio", value: fmt(commessa.fineMontaggio) },
+            ].map(({ label, value }) => (
+              <div key={label}>
+                <p className="text-xs mb-0.5" style={{ color: "var(--color-grey-mid)" }}>{label}</p>
+                <p className="text-sm font-medium">{value || "—"}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Riepilogo */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[
+              { n: riepilogo.odp, label: `ODP (${riepilogo.odpCompletati} completati)` },
+              { n: riepilogo.carichi, label: "Carichi" },
+              { n: riepilogo.casse, label: `Casse (${riepilogo.casseCaricate} caricate)` },
+              { n: riepilogo.campionature, label: "Campionature" },
+            ].map(({ n, label }) => (
+              <div key={label} className="rounded-lg border border-gray-200 bg-white px-4 py-3">
+                <p className="text-xl font-semibold tabular-nums">{n}</p>
+                <p className="text-xs" style={{ color: "var(--color-grey-mid)" }}>{label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Aree */}
+          <AreeSection commessaId={commessa.id} areeIniziali={aree} schede={schede} userRole={session?.role} />
+        </>
+      )}
     </div>
   );
 }

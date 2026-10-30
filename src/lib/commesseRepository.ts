@@ -131,3 +131,31 @@ export async function updateCommessa(id: string, data: CommessaUpdate): Promise<
   if (rows.length === 0) throw new Error(`Commessa non trovata: ${id}`);
   return getCommessaById(id);
 }
+
+export interface RiepilogoCommessa {
+  odp: number;
+  odpCompletati: number;
+  carichi: number;
+  casse: number;
+  casseCaricate: number;
+  campionature: number;
+}
+
+// Conteggi per la tab Panoramica della scheda commessa: una sola query, solo righe non archiviate.
+export async function getRiepilogoCommessa(id: string): Promise<RiepilogoCommessa> {
+  const { rows } = await pool.query(
+    `SELECT
+       (SELECT COUNT(*) FROM schede s WHERE s.commessa_id = $1 AND s.tipologia = 'Scheda' AND s.archiviata = false AND s.stato <> 'Annullato') AS odp,
+       (SELECT COUNT(*) FROM schede s WHERE s.commessa_id = $1 AND s.tipologia = 'Scheda' AND s.archiviata = false AND s.stato = 'Completato') AS odp_completati,
+       (SELECT COUNT(*) FROM carichi k WHERE k.commessa_id = $1 AND k.archiviato = false) AS carichi,
+       (SELECT COUNT(*) FROM casse c WHERE c.commessa_id = $1) AS casse,
+       (SELECT COUNT(*) FROM casse c WHERE c.commessa_id = $1 AND c.stato = 'Caricata') AS casse_caricate,
+       (SELECT COUNT(*) FROM schede_verniciatura sv WHERE sv.commessa_id = $1 AND sv.attivo = true) AS campionature`,
+    [id],
+  );
+  const r = rows[0];
+  return {
+    odp: Number(r.odp), odpCompletati: Number(r.odp_completati), carichi: Number(r.carichi),
+    casse: Number(r.casse), casseCaricate: Number(r.casse_caricate), campionature: Number(r.campionature),
+  };
+}
