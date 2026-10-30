@@ -73,8 +73,16 @@ export async function buildGanttWorkbook(righe: CommessaConCarichi[], periodo: P
   const fineRangeDati = new Date(Math.max(...tutteLeDate.map((d) => d.getTime())));
   const fineRange = periodo.a ?? (fineRangeDati > addDays(inizioRange, 90) ? fineRangeDati : addDays(inizioRange, 90));
 
+  // Ogni settimana appartiene al mese del suo giovedì (come nelle settimane ISO): così una
+  // settimana a cavallo tra due mesi non finisce sotto il mese sbagliato. Con mesi Da/A scelti
+  // restano solo le settimane dei mesi scelti, in modo che i mesi stampati coincidano con il
+  // filtro della Dashboard (senza la settimana del lunedì 26/10 etichettata "Ottobre" per un Da = novembre).
+  const meseDi = (w: Date) => addDays(w, 3);
   const settimane: Date[] = [];
   for (let w = inizioRange; w <= fineRange; w = addDays(w, 7)) {
+    const giovedi = meseDi(w);
+    if (periodo.da && giovedi < periodo.da) continue;
+    if (periodo.a && giovedi > periodo.a) continue;
     settimane.push(new Date(w));
   }
 
@@ -89,10 +97,10 @@ export async function buildGanttWorkbook(righe: CommessaConCarichi[], periodo: P
   const row1 = ws.getRow(1);
   let i = 0;
   while (i < settimane.length) {
-    const mese = settimane[i].getMonth();
-    const anno = settimane[i].getFullYear();
+    const mese = meseDi(settimane[i]).getMonth();
+    const anno = meseDi(settimane[i]).getFullYear();
     let j = i;
-    while (j < settimane.length && settimane[j].getMonth() === mese && settimane[j].getFullYear() === anno) j++;
+    while (j < settimane.length && meseDi(settimane[j]).getMonth() === mese && meseDi(settimane[j]).getFullYear() === anno) j++;
     const startCol = COL_WEEK_START + i;
     const endCol = COL_WEEK_START + j - 1;
     if (endCol > startCol) ws.mergeCells(1, startCol, 1, endCol);
