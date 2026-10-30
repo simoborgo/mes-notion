@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { addAllegato } from "@/lib/commessaAllegatiRepository";
+import { getNotaById } from "@/lib/commessaStoricoRepository";
 import { getSpecificaById } from "@/lib/commessaSpecificheRepository";
 import { getSessionFromRequest, COMMESSA_CONTENUTO_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
@@ -12,7 +13,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
   }
   const { id } = await params;
-  let body: { fileBase64?: string; filename?: string; categoria?: string; specificaId?: string | null };
+  let body: { fileBase64?: string; filename?: string; categoria?: string; specificaId?: string | null; notaId?: string | null };
   try {
     body = await req.json();
   } catch {
@@ -27,9 +28,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const s = await getSpecificaById(body.specificaId);
       if (!s || s.commessaId !== id) return NextResponse.json({ error: "Specifica non trovata" }, { status: 404 });
     }
+    if (body.notaId) {
+      const n = await getNotaById(body.notaId);
+      if (!n || n.commessaId !== id) return NextResponse.json({ error: "Nota non trovata" }, { status: 404 });
+    }
     const allegato = await addAllegato({
       commessaId: id,
       specificaId: body.specificaId ?? null,
+      notaId: body.notaId ?? null,
       categoria: categoria as (typeof CATEGORIE_ALLEGATO)[number],
       fileBase64: body.fileBase64,
       filename: body.filename,

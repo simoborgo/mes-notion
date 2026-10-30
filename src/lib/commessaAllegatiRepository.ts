@@ -13,6 +13,7 @@ function mapRow(r: any): CommessaAllegato {
     id: r.id,
     commessaId: r.commessa_id,
     specificaId: r.specifica_id,
+    notaId: r.nota_id,
     categoria: r.categoria,
     nomeFile: r.nome_file,
     driveFileId: r.drive_file_id,
@@ -46,6 +47,7 @@ async function cartellaDocumenti(commessaId: string): Promise<string> {
 export async function addAllegato(data: {
   commessaId: string;
   specificaId: string | null;
+  notaId?: string | null;
   categoria: CategoriaAllegato;
   fileBase64: string;
   filename: string;
@@ -55,9 +57,9 @@ export async function addAllegato(data: {
   const folderId = await cartellaDocumenti(data.commessaId);
   const uploaded = await driveUploadAllegato(folderId, buffer, data.filename, mimeType);
   const { rows } = await pool.query(
-    `INSERT INTO commessa_allegati (commessa_id, specifica_id, categoria, nome_file, drive_file_id, caricato_da)
-     VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-    [data.commessaId, data.specificaId, data.categoria, data.filename, uploaded.id, data.caricatoDa],
+    `INSERT INTO commessa_allegati (commessa_id, specifica_id, nota_id, categoria, nome_file, drive_file_id, caricato_da)
+     VALUES ($1,$2,$7,$3,$4,$5,$6) RETURNING *`,
+    [data.commessaId, data.specificaId, data.categoria, data.filename, uploaded.id, data.caricatoDa, data.notaId ?? null],
   );
   return mapRow(rows[0]);
 }

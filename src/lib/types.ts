@@ -756,9 +756,24 @@ export interface CommessaAllegato {
   id: string;
   commessaId: string;
   specificaId: string | null;
+  notaId: string | null;
   categoria: CategoriaAllegato;
   nomeFile: string;
   driveFileId: string;
   caricatoDa: string;
   creatoIl: string;
+}
+
+export const CATEGORIE_STORICO = ["Note", "Specifiche", "Documenti", "Campionature", "Produzione", "Logistica", "Commessa"] as const;
+export type CategoriaStorico = (typeof CATEGORIE_STORICO)[number];
+
+export interface EventoStorico {
+  id: string;
+  quando: string;
+  categoria: CategoriaStorico;
+  testo: string;
+  autore: string | null;
+  // Solo per le note: id per l'eliminazione e file allegati.
+  notaId?: string;
+  allegati?: { id: string; nomeFile: string; driveFileId: string }[];
 }
