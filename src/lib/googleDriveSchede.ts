@@ -69,6 +69,12 @@ export async function getOrCreateSchedaFolder(commessaFolderId: string, odp: str
   return getOrCreateSubfolder(odp, commessaFolderId);
 }
 
+// Sottocartella "Documenti" dentro la cartella Commessa: file della scheda commessa (specifiche,
+// certificati, ordini), separata dalle cartelle ODP che vivono nello stesso livello.
+export async function getOrCreateDocumentiCommessaFolder(commessaFolderId: string): Promise<string> {
+  return getOrCreateSubfolder("Documenti", commessaFolderId);
+}
+
 // Sottocartella "Allegati" dentro la cartella ODP — separata da PDF Allegato/Ordine
 // Fornitore/Foto/Copertina (che hanno già un posto e un nome fisso) per i file vari, di
 // qualsiasi tipo, caricati a mano dagli utenti.

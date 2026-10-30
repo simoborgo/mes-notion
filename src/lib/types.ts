@@ -748,3 +748,17 @@ export interface CommessaSpecifica {
   creatoIl: string;
   aggiornatoIl: string;
 }
+
+export const CATEGORIE_ALLEGATO = ["Certificato", "Ordine", "Scheda tecnica", "Altro"] as const;
+export type CategoriaAllegato = (typeof CATEGORIE_ALLEGATO)[number];
+
+export interface CommessaAllegato {
+  id: string;
+  commessaId: string;
+  specificaId: string | null;
+  categoria: CategoriaAllegato;
+  nomeFile: string;
+  driveFileId: string;
+  caricatoDa: string;
+  creatoIl: string;
+}

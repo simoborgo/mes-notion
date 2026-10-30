@@ -2,17 +2,20 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { CommessaSpecifica, StatoSpecifica, TipoSpecifica } from "@/lib/types";
+import type { CommessaSpecifica, CommessaAllegato, CategoriaAllegato, StatoSpecifica, TipoSpecifica } from "@/lib/types";
 import { TIPI_SPECIFICA, STATI_SPECIFICA } from "@/lib/types";
 import BadgeStato from "./BadgeStato";
+import AllegatiUpload from "./AllegatiUpload";
 
 const inputCls = "border rounded px-2 py-1 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300";
 const STATO_BADGE: Record<StatoSpecifica, string> = { "Da confermare": "Bozza", Confermata: "Approvato", Nota: "In attesa" };
 
 interface Bozza { id?: string; tipo: TipoSpecifica; titolo: string; descrizione: string; stato: StatoSpecifica }
+// Categoria di default del file caricato da una voce, in base al tipo.
+const CATEGORIA_PER_TIPO: Record<TipoSpecifica, CategoriaAllegato> = { Finitura: "Scheda tecnica", Materiale: "Scheda tecnica", Ignifugo: "Certificato", Altro: "Altro" };
 const VUOTA: Bozza = { tipo: "Finitura", titolo: "", descrizione: "", stato: "Da confermare" };
 
-export default function CommessaSpecifiche({ commessaId, specifiche, canEdit }: { commessaId: string; specifiche: CommessaSpecifica[]; canEdit: boolean }) {
+export default function CommessaSpecifiche({ commessaId, specifiche, allegati, canEdit }: { commessaId: string; specifiche: CommessaSpecifica[]; allegati: CommessaAllegato[]; canEdit: boolean }) {
   const router = useRouter();
   const [filtro, setFiltro] = useState<TipoSpecifica | "">("");
   const [bozza, setBozza] = useState<Bozza | null>(null);
@@ -120,8 +123,16 @@ export default function CommessaSpecifiche({ commessaId, specifiche, canEdit }: 
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium">{s.titolo}</p>
                 {s.descrizione && <p className="text-sm mt-0.5 whitespace-pre-line" style={{ color: "var(--color-grey-mid)" }}>{s.descrizione}</p>}
+                {allegati.some((a) => a.specificaId === s.id) && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {allegati.filter((a) => a.specificaId === s.id).map((a) => (
+                      <a key={a.id} href={`/api/drive-file/${a.driveFileId}`} target="_blank" rel="noreferrer" className="text-xs rounded border px-2 py-0.5 underline" style={{ borderColor: "#E4E0DA", background: "#F5F2EE" }}>{a.nomeFile}</a>
+                    ))}
+                  </div>
+                )}
                 {canEdit && (
-                  <div className="flex gap-3 mt-1.5 text-xs">
+                  <div className="flex gap-3 mt-1.5 text-xs items-center">
+                    <AllegatiUpload commessaId={commessaId} specificaId={s.id} categoria={CATEGORIA_PER_TIPO[s.tipo]} label="+ Allega file" />
                     <button type="button" className="underline" style={{ color: "var(--color-primary)" }} onClick={() => setBozza({ id: s.id, tipo: s.tipo, titolo: s.titolo, descrizione: s.descrizione, stato: s.stato })}>Modifica</button>
                     <button type="button" className="underline" style={{ color: "#991B1B" }} onClick={() => elimina(s)}>Elimina</button>
                   </div>
