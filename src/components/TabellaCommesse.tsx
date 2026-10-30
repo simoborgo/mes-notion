@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Commessa, Scheda } from "@/lib/types";
 import { COMMESSE_ROLES, type Role } from "@/lib/roles";
 import BadgeStato from "./BadgeStato";
-import DettaglioCommessaModal from "./DettaglioCommessaModal";
+import Link from "next/link";
 import FormCommessa from "./FormCommessa";
 
 function fmt(d: string | null) {
@@ -38,7 +38,6 @@ export default function TabellaCommesse({ commesse: commesseIniziali, schede = [
   const router = useRouter();
   const canWrite = !!userRole && COMMESSE_ROLES.includes(userRole);
   const [commesse, setCommesse] = useState(commesseIniziali);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [formAperto, setFormAperto] = useState<"nuova" | Commessa | null>(null);
 
   function handleSaved(aggiornata: Commessa) {
@@ -174,7 +173,9 @@ export default function TabellaCommesse({ commesse: commesseIniziali, schede = [
             ) : (
               filtered.map((c) => (
                 <tr key={c.id} className="border-b last:border-0 hover:bg-orange-50/30 transition-colors">
-                  <td className="px-4 py-3 font-semibold">{c.numeroCommessa || "—"}</td>
+                  <td className="px-4 py-3 font-semibold">
+                    <Link href={`/commesse/${c.id}`} className="underline" style={{ color: "var(--color-primary)" }}>{c.numeroCommessa || "—"}</Link>
+                  </td>
                   <td className="px-4 py-3">{c.cliente || "—"}</td>
                   <td className="px-4 py-3 text-xs">{c.localita || "—"}</td>
                   <td className="px-4 py-3"><BadgeStato stato={c.stato} /></td>
@@ -191,13 +192,6 @@ export default function TabellaCommesse({ commesse: commesseIniziali, schede = [
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => setSelectedId(c.id)}
-                        className="text-xs px-2 py-1 rounded font-medium transition-colors"
-                        style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)" }}
-                      >
-                        Dettaglio
-                      </button>
                       {canWrite && (
                         <button
                           onClick={() => setFormAperto(c)}
@@ -215,7 +209,6 @@ export default function TabellaCommesse({ commesse: commesseIniziali, schede = [
           </tbody>
         </table>
       </div>
-      <DettaglioCommessaModal commessaId={selectedId} onClose={() => setSelectedId(null)} userRole={userRole} />
       {formAperto && (
         <FormCommessa
           commessa={formAperto === "nuova" ? undefined : formAperto}

@@ -31,12 +31,37 @@ export async function deleteNota(id: string): Promise<void> {
 
 const LIMITE = 300;
 
+const ETICHETTE_CAMPI: Record<string, string> = {
+  numeroCommessa: "Numero", cliente: "Cliente", localita: "Località", info: "Info", responsabile: "Responsabile",
+  stato: "Stato", dataCarico: "Data carico", inizioMontaggio: "Inizio montaggio", fineMontaggio: "Fine montaggio",
+  inizioProduzione: "Inizio produzione", fineProduzione: "Fine produzione",
+};
+
+function valore(v: unknown): string {
+  if (v === null || v === undefined || v === "") return "—";
+  const s = String(v);
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s.split("-").reverse().join("/") : s;
+}
+
+// "Commessa modificata: Stato In produzione → In spedizione; Inizio montaggio — → 05/10/2026".
+// Le voci registrate prima del diff (body intero del form, senza "campi") restano generiche.
+function testoModificaCommessa(dettaglio: string | null): string {
+  try {
+    const campi = dettaglio ? (JSON.parse(dettaglio).campi as Record<string, { da: unknown; a: unknown }> | undefined) : undefined;
+    if (!campi || Object.keys(campi).length === 0) return "Commessa modificata";
+    const parti = Object.entries(campi).map(([k, { da, a }]) => `${ETICHETTE_CAMPI[k] ?? k} ${valore(da)} → ${valore(a)}`);
+    return `Commessa modificata: ${parti.join("; ")}`;
+  } catch {
+    return "Commessa modificata";
+  }
+}
+
 // Feed unico della commessa: note scritte a mano + eventi ricostruiti da tabelle di dominio e
 // audit_log. Gli eventi sono letti, non copiati: nessuna possibilità di andare fuori sync.
 export async function getStoricoCommessa(commessaId: string): Promise<EventoStorico[]> {
   const { rows } = await pool.query(
     `SELECT * FROM (
-       SELECT 'nota-' || n.id AS id, n.creato_il AS quando, 'Note' AS categoria, n.testo, n.creato_da AS autore, n.id AS nota_id
+       SELECT 'nota-' || n.id AS id, n.creato_il AS quando, 'Note' AS categoria, n.testo, n.creato_da AS autore, n.id AS nota_id, NULL AS dettaglio
          FROM commessa_note n WHERE n.commessa_id = $1
        UNION ALL
        SELECT 'audit-' || a.id, a.creato_il,
@@ -50,34 +75,34 @@ export async function getStoricoCommessa(commessaId: string): Promise<EventoStor
                 WHEN 'DELETE commessa_allegato' THEN 'Eliminato documento: ' || COALESCE(a.modifiche::jsonb->>'filename', '')
                 WHEN 'CREATE commessa' THEN 'Commessa creata'
                 ELSE 'Commessa modificata' END,
-              a.operatore, NULL
+              a.operatore, NULL, CASE WHEN a.azione = 'UPDATE commessa' THEN a.modifiche END
          FROM audit_log a
         WHERE (a.azione IN ('CREATE commessa', 'UPDATE commessa') AND a.id_risorsa = $1::text)
            OR (a.azione IN ('CREATE commessa_specifica', 'UPDATE commessa_specifica', 'DELETE commessa_specifica', 'CREATE commessa_allegato', 'DELETE commessa_allegato')
                AND CASE WHEN a.azione LIKE '% commessa_%' THEN a.modifiche::jsonb->>'commessaId' END = $1::text)
        UNION ALL
        SELECT 'sv-' || sv.id, sv.created_at, 'Campionature',
-              'Scheda di verniciatura v' || sv.versione || COALESCE(' «' || sv.nome || '»', '') || ' creata', NULL, NULL
+              'Scheda di verniciatura v' || sv.versione || COALESCE(' «' || sv.nome || '»', '') || ' creata', NULL, NULL, NULL
          FROM schede_verniciatura sv WHERE sv.commessa_id = $1 AND sv.attivo = true
        UNION ALL
        SELECT 'svv-' || sv.id, sv.validato_at, 'Campionature',
-              'Scheda di verniciatura v' || sv.versione || COALESCE(' «' || sv.nome || '»', '') || ' approvata', NULL, NULL
+              'Scheda di verniciatura v' || sv.versione || COALESCE(' «' || sv.nome || '»', '') || ' approvata', NULL, NULL, NULL
          FROM schede_verniciatura sv WHERE sv.commessa_id = $1 AND sv.attivo = true AND sv.stato = 'approvato' AND sv.validato_at IS NOT NULL
        UNION ALL
        SELECT 'odp-' || s.id, s.data_produzione_effettiva::timestamptz, 'Produzione',
-              'ODP ' || s.odp || ' completato', NULL, NULL
+              'ODP ' || s.odp || ' completato', NULL, NULL, NULL
          FROM schede s WHERE s.commessa_id = $1 AND s.tipologia = 'Scheda' AND s.archiviata = false AND s.data_produzione_effettiva IS NOT NULL
        UNION ALL
        SELECT 'cassa-' || c.id, c.creato_il, 'Logistica',
-              'Cassa ' || c.numero || COALESCE(' (' || NULLIF(c.descrizione, '') || ')', '') || ' creata', NULL, NULL
+              'Cassa ' || c.numero || COALESCE(' (' || NULLIF(c.descrizione, '') || ')', '') || ' creata', NULL, NULL, NULL
          FROM casse c WHERE c.commessa_id = $1
        UNION ALL
        SELECT 'cassac-' || c.id, c.aggiornato_il, 'Logistica',
-              'Cassa ' || c.numero || ' caricata', NULL, NULL
+              'Cassa ' || c.numero || ' caricata', NULL, NULL, NULL
          FROM casse c WHERE c.commessa_id = $1 AND c.stato = 'Caricata'
        UNION ALL
        SELECT 'carico-' || k.id, k.creato_il, 'Logistica',
-              'Carico' || COALESCE(' «' || NULLIF(k.titolo, '') || '»', '') || COALESCE(' del ' || to_char(k.data_carico, 'DD/MM/YYYY'), '') || ' creato', NULL, NULL
+              'Carico' || COALESCE(' «' || NULLIF(k.titolo, '') || '»', '') || COALESCE(' del ' || to_char(k.data_carico, 'DD/MM/YYYY'), '') || ' creato', NULL, NULL, NULL
          FROM carichi k WHERE k.commessa_id = $1 AND k.archiviato = false
      ) e WHERE e.quando IS NOT NULL ORDER BY e.quando DESC LIMIT ${LIMITE}`,
     [commessaId],
@@ -92,7 +117,7 @@ export async function getStoricoCommessa(commessaId: string): Promise<EventoStor
     id: r.id,
     quando: new Date(r.quando).toISOString(),
     categoria: r.categoria as CategoriaStorico,
-    testo: r.testo,
+    testo: r.dettaglio ? testoModificaCommessa(r.dettaglio) : r.testo,
     autore: r.autore || null,
     ...(r.nota_id ? {
       notaId: r.nota_id as string,

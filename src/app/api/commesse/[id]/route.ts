@@ -22,6 +22,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   }
 }
 
+const CAMPI_TRACCIATI = [
+  "numeroCommessa", "cliente", "localita", "info", "responsabile", "stato", "dataCarico",
+  "inizioMontaggio", "fineMontaggio", "inizioProduzione", "fineProduzione",
+] as const;
+
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSessionFromRequest(req);
   if (!session || !COMMESSE_ROLES.includes(session.role)) {
@@ -35,6 +40,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   try {
+    const prima = await getCommessaById(id);
     const commessa = await updateCommessa(id, {
       numeroCommessa: typeof body.numeroCommessa === "string" ? body.numeroCommessa.trim() : undefined,
       cliente: typeof body.cliente === "string" ? body.cliente.trim() : undefined,
@@ -48,7 +54,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       inizioProduzione: body.inizioProduzione !== undefined ? (body.inizioProduzione || null) : undefined,
       fineProduzione: body.fineProduzione !== undefined ? (body.fineProduzione || null) : undefined,
     });
-    void logOperation(session.name, "UPDATE", "commessa", id, body as Record<string, unknown>);
+    // Solo i campi davvero cambiati, con valore prima/dopo: il form manda sempre tutti i campi,
+    // e lo Storico della commessa mostra queste differenze.
+    const campi: Record<string, { da: unknown; a: unknown }> = {};
+    for (const k of CAMPI_TRACCIATI) {
+      if (body[k] === undefined) continue;
+      const da = prima[k] ?? null;
+      const a = commessa[k] ?? null;
+      if (da !== a) campi[k] = { da, a };
+    }
+    if (Object.keys(campi).length > 0) void logOperation(session.name, "UPDATE", "commessa", id, { campi });
     return NextResponse.json(commessa);
   } catch (e) {
     console.error("[commesse/[id] PATCH]", e);
