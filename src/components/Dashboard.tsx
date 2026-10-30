@@ -51,7 +51,11 @@ interface GanttRow {
 
 const COLORE_PRODUZIONE = "#0D9488";
 
-function GanttChart({ rows }: { rows: GanttRow[] }) {
+// Intervallo opzionale scelto dall'utente (primo giorno del mese "Da" e ultimo del mese "A"):
+// ogni estremo non scelto resta automatico.
+interface RangeVista { da: Date | null; a: Date | null; }
+
+function GanttChart({ rows, range }: { rows: GanttRow[]; range: RangeVista }) {
   const [selected, setSelected] = useState<string | null>(null);
 
   const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
@@ -61,12 +65,15 @@ function GanttChart({ rows }: { rows: GanttRow[] }) {
     // dati — evita che una commessa "In produzione" con un carico/montaggio molto nel passato
     // allunghi tutta la vista all'indietro (deciso con l'utente 2026-08-13, per accorciare il
     // Gantt mantenendo comunque visibili tutti i pallini/barre, mai nascosti).
-    const viewStart = addDays(today, -7);
+    // Con un mese "Da" scelto la vista parte dal suo primo giorno; con un mese "A" finisce
+    // esattamente a fine di quel mese (niente margine: si vogliono vedere solo i mesi scelti).
+    const viewStart = range.da ?? addDays(today, -7);
+    if (range.a) return { viewStart, viewDays: Math.max(1, diffDays(viewStart, range.a) + 1) };
     const dates = rows.flatMap(r => [...r.carichi.map(c => c.date), r.montaggioStart, r.montaggioEnd, r.produzioneStart, r.produzioneEnd]).filter(Boolean) as Date[];
     if (!dates.length) return { viewStart, viewDays: 90 };
     const max = new Date(Math.max(...dates.map(d => d.getTime())));
     return { viewStart, viewDays: Math.max(90, diffDays(viewStart, max) + 20) };
-  }, [rows, today]);
+  }, [rows, today, range]);
 
   const viewEnd = addDays(viewStart, viewDays);
   const todayPct = (diffDays(viewStart, today) / viewDays) * 100;
@@ -314,6 +321,8 @@ function GanttChart({ rows }: { rows: GanttRow[] }) {
 interface DashboardProps { schede: Scheda[]; ritiri: Ritiro[]; commesse: Commessa[]; carichi: Carico[]; }
 
 export default function Dashboard({ schede, ritiri, commesse, carichi }: DashboardProps) {
+  const [meseDa, setMeseDa] = useState(""); // "YYYY-MM" o vuoto = automatico
+  const [meseA, setMeseA] = useState("");
   const [ordinamentoGantt, setOrdinamentoGantt] = useState<"carichi" | "montaggio" | "produzione">("carichi");
   const oggi = new Date(); oggi.setHours(0, 0, 0, 0);
   const oggiStr = oggi.toISOString().slice(0, 10);
@@ -378,7 +387,7 @@ export default function Dashboard({ schede, ritiri, commesse, carichi }: Dashboa
 
   // Chiave di ordinamento: prossimo carico futuro per "carichi", inizio montaggio per
   // "montaggio", inizio produzione per "produzione" — le commesse senza quella data vanno sempre in fondo (Infinity).
-  const ganttRows: GanttRow[] = commesse
+  const ganttRowsTutte: GanttRow[] = commesse
     // ShopDrawing incluse: l'inizio produzione si inserisce all'arrivo dei disegni, quando la
     // commessa è ancora in ShopDrawing, e la finestra deve comparire già da lì.
     .filter((c) => c.stato === "In produzione" || c.stato === "ShopDrawing")
@@ -404,6 +413,28 @@ export default function Dashboard({ schede, ritiri, commesse, carichi }: Dashboa
       };
       return keyOf(a) - keyOf(b);
     });
+
+  const range: RangeVista = useMemo(() => {
+    const parteMese = (v: string, fine: boolean) => {
+      if (!/^\d{4}-\d{2}$/.test(v)) return null;
+      const [y, m] = v.split("-").map(Number);
+      return fine ? new Date(y, m, 0) : new Date(y, m - 1, 1);
+    };
+    return { da: parteMese(meseDa, false), a: parteMese(meseA, true) };
+  }, [meseDa, meseA]);
+
+  // Con un intervallo scelto restano solo le commesse con almeno una data (carico, montaggio,
+  // produzione) che cade o si sovrappone al periodo.
+  const ganttRows = ganttRowsTutte.filter((r) => {
+    if (!range.da && !range.a) return true;
+    const intervalli: [Date, Date][] = [];
+    r.carichi.forEach((c) => intervalli.push([c.date, c.date]));
+    for (const [s, e] of [[r.montaggioStart, r.montaggioEnd], [r.produzioneStart, r.produzioneEnd]] as const) {
+      const inizio = s ?? e, fine = e ?? s;
+      if (inizio && fine) intervalli.push([inizio, fine]);
+    }
+    return intervalli.some(([s, e]) => (!range.a || s <= range.a) && (!range.da || e >= range.da));
+  });
 
   return (
     <div className="space-y-8">
@@ -445,7 +476,7 @@ export default function Dashboard({ schede, ritiri, commesse, carichi }: Dashboa
       </div>
 
       {/* Gantt */}
-      {ganttRows.length > 0 && (
+      {ganttRowsTutte.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center gap-3 flex-wrap">
             <h2 className="text-base font-semibold" style={{ fontFamily: "var(--font-display)" }}>
@@ -455,7 +486,30 @@ export default function Dashboard({ schede, ritiri, commesse, carichi }: Dashboa
               ShopDrawing · In produzione
             </span>
             <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>{ganttRows.length} commesse</span>
-            <div className="flex items-center gap-1.5 ml-auto">
+            <div className="flex items-center gap-1.5 ml-auto flex-wrap">
+              <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>Mesi da:</span>
+              <input
+                type="month" value={meseDa} aria-label="Mese di inizio"
+                onChange={(e) => { setMeseDa(e.target.value); if (e.target.value && meseA && meseA < e.target.value) setMeseA(e.target.value); }}
+                className="text-xs border rounded px-2 py-1" style={{ borderColor: "#d1d5db" }}
+              />
+              <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>a:</span>
+              <input
+                type="month" value={meseA} min={meseDa || undefined} aria-label="Mese di fine"
+                onChange={(e) => setMeseA(e.target.value)}
+                className="text-xs border rounded px-2 py-1" style={{ borderColor: "#d1d5db" }}
+              />
+              {(meseDa || meseA) && (
+                <button
+                  onClick={() => { setMeseDa(""); setMeseA(""); }}
+                  className="text-xs px-2.5 py-1 rounded-full font-medium border"
+                  style={{ background: "white", color: "var(--color-grey-mid)", borderColor: "#d1d5db" }}
+                >
+                  Tutti
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5">
               <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>Ordina per:</span>
               {([["carichi", "Carichi"], ["montaggio", "Montaggio"], ["produzione", "Produzione"]] as const).map(([value, label]) => {
                 const active = ordinamentoGantt === value;
@@ -475,7 +529,9 @@ export default function Dashboard({ schede, ritiri, commesse, carichi }: Dashboa
             </div>
           </div>
           <div className="overflow-x-auto">
-            <GanttChart rows={ganttRows} />
+            {ganttRows.length > 0
+              ? <GanttChart rows={ganttRows} range={range} />
+              : <div className="rounded-xl border border-gray-200 bg-white py-10 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>Nessuna commessa con date nel periodo scelto</div>}
           </div>
         </div>
       )}
