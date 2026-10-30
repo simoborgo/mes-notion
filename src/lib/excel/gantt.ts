@@ -78,10 +78,11 @@ export async function buildGanttWorkbook(righe: CommessaConCarichi[], periodo: P
     settimane.push(new Date(w));
   }
 
-  const COL_WEEK_START = 3; // colonna C
+  const COL_WEEK_START = 4; // colonna D (A commessa, B stato, C fase)
 
   ws.getColumn(1).width = 45;
   ws.getColumn(2).width = 14;
+  ws.getColumn(3).width = 11;
   for (let i = 0; i < settimane.length; i++) ws.getColumn(COL_WEEK_START + i).width = 5;
 
   // Riga 1 — intestazione mesi (merge celle dello stesso mese)
@@ -105,12 +106,14 @@ export async function buildGanttWorkbook(righe: CommessaConCarichi[], periodo: P
   row1.height = 20;
   ws.getCell(1, 1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: BLU_HEADER } };
   ws.getCell(1, 2).fill = { type: "pattern", pattern: "solid", fgColor: { argb: BLU_HEADER } };
+  ws.getCell(1, 3).fill = { type: "pattern", pattern: "solid", fgColor: { argb: BLU_HEADER } };
 
   // Riga 2 — date settimane
   const row2 = ws.getRow(2);
   row2.height = 18;
   ws.getCell(2, 1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: BLU_HEADER } };
   ws.getCell(2, 2).fill = { type: "pattern", pattern: "solid", fgColor: { argb: BLU_HEADER } };
+  ws.getCell(2, 3).fill = { type: "pattern", pattern: "solid", fgColor: { argb: BLU_HEADER } };
   settimane.forEach((w, idx) => {
     const cell = row2.getCell(COL_WEEK_START + idx);
     cell.value = fmtGgMm(w);
@@ -119,46 +122,68 @@ export async function buildGanttWorkbook(righe: CommessaConCarichi[], periodo: P
     cell.alignment = { horizontal: "center" };
   });
 
-  // Righe 3+ — una per commessa
+  // Righe 3+ — tre righe per commessa, una per fase (carico, montaggio, produzione): ogni riga
+  // colora solo le settimane della propria fase, così le fasi non si coprono più a vicenda.
   righe.forEach((r, idx) => {
-    const rowIdx = 3 + idx;
-    const row = ws.getRow(rowIdx);
-    row.height = 22;
+    const baseRow = 3 + idx * 3;
+    const bg = idx % 2 === 0 ? GRIGIO_2 : GRIGIO_1;
+    const sfondo = { type: "pattern" as const, pattern: "solid" as const, fgColor: { argb: bg } };
+    const { montaggio, produzione } = intervalliCommessa(r);
+    const nelPeriodo = (iv: [Date, Date] | null, wStart: Date, wEnd: Date) => !!iv && !(wEnd < iv[0] || wStart > iv[1]);
 
-    const labelCell = row.getCell(1);
+    const fasi: { nome: string; colore: string; attiva: (wStart: Date, wEnd: Date) => boolean }[] = [
+      { nome: "Carico", colore: ARANCIO, attiva: (a, b) => r.caricoDates.some((d) => d >= a && d <= b) },
+      { nome: "Montaggio", colore: BLU_MONTAGGIO, attiva: (a, b) => nelPeriodo(montaggio, a, b) },
+      { nome: "Produzione", colore: TEAL_PRODUZIONE, attiva: (a, b) => nelPeriodo(produzione, a, b) },
+    ];
+
+    fasi.forEach((fase, k) => {
+      const row = ws.getRow(baseRow + k);
+      row.height = 16;
+      const ultima = k === fasi.length - 1;
+      const bordoSotto = ultima ? { bottom: { style: "thin" as const, color: { argb: "FFD0D0D0" } } } : undefined;
+
+      for (const col of [1, 2]) {
+        const cell = row.getCell(col);
+        cell.fill = sfondo;
+        if (bordoSotto) cell.border = bordoSotto;
+      }
+
+      const faseCell = row.getCell(3);
+      faseCell.value = fase.nome;
+      faseCell.font = { name: "Arial", size: 8, bold: true, color: { argb: fase.colore } };
+      faseCell.fill = sfondo;
+      faseCell.alignment = { vertical: "middle" };
+      if (bordoSotto) faseCell.border = bordoSotto;
+
+      settimane.forEach((wStart, wIdx) => {
+        const cell = row.getCell(COL_WEEK_START + wIdx);
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: fase.attiva(wStart, addDays(wStart, 6)) ? fase.colore : bg } };
+        if (bordoSotto) cell.border = bordoSotto;
+      });
+    });
+
+    // Commessa e stato sono uniti sulle tre righe della commessa
+    ws.mergeCells(baseRow, 1, baseRow + 2, 1);
+    ws.mergeCells(baseRow, 2, baseRow + 2, 2);
+
+    const labelCell = ws.getCell(baseRow, 1);
     labelCell.value = labelRiga(r.commessa);
     labelCell.font = { name: "Arial", size: 9, color: { argb: "FF1A1A1A" } };
+    labelCell.alignment = { vertical: "middle", wrapText: true };
 
     const badgeColor = BADGE_STATO[r.commessa.stato];
-    const statoCell = row.getCell(2);
+    const statoCell = ws.getCell(baseRow, 2);
     statoCell.value = r.commessa.stato;
     statoCell.font = { name: "Arial", size: 8, bold: true, color: { argb: BIANCO } };
     if (badgeColor) statoCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: badgeColor } };
-    statoCell.alignment = { horizontal: "center" };
-
-    const { montaggio, produzione } = intervalliCommessa(r);
-
-    settimane.forEach((wStart, wIdx) => {
-      const wEnd = addDays(wStart, 6);
-      const cell = row.getCell(COL_WEEK_START + wIdx);
-      const inCarico = r.caricoDates.some((d) => d >= wStart && d <= wEnd);
-      const inMontaggio = !!montaggio && !(wEnd < montaggio[0] || wStart > montaggio[1]);
-      const inProduzione = !!produzione && !(wEnd < produzione[0] || wStart > produzione[1]);
-
-      let colore: string;
-      if (inCarico) colore = ARANCIO;
-      else if (inMontaggio) colore = BLU_MONTAGGIO;
-      else if (inProduzione) colore = TEAL_PRODUZIONE;
-      else colore = idx % 2 === 0 ? GRIGIO_2 : GRIGIO_1;
-
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: colore } };
-    });
+    statoCell.alignment = { horizontal: "center", vertical: "middle" };
   });
 
-  ws.views = [{ state: "frozen", xSplit: 2, ySplit: 2, showGridLines: false }];
+  ws.views = [{ state: "frozen", xSplit: 3, ySplit: 2, showGridLines: false }];
 
   // Legenda
-  const legRow1Idx = 3 + righe.length + 2;
+  const legRow1Idx = 3 + righe.length * 3 + 2;
   ws.getRow(legRow1Idx).height = 18;
   const legCarico = ws.getCell(legRow1Idx, 1);
   legCarico.fill = { type: "pattern", pattern: "solid", fgColor: { argb: ARANCIO } };
