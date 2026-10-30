@@ -730,3 +730,21 @@ export interface GiroInput {
   dataRientroEffettiva?: string | null;
   note?: string;
 }
+
+// ── Specifiche di commessa (finiture, materiali, ignifugo) ───────────────────────────────────
+export const TIPI_SPECIFICA = ["Finitura", "Materiale", "Ignifugo", "Altro"] as const;
+export type TipoSpecifica = (typeof TIPI_SPECIFICA)[number];
+export const STATI_SPECIFICA = ["Da confermare", "Confermata", "Nota"] as const;
+export type StatoSpecifica = (typeof STATI_SPECIFICA)[number];
+
+export interface CommessaSpecifica {
+  id: string;
+  commessaId: string;
+  tipo: TipoSpecifica;
+  titolo: string;
+  descrizione: string;
+  stato: StatoSpecifica;
+  creatoDa: string;
+  creatoIl: string;
+  aggiornatoIl: string;
+}

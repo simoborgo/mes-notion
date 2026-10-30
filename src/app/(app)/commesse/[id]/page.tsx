@@ -2,7 +2,9 @@ import { getSchedeByCommessa } from "@/lib/schedeRepository";
 import { getCommessaById, getRiepilogoCommessa } from "@/lib/commesseRepository";
 import { getSchedeConFotoByCommessa } from "@/lib/schedeVerniciaturaRepository";
 import { getAreeByCommessa } from "@/lib/areeRepository";
-import { getSession, VERNICIATURA_ROLES } from "@/lib/auth";
+import { getSession, VERNICIATURA_ROLES, COMMESSA_CONTENUTO_ROLES } from "@/lib/auth";
+import { getSpecificheByCommessa } from "@/lib/commessaSpecificheRepository";
+import CommessaSpecifiche from "@/components/CommessaSpecifiche";
 import CommessaTabs from "@/components/CommessaTabs";
 import CommessaCampionature from "@/components/CommessaCampionature";
 import BadgeStato from "@/components/BadgeStato";
@@ -20,12 +22,12 @@ function fmt(d: string | null) {
 export default async function CommessaPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
   const { id } = await params;
   const { tab } = await searchParams;
-  const tabAttiva = tab === "campionature" ? "campionature" : "panoramica";
+  const tabAttiva = tab === "campionature" || tab === "specifiche" ? tab : "panoramica";
 
-  let commessa, aree, schede, riepilogo, campionature;
+  let commessa, aree, schede, riepilogo, campionature, specifiche;
   try {
-    [commessa, aree, schede, riepilogo, campionature] = await Promise.all([
-      getCommessaById(id), getAreeByCommessa(id), getSchedeByCommessa(id), getRiepilogoCommessa(id), getSchedeConFotoByCommessa(id),
+    [commessa, aree, schede, riepilogo, campionature, specifiche] = await Promise.all([
+      getCommessaById(id), getAreeByCommessa(id), getSchedeByCommessa(id), getRiepilogoCommessa(id), getSchedeConFotoByCommessa(id), getSpecificheByCommessa(id),
     ]);
   } catch {
     notFound();
@@ -59,10 +61,12 @@ export default async function CommessaPage({ params, searchParams }: { params: P
       <CommessaTabs
         commessaId={commessa.id}
         attiva={tabAttiva}
-        tabs={[{ key: "panoramica", label: "Panoramica" }, { key: "campionature", label: "Campionature", count: riepilogo.campionature }]}
+        tabs={[{ key: "panoramica", label: "Panoramica" }, { key: "specifiche", label: "Specifiche", count: specifiche.length }, { key: "campionature", label: "Campionature", count: riepilogo.campionature }]}
       />
 
-      {tabAttiva === "campionature" ? (
+      {tabAttiva === "specifiche" ? (
+        <CommessaSpecifiche commessaId={commessa.id} specifiche={specifiche} canEdit={!!session && COMMESSA_CONTENUTO_ROLES.includes(session.role)} />
+      ) : tabAttiva === "campionature" ? (
         <CommessaCampionature schede={campionature} canVerniciatura={!!session && VERNICIATURA_ROLES.includes(session.role)} />
       ) : (
         <>

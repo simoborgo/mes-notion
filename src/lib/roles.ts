@@ -61,3 +61,5 @@ export const IMPOSTAZIONI_ROLES: Role[] = ["admin"];
 // Creazione/modifica di Commesse e Aree — stesso perimetro di CARICO_ROLES (deciso con l'utente
 // 2026-08-13): Ufficio Tecnico non ha più questo permesso, solo admin e produzione.
 export const COMMESSE_ROLES: Role[] = ["admin", "produzione"];
+// Specifiche, documenti e note della scheda commessa: tutti tranne l'utente base (operatore).
+export const COMMESSA_CONTENUTO_ROLES: Role[] = ALL_ROLES.filter((r) => r !== "operatore");
