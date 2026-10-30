@@ -150,8 +150,15 @@ async function aggiornaGiro(client: PoolClient, id: string, data: GiroInput): Pr
   return schedaId;
 }
 
+// Se la modifica porta il giro in "In Lavorazione" o "Rientrato" (menu stato o bottoni "Segna ...
+// oggi" della tab Fornitore) anche lo Stato Produzione della scheda segue, come per la scansione QR.
 export async function updateGiro(id: string, data: GiroInput): Promise<Giro> {
-  await inTransazione((client) => aggiornaGiro(client, id, data));
+  const prima = data.stato !== undefined ? (await getGiroById(id)).stato : undefined;
+  const schedaId = await inTransazione((client) => aggiornaGiro(client, id, data));
+  if (data.stato !== undefined && data.stato !== prima) {
+    if (data.stato === "In Lavorazione") await allineaStatoSchedaAlMovimento(schedaId, "uscita");
+    else if (data.stato === "Rientrato") await allineaStatoSchedaAlMovimento(schedaId, "rientro");
+  }
   return getGiroById(id);
 }
 
@@ -236,17 +243,21 @@ export async function impostaStatoGiro(giroId: string, stato: "In Lavorazione" |
 // se era in "In lavorazione Esterna", senza toccare altri stati scelti a mano.
 export async function segnaMovimentoGiro(giroId: string, azione: "uscita" | "rientro"): Promise<Giro> {
   const giro = await impostaStatoGiro(giroId, azione === "uscita" ? "In Lavorazione" : "Rientrato");
+  await allineaStatoSchedaAlMovimento(giro.schedaId, azione);
+  return giro;
+}
+
+async function allineaStatoSchedaAlMovimento(schedaId: string, azione: "uscita" | "rientro"): Promise<void> {
   if (azione === "uscita") {
     await pool.query(
       `UPDATE schede SET stato = 'In lavorazione Esterna', aggiornato_il = now()
        WHERE id = $1 AND stato NOT IN ('In lavorazione Esterna', 'Completato', 'Annullata', 'In Attesa Rilavorazione')`,
-      [giro.schedaId],
+      [schedaId],
     );
   } else {
     await pool.query(
       `UPDATE schede SET stato = 'In lavorazione', aggiornato_il = now() WHERE id = $1 AND stato = 'In lavorazione Esterna'`,
-      [giro.schedaId],
+      [schedaId],
     );
   }
-  return giro;
 }
