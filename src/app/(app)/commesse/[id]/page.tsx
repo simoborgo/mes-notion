@@ -45,6 +45,10 @@ export default async function CommessaPage({ params }: { params: Promise<{ id: s
         </div>
       </div>
 
+      <Link href={`/commesse/${commessa.id}/disegni`} className="text-sm font-semibold underline" style={{ color: "var(--color-primary)" }}>
+        Arrivo disegni nel tempo →
+      </Link>
+
       {/* Info commessa */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 rounded-lg border border-gray-200 bg-white p-4">
         {[
