@@ -42,7 +42,14 @@ function KpiCard({ label, value, accent, bg, sublabel }: KpiCardProps) {
 }
 
 interface CaricoMark { date: Date; titolo: string; }
-interface GanttRow { commessa: Commessa; carichi: CaricoMark[]; montaggioStart: Date | null; montaggioEnd: Date | null; }
+interface GanttRow {
+  commessa: Commessa; carichi: CaricoMark[]; montaggioStart: Date | null; montaggioEnd: Date | null;
+  produzioneStart: Date | null; produzioneEnd: Date | null;
+  // Fine produzione non inserita: la barra usa il carico come riferimento (tratteggiata), senza salvarlo
+  produzioneEndSuggerita: boolean;
+}
+
+const COLORE_PRODUZIONE = "#0D9488";
 
 function GanttChart({ rows }: { rows: GanttRow[] }) {
   const [selected, setSelected] = useState<string | null>(null);
@@ -55,7 +62,7 @@ function GanttChart({ rows }: { rows: GanttRow[] }) {
     // allunghi tutta la vista all'indietro (deciso con l'utente 2026-08-13, per accorciare il
     // Gantt mantenendo comunque visibili tutti i pallini/barre, mai nascosti).
     const viewStart = addDays(today, -7);
-    const dates = rows.flatMap(r => [...r.carichi.map(c => c.date), r.montaggioStart, r.montaggioEnd]).filter(Boolean) as Date[];
+    const dates = rows.flatMap(r => [...r.carichi.map(c => c.date), r.montaggioStart, r.montaggioEnd, r.produzioneStart, r.produzioneEnd]).filter(Boolean) as Date[];
     if (!dates.length) return { viewStart, viewDays: 90 };
     const max = new Date(Math.max(...dates.map(d => d.getTime())));
     return { viewStart, viewDays: Math.max(90, diffDays(viewStart, max) + 20) };
@@ -99,14 +106,14 @@ function GanttChart({ rows }: { rows: GanttRow[] }) {
     return lines;
   }, [viewStart, viewDays]);
 
-  function Bar({ start, end, color, fillColor }: { start: Date | null; end: Date | null; color: string; fillColor: string }) {
+  function Bar({ start, end, color, fillColor, dashed }: { start: Date | null; end: Date | null; color: string; fillColor: string; dashed?: boolean }) {
     const s = pct(start), e = pct(end);
     if (s === null || e === null) return null;
     const left = Math.max(0, Math.min(s, 100));
     const right = Math.max(0, Math.min(e, 100));
     if (right <= left + 0.1) return null;
     return (
-      <div className="group" style={{ position: "absolute", left: `${left}%`, width: `${right - left}%`, height: "100%", borderRadius: 2, background: fillColor, border: `2px solid ${color}` }}>
+      <div className="group" style={{ position: "absolute", left: `${left}%`, width: `${right - left}%`, height: "100%", borderRadius: 2, background: fillColor, border: `2px ${dashed ? "dashed" : "solid"} ${color}` }}>
         <div className="group-hover:opacity-100 opacity-0 pointer-events-none transition-opacity" style={{ position: "absolute", bottom: "calc(100% + 6px)", left: "50%", transform: "translateX(-50%)", background: "#1a1714", color: "#fff", fontSize: 10, fontWeight: 600, padding: "3px 7px", borderRadius: 4, whiteSpace: "nowrap", boxShadow: "0 2px 8px rgba(0,0,0,.2)", zIndex: 10 }}>
           {start ? start.toLocaleDateString("it-IT", { day: "2-digit", month: "short", year: "numeric" }) : ""} → {end ? end.toLocaleDateString("it-IT", { day: "2-digit", month: "short", year: "numeric" }) : ""}
         </div>
@@ -159,7 +166,7 @@ function GanttChart({ rows }: { rows: GanttRow[] }) {
     );
   }
 
-  const ROW_H = 64;
+  const ROW_H = 84;
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
@@ -200,6 +207,7 @@ function GanttChart({ rows }: { rows: GanttRow[] }) {
         const isSel = selected === r.commessa.id;
         const sc = statoColor(r.commessa.stato);
         const hasMontaggioRange = r.montaggioStart && r.montaggioEnd && diffDays(r.montaggioStart, r.montaggioEnd) > 0;
+        const hasProduzioneRange = r.produzioneStart && r.produzioneEnd && diffDays(r.produzioneStart, r.produzioneEnd) > 0;
 
         return (
           <div key={r.commessa.id}
@@ -210,9 +218,10 @@ function GanttChart({ rows }: { rows: GanttRow[] }) {
             <div style={{ width: 260, minWidth: 260, flexShrink: 0, borderRight: "1px solid #e5e7eb", padding: "10px 14px", position: "relative" }}>
               {/* Etichette Carico/Montaggio spostate qui (prima colonna) — dentro la corsia del
                   Gantt andavano in overlay coi pallini/barre. Allineate in verticale alla
-                  rispettiva corsia con gli stessi offset top usati lì (8 e 28). */}
+                  rispettiva corsia con gli stessi offset top usati lì (8, 28 e 48). */}
               <span style={{ position: "absolute", right: 6, top: 8, fontSize: 10, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "#F08F25", opacity: .8 }}>Carico</span>
               <span style={{ position: "absolute", right: 6, top: 28, fontSize: 10, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "#3B82F6", opacity: .8 }}>Montaggio</span>
+              <span style={{ position: "absolute", right: 6, top: 48, fontSize: 10, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: COLORE_PRODUZIONE, opacity: .8 }}>Produzione</span>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ fontWeight: 700, fontSize: 15, color: "var(--color-black)" }}>{r.commessa.numeroCommessa}</span>
               </div>
@@ -227,6 +236,13 @@ function GanttChart({ rows }: { rows: GanttRow[] }) {
                         : `${fmtShort(r.carichi[0].date)} → ${fmtShort(r.carichi[r.carichi.length - 1].date)} (${r.carichi.length})`}
                     </strong>
                   </div>
+                  {r.produzioneStart && (
+                    <div>
+                      Produzione: <strong style={{ color: "var(--color-black)" }}>
+                        {fmtShort(r.produzioneStart)} → {r.produzioneEnd ? fmtShort(r.produzioneEnd) : "—"}{r.produzioneEndSuggerita ? " (da carico)" : ""}
+                      </strong>
+                    </div>
+                  )}
                   {r.montaggioStart && <div>Montaggio: <strong style={{ color: "var(--color-black)" }}>{fmtShort(r.montaggioStart)} → {fmtShort(r.montaggioEnd)}</strong></div>}
                   <Link href={`/commesse/${r.commessa.id}`} className="underline" style={{ color: "var(--color-primary)" }}>Dettaglio →</Link>
                 </div>
@@ -252,6 +268,13 @@ function GanttChart({ rows }: { rows: GanttRow[] }) {
                   ? <Bar start={r.montaggioStart} end={r.montaggioEnd} color="#3B82F6" fillColor="rgba(59,130,246,.15)" />
                   : <Dot date={r.montaggioStart} color="#3B82F6" />}
               </div>
+
+              {/* Produzione */}
+              <div style={{ position: "absolute", top: 48, left: 0, right: 0, height: 16, display: "flex", alignItems: "center" }}>
+                {hasProduzioneRange
+                  ? <Bar start={r.produzioneStart} end={r.produzioneEnd} color={COLORE_PRODUZIONE} fillColor="rgba(13,148,136,.15)" dashed={r.produzioneEndSuggerita} />
+                  : <Dot date={r.produzioneStart} color={COLORE_PRODUZIONE} />}
+              </div>
             </div>
           </div>
         );
@@ -271,6 +294,14 @@ function GanttChart({ rows }: { rows: GanttRow[] }) {
           <div style={{ width: 20, height: 10, background: "rgba(59,130,246,.15)", border: "2px solid #3B82F6", borderRadius: 2 }} />
           <span style={{ fontSize: 10, color: "#6b7280" }}>Finestra Montaggio</span>
         </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <div style={{ width: 20, height: 10, background: "rgba(13,148,136,.15)", border: `2px solid ${COLORE_PRODUZIONE}`, borderRadius: 2 }} />
+          <span style={{ fontSize: 10, color: "#6b7280" }}>Finestra Produzione</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <div style={{ width: 20, height: 10, border: `2px dashed ${COLORE_PRODUZIONE}`, borderRadius: 2 }} />
+          <span style={{ fontSize: 10, color: "#6b7280" }}>Fine produzione da carico</span>
+        </div>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 5 }}>
           <div style={{ width: 2, height: 14, background: "#ef4444" }} />
           <span style={{ fontSize: 10, color: "#6b7280" }}>Oggi</span>
@@ -283,9 +314,12 @@ function GanttChart({ rows }: { rows: GanttRow[] }) {
 interface DashboardProps { schede: Scheda[]; ritiri: Ritiro[]; commesse: Commessa[]; carichi: Carico[]; }
 
 export default function Dashboard({ schede, ritiri, commesse, carichi }: DashboardProps) {
-  const [ordinamentoGantt, setOrdinamentoGantt] = useState<"carichi" | "montaggio">("carichi");
+  const [ordinamentoGantt, setOrdinamentoGantt] = useState<"carichi" | "montaggio" | "produzione">("carichi");
   const oggi = new Date(); oggi.setHours(0, 0, 0, 0);
   const oggiStr = oggi.toISOString().slice(0, 10);
+
+  // Gli export (Programma/Gantt Excel) conoscono solo carichi e montaggio
+  const ordinamentoStampa = ordinamentoGantt === "montaggio" ? "montaggio" : "carichi";
 
   const meseStart = new Date(oggi.getFullYear(), oggi.getMonth(), 1);
   const meseEnd = new Date(oggi.getFullYear(), oggi.getMonth() + 1, 0); meseEnd.setHours(23, 59, 59, 999);
@@ -343,18 +377,29 @@ export default function Dashboard({ schede, ritiri, commesse, carichi }: Dashboa
   }
 
   // Chiave di ordinamento: prossimo carico futuro per "carichi", inizio montaggio per
-  // "montaggio" — le commesse senza quella data vanno sempre in fondo (Infinity).
+  // "montaggio", inizio produzione per "produzione" — le commesse senza quella data vanno sempre in fondo (Infinity).
   const ganttRows: GanttRow[] = commesse
-    .filter((c) => c.stato === "In produzione")
-    .map((c) => ({
-      commessa: c,
-      carichi: carichiPerCommessa.get(c.id) ?? [],
-      montaggioStart: parseDate(c.inizioMontaggio),
-      montaggioEnd: parseDate(c.fineMontaggio),
-    }))
+    // ShopDrawing incluse: l'inizio produzione si inserisce all'arrivo dei disegni, quando la
+    // commessa è ancora in ShopDrawing, e la finestra deve comparire già da lì.
+    .filter((c) => c.stato === "In produzione" || c.stato === "ShopDrawing")
+    .map((c) => {
+      const fineProduzione = parseDate(c.fineProduzione);
+      const fineDaCarico = fineProduzione ? null : parseDate(c.dataCarico);
+      const produzioneStart = parseDate(c.inizioProduzione);
+      return {
+        commessa: c,
+        carichi: carichiPerCommessa.get(c.id) ?? [],
+        montaggioStart: parseDate(c.inizioMontaggio),
+        montaggioEnd: parseDate(c.fineMontaggio),
+        produzioneStart,
+        produzioneEnd: fineProduzione ?? (produzioneStart && fineDaCarico && fineDaCarico > produzioneStart ? fineDaCarico : null),
+        produzioneEndSuggerita: !fineProduzione && !!produzioneStart && !!fineDaCarico && fineDaCarico > produzioneStart,
+      };
+    })
     .sort((a, b) => {
       const keyOf = (r: GanttRow): number => {
         if (ordinamentoGantt === "montaggio") return r.montaggioStart?.getTime() ?? Infinity;
+        if (ordinamentoGantt === "produzione") return r.produzioneStart?.getTime() ?? Infinity;
         return prossimoCarico(r.commessa)?.getTime() ?? Infinity;
       };
       return keyOf(a) - keyOf(b);
@@ -372,7 +417,7 @@ export default function Dashboard({ schede, ritiri, commesse, carichi }: Dashboa
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
           <a
-            href={`/api/commesse/programma-riunione?ordinamento=${ordinamentoGantt}`}
+            href={`/api/commesse/programma-riunione?ordinamento=${ordinamentoStampa}`}
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
             style={{ background: "var(--color-primary)" }}
           >
@@ -382,7 +427,7 @@ export default function Dashboard({ schede, ritiri, commesse, carichi }: Dashboa
             Stampa Programma
           </a>
           <a
-            href={`/api/commesse/gantt?ordinamento=${ordinamentoGantt}`}
+            href={`/api/commesse/gantt?ordinamento=${ordinamentoStampa}`}
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
             style={{ background: "var(--color-primary)" }}
           >
@@ -407,12 +452,12 @@ export default function Dashboard({ schede, ritiri, commesse, carichi }: Dashboa
               Pianificazione commesse
             </h2>
             <span className="text-xs px-2 py-0.5 rounded font-bold tracking-widest uppercase" style={{ background: "#F08F25", color: "#fff" }}>
-              In produzione
+              ShopDrawing · In produzione
             </span>
             <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>{ganttRows.length} commesse</span>
             <div className="flex items-center gap-1.5 ml-auto">
               <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>Ordina per:</span>
-              {([["carichi", "Carichi"], ["montaggio", "Montaggio"]] as const).map(([value, label]) => {
+              {([["carichi", "Carichi"], ["montaggio", "Montaggio"], ["produzione", "Produzione"]] as const).map(([value, label]) => {
                 const active = ordinamentoGantt === value;
                 return (
                   <button
