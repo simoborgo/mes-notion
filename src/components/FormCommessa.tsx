@@ -24,6 +24,8 @@ export default function FormCommessa({
   const dataCaricoDaCarichi = commessa?.dataCaricoDaCarichi ?? false;
   const [inizioMontaggio, setInizioMontaggio] = useState(commessa?.inizioMontaggio ?? "");
   const [fineMontaggio, setFineMontaggio] = useState(commessa?.fineMontaggio ?? "");
+  const [inizioProduzione, setInizioProduzione] = useState(commessa?.inizioProduzione ?? "");
+  const [fineProduzione, setFineProduzione] = useState(commessa?.fineProduzione ?? "");
   const [info, setInfo] = useState(commessa?.info ?? "");
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState("");
@@ -31,6 +33,10 @@ export default function FormCommessa({
   async function salva(e: React.FormEvent) {
     e.preventDefault();
     if (!numeroCommessa.trim()) { setErrore("Numero Commessa obbligatorio"); return; }
+    if (inizioProduzione && fineProduzione && fineProduzione < inizioProduzione) {
+      setErrore("La fine produzione non può precedere l'inizio produzione");
+      return;
+    }
     setSalvando(true);
     setErrore("");
     try {
@@ -43,6 +49,8 @@ export default function FormCommessa({
         dataCarico: dataCarico || null,
         inizioMontaggio: inizioMontaggio || null,
         fineMontaggio: fineMontaggio || null,
+        inizioProduzione: inizioProduzione || null,
+        fineProduzione: fineProduzione || null,
         info: info.trim(),
       };
       const res = await fetch(commessa ? `/api/commesse/${commessa.id}` : "/api/commesse", {
@@ -123,6 +131,23 @@ export default function FormCommessa({
             <div>
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Fine Montaggio</label>
               <input type="date" className={inputCls} value={fineMontaggio} onChange={e => setFineMontaggio(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Inizio Produzione</label>
+              <input type="date" className={inputCls} value={inizioProduzione} onChange={e => setInizioProduzione(e.target.value)} />
+              <p className="text-[11px] mt-1" style={{ color: "var(--color-grey-mid)" }}>Da inserire quando arrivano i disegni</p>
+            </div>
+            <div>
+              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Fine Produzione</label>
+              <input type="date" className={inputCls} value={fineProduzione} onChange={e => setFineProduzione(e.target.value)} />
+              {!fineProduzione && (fineMontaggio || dataCarico) && (
+                <p className="text-[11px] mt-1" style={{ color: "var(--color-grey-mid)" }}>
+                  Di norma coincide con il carico o la fine montaggio
+                </p>
+              )}
             </div>
           </div>
 

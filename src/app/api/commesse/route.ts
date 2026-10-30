@@ -24,6 +24,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Numero Commessa obbligatorio" }, { status: 400 });
   }
 
+  if (body.inizioProduzione && body.fineProduzione && body.fineProduzione < body.inizioProduzione) {
+    return NextResponse.json({ error: "La fine produzione non può precedere l'inizio produzione" }, { status: 400 });
+  }
+
   try {
     const commessa = await createCommessa({
       numeroCommessa,
@@ -35,6 +39,8 @@ export async function POST(req: NextRequest) {
       dataCarico: body.dataCarico || null,
       inizioMontaggio: body.inizioMontaggio || null,
       fineMontaggio: body.fineMontaggio || null,
+      inizioProduzione: body.inizioProduzione || null,
+      fineProduzione: body.fineProduzione || null,
     });
     void logOperation(session.name, "CREATE", "commessa", commessa.id, body as Record<string, unknown>);
     return NextResponse.json(commessa);

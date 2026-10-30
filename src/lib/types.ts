@@ -142,6 +142,9 @@ export interface Commessa {
   inizioMontaggio: string | null;
   fineMontaggio: string | null;
   giorniMontaggio: number | null;
+  // Finestra di produzione: inizio inserito a mano all'arrivo dei disegni, fine di norma = carico/fine montaggio
+  inizioProduzione: string | null;
+  fineProduzione: string | null;
   notionUrl: string;
 }
 
@@ -222,6 +225,8 @@ export interface CommessaUpdate {
   dataCarico?: string | null;
   inizioMontaggio?: string | null;
   fineMontaggio?: string | null;
+  inizioProduzione?: string | null;
+  fineProduzione?: string | null;
 }
 
 export interface AreaUpdate {

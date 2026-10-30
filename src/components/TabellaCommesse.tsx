@@ -155,6 +155,8 @@ export default function TabellaCommesse({ commesse: commesseIniziali, schede = [
               <th className="px-4 py-3">Cliente</th>
               <th className="px-4 py-3">Località</th>
               <th className="px-4 py-3">Stato</th>
+              <th className="px-4 py-3">Inizio Prod.</th>
+              <th className="px-4 py-3">Fine Prod.</th>
               <th className="px-4 py-3">Prossimo Carico</th>
               <th className="px-4 py-3">Inizio Mont.</th>
               <th className="px-4 py-3">Fine Mont.</th>
@@ -165,7 +167,7 @@ export default function TabellaCommesse({ commesse: commesseIniziali, schede = [
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
+                <td colSpan={11} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
                   Nessuna commessa trovata
                 </td>
               </tr>
@@ -176,6 +178,8 @@ export default function TabellaCommesse({ commesse: commesseIniziali, schede = [
                   <td className="px-4 py-3">{c.cliente || "—"}</td>
                   <td className="px-4 py-3 text-xs">{c.localita || "—"}</td>
                   <td className="px-4 py-3"><BadgeStato stato={c.stato} /></td>
+                  <td className="px-4 py-3 tabular-nums">{fmt(c.inizioProduzione)}</td>
+                  <td className="px-4 py-3 tabular-nums">{fmt(c.fineProduzione)}</td>
                   <td className="px-4 py-3 tabular-nums">{fmt(c.dataCarico)}</td>
                   <td className="px-4 py-3 tabular-nums">{fmt(c.inizioMontaggio)}</td>
                   <td className="px-4 py-3 tabular-nums">{fmt(c.fineMontaggio)}</td>

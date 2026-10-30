@@ -30,6 +30,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
   const body = await req.json().catch(() => ({}));
 
+  if (body.inizioProduzione && body.fineProduzione && body.fineProduzione < body.inizioProduzione) {
+    return NextResponse.json({ error: "La fine produzione non può precedere l'inizio produzione" }, { status: 400 });
+  }
+
   try {
     const commessa = await updateCommessa(id, {
       numeroCommessa: typeof body.numeroCommessa === "string" ? body.numeroCommessa.trim() : undefined,
@@ -41,6 +45,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       dataCarico: body.dataCarico !== undefined ? (body.dataCarico || null) : undefined,
       inizioMontaggio: body.inizioMontaggio !== undefined ? (body.inizioMontaggio || null) : undefined,
       fineMontaggio: body.fineMontaggio !== undefined ? (body.fineMontaggio || null) : undefined,
+      inizioProduzione: body.inizioProduzione !== undefined ? (body.inizioProduzione || null) : undefined,
+      fineProduzione: body.fineProduzione !== undefined ? (body.fineProduzione || null) : undefined,
     });
     void logOperation(session.name, "UPDATE", "commessa", id, body as Record<string, unknown>);
     return NextResponse.json(commessa);

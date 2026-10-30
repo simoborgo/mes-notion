@@ -16,6 +16,8 @@ function mapRow(r: any): Commessa {
     inizioMontaggio: r.inizio_montaggio ? dateToStr(r.inizio_montaggio) : null,
     fineMontaggio: r.fine_montaggio ? dateToStr(r.fine_montaggio) : null,
     giorniMontaggio: r.giorni_montaggio != null ? Number(r.giorni_montaggio) : null,
+    inizioProduzione: r.inizio_produzione ? dateToStr(r.inizio_produzione) : null,
+    fineProduzione: r.fine_produzione ? dateToStr(r.fine_produzione) : null,
     notionUrl: "",
   };
 }
@@ -66,10 +68,12 @@ export async function createCommessa(data: {
   dataCarico?: string | null;
   inizioMontaggio?: string | null;
   fineMontaggio?: string | null;
+  inizioProduzione?: string | null;
+  fineProduzione?: string | null;
 }): Promise<Commessa> {
   const { rows } = await pool.query(
-    `INSERT INTO commesse (id, numero_commessa, cliente, localita, info, responsabile, stato, data_carico, inizio_montaggio, fine_montaggio)
-     VALUES (gen_random_uuid(), $1,$2,$3,$4,$5,COALESCE($6,'ShopDrawing'),$7,$8,$9)
+    `INSERT INTO commesse (id, numero_commessa, cliente, localita, info, responsabile, stato, data_carico, inizio_montaggio, fine_montaggio, inizio_produzione, fine_produzione)
+     VALUES (gen_random_uuid(), $1,$2,$3,$4,$5,COALESCE($6,'ShopDrawing'),$7,$8,$9,$10,$11)
      RETURNING id`,
     [
       data.numeroCommessa,
@@ -81,6 +85,8 @@ export async function createCommessa(data: {
       data.dataCarico ?? null,
       data.inizioMontaggio ?? null,
       data.fineMontaggio ?? null,
+      data.inizioProduzione ?? null,
+      data.fineProduzione ?? null,
     ],
   );
   return getCommessaById(rows[0].id);
@@ -113,6 +119,8 @@ export async function updateCommessa(id: string, data: CommessaUpdate): Promise<
   if (data.dataCarico !== undefined && !(await haCarichi(id))) { sets.push(`data_carico = $${i++}`); values.push(data.dataCarico); }
   if (data.inizioMontaggio !== undefined) { sets.push(`inizio_montaggio = $${i++}`); values.push(data.inizioMontaggio); }
   if (data.fineMontaggio !== undefined) { sets.push(`fine_montaggio = $${i++}`); values.push(data.fineMontaggio); }
+  if (data.inizioProduzione !== undefined) { sets.push(`inizio_produzione = $${i++}`); values.push(data.inizioProduzione); }
+  if (data.fineProduzione !== undefined) { sets.push(`fine_produzione = $${i++}`); values.push(data.fineProduzione); }
   sets.push(`aggiornato_il = now()`);
 
   values.push(id);
