@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCarichi } from "@/lib/carichiRepository";
 import { getCommesse } from "@/lib/commesseRepository";
 import { getSessionFromRequest } from "@/lib/auth";
-import { buildCommesseConCarichi, type OrdinamentoCommesse } from "@/lib/reportCommesse";
+import { buildCommesseConCarichi, filtraPerPeriodo, leggiParametriStampa } from "@/lib/reportCommesse";
 import { buildProgrammaRiunioneWorkbook } from "@/lib/excel/programmaRiunione";
 
 // Stessa logica della skill "modar-programma-riunione", ma applicata direttamente ai dati live
@@ -13,12 +13,12 @@ export async function GET(req: NextRequest) {
     const session = await getSessionFromRequest(req);
     if (!session) return NextResponse.json({ error: "Non autorizzato" }, { status: 401 });
 
-    // Riflette lo stesso toggle "Carichi/Montaggio" della Dashboard da cui si stampa.
-    const ordinamento: OrdinamentoCommesse = req.nextUrl.searchParams.get("ordinamento") === "montaggio" ? "montaggio" : "carichi";
+    // Riflette toggle di ordinamento e mesi Da/A della Dashboard da cui si stampa.
+    const { ordinamento, periodo } = leggiParametriStampa(req.nextUrl.searchParams);
 
     const [commesse, carichi] = await Promise.all([getCommesse(), getCarichi()]);
-    const righe = buildCommesseConCarichi(commesse, carichi, ordinamento);
-    const buffer = await buildProgrammaRiunioneWorkbook(righe, ordinamento);
+    const righe = filtraPerPeriodo(buildCommesseConCarichi(commesse, carichi, ordinamento), periodo);
+    const buffer = await buildProgrammaRiunioneWorkbook(righe, ordinamento, periodo);
 
     const filename = `Programma_Commesse_MODAR_${new Date().toISOString().slice(0, 10)}.xlsx`;
     return new NextResponse(new Uint8Array(buffer), {

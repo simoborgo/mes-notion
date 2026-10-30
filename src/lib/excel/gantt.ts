@@ -1,10 +1,11 @@
 import ExcelJS from "exceljs";
-import type { CommessaConCarichi } from "../reportCommesse";
+import { intervalliCommessa, type CommessaConCarichi, type PeriodoCommesse } from "../reportCommesse";
 import { MESI_IT } from "./date";
 
 const BLU_HEADER = "FF2C3E50";
 const ARANCIO = "FFFF8C00";
 const BLU_MONTAGGIO = "FF1F5C99";
+const TEAL_PRODUZIONE = "FF0D9488";
 const GRIGIO_1 = "FFF5F5F5";
 const GRIGIO_2 = "FFFFFFFF";
 const BIANCO = "FFFFFFFF";
@@ -42,19 +43,21 @@ function labelRiga(commessa: { numeroCommessa: string; cliente: string; localita
   return label;
 }
 
-export async function buildGanttWorkbook(righe: CommessaConCarichi[]): Promise<Buffer> {
+export async function buildGanttWorkbook(righe: CommessaConCarichi[], periodo: PeriodoCommesse = { da: null, a: null }): Promise<Buffer> {
   const tutteLeDate: Date[] = [];
   for (const r of righe) {
     tutteLeDate.push(...r.caricoDates);
     if (r.commessa.inizioMontaggio) tutteLeDate.push(new Date(`${r.commessa.inizioMontaggio}T00:00:00`));
     if (r.commessa.fineMontaggio) tutteLeDate.push(new Date(`${r.commessa.fineMontaggio}T00:00:00`));
+    if (r.commessa.inizioProduzione) tutteLeDate.push(new Date(`${r.commessa.inizioProduzione}T00:00:00`));
+    if (r.commessa.fineProduzione) tutteLeDate.push(new Date(`${r.commessa.fineProduzione}T00:00:00`));
   }
 
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Gantt");
 
   if (tutteLeDate.length === 0) {
-    ws.getCell("A1").value = "Nessuna commessa aperta con date disponibili.";
+    ws.getCell("A1").value = periodo.da || periodo.a ? "Nessuna commessa con date nel periodo scelto." : "Nessuna commessa aperta con date disponibili.";
     const buffer = await wb.xlsx.writeBuffer();
     return Buffer.from(buffer);
   }
@@ -64,9 +67,11 @@ export async function buildGanttWorkbook(righe: CommessaConCarichi[]): Promise<B
   // (stessa scelta già fatta per il Gantt della Dashboard il 2026-08-13). Arriva fino all'ultima
   // data rilevante (carico o montaggio più recente), con un minimo di 90 giorni di vista.
   const oggi = new Date(); oggi.setHours(0, 0, 0, 0);
-  const inizioRange = weekMonday(addDays(oggi, -7));
+  // Con mesi Da/A scelti in Dashboard il range è esattamente quello dei mesi scelti (un estremo
+  // non scelto resta automatico).
+  const inizioRange = periodo.da ? weekMonday(periodo.da) : weekMonday(addDays(oggi, -7));
   const fineRangeDati = new Date(Math.max(...tutteLeDate.map((d) => d.getTime())));
-  const fineRange = fineRangeDati > addDays(inizioRange, 90) ? fineRangeDati : addDays(inizioRange, 90);
+  const fineRange = periodo.a ?? (fineRangeDati > addDays(inizioRange, 90) ? fineRangeDati : addDays(inizioRange, 90));
 
   const settimane: Date[] = [];
   for (let w = inizioRange; w <= fineRange; w = addDays(w, 7)) {
@@ -131,18 +136,19 @@ export async function buildGanttWorkbook(righe: CommessaConCarichi[]): Promise<B
     if (badgeColor) statoCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: badgeColor } };
     statoCell.alignment = { horizontal: "center" };
 
-    const inizio = r.commessa.inizioMontaggio ? new Date(`${r.commessa.inizioMontaggio}T00:00:00`) : null;
-    const fine = r.commessa.fineMontaggio ? new Date(`${r.commessa.fineMontaggio}T00:00:00`) : null;
+    const { montaggio, produzione } = intervalliCommessa(r);
 
     settimane.forEach((wStart, wIdx) => {
       const wEnd = addDays(wStart, 6);
       const cell = row.getCell(COL_WEEK_START + wIdx);
       const inCarico = r.caricoDates.some((d) => d >= wStart && d <= wEnd);
-      const inMontaggio = !!inizio && !!fine && !(wEnd < inizio || wStart > fine);
+      const inMontaggio = !!montaggio && !(wEnd < montaggio[0] || wStart > montaggio[1]);
+      const inProduzione = !!produzione && !(wEnd < produzione[0] || wStart > produzione[1]);
 
       let colore: string;
       if (inCarico) colore = ARANCIO;
       else if (inMontaggio) colore = BLU_MONTAGGIO;
+      else if (inProduzione) colore = TEAL_PRODUZIONE;
       else colore = idx % 2 === 0 ? GRIGIO_2 : GRIGIO_1;
 
       cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: colore } };
@@ -164,6 +170,11 @@ export async function buildGanttWorkbook(righe: CommessaConCarichi[]): Promise<B
   legMontaggio.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BLU_MONTAGGIO } };
   ws.getCell(legRow2Idx, 2).value = "Periodo Montaggio";
   ws.getCell(legRow2Idx, 2).font = { name: "Arial", size: 9, color: { argb: "FF1A1A1A" } };
+
+  const legRow3Idx = legRow2Idx + 1;
+  ws.getCell(legRow3Idx, 1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: TEAL_PRODUZIONE } };
+  ws.getCell(legRow3Idx, 2).value = "Periodo Produzione";
+  ws.getCell(legRow3Idx, 2).font = { name: "Arial", size: 9, color: { argb: "FF1A1A1A" } };
 
   let legCol = 4;
   const legBadgeRow = legRow1Idx;

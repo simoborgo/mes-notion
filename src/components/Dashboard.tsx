@@ -327,8 +327,8 @@ export default function Dashboard({ schede, ritiri, commesse, carichi }: Dashboa
   const oggi = new Date(); oggi.setHours(0, 0, 0, 0);
   const oggiStr = oggi.toISOString().slice(0, 10);
 
-  // Gli export (Programma/Gantt Excel) conoscono solo carichi e montaggio
-  const ordinamentoStampa = ordinamentoGantt === "montaggio" ? "montaggio" : "carichi";
+  // Le stampe (Programma/Gantt Excel) riflettono ordinamento e mesi Da/A scelti qui
+  const paramStampa = `ordinamento=${ordinamentoGantt}${meseDa ? `&da=${meseDa}` : ""}${meseA ? `&a=${meseA}` : ""}`;
 
   const meseStart = new Date(oggi.getFullYear(), oggi.getMonth(), 1);
   const meseEnd = new Date(oggi.getFullYear(), oggi.getMonth() + 1, 0); meseEnd.setHours(23, 59, 59, 999);
@@ -448,7 +448,7 @@ export default function Dashboard({ schede, ritiri, commesse, carichi }: Dashboa
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
           <a
-            href={`/api/commesse/programma-riunione?ordinamento=${ordinamentoStampa}`}
+            href={`/api/commesse/programma-riunione?${paramStampa}`}
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
             style={{ background: "var(--color-primary)" }}
           >
@@ -458,7 +458,7 @@ export default function Dashboard({ schede, ritiri, commesse, carichi }: Dashboa
             Stampa Programma
           </a>
           <a
-            href={`/api/commesse/gantt?ordinamento=${ordinamentoStampa}`}
+            href={`/api/commesse/gantt?${paramStampa}`}
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
             style={{ background: "var(--color-primary)" }}
           >

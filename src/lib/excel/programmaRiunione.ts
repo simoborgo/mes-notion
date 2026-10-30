@@ -1,7 +1,7 @@
 import ExcelJS from "exceljs";
 import fs from "fs";
 import path from "path";
-import type { CommessaConCarichi, OrdinamentoCommesse } from "../reportCommesse";
+import type { CommessaConCarichi, OrdinamentoCommesse, PeriodoCommesse } from "../reportCommesse";
 import { fmtDateIt, fmtDateEsteso, MESI_IT } from "./date";
 
 const ARANCIO = "FFE87722";
@@ -12,7 +12,7 @@ const NERO = "FF1A1A1A";
 const ARANCIO_CHIARO = "FFFDE8D0";
 const BIANCO = "FFFFFFFF";
 
-const N_COLONNE = 9; // A..I
+const N_COLONNE = 11; // A..K
 
 const BADGE_STATO: Record<string, { bg: string; fg: string }> = {
   "In produzione": { bg: "FFE6F1FB", fg: "FF0C447C" },
@@ -39,7 +39,9 @@ const thinGrigio = { style: "thin" as const, color: { argb: GRIGIO_BORDO } };
 const mediumNero = { style: "medium" as const, color: { argb: NERO } };
 const thickArancio = { style: "thick" as const, color: { argb: ARANCIO } };
 
-export async function buildProgrammaRiunioneWorkbook(righe: CommessaConCarichi[], ordinamento: OrdinamentoCommesse = "carichi"): Promise<Buffer> {
+export async function buildProgrammaRiunioneWorkbook(
+  righe: CommessaConCarichi[], ordinamento: OrdinamentoCommesse = "carichi", periodo: PeriodoCommesse = { da: null, a: null },
+): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Programma");
   ws.views = [{ showGridLines: false }];
@@ -48,11 +50,13 @@ export async function buildProgrammaRiunioneWorkbook(righe: CommessaConCarichi[]
   ws.getColumn(2).width = 22;
   ws.getColumn(3).width = 24;
   ws.getColumn(4).width = 16;
-  ws.getColumn(5).width = 12;
-  ws.getColumn(6).width = 20;
-  ws.getColumn(7).width = 15;
-  ws.getColumn(8).width = 15;
-  ws.getColumn(9).width = 13;
+  ws.getColumn(5).width = 12; // inizio produzione
+  ws.getColumn(6).width = 12; // fine produzione
+  ws.getColumn(7).width = 12; // info (titolo carico)
+  ws.getColumn(8).width = 20; // data carico
+  ws.getColumn(9).width = 15;
+  ws.getColumn(10).width = 15;
+  ws.getColumn(11).width = 13;
 
   // Header — logo + titolo (righe 1-4)
   ws.mergeCells(1, 1, 4, 2);
@@ -61,7 +65,12 @@ export async function buildProgrammaRiunioneWorkbook(righe: CommessaConCarichi[]
   ws.getCell("C1").font = { name: "Arial", size: 15, bold: true, color: { argb: NERO } };
   ws.mergeCells(3, 3, 3, N_COLONNE);
   const oggi = new Date();
-  ws.getCell("C3").value = `Riunione produzione  ·  ${MESI_IT[oggi.getMonth()]} ${oggi.getFullYear()}`;
+  const etichettaMese = (d: Date) => `${MESI_IT[d.getMonth()]} ${d.getFullYear()}`;
+  // Con mesi Da/A scelti in Dashboard il sottotitolo indica il periodo stampato
+  const sottotitolo = periodo.da || periodo.a
+    ? `Periodo: ${periodo.da ? etichettaMese(periodo.da) : "inizio"} – ${periodo.a ? etichettaMese(periodo.a) : "fine"}`
+    : etichettaMese(oggi);
+  ws.getCell("C3").value = `Riunione produzione  ·  ${sottotitolo}`;
   ws.getCell("C3").font = { name: "Arial", size: 10, color: { argb: GRIGIO_TESTO } };
 
   const logoPath = path.join(process.cwd(), "public", "modar-logo.png");
@@ -84,7 +93,7 @@ export async function buildProgrammaRiunioneWorkbook(righe: CommessaConCarichi[]
   ws.getRow(6).height = 8;
 
   // Riga 7 — intestazioni colonna
-  const headerLabels = ["N° COMMESSA", "CLIENTE", "SEDE / INFO", "STATO", "INFO", "DATA CARICO", "INIZIO MONT.", "FINE MONT.", "GG CANTIERE"];
+  const headerLabels = ["N° COMMESSA", "CLIENTE", "SEDE / INFO", "STATO", "INIZIO PROD.", "FINE PROD.", "INFO", "DATA CARICO", "INIZIO MONT.", "FINE MONT.", "GG CANTIERE"];
   const headerRow = ws.getRow(7);
   headerRow.height = 26;
   headerLabels.forEach((label, i) => {
@@ -100,7 +109,8 @@ export async function buildProgrammaRiunioneWorkbook(righe: CommessaConCarichi[]
   // in assoluto — un carico preliminare fatto due mesi fa non deve ancorare la commessa in un
   // gruppo del passato se il carico vero è più avanti. Le commesse senza quella data finiscono
   // comunque in un gruppo a parte in fondo, mai escluse dal programma.
-  const SENZA_DATA_LABEL = ordinamento === "montaggio" ? "Senza montaggio programmato" : "Senza carico programmato";
+  const SENZA_DATA_LABEL = ordinamento === "montaggio" ? "Senza montaggio programmato"
+    : ordinamento === "produzione" ? "Senza inizio produzione" : "Senza carico programmato";
   const gruppi = new Map<string, CommessaConCarichi[]>();
   for (const r of righe) {
     const d = r.dataOrdinamento;
@@ -140,7 +150,7 @@ export async function buildProgrammaRiunioneWorkbook(righe: CommessaConCarichi[]
       const endRow = rowIdx + nSottoRighe - 1;
 
       if (nSottoRighe > 1) {
-        for (const col of [1, 2, 3, 4, 7, 8, 9]) ws.mergeCells(startRow, col, endRow, col);
+        for (const col of [1, 2, 3, 4, 5, 6, 9, 10, 11]) ws.mergeCells(startRow, col, endRow, col);
       }
 
       const badge = BADGE_STATO[commessa.stato];
@@ -152,9 +162,11 @@ export async function buildProgrammaRiunioneWorkbook(righe: CommessaConCarichi[]
         [2, commessa.cliente, { bold: true, color: NERO, size: 11 }],
         [3, sedeInfoLabel(commessa.localita, commessa.info), { bold: true, color: NERO }],
         [4, commessa.stato, { bold: true, color: badge?.fg ?? NERO, align: "center" }],
-        [7, commessa.inizioMontaggio ? fmtDateIt(new Date(`${commessa.inizioMontaggio}T00:00:00`)) : "—", { color: commessa.inizioMontaggio ? NERO : GRIGIO_TESTO }],
-        [8, commessa.fineMontaggio ? fmtDateIt(new Date(`${commessa.fineMontaggio}T00:00:00`)) : "—", { color: commessa.fineMontaggio ? NERO : GRIGIO_TESTO }],
-        [9, gg != null ? gg : "—", { bold: ggAlta, color: gg == null ? GRIGIO_TESTO : ggAlta ? ARANCIO : NERO, size: 11 }],
+        [5, commessa.inizioProduzione ? fmtDateIt(new Date(`${commessa.inizioProduzione}T00:00:00`)) : "—", { color: commessa.inizioProduzione ? NERO : GRIGIO_TESTO }],
+        [6, commessa.fineProduzione ? fmtDateIt(new Date(`${commessa.fineProduzione}T00:00:00`)) : "—", { color: commessa.fineProduzione ? NERO : GRIGIO_TESTO }],
+        [9, commessa.inizioMontaggio ? fmtDateIt(new Date(`${commessa.inizioMontaggio}T00:00:00`)) : "—", { color: commessa.inizioMontaggio ? NERO : GRIGIO_TESTO }],
+        [10, commessa.fineMontaggio ? fmtDateIt(new Date(`${commessa.fineMontaggio}T00:00:00`)) : "—", { color: commessa.fineMontaggio ? NERO : GRIGIO_TESTO }],
+        [11, gg != null ? gg : "—", { bold: ggAlta, color: gg == null ? GRIGIO_TESTO : ggAlta ? ARANCIO : NERO, size: 11 }],
       ];
       for (const [col, value, style] of valoriUnaVolta) {
         const cell = ws.getCell(startRow, col);
@@ -169,7 +181,7 @@ export async function buildProgrammaRiunioneWorkbook(righe: CommessaConCarichi[]
         const row = ws.getRow(rowN);
         row.height = 24;
 
-        for (const col of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
+        for (const col of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]) {
           const cell = ws.getCell(rowN, col);
           cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
           const isUltimaRigaCommessa = rowN === endRow;
@@ -179,12 +191,12 @@ export async function buildProgrammaRiunioneWorkbook(righe: CommessaConCarichi[]
           };
         }
 
-        const titoloCell = ws.getCell(rowN, 5);
+        const titoloCell = ws.getCell(rowN, 7);
         titoloCell.value = pair ? pair.titolo : "—";
         titoloCell.font = { name: "Arial", size: 9, color: { argb: GRIGIO_TESTO } };
         titoloCell.alignment = { horizontal: "left", vertical: "middle" };
 
-        const dataCell = ws.getCell(rowN, 6);
+        const dataCell = ws.getCell(rowN, 8);
         dataCell.value = pair ? fmtDateEsteso(pair.data) : "—";
         dataCell.font = { name: "Arial", size: 10, bold: true, color: { argb: pair ? NERO : GRIGIO_TESTO } };
         dataCell.alignment = { horizontal: "left", vertical: "middle" };
@@ -221,7 +233,7 @@ export async function buildProgrammaRiunioneWorkbook(righe: CommessaConCarichi[]
     fitToPage: true,
     fitToWidth: 1,
     fitToHeight: 0,
-    printArea: `A1:I${rowIdx}`,
+    printArea: `A1:K${rowIdx}`,
   };
 
   const buffer = await wb.xlsx.writeBuffer();
