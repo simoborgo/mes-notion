@@ -11,7 +11,7 @@ import {
 import { getRepartiSecondari } from "./articoliRepository";
 
 export type OreCategoria = "COMMESSA" | "SETUP" | "MANUTENZIONE" | "RIUNIONE" | "FORMAZIONE" | "PULIZIE" | "FERMO_MACCHINA" | "ARREDI_MASSELLI" | "INVENTARIO" | "MONTAGGIO_ESTERNO";
-export type OreCausale = "P" | "T" | "M" | "C" | "F";
+export type OreCausale = "P" | "T" | "M" | "C" | "F" | "CA";
 
 const COSTO_ORARIO = 41;
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-type Causale = "P" | "T" | "M" | "C" | "F";
+type Causale = "P" | "T" | "M" | "C" | "F" | "CA";
 
 interface Voce {
   id: string;
@@ -26,6 +26,7 @@ const CAUSALI: { value: Causale; label: string }[] = [
   { value: "M", label: "M — Materiale" },
   { value: "C", label: "C — Cliente" },
   { value: "F", label: "F — Fornitore" },
+  { value: "CA", label: "CA — Cantiere" },
 ];
 
 function fmt(d: string) {

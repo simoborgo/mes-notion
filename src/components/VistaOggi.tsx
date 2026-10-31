@@ -8,7 +8,7 @@ import { STEP_ORE, arrotondaQuarto, èMultiploQuarto, ripartisciOre, fmtOreMinut
 import OdpAutocomplete from "./OdpAutocomplete";
 import OdpMultiAutocomplete from "./OdpMultiAutocomplete";
 
-type Causale = "P" | "T" | "M" | "C" | "F";
+type Causale = "P" | "T" | "M" | "C" | "F" | "CA";
 
 interface RegistrazioneRow {
   id: string;

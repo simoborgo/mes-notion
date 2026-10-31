@@ -4,7 +4,7 @@ import { getSessionFromRequest, RILEVAMENTO_ORE_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 import { REPARTI_PRODUZIONE } from "@/lib/types";
 
-const CAUSALI: OreCausale[] = ["P", "T", "M", "C", "F"];
+const CAUSALI: OreCausale[] = ["P", "T", "M", "C", "F", "CA"];
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSessionFromRequest(req);
@@ -29,7 +29,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   if (!CAUSALI.includes(body.causale)) {
-    return NextResponse.json({ error: "Causale non valida (P/T/M/C)" }, { status: 400 });
+    return NextResponse.json({ error: "Causale non valida (P/T/M/C/F/CA)" }, { status: 400 });
   }
   try {
     const updated = await classificaCausale(id, body.causale);
