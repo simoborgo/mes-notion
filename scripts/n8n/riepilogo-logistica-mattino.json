@@ -1,0 +1,98 @@
+{
+  "name": "MES – Riepilogo logistica del mattino (email)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "45 6 * * 1-5"
+            }
+          ]
+        }
+      },
+      "name": "Lun–ven alle 06:45",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mes.modar.cloud/api/webhooks/riepilogo-logistica",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "CAMBIA_RIEPILOGO_LOGISTICA_WEBHOOK_SECRET"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Riepilogo MES",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "MES <CAMBIA_MITTENTE@tuodominio.it>",
+        "toEmail": "CAMBIA_EMAIL_LOGISTICA",
+        "subject": "={{ $json.oggetto }}",
+        "emailFormat": "html",
+        "html": "={{ $json.html }}",
+        "options": {}
+      },
+      "name": "Email Logistica",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        480,
+        0
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "",
+          "name": "SMTP (da configurare)"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Lun–ven alle 06:45": {
+      "main": [
+        [
+          {
+            "node": "Riepilogo MES",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Riepilogo MES": {
+      "main": [
+        [
+          {
+            "node": "Email Logistica",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Rome"
+  }
+}
