@@ -3,6 +3,8 @@ import { revalidatePath } from "next/cache";
 import { getGiroById, segnaMovimentoGiro } from "@/lib/giriRepository";
 import { getSessionFromRequest, getOperatoreMatricolaFromRequest } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
+import { notificaRientroGiro, nomeOperatore } from "@/lib/notificheGiri";
+import { getPublicBaseUrl } from "@/lib/url";
 
 // Segna uscita/rientro del giro dalla pagina di scansione QR (/q/<codice>). Il tablet è già
 // loggato; in più serve il token operatore emesso dal PIN, così l'azione è attribuita a chi l'ha
@@ -28,6 +30,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!giro || giro.schedaId !== id) return NextResponse.json({ error: "Giro non trovato" }, { status: 404 });
     const aggiornato = await segnaMovimentoGiro(giroId, azione);
     revalidatePath("/schede");
+    if (azione === "rientro") {
+      const baseUrl = getPublicBaseUrl(req);
+      void nomeOperatore(matricola).then((autore) => notificaRientroGiro(giroId, { autore, origine: "QR", baseUrl }));
+    }
     void logOperation(`${session.name} (matricola ${matricola})`, "UPDATE", "scheda_giro", giroId, { azione: `qr_${azione}` });
     return NextResponse.json(aggiornato);
   } catch (e) {

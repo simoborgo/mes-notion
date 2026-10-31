@@ -1,0 +1,132 @@
+{
+  "name": "MES – Notifiche giri esterni (Telegram)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "giri-esterni",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "name": "Webhook MES",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "mes-giri-esterni"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "d1",
+              "leftValue": "={{ $json.body.destinatario }}",
+              "rightValue": "produzione",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "name": "Per la Produzione?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "CAMBIA_CHAT_ID_PRODUZIONE",
+        "text": "={{ $json.body.testo }}",
+        "additionalFields": {
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true,
+          "appendAttribution": false
+        }
+      },
+      "name": "Telegram Produzione",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        480,
+        -100
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "CAMBIA",
+          "name": "Telegram MES"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "CAMBIA_CHAT_ID_LOGISTICA",
+        "text": "={{ $json.body.testo }}",
+        "additionalFields": {
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true,
+          "appendAttribution": false
+        }
+      },
+      "name": "Telegram Logistica",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        480,
+        100
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "CAMBIA",
+          "name": "Telegram MES"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook MES": {
+      "main": [
+        [
+          {
+            "node": "Per la Produzione?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Per la Produzione?": {
+      "main": [
+        [
+          {
+            "node": "Telegram Produzione",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram Logistica",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

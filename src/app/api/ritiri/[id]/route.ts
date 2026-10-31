@@ -5,6 +5,9 @@ import { updateRitiro, deleteRitiro, getRitiriByScheda, getRitiroById, createRil
 import type { RitiroUpdate } from "@/lib/types";
 import { getSessionFromRequest, WRITE_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
+import { notificaRientroGiro } from "@/lib/notificheGiri";
+import { getGiroAttivoId } from "@/lib/giriRepository";
+import { getPublicBaseUrl } from "@/lib/url";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   let body: RitiroUpdate | undefined;
@@ -52,6 +55,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const updated = await updateRitiro(id, body!);
 
     if (updated.stato === "Fatto") {
+      const contestoNotifica = { autore: session.name, origine: "Ritiri e Consegne", baseUrl: getPublicBaseUrl(req) };
       void (async () => {
         try {
           // Ritiri/Consegne legati a una rilavorazione: logica dedicata
@@ -59,8 +63,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             if (updated.tipoMovimento === "Ritiro") {
               // Pezzo tornato fisicamente: Stato Produzione Esterna = "Rientrato"
               // Parent rimane "In Attesa Rilavorazione" fino a "Segna Rientrata" manuale
+              const giroRientro = updated.giroId ?? await getGiroAttivoId(updated.rilavorazioneId);
               await updateRilavorazioneRientrata(updated.rilavorazioneId, updated.giroId);
               revalidatePath("/schede");
+              await notificaRientroGiro(giroRientro, contestoNotifica);
             }
             // Consegna → Fatto: nessun cambio stato (solo tracking logistico)
             return;
@@ -79,8 +85,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             if (!daVerificare.every(r => r.stato === "Fatto")) return;
 
             if (updated.tipoMovimento === "Ritiro") {
+              const giroRientro = updated.giroId ?? await getGiroAttivoId(schedaId);
               await updateSchedaRientrato(schedaId, updated.giroId);
               revalidatePath("/schede");
+              await notificaRientroGiro(giroRientro, contestoNotifica);
             } else if (updated.tipoMovimento === "Consegna") {
               await updateSchedaConsegnaFatta(schedaId, updated.giroId);
               revalidatePath("/schede");

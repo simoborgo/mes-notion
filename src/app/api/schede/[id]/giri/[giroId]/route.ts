@@ -4,6 +4,8 @@ import { getGiroById, updateGiro, deleteGiro } from "@/lib/giriRepository";
 import type { GiroInput } from "@/lib/types";
 import { getSessionFromRequest, MODIFICA_SCHEDA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
+import { notificaRientroGiro } from "@/lib/notificheGiri";
+import { getPublicBaseUrl } from "@/lib/url";
 
 type Ctx = { params: Promise<{ id: string; giroId: string }> };
 
@@ -25,6 +27,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     const body: GiroInput = await req.json();
     const giro = await updateGiro(giroId, body);
     revalidatePath("/schede");
+    if (body.stato === "Rientrato") void notificaRientroGiro(giroId, { autore: session.name, origine: "Scheda", baseUrl: getPublicBaseUrl(req) });
     void logOperation(session.name, "UPDATE", "scheda_giro", giroId, body as Record<string, unknown>);
     return NextResponse.json(giro);
   } catch (e) {

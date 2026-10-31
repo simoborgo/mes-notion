@@ -5,6 +5,9 @@ import type { SchedaUpdate } from "@/lib/types";
 import { getSessionFromRequest, MODIFICA_SCHEDA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 import { setValoreVendita } from "@/lib/schedeEconomiaRepository";
+import { getGiroAttivoId } from "@/lib/giriRepository";
+import { notificaRientroGiro } from "@/lib/notificheGiri";
+import { getPublicBaseUrl } from "@/lib/url";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -50,10 +53,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Ore manodopera non valide" }, { status: 400 });
     }
 
+    // Rientro segnato dalla scheda (Lavorazioni Esterne, form Modifica): il giro è quello attivo
+    // PRIMA della modifica, perché dopo il rientro l'attivo può diventare un altro giro aperto.
+    const giroRientro = datiScheda.statoProdEsterna === "Rientrato" ? await getGiroAttivoId(id) : null;
+
     const updated = await updateScheda(id, datiScheda);
     if (valoreVendita !== undefined) await setValoreVendita(id, valoreVendita);
 
     revalidatePath("/schede");
+    if (giroRientro) void notificaRientroGiro(giroRientro, { autore: session.name, origine: "Scheda", baseUrl: getPublicBaseUrl(req) });
 
     void logOperation(
       session?.name ?? "Sconosciuto",
