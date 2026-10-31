@@ -21,6 +21,31 @@ export function ripartisciOre(totale: number, n: number): number[] {
   return Array.from({ length: n }, (_, i) => (base + (i < extra ? 1 : 0)) * STEP_ORE);
 }
 
+// Ripartisce la giornata tablet di un operatore sugli ODP lavorati, in multipli di 15 minuti, così
+// che la somma torni al totale della giornata arrotondato al quarto (arrotondare ogni ODP per conto
+// suo faceva perdere fino a mezz'ora al giorno con 5-6 ODP). Regola decisa con l'utente 2026-10-31:
+// ogni ODP riceve i quarti interi lavorati; i quarti mancanti vanno prima agli ODP andati più vicini
+// al quarto successivo (resto maggiore), e se non bastano si arrotonda per eccesso l'ultimo ODP lavorato.
+export function ripartisciGiornata(voci: { odp: string; ore: number; ultimoAlle: number }[]): Map<string, number> {
+  const quartiTotali = Math.round(voci.reduce((s, v) => s + v.ore, 0) / STEP_ORE);
+  const righe = voci.map(v => {
+    const quarti = v.ore / STEP_ORE;
+    // epsilon: 0.75/0.25 può dare 2.9999999 in floating point
+    const interi = Math.floor(quarti + 1e-9);
+    return { ...v, quarti: interi, resto: quarti - interi };
+  });
+  let mancanti = quartiTotali - righe.reduce((s, r) => s + r.quarti, 0);
+  for (const r of [...righe].filter(r => r.resto > 1e-9).sort((a, b) => b.resto - a.resto || b.ultimoAlle - a.ultimoAlle)) {
+    if (mancanti <= 0) break;
+    r.quarti++;
+    mancanti--;
+  }
+  if (mancanti > 0 && righe.length > 0) {
+    righe.reduce((u, r) => (r.ultimoAlle > u.ultimoAlle ? r : u)).quarti += mancanti;
+  }
+  return new Map(righe.map(r => [r.odp, r.quarti * STEP_ORE]));
+}
+
 // "1.25" → "1h 15min", "0.5" → "30min", "2" → "2h"
 export function fmtOreMinuti(ore: number): string {
   const tot = Math.round(ore * 60);

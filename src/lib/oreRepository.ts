@@ -108,12 +108,12 @@ export async function upsertRegistrazione(entry: {
   return mapRow(rows[0]);
 }
 
-// Upsert additivo — a differenza di upsertRegistrazione (che sostituisce il totale, uso del
-// responsabile per correggere una voce) questa SOMMA oreDelta a quanto già presente per
-// (data, matricola, odp). Usata dal flusso operatore/tablet, dove più segmenti di lavoro sullo
-// stesso ODP nella stessa giornata devono accumularsi, non sovrascriversi. Accetta un client/pool
-// esplicito per poter partecipare a una transazione (vedi segmentiOperatoreRepository.ts).
-export async function aggiungiOreRegistrate(
+// Upsert del flusso operatore/tablet: scrive il totale ASSOLUTO dell'ODP nella giornata, ricalcolato
+// ogni volta dall'intera giornata di segmenti (vedi ricalcolaGiornataTablet in
+// segmentiOperatoreRepository.ts) — non più una somma di delta, che con la ripartizione a quarti
+// della giornata può anche togliere un quarto a un ODP. Conserva la causale già impostata dal
+// responsabile se resta un rifacimento. Accetta un client/pool esplicito per partecipare a una transazione.
+export async function impostaOreRegistrateTablet(
   entry: {
     data: string;
     matricola: string;
@@ -122,7 +122,7 @@ export async function aggiungiOreRegistrate(
     azienda: string | null;
     reparto: string | null;
     odp: string;
-    oreDelta: number;
+    ore: number;
     rif: boolean;
   },
   executor: Pool | PoolClient = pool
@@ -133,14 +133,20 @@ export async function aggiungiOreRegistrate(
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NULL,NULL,$11)
      ON CONFLICT (data, matricola, odp) DO UPDATE SET
        cognome = EXCLUDED.cognome, nome = EXCLUDED.nome, azienda = EXCLUDED.azienda, reparto = EXCLUDED.reparto,
-       categoria = EXCLUDED.categoria, ore = ore_registrate.ore + EXCLUDED.ore, rif = EXCLUDED.rif,
+       categoria = EXCLUDED.categoria, ore = EXCLUDED.ore, rif = EXCLUDED.rif,
        causale = CASE WHEN EXCLUDED.rif THEN ore_registrate.causale ELSE NULL END,
-       costo_rif = CASE WHEN EXCLUDED.rif THEN round((ore_registrate.ore + EXCLUDED.ore) * ${COSTO_ORARIO} * 100) / 100 ELSE NULL END
+       costo_rif = EXCLUDED.costo_rif
      RETURNING *`,
     [entry.data, entry.matricola, entry.cognome, entry.nome, entry.azienda, entry.reparto,
-     entry.odp, categoria, entry.oreDelta, entry.rif, entry.rif ? Math.round(entry.oreDelta * COSTO_ORARIO * 100) / 100 : null]
+     entry.odp, categoria, entry.ore, entry.rif, entry.rif ? Math.round(entry.ore * COSTO_ORARIO * 100) / 100 : null]
   );
   return mapRow(rows[0]);
+}
+
+// Un ODP tablet a cui la ripartizione della giornata assegna 0 quarti non deve restare in
+// ore_registrate (ore > 0 per vincolo): si elimina la riga scritta da una chiusura precedente.
+export async function eliminaOreRegistrateTablet(data: string, matricola: string, odp: string, executor: Pool | PoolClient = pool): Promise<void> {
+  await executor.query(`DELETE FROM ore_registrate WHERE data = $1 AND matricola = $2 AND odp = $3`, [data, matricola, odp]);
 }
 
 export async function deleteRegistrazione(id: string): Promise<boolean> {
