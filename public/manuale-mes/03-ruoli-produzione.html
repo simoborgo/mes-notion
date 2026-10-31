@@ -167,12 +167,27 @@ tr:last-child td{border-bottom:0}
 .callout h4{margin:0;font-family:var(--display);font-size:19px;font-weight:600}
 .callout.warn{border-left-color:var(--warn-line)}
 .callout.alert{border-left-color:var(--alert-line)}
+/* ---- ore da tablet: sottotitoli, screenshot, tabelle compatte ---- */
+.sub-h{font-size:23px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:10px}
+.sub-num{font-family:var(--data);font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.06em}
+.step-shot{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:20px;align-items:start}
+.step-txt{display:flex;flex-direction:column;gap:9px;min-width:0}
+.shot{margin:0;display:flex;flex-direction:column;gap:6px}
+.shot img{display:block;width:100%;height:auto;border:1px solid var(--rule);border-radius:10px;background:#fff}
+.shot figcaption{font-size:12px;color:var(--grey-2)}
+table.codes{min-width:0}
+table.quick td:first-child{white-space:nowrap}
+@media (max-width:720px){
+  .step-shot{grid-template-columns:1fr}
+  table.quick td:first-child{white-space:normal}
+}
 
 @media print{
   @page{size:A4 portrait;margin:14mm}
   body{background:#fff;font-size:10.5pt}
   .sheet{max-width:none;padding:0;gap:22px}
-  .card,.flow-step,.callout,.station,.branch>div{break-inside:avoid}
+  .card,.flow-step,.callout,.station,.branch>div,.shot{break-inside:avoid}
+  .shot img{max-height:85mm;width:auto;max-width:100%}
   .sec{break-inside:auto}
   .delta,.matrix{min-width:0;font-size:8pt}
   .scroll{overflow-x:visible}
@@ -605,57 +620,248 @@ tr:last-child td{border-bottom:0}
   <section class="sec">
     <div class="sec-head">
       <span class="sec-num">F</span>
-      <h2>Rilevamento Ore <span class="chip chip-excl" style="vertical-align:middle;margin-left:8px">Solo Resp. Produzione</span></h2>
-      <p class="sec-note">Cinque schede sotto un'unica sotto-navigazione. <span class="kv">RILEVAMENTO_ORE_ROLES = ["admin", "responsabile_produzione"]</span> — Produzione non vi accede.</p>
+      <h2>Ore da Tablet</h2>
+      <p class="sec-note">Pagina <span class="kv">/operatore</span> sul tablet di reparto. L'operatore non scrive ore: dice su cosa sta lavorando e il sistema conta il tempo. Le ore finiscono poi in Rilevamento Ore, che consulta il Resp. Produzione.</p>
     </div>
 
+    <h3 class="sub-h"><span class="sub-num">F1</span>In breve: le cinque azioni dell'operatore</h3>
     <div class="scroll">
-      <table>
-        <thead>
-          <tr><th style="width:18%">Scheda</th><th style="width:22%">Percorso</th><th>Che cosa si fa</th></tr>
-        </thead>
+      <table class="quick">
+        <thead><tr><th>Azione</th><th>Come</th><th>Quando</th></tr></thead>
         <tbody>
-          <tr>
-            <td><strong>Oggi</strong></td>
-            <td><span class="route">/ore</span></td>
-            <td>La registrazione di fine turno: un operatore in forza per riga, con le assenze (ferie/permesso) segnalate e un residuo di ore calcolato automaticamente sulla <strong>giornata standard</strong> (9,5h, modificabile). Si assegna un ODP per riga tramite ricerca; una spunta <strong>RIF</strong> marca l'ora come rifacimento, da classificare in seguito. È possibile selezionare più operatori e <strong>assegnare lo stesso ODP e le stesse ore a tutti in blocco</strong>.</td>
-          </tr>
-          <tr>
-            <td><strong>Rifacimenti da Classificare</strong></td>
-            <td><span class="route">/ore/rifacimenti</span></td>
-            <td>La coda delle ore marcate RIF a cui manca ancora una causale. Si assegna con un clic una delle quattro causali — <strong>P</strong> Progettazione, <strong>T</strong> Taglio/Lavorazione, <strong>M</strong> Materiale, <strong>C</strong> Cliente — e la voce esce dall'elenco.</td>
-          </tr>
-          <tr>
-            <td><strong>Storico ODP</strong></td>
-            <td><span class="route">/ore/storico-odp</span></td>
-            <td>Si cerca un numero ODP e si ottengono ore totali, ore di rifacimento, costo stimato (ore × tariffa oraria) e il dettaglio giorno per giorno con operatore ed eventuale causale RIF.</td>
-          </tr>
-          <tr>
-            <td><strong>Storico Operatore</strong></td>
-            <td><span class="route">/ore/storico-operatore</span></td>
-            <td>La stessa vista, centrata sulla persona: si cerca l'operatore, si filtra per intervallo di date e si legge il dettaglio per ODP con ore totali e giorni lavorati.</td>
-          </tr>
-          <tr>
-            <td><strong>Dashboard KPI</strong></td>
-            <td><span class="route">/ore/kpi</span></td>
-            <td>Il cruscotto di sintesi per periodo: ore totali, ore a valore, ore e costo di rifacimento, percentuale di rifacimento per reparto e per ODP, top 5 ODP per ore di rifacimento, ripartizione per operatore e per causale.</td>
-          </tr>
+          <tr><td><strong>Entrare</strong></td><td>Tocca il proprio nome e digita il PIN di 4 cifre</td><td>A ogni turno, o quando il tablet passa a un collega</td></tr>
+          <tr><td><strong>Iniziare</strong></td><td>Sceglie ODP o causale e preme <strong>Conferma</strong></td><td>Appena prende in mano un lavoro</td></tr>
+          <tr><td><strong>Cambiare lavoro</strong></td><td>Sceglie il nuovo ODP e preme <strong>Conferma</strong>: il precedente si chiude da solo</td><td>A ogni passaggio, anche per pochi minuti di Setup o Pulizie</td></tr>
+          <tr><td><strong>Rifacimento</strong></td><td><strong>Segnala inizio Rifacimento</strong> sulla card verde, oppure la spunta prima di Conferma</td><td>Quando rifà un pezzo già lavorato</td></tr>
+          <tr><td><strong>Finire</strong></td><td><strong>Ho finito per oggi</strong></td><td>A fine giornata. Se se ne dimentica, il sistema chiude da solo all'orario di fine turno</td></tr>
         </tbody>
       </table>
     </div>
 
-    <div class="card">
-      <h3>Il semaforo di rifacimento</h3>
-      <p>Sulla Dashboard KPI, la percentuale di ore di rifacimento per reparto è colorata su tre soglie fisse:</p>
-      <div class="chips">
-        <span class="chip chip-ok">&lt; 5% — verde</span>
-        <span class="chip chip-warn">5–10% — giallo</span>
-        <span class="chip chip-alert">&gt; 10% — rosso</span>
+    <h3 class="sub-h"><span class="sub-num">F2</span>Passo passo</h3>
+    <div class="ladder">
+      <div class="station" data-n="1">
+        <div class="station-in step-shot">
+          <div class="step-txt">
+            <h3>Chi sei?</h3>
+            <ul class="tight">
+              <li>Scrivere le prime lettere del cognome.</li>
+              <li>Toccare il proprio nome (sotto c'è il reparto).</li>
+            </ul>
+          </div>
+          <figure class="shot"><img src="img/ore-tablet/01-chi-sei.png" alt="Schermata Chi sei? con la ricerca del nome" loading="lazy"></figure>
+        </div>
+      </div>
+      <div class="station" data-n="2">
+        <div class="station-in step-shot">
+          <div class="step-txt">
+            <h3>PIN</h3>
+            <ul class="tight">
+              <li>Digitare le <strong>4 cifre</strong>: entra da solo alla quarta.</li>
+              <li>Nome sbagliato → <strong>← Non sono io</strong>.</li>
+              <li>Il PIN lo assegna l'admin in <span class="route">Impostazioni → PIN Operatori</span>.</li>
+              <li>L'accesso dura al massimo 10 ore, poi il PIN va reinserito.</li>
+            </ul>
+          </div>
+          <figure class="shot"><img src="img/ore-tablet/02-pin.png" alt="Tastierino per il PIN a 4 cifre" loading="lazy"></figure>
+        </div>
+      </div>
+      <div class="station" data-n="3">
+        <div class="station-in step-shot">
+          <div class="step-txt">
+            <h3>Su cosa stai lavorando?</h3>
+            <ul class="tight">
+              <li><strong>Pulsanti tondi</strong> = causali di stabilimento (Setup, Pulizie…). Un tocco e si preme Conferma.</li>
+              <li><strong>Cerca ODP…</strong> = schede di produzione e causali di commessa (vedi F3).</li>
+              <li><strong>Griglia</strong> = stesse schede, cercate per cliente o numero commessa, a riquadri.</li>
+              <li>La scheda scelta resta evidenziata in arancio; la <strong>×</strong> la toglie.</li>
+              <li>Con il <strong>QR della scheda</strong> l'ODP arriva già selezionato: basta Conferma.</li>
+            </ul>
+          </div>
+          <figure class="shot"><img src="img/ore-tablet/07-odp-scelto.png" alt="ODP selezionato pronto per la conferma" loading="lazy"></figure>
+        </div>
+      </div>
+      <div class="station" data-n="4">
+        <div class="station-in step-shot">
+          <div class="step-txt">
+            <h3>Domanda di inizio giornata</h3>
+            <p>Compare solo se il <strong>primo</strong> ODP della giornata arriva più di <strong>30 minuti</strong> dopo l'inizio del turno.</p>
+            <ul class="tight">
+              <li><strong>No, è il primo ODP di oggi</strong> → il conteggio parte da adesso.</li>
+              <li><strong>Sì</strong> → indicare su cosa si è lavorato prima: quel tempo, dall'inizio turno a adesso, va su quella voce.</li>
+              <li>Entro 30 minuti nessuna domanda: il primo ODP parte dall'inizio turno.</li>
+            </ul>
+          </div>
+          <figure class="shot"><img src="img/ore-tablet/08-buco-inizio-giornata.png" alt="Domanda sul tempo tra inizio turno e primo ODP" loading="lazy"></figure>
+        </div>
+      </div>
+      <div class="station" data-n="5">
+        <div class="station-in step-shot">
+          <div class="step-txt">
+            <h3>Durante il lavoro</h3>
+            <ul class="tight">
+              <li>La <strong>card verde</strong> mostra cliente, ODP, scheda, articolo e l'ora d'inizio.</li>
+              <li>Per cambiare lavoro: scegliere il nuovo ODP sotto («Passa a un altro ODP») e premere Conferma.</li>
+              <li>Non serve chiudere niente a mano: il cambio chiude il lavoro precedente.</li>
+            </ul>
+          </div>
+          <figure class="shot"><img src="img/ore-tablet/09b-stai-lavorando-card.png" alt="Card verde Stai lavorando su" loading="lazy"></figure>
+        </div>
+      </div>
+      <div class="station" data-n="6">
+        <div class="station-in step-shot">
+          <div class="step-txt">
+            <h3>Fine giornata</h3>
+            <ul class="tight">
+              <li><strong>Ho finito per oggi</strong> chiude l'ultimo lavoro.</li>
+              <li>Il riquadro <strong>Oggi</strong> elenca ogni lavoro con orari e ore, e il totale.</li>
+              <li>La pausa pranzo è già tolta (qui 10:45–12:00 vale 1,25h).</li>
+              <li>Tablet condiviso: <strong>Cambia operatore</strong> in alto prima di passarlo al collega.</li>
+            </ul>
+          </div>
+          <figure class="shot"><img src="img/ore-tablet/09c-riepilogo-oggi.png" alt="Pulsante Ho finito per oggi e riepilogo della giornata" loading="lazy"></figure>
+        </div>
       </div>
     </div>
 
-    <div class="callout">
-      <p><strong>Le registrazioni vivono su PostgreSQL, non su Notion.</strong> Ore, causali di rifacimento e assenze sono su un database dedicato (tariffa oraria fissa: <span class="kv">€41/h</span>), interrogato in tempo reale — è la stessa logica di separazione già vista per la Ferramenta. Anagrafica operatori ed elenco ODP attivi restano invece letture da Notion, ognuna con una propria funzione dedicata e più leggera delle query usate da Schede di Produzione.</p>
+    <h3 class="sub-h"><span class="sub-num">F3</span>Cosa scegliere: tre tipi di voce</h3>
+    <div class="grid-3">
+      <div class="card">
+        <span class="chip chip-info">ODP di scheda</span>
+        <h3>Lavoro su un pezzo</h3>
+        <p>Formato <span class="kv">MP26-412</span>. Si cerca per ODP, numero scheda o cliente.</p>
+        <ul class="tight">
+          <li>Compaiono le schede non annullate di commesse aperte.</li>
+          <li>Restano scelte anche le schede <strong>(Completato)</strong> o in <strong>(Lavorazione Esterna)</strong>, con l'etichetta.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <span class="chip chip-warn">Causale di commessa</span>
+        <h3>Lavoro su tutta la commessa</h3>
+        <p>Formato <span class="kv">N°COMMESSA-ATTIVITÀ</span>, es. <span class="kv">26-045-CABLAGGIO</span>. Si cerca digitando il numero commessa.</p>
+        <ul class="tight">
+          <li>Esistono per ogni commessa non chiusa, spariscono alla chiusura.</li>
+          <li>Le ore contano sulla commessa, non su una scheda.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <span class="chip chip-neutral">Causale di stabilimento</span>
+        <h3>Lavoro non legato a commesse</h3>
+        <p>I pulsanti tondi in alto. Le ore vanno nella categoria corrispondente, non su commessa.</p>
+        <ul class="tight">
+          <li>Riepilogo in <span class="route">/ore/causali-stabilimento</span>.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h3>Causali di commessa</h3>
+        <div class="scroll">
+          <table class="codes">
+            <thead><tr><th>Suffisso</th><th>Significato</th></tr></thead>
+            <tbody>
+              <tr><td><span class="kv">-CABLAGGIO</span></td><td>Cablaggio generale</td></tr>
+              <tr><td><span class="kv">-FERRAMENTA</span></td><td>Ferramenta</td></tr>
+              <tr><td><span class="kv">-GESTIONE</span></td><td>Gestione Commessa</td></tr>
+              <tr><td><span class="kv">-SEMILAVORATI</span></td><td>Preparazione Semilavorati</td></tr>
+              <tr><td><span class="kv">-CAMPIONATURA</span></td><td>Campionatura</td></tr>
+              <tr><td><span class="kv">-VERNICIATURA</span></td><td>Verniciatura</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <figure class="shot"><img src="img/ore-tablet/05-attivita-commessa.png" alt="Ricerca 26-045- che mostra le causali della commessa" loading="lazy"><figcaption>Digitando «26-045-» compaiono le causali della commessa 26-045.</figcaption></figure>
+      </div>
+      <div class="card">
+        <h3>Causali di stabilimento</h3>
+        <div class="scroll">
+          <table class="codes">
+            <thead><tr><th>Codice</th><th>Significato</th></tr></thead>
+            <tbody>
+              <tr><td><span class="kv">SET</span></td><td>Setup</td></tr>
+              <tr><td><span class="kv">MNT</span></td><td>Manutenzione</td></tr>
+              <tr><td><span class="kv">MEET</span></td><td>Riunione</td></tr>
+              <tr><td><span class="kv">FORM</span></td><td>Formazione</td></tr>
+              <tr><td><span class="kv">PUL</span></td><td>Pulizie</td></tr>
+              <tr><td><span class="kv">ARR</span></td><td>Arredi e Masselli: arredi o masselli per uso interno MODAR (27x27, piani banchi…)</td></tr>
+              <tr><td><span class="kv">FERMO</span></td><td>Fermo Macchina</td></tr>
+              <tr><td><span class="kv">INV</span></td><td>Inventario</td></tr>
+              <tr><td><span class="kv">MONTAGGIO EST</span></td><td>Montaggi Esterni</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <figure class="shot"><img src="img/ore-tablet/06-griglia.png" alt="Modalità Griglia filtrata per numero commessa" loading="lazy"><figcaption>La modalità Griglia mostra solo le schede: per le causali si usa l'Elenco.</figcaption></figure>
+      </div>
+    </div>
+
+    <h3 class="sub-h"><span class="sub-num">F4</span>Rifacimenti e loro causali</h3>
+    <div class="grid-2">
+      <div class="card">
+        <h3>L'operatore segnala</h3>
+        <ul class="tight">
+          <li><strong>Segnala inizio Rifacimento</strong> sulla card verde: da quel momento le ore dello stesso ODP sono rifacimento.</li>
+          <li>Oppure la spunta <strong>Segna ore come Rifacimento</strong> prima di Conferma, se si passa a un altro ODP.</li>
+          <li>La card verde mostra «· Rifacimento». Per tornare al lavoro normale: riconfermare l'ODP senza spunta.</li>
+        </ul>
+        <figure class="shot"><img src="img/ore-tablet/11-rifacimento.png" alt="Card verde con rifacimento in corso" loading="lazy"></figure>
+      </div>
+      <div class="card">
+        <h3>Il responsabile classifica</h3>
+        <p>In <span class="route">/ore/rifacimenti</span> ogni ora di rifacimento riceve una causale. L'operatore non la sceglie.</p>
+        <div class="scroll">
+          <table class="codes">
+            <thead><tr><th>Causale</th><th>Origine del rifacimento</th></tr></thead>
+            <tbody>
+              <tr><td><span class="kv">P</span></td><td>Progettazione</td></tr>
+              <tr><td><span class="kv">T</span></td><td>Taglio / Lavorazione</td></tr>
+              <tr><td><span class="kv">M</span></td><td>Materiale</td></tr>
+              <tr><td><span class="kv">C</span></td><td>Cliente</td></tr>
+              <tr><td><span class="kv">F</span></td><td>Fornitore</td></tr>
+              <tr><td><span class="kv">CA</span></td><td>Cantiere</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Costo del rifacimento = ore × <span class="kv">€41/h</span>.</p>
+      </div>
+    </div>
+
+    <h3 class="sub-h"><span class="sub-num">F5</span>Come vengono contate le ore</h3>
+    <div class="scroll">
+      <table class="quick">
+        <thead><tr><th>Regola</th><th>Dettaglio</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Orari turno</strong></td><td>Feriale 07:30–18:00, pausa 12:00–13:30 (9h). Sabato 07:30–12:00. Si cambiano in <span class="route">Impostazioni → Orari Turno</span>.</td></tr>
+          <tr><td><strong>Pausa pranzo</strong></td><td>Tolta in automatico nei giorni feriali, anche se il lavoro la attraversa.</td></tr>
+          <tr><td><strong>Inizio giornata</strong></td><td>Primo ODP entro 30 min: parte dall'inizio turno. Oltre: domanda (passo 4).</td></tr>
+          <tr><td><strong>Quarti d'ora</strong></td><td>Le ore si registrano a passi di 15 minuti. Il totale della giornata si arrotonda al quarto e si divide sugli ODP: prima i quarti interi, poi quelli mancanti agli ODP più vicini al quarto successivo, infine all'ultimo ODP lavorato. Così la giornata non perde minuti. In vigore da novembre 2026.</td></tr>
+          <tr><td><strong>Chiusura automatica</strong></td><td>Senza «Ho finito per oggi», ogni sera il sistema chiude il lavoro aperto all'orario di fine turno (18:00, sabato 12:00).</td></tr>
+          <tr><td><strong>Oltre 12 ore</strong></td><td>Un lavoro aperto da più di 12 ore viene contato al massimo 12h e finisce in <span class="route">/ore/segmenti-anomali</span> da verificare.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="sub-h"><span class="sub-num">F6</span>Dove si controllano le ore <span class="chip chip-excl" style="vertical-align:middle;margin-left:6px">Resp. Produzione e admin</span></h3>
+    <div class="scroll">
+      <table class="quick">
+        <thead><tr><th>Pagina</th><th>A cosa serve</th></tr></thead>
+        <tbody>
+          <tr><td><span class="route">/ore</span> Oggi</td><td>Ore del giorno per operatore, tablet e manuali insieme. Qui si corregge a mano.</td></tr>
+          <tr><td><span class="route">/ore/rifacimenti</span></td><td>Ore di rifacimento da classificare (P, T, M, C, F, CA).</td></tr>
+          <tr><td><span class="route">/ore/segmenti-anomali</span></td><td>Lavori rimasti aperti oltre 12h: si verificano, si corregge in Oggi, poi si eliminano.</td></tr>
+          <tr><td>Storici</td><td>Per ODP, Commessa, Operatore, Articolo.</td></tr>
+          <tr><td><span class="route">/ore/causali-stabilimento</span></td><td>Ore su Setup, Manutenzione, Riunione e le altre causali di stabilimento.</td></tr>
+          <tr><td><span class="route">/ore/kpi</span> · Export Excel</td><td>Sintesi per periodo, % rifacimento per reparto (verde &lt; 5%, giallo 5–10%, rosso &gt; 10%), export.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="sub-h"><span class="sub-num">F7</span>Problemi frequenti</h3>
+    <div class="warn-list">
+      <div class="warn-item"><span class="warn-when">Non trovo l'ODP</span><p>La scheda è annullata o la commessa è chiusa. Avvisare il responsabile; nel frattempo usare la causale di commessa giusta.</p></div>
+      <div class="warn-item"><span class="warn-when">QR rifiutato</span><p>«L'ODP … non è tra quelli attivi»: stesso caso sopra. Cercare a mano o chiedere al responsabile.</p></div>
+      <div class="warn-item"><span class="warn-when">Cambio dimenticato</span><p>Le ore sono finite sull'ODP precedente. Il responsabile le sposta in <span class="route">/ore</span> Oggi.</p></div>
+      <div class="warn-item"><span class="warn-when">PIN errato</span><p>Riprovare; se non funziona, l'admin lo reimposta in Impostazioni → PIN Operatori.</p></div>
+      <div class="warn-item"><span class="warn-when">Torna al login</span><p>È scaduto l'accesso del tablet (non quello dell'operatore): rientrare con l'account del tablet.</p></div>
     </div>
   </section>
 
