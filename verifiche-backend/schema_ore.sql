@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS ore_registrate (
   odp           TEXT NOT NULL,                 -- MPyy-xxx (+ eventuale /Rxx) oppure SET/MNT/MEET/FORM/PUL-xxx
   categoria     TEXT NOT NULL
                   CHECK (categoria IN ('COMMESSA', 'SETUP', 'MANUTENZIONE', 'RIUNIONE', 'FORMAZIONE', 'PULIZIE')),
-  ore           NUMERIC(4,1) NOT NULL CHECK (ore > 0),
+  ore           NUMERIC(5,2) NOT NULL CHECK (ore > 0),  -- 2 decimali: step da 15 minuti (0.25)
   rif           BOOLEAN NOT NULL DEFAULT false,
   causale       TEXT CHECK (causale IN ('P', 'T', 'M', 'C')),  -- valorizzata solo se rif = true
   note          TEXT,
