@@ -7,12 +7,12 @@ import type { QrPosizione } from "./schedaPdfLayoutParser";
 // pdf.js (rotazione di pagina applicata, origine in alto a sinistra), mentre pdf-lib disegna nello
 // spazio utente della pagina (non ruotato, origine in basso a sinistra): vedi vpAPdf.
 
-type Angolo = 0 | 90 | 180 | 270;
+export type Angolo = 0 | 90 | 180 | 270;
 
 // Inversa della trasformazione viewport di pdf.js per scale=1, con (x0,y0,x1,y1) = CropBox.
 // Verificata empiricamente sui PDF reali (pagine a 0° e a 270°): un errore qui mette il QR in un
 // angolo qualsiasi del foglio, quindi non va toccata senza riverificare a occhio.
-function vpAPdf(rot: Angolo, box: { x0: number; y0: number; x1: number; y1: number }, vx: number, vy: number): [number, number] {
+export function vpAPdf(rot: Angolo, box: { x0: number; y0: number; x1: number; y1: number }, vx: number, vy: number): [number, number] {
   switch (rot) {
     case 0: return [box.x0 + vx, box.y1 - vy];
     case 90: return [box.x0 + vy, box.y0 + vx];
@@ -21,7 +21,7 @@ function vpAPdf(rot: Angolo, box: { x0: number; y0: number; x1: number; y1: numb
   }
 }
 
-function normalizzaAngolo(a: number): Angolo {
+export function normalizzaAngolo(a: number): Angolo {
   return ((((a % 360) + 360) % 360) as Angolo);
 }
 

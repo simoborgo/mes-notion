@@ -29,6 +29,8 @@ interface ParsedItem {
   warnings?: string[];
   // dove timbrare il QR della scheda su questa pagina del PDF (coordinate viewport); null = nessuno spazio
   qr?: { x: number; y: number; size: number } | null;
+  // dove scrivere l'ODP nella cella "ODP MODAR" del cartiglio (coordinate viewport); null = cella assente
+  odpCartiglio?: { x: number; y: number; size: number } | null;
 }
 
 type Status = "idle" | "extracting" | "parsing" | "preview" | "importing" | "done" | "error";
@@ -302,6 +304,7 @@ export default function ImportSchedaPdf() {
           // copertina di ogni sottoscheda: l'anteprima della sua prima pagina (solo per quelle incluse)
           pageThumbnails: itemsWithIndex.map((it, idx) => (idx > 0 && it.includeAsSubitem === true ? pageThumbnails[idx] ?? null : null)),
           qrPos: itemsWithIndex.map((it) => it.qr ?? null),
+          odpPos: itemsWithIndex.map((it) => it.odpCartiglio ?? null),
         }),
       });
       const data = (await res.json()) as { ok: boolean; odp?: string; created?: ImportResult["created"]; error?: string; n8nError?: string; qrPagineSenzaQr?: number[] };

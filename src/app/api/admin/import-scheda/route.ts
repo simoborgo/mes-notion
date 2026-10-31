@@ -7,7 +7,8 @@ import { findCommessaByNumber } from "@/lib/commesseRepository";
 import { findFornitoreIdByNomePdf } from "@/lib/fornitoriRepository";
 import { generaQrCodice } from "@/lib/schedaQrRepository";
 import { timbraQr } from "@/lib/pdfQrStamp";
-import type { QrPosizione } from "@/lib/schedaPdfLayoutParser";
+import { timbraOdp } from "@/lib/pdfOdpStamp";
+import type { OdpPosizione, QrPosizione } from "@/lib/schedaPdfLayoutParser";
 import { getPublicBaseUrl } from "@/lib/url";
 
 interface ParsedItem {
@@ -26,6 +27,7 @@ interface ParsedItem {
   gruppo?: number | null;
   otherFields?: Record<string, string>;
   qr?: QrPosizione | null;
+  odpCartiglio?: OdpPosizione | null;
   warnings?: string[];
   source?: string;
 }
@@ -45,9 +47,11 @@ export async function POST(req: NextRequest) {
     // posizione del QR su ogni pagina del PDF originale (null = nessuno spazio), indicizzata per pagina:
     // `items` contiene solo scheda principale e sottoschede incluse, non tutte le pagine
     qrPos?: Array<QrPosizione | null>;
+    // cella "ODP MODAR" del cartiglio di ogni pagina del PDF originale (null = assente), come qrPos
+    odpPos?: Array<OdpPosizione | null>;
   };
 
-  const { items, pdfBase64, thumbnailBase64, pageThumbnails, qrPos } = body;
+  const { items, pdfBase64, thumbnailBase64, pageThumbnails, qrPos, odpPos } = body;
   if (!items?.length || !pdfBase64) {
     return NextResponse.json({ ok: false, error: "Dati mancanti (items o pdfBase64)" }, { status: 400 });
   }
@@ -100,19 +104,30 @@ export async function POST(req: NextRequest) {
   // QR della scheda timbrato sul PDF allegato (e su ogni sottoscheda): il codice si genera qui, prima
   // di creare la scheda, perché il QR deve essere già sul PDF che viene caricato su Drive.
   // Un errore nel timbro non blocca l'import: il PDF resta senza QR (l'etichetta si stampa a richiesta).
+  // Insieme al QR si scrive l'ODP: in rosso in alto a destra di ogni pagina e nella cella "ODP MODAR"
+  // del cartiglio quando c'è; anche qui un errore lascia il PDF com'è, senza bloccare l'import.
   const baseUrl = getPublicBaseUrl(req);
-  const timbra = async (pdf: Buffer, codice: string, posizioni: Array<QrPosizione | null | undefined>) => {
+  const timbra = async (pdf: Buffer, codice: string, posizioni: Array<QrPosizione | null | undefined>, posizioniOdp: Array<OdpPosizione | null | undefined>) => {
+    let out = pdf;
+    let senzaQr: number[];
     try {
       const r = await timbraQr(pdf, `${baseUrl}/q/${codice}`, posizioni);
-      return { pdf: Buffer.from(r.bytes), senzaQr: r.paginaSenzaQr };
+      out = Buffer.from(r.bytes);
+      senzaQr = r.paginaSenzaQr;
     } catch (e) {
       console.error("[import-scheda] timbro QR fallito:", e instanceof Error ? e.message : String(e));
-      return { pdf, senzaQr: posizioni.map((_, i) => i + 1) };
+      senzaQr = posizioni.map((_, i) => i + 1);
     }
+    try {
+      out = Buffer.from((await timbraOdp(out, odp, posizioniOdp)).bytes);
+    } catch (e) {
+      console.error("[import-scheda] scritta ODP fallita:", e instanceof Error ? e.message : String(e));
+    }
+    return { pdf: out, senzaQr };
   };
 
   const parentCodice = generaQrCodice();
-  const parentTimbrato = await timbra(pdfBuffer, parentCodice, qrPos ?? []);
+  const parentTimbrato = await timbra(pdfBuffer, parentCodice, qrPos ?? [], odpPos ?? []);
   const qrPagineSenzaQr = parentTimbrato.senzaQr;
   console.log(`[import-scheda] QR timbrato sul PDF principale (${parentCodice})${qrPagineSenzaQr.length ? `, pagine senza QR: ${qrPagineSenzaQr.join(",")}` : ""}`);
 
@@ -183,7 +198,7 @@ export async function POST(req: NextRequest) {
     const copiedPages = await groupPdf.copyPages(originalPdf, pageIndices);
     copiedPages.forEach((p) => groupPdf.addPage(p));
     const subCodice = generaQrCodice();
-    const subPdfBuffer = (await timbra(Buffer.from(await groupPdf.save()), subCodice, pageIndices.map((i) => qrPos?.[i] ?? null))).pdf;
+    const subPdfBuffer = (await timbra(Buffer.from(await groupPdf.save()), subCodice, pageIndices.map((i) => qrPos?.[i] ?? null), pageIndices.map((i) => odpPos?.[i] ?? null))).pdf;
     const subPdfFilename = `scheda-${odp}-sub-${g + 1}.pdf`;
     // Copertina della sottoscheda: anteprima della sua prima pagina (come la principale usa la pagina 1).
     const subThumbPayload = pageThumbnails?.[sub.pageIndex] ? dataUrlPayload(pageThumbnails[sub.pageIndex]!) : null;
@@ -236,7 +251,8 @@ export async function POST(req: NextRequest) {
           operatore: session.name,
           items: items.map((it) => {
             const payload = { ...it, otherFields: it.otherFields ?? {} };
-            delete payload.qr; // geometria interna del timbro QR, non interessa a n8n
+            delete payload.qr; // geometria interna dei timbri QR/ODP, non interessa a n8n
+            delete payload.odpCartiglio;
             return payload;
           }),
         }),

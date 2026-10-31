@@ -32,6 +32,10 @@ export interface PdfPageData {
 // (le stesse degli item: rotazione di pagina già applicata, origine in alto a sinistra).
 export interface QrPosizione { x: number; y: number; size: number }
 
+// Dove scrivere il numero ODP nella cella "ODP MODAR" del cartiglio, in coordinate viewport:
+// x = bordo destro del testo (allineato a destra come gli altri valori), y = baseline, size = corpo.
+export interface OdpPosizione { x: number; y: number; size: number }
+
 export interface LayoutItem {
   pagina: number;
   numeroScheda: string;
@@ -44,6 +48,7 @@ export interface LayoutItem {
   otherFields: Record<string, string>;
   warnings: string[];
   qr: QrPosizione | null; // dove timbrare il QR della scheda; null = nessuno spazio libero trovato
+  odpCartiglio: OdpPosizione | null; // cella "ODP MODAR" vuota in cui scrivere l'ODP; null = assente
   source: "layout";
 }
 
@@ -79,7 +84,8 @@ const LABELS: Array<{ re: RegExp; key: FieldKey; nome?: string }> = [
   { re: /^CODICE U T$/, key: "sink", nome: "Codice U.T." },
   { re: /^CARTELLA ARCHIVIO$/, key: "sink", nome: "Cartella Archivio" },
   { re: /^SCALA( DISEGNO)?$/, key: "sink", nome: "Scala" },
-  { re: /^(FASE|CARICO|ODP MODAR|TIPOLOGIA|FINITURA|REVISIONE|FORMATO|NOTE|CONSEGNATO A|IL)$/, key: "sink" },
+  { re: /^ODP MODAR$/, key: "sink", nome: "ODP Modar" },
+  { re: /^(FASE|CARICO|TIPOLOGIA|FINITURA|REVISIONE|FORMATO|NOTE|CONSEGNATO A|IL)$/, key: "sink" },
 ];
 
 function labelOf(text: string): { key: FieldKey; nome?: string } | null {
@@ -240,6 +246,26 @@ function trovaPosizioneQr(frags: PdfTextItem[], labels: LabelFrag[], cartiglio: 
   return null;
 }
 
+// Larghezza di un ODP ("MP26-694") in Helvetica-Bold, in multipli del corpo (≈ 4.8, con margine).
+const LARGHEZZA_ODP = 5.2;
+
+const mediana = (xs: number[]): number => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
+
+// Cella "ODP MODAR" del cartiglio, se c'è ed è vuota. Il valore va sulla riga dell'etichetta,
+// allineato a destra e dello stesso corpo dei valori affiancati delle altre righe (PDM-solid:
+// COMMESSA NR., POSIZIONE, FOGLIO…); senza valori di riferimento si stima dalla colonna.
+function trovaCellaOdp(labels: LabelFrag[], values: Map<LabelFrag, PdfTextItem[]>): OdpPosizione | null {
+  const l = labels.find((x) => norm(x.s) === "ODP MODAR");
+  if (!l || (values.get(l) ?? []).length) return null;
+  const affiancati = labels.flatMap((x) => (values.get(x) ?? []).filter((v) => Math.abs(v.y - x.y) <= 0.5 * x.h));
+  if (!affiancati.length) return { x: l.x + 20 * l.h, y: l.y, size: 1.7 * l.h };
+  return {
+    x: mediana(affiancati.map((v) => v.x + v.w)),
+    y: l.y,
+    size: Math.min(mediana(affiancati.map((v) => v.h)), 2.2 * l.h),
+  };
+}
+
 const CONNETTIVI = /^(PER|DI|DEL|DELLA|DELLE|DEI|E|IN|CON|DA|A|SU|TRA|FRA)$/;
 
 // La DESCRIZIONE è spesso su più righe: la prima è il titolo, le successive sono specifiche
@@ -362,8 +388,14 @@ export function parsePage(page: PdfPageData): LayoutPageResult {
     if (txt && !(l.nome in otherFields)) otherFields[l.nome] = txt;
   }
 
-  const cartiglio = [...labels.map((l) => l.src), ...[...values.values()].flat()];
-  const qr = trovaPosizioneQr(frags, activeLabels, cartiglio, page.width);
+  // Cella ODP: l'area dove verrà scritto l'ODP conta come testo, così il QR non ci finisce sopra.
+  const odpCartiglio = trovaCellaOdp(activeLabels, values);
+  const odpFrag: PdfTextItem[] = odpCartiglio
+    ? [{ s: "ODP", x: odpCartiglio.x - LARGHEZZA_ODP * odpCartiglio.size, y: odpCartiglio.y, w: LARGHEZZA_ODP * odpCartiglio.size, h: odpCartiglio.size }]
+    : [];
+
+  const cartiglio = [...labels.map((l) => l.src), ...[...values.values()].flat(), ...odpFrag];
+  const qr = trovaPosizioneQr([...frags, ...odpFrag], activeLabels, cartiglio, page.width);
   if (!qr) warnings.push("QR non inseribile: nessuno spazio libero nel cartiglio");
 
   return {
@@ -372,7 +404,7 @@ export function parsePage(page: PdfPageData): LayoutPageResult {
     item: {
       pagina: page.n, numeroScheda, commessaNr, termineDiConsegna, codiceArticolo,
       posizione, fornitore, quantita, otherFields, warnings, source: "layout",
-      qr,
+      qr, odpCartiglio,
     },
   };
 }
