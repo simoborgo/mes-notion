@@ -4,6 +4,7 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import type { Giro, Ritiro, Scheda } from "@/lib/types";
 import { STATI_GIRO } from "@/lib/types";
 import { MODIFICA_SCHEDA_ROLES, RITIRI_CREATE_ROLES, type Role } from "@/lib/roles";
+import { leggiMovimentiAperti, testoConferma, chiudiMovimenti, segnalaVerifica } from "@/lib/movimentiGiroClient";
 import BadgeStato from "./BadgeStato";
 import FormNuovoRitiro from "./FormNuovoRitiro";
 
@@ -143,7 +144,7 @@ export default function FornitoreEsternoTab({ scheda, userRole, onSchedaAggiorna
     onSchedaAggiornata?.(updated);
   }
 
-  async function esegui(fn: () => Promise<Response>, preferito?: string | null) {
+  async function esegui(fn: () => Promise<Response>, preferito?: string | null): Promise<boolean> {
     setOccupato(true);
     setErrore("");
     try {
@@ -152,8 +153,10 @@ export default function FornitoreEsternoTab({ scheda, userRole, onSchedaAggiorna
       if (!res.ok) throw new Error(data?.error ?? "Operazione non riuscita");
       await carica(preferito ?? (data && typeof data === "object" && "id" in data ? (data as Giro).id : undefined));
       await aggiornaScheda();
+      return true;
     } catch (e) {
       setErrore(e instanceof Error ? e.message : "Operazione non riuscita");
+      return false;
     } finally {
       setOccupato(false);
     }
@@ -169,13 +172,28 @@ export default function FornitoreEsternoTab({ scheda, userRole, onSchedaAggiorna
   }
   // Uscita e rientro si salvano subito (con conferma), senza passare da "Salva modifiche": le altre
   // modifiche in sospeso nel modulo vengono salvate insieme.
-  const segnaMovimento = (tipo: "uscita" | "rientro") => {
+  // Dopo l'uscita/rientro propone di chiudere in Ritiri e Consegne le Consegne/i Ritiri del giro
+  // ancora aperti (letti prima, finché il giro è quello giusto).
+  const segnaMovimento = async (tipo: "uscita" | "rientro") => {
     if (!giroSel || !confirm(`Segnare ${tipo} oggi per il giro ${giroSel.ordine}?`)) return;
+    const giroId = giroSel.id;
+    const aperti = await leggiMovimentiAperti(scheda.id, giroId, tipo);
     const dati = tipo === "uscita"
       ? { ...form, stato: "In Lavorazione", dataUscita: form.dataUscita || oggi() }
       : { ...form, stato: "Rientrato", dataRientroEffettiva: form.dataRientroEffettiva || oggi() };
     setForm(dati);
-    esegui(() => fetch(`/api/schede/${scheda.id}/giri/${giroSel.id}`, { method: "PATCH", headers: json, body: JSON.stringify(dati) }), giroSel.id);
+    const ok = await esegui(() => fetch(`/api/schede/${scheda.id}/giri/${giroId}`, { method: "PATCH", headers: json, body: JSON.stringify(dati) }), giroId);
+    if (!ok || !aperti.giroId) return;
+    if (aperti.movimenti.length === 0 || !confirm(testoConferma(tipo, aperti.movimenti))) {
+      void segnalaVerifica(scheda.id, aperti.giroId, tipo, "Scheda");
+      return;
+    }
+    try {
+      await chiudiMovimenti(scheda.id, aperti.giroId, tipo, aperti.movimenti.map((m) => m.id));
+      await carica(giroId);
+    } catch (e) {
+      setErrore(e instanceof Error ? e.message : "Chiusura dei movimenti non riuscita");
+    }
   };
   const segnaUscita = () => segnaMovimento("uscita");
   const segnaRientro = () => segnaMovimento("rientro");

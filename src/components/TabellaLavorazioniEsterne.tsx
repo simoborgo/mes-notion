@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Scheda } from "@/lib/types";
 import { MODIFICA_SCHEDA_ROLES, type Role } from "@/lib/roles";
+import { leggiMovimentiAperti, testoConferma, chiudiMovimenti, segnalaVerifica } from "@/lib/movimentiGiroClient";
 import BadgeStato from "./BadgeStato";
 import DettaglioSchedaModal from "./DettaglioSchedaModal";
 import ModaleOrdineFornitore from "./ModaleOrdineFornitore";
@@ -248,6 +249,8 @@ export default function TabellaLavorazioniEsterne({
     const dove = `${s.odp || s.numeroScheda || "scheda"}${s.fornitore ? ` (${s.fornitore})` : ""}`;
     if (!confirm(`Segnare ${etichetta} oggi per ${dove}?`)) return;
     setErrore("");
+    // Letti prima dell'azione: dopo un rientro il giro aperto della scheda non è più lo stesso.
+    const aperti = await leggiMovimentiAperti(s.id, "attivo", tipo);
     const oggi = new Date();
     const data = `${oggi.getFullYear()}-${String(oggi.getMonth() + 1).padStart(2, "0")}-${String(oggi.getDate()).padStart(2, "0")}`;
     const body = tipo === "uscita"
@@ -262,6 +265,17 @@ export default function TabellaLavorazioniEsterne({
       handleReload();
     } catch (e) {
       setErrore(e instanceof Error ? e.message : "Salvataggio non riuscito");
+      return;
+    }
+    if (!aperti.giroId) return;
+    if (aperti.movimenti.length === 0 || !confirm(testoConferma(tipo, aperti.movimenti))) {
+      void segnalaVerifica(s.id, aperti.giroId, tipo, "Lavorazioni Esterne");
+      return;
+    }
+    try {
+      await chiudiMovimenti(s.id, aperti.giroId, tipo, aperti.movimenti.map((m) => m.id));
+    } catch (e) {
+      setErrore(e instanceof Error ? e.message : "Chiusura dei movimenti non riuscita");
     }
   }
 

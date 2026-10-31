@@ -266,6 +266,32 @@ export async function updateRitiro(id: string, data: RitiroUpdate): Promise<Riti
   return getRitiroById(id);
 }
 
+// Movimenti di un giro ancora da chiudere, del tipo legato all'azione sul giro (uscita → Consegna,
+// rientro → Ritiro): li propone la conferma dopo "Segna uscita/rientro" (QR, tab Fornitore,
+// Lavorazioni Esterne). I movimenti senza giro non c'entrano.
+export async function getMovimentiApertiGiro(giroId: string, tipo: "Consegna" | "Ritiro"): Promise<Ritiro[]> {
+  const { rows } = await pool.query(
+    `${SELECT} WHERE r.giro_id = $1 AND r.tipo_movimento = $2 AND r.stato <> 'Fatto' AND r.archiviato = false
+     ORDER BY r.data_trasporto NULLS LAST, r.creato_il`,
+    [giroId, tipo],
+  );
+  return mapRows(rows);
+}
+
+// Chiude in Fatto i movimenti scelti, solo se appartengono ancora a quel giro e sono aperti. Scrive
+// direttamente, senza passare dalla logica "Fatto → giro" di PATCH /api/ritiri/[id]: il giro è già
+// stato aggiornato dall'azione di uscita/rientro che ha portato qui.
+export async function chiudiMovimentiGiro(giroId: string, ids: string[]): Promise<string[]> {
+  if (ids.length === 0) return [];
+  const { rows } = await pool.query(
+    `UPDATE ritiri SET stato = 'Fatto', data_fatto = CURRENT_DATE, aggiornato_il = now()
+     WHERE id = ANY($1) AND giro_id = $2 AND stato <> 'Fatto' AND archiviato = false
+     RETURNING id`,
+    [ids, giroId],
+  );
+  return rows.map((r) => r.id as string);
+}
+
 // Soft-delete, stesso pattern già in uso su Notion (archived: true): la riga resta recuperabile
 // via getRitiroById, sparisce solo dalle liste.
 export async function deleteRitiro(id: string): Promise<void> {

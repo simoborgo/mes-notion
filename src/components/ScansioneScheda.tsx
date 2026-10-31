@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Tastierino, STORAGE_KEY, type OperatoreLoggato } from "./OperatoreTablet";
+import { leggiMovimentiAperti, chiudiMovimenti, segnalaVerifica, titoloConferma, rigaMovimento, type AzioneGiro, type MovimentoAperto } from "@/lib/movimentiGiroClient";
 
 export interface GiroScansione {
   id: string;
@@ -33,6 +34,14 @@ interface ContestoAzione {
   vai: (url: string) => void;
   aggiornaGiro: (giro: GiroScansione | null) => void; // dopo un'azione che cambia il giro
   segnala: (messaggio: string) => void; // esito mostrato sopra l'elenco azioni
+  proponiChiusura: (p: ChiusuraProposta) => void; // movimenti del giro rimasti aperti in Ritiri e Consegne
+}
+
+interface ChiusuraProposta {
+  azione: AzioneGiro;
+  giroId: string;
+  movimenti: MovimentoAperto[];
+  token: string;
 }
 
 interface AzioneScheda {
@@ -89,8 +98,11 @@ const AZIONI: AzioneScheda[] = [
 ];
 
 // Uscita verso il fornitore / rientro in azienda sul giro esterno ancora aperto della scheda.
-async function segnaGiro(azione: "uscita" | "rientro", { scheda, operatore, aggiornaGiro, segnala }: ContestoAzione) {
+// Le Consegne (uscita) o i Ritiri (rientro) del giro ancora aperti si leggono prima: dopo l'azione
+// vengono proposti per la chiusura con un passo di conferma a schermo.
+async function segnaGiro(azione: "uscita" | "rientro", { scheda, operatore, aggiornaGiro, segnala, proponiChiusura }: ContestoAzione) {
   const giro = scheda.giro!;
+  const aperti = await leggiMovimentiAperti(scheda.id, giro.id, azione, operatore!.token);
   const res = await fetch(`/api/schede/${scheda.id}/giri/${giro.id}/movimento`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${operatore!.token}` },
@@ -100,6 +112,12 @@ async function segnaGiro(azione: "uscita" | "rientro", { scheda, operatore, aggi
   if (!res.ok) throw new Error(data?.error ?? "Operazione non riuscita");
   aggiornaGiro(azione === "rientro" ? null : { ...giro, stato: data.stato });
   segnala(azione === "uscita" ? `Uscita registrata${giro.fornitore ? ` verso ${giro.fornitore}` : ""}.` : `Rientro registrato${giro.fornitore ? ` da ${giro.fornitore}` : ""}.`);
+  if (!aperti.giroId) return;
+  if (aperti.movimenti.length > 0) {
+    proponiChiusura({ azione, giroId: aperti.giroId, movimenti: aperti.movimenti, token: operatore!.token });
+  } else {
+    void segnalaVerifica(scheda.id, aperti.giroId, azione, "QR", operatore!.token);
+  }
 }
 
 function Riga({ etichetta, valore }: { etichetta: string; valore: string }) {
@@ -126,6 +144,8 @@ export default function ScansioneScheda({ codice, scheda }: { codice: string; sc
   const [verificando, setVerificando] = useState(false);
   const [giro, setGiro] = useState<GiroScansione | null>(scheda?.giro ?? null); // cambia dopo uscita/rientro
   const [esito, setEsito] = useState<{ ok: boolean; testo: string } | null>(null);
+  const [chiusura, setChiusura] = useState<ChiusuraProposta | null>(null);
+  const [chiudendo, setChiudendo] = useState(false);
 
   if (!scheda) {
     return (
@@ -148,13 +168,32 @@ export default function ScansioneScheda({ codice, scheda }: { codice: string; sc
   async function eseguiAzione(a: AzioneScheda, operatore: OperatoreLoggato | null) {
     setEsito(null);
     try {
-      await a.esegui({ scheda: sc, operatore, vai, aggiornaGiro: setGiro, segnala: (testo) => setEsito({ ok: true, testo }) });
+      await a.esegui({ scheda: sc, operatore, vai, aggiornaGiro: setGiro, segnala: (testo) => setEsito({ ok: true, testo }), proponiChiusura: setChiusura });
     } catch (e) {
       setEsito({ ok: false, testo: e instanceof Error ? e.message : "Operazione non riuscita" });
     } finally {
       setAzionePin(null);
       setPin("");
     }
+  }
+
+  async function confermaChiusura() {
+    if (!chiusura || !scheda) return;
+    setChiudendo(true);
+    try {
+      const n = await chiudiMovimenti(scheda.id, chiusura.giroId, chiusura.azione, chiusura.movimenti.map(m => m.id), chiusura.token);
+      setEsito({ ok: true, testo: n === 1 ? "Movimento segnato Fatto in Ritiri e Consegne." : `${n} movimenti segnati Fatto in Ritiri e Consegne.` });
+      setChiusura(null);
+    } catch (e) {
+      setEsito({ ok: false, testo: e instanceof Error ? e.message : "Chiusura dei movimenti non riuscita" });
+    } finally {
+      setChiudendo(false);
+    }
+  }
+
+  function lasciaAperti() {
+    if (chiusura && scheda) void segnalaVerifica(scheda.id, chiusura.giroId, chiusura.azione, "QR", chiusura.token);
+    setChiusura(null);
   }
 
   function avvia(a: AzioneScheda) {
@@ -219,7 +258,24 @@ export default function ScansioneScheda({ codice, scheda }: { codice: string; sc
         </p>
       )}
 
-      {azionePin ? (
+      {chiusura ? (
+        <div className="rounded-2xl border bg-white p-5 space-y-4" style={{ borderColor: "#FCD34D" }}>
+          <p className="text-base font-bold" style={{ color: "var(--color-black)" }}>{titoloConferma(chiusura.azione, chiusura.movimenti.length)}</p>
+          <ul className="space-y-1">
+            {chiusura.movimenti.map(m => (
+              <li key={m.id} className="text-sm" style={{ color: "var(--color-grey-mid)" }}>• {rigaMovimento(m)}</li>
+            ))}
+          </ul>
+          <button type="button" onClick={confermaChiusura} disabled={chiudendo}
+            className="w-full rounded-2xl px-5 py-4 text-lg font-bold text-white active:opacity-80 disabled:opacity-50"
+            style={{ background: "var(--color-primary)" }}>
+            {chiudendo ? "Salvataggio…" : chiusura.movimenti.length === 1 ? "Segna Fatto" : "Segna tutti Fatto"}
+          </button>
+          <button type="button" onClick={lasciaAperti} disabled={chiudendo} className="w-full text-sm font-medium underline" style={{ color: "var(--color-grey-mid)" }}>
+            Lascia aperti
+          </button>
+        </div>
+      ) : azionePin ? (
         <div className="rounded-2xl border bg-white p-5 space-y-4" style={{ borderColor: "#E4E0DA" }}>
           <p className="text-sm font-medium text-center" style={{ color: "var(--color-grey-mid)" }}>
             {azionePin.titolo}: inserisci il tuo PIN
