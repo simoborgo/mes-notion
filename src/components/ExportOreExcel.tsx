@@ -56,8 +56,8 @@ export default function ExportOreExcel() {
   return (
     <div className="bg-white rounded-xl border p-5 space-y-4" style={{ borderColor: "var(--color-grey-light, #E0DED8)" }}>
       <p className="text-sm" style={{ color: "var(--color-grey-mid)" }}>
-        Una riga per ogni registrazione: Commessa · ODP · Operatore · Data · Ore · Interno/Esterno
-        (più azienda, reparto, categoria e rifacimento). Le causali di stabilimento restano senza commessa.
+        Una riga per ogni registrazione: Commessa · ODP · Codice Articolo · Operatore · Data · Ore · Interno/Esterno
+        (più azienda, reparto, categoria e rifacimento). Le causali di stabilimento vanno sulla commessa PROD dell'anno (es. PROD26).
       </p>
 
       <div className="flex flex-wrap gap-3 items-end">

@@ -10,6 +10,7 @@ const GRIGIO_SFONDO = "FFF5F5F3";
 const COLONNE: { header: string; width: number }[] = [
   { header: "Commessa", width: 14 },
   { header: "ODP", width: 20 },
+  { header: "Codice Articolo", width: 18 },
   { header: "Operatore", width: 26 },
   { header: "Data", width: 12 },
   { header: "Ore", width: 8 },
@@ -45,27 +46,27 @@ export async function buildOreMensiliWorkbook(righe: RigaOreMensili[], da: strin
   righe.forEach((r, idx) => {
     const row = ws.getRow(2 + idx);
     row.values = [
-      r.commessa, r.odp, r.operatore, dataExcel(r.data), r.ore, r.tipo, r.azienda, r.reparto,
+      r.commessa, r.odp, r.codiceArticolo, r.operatore, dataExcel(r.data), r.ore, r.tipo, r.azienda, r.reparto,
       CATEGORIA_ODP_LABEL[r.categoria as keyof typeof CATEGORIA_ODP_LABEL] ?? r.categoria,
       r.rifacimento ? "Sì" : "",
     ];
-    row.getCell(4).numFmt = "dd/mm/yyyy";
-    row.getCell(5).numFmt = "0.00";
+    row.getCell(5).numFmt = "dd/mm/yyyy";
+    row.getCell(6).numFmt = "0.00";
     row.eachCell({ includeEmpty: true }, (cell, col) => {
       cell.border = { bottom: { style: "thin", color: { argb: GRIGIO_BORDO } } };
       cell.font = { size: 10 };
-      cell.alignment = { vertical: "middle", horizontal: col === 5 ? "right" : "left" };
+      cell.alignment = { vertical: "middle", horizontal: col === 6 ? "right" : "left" };
     });
   });
 
   if (righe.length > 0) {
     ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1 + righe.length, column: COLONNE.length } };
     const tot = ws.getRow(righe.length + 3);
-    tot.getCell(4).value = "Totale";
-    tot.getCell(5).value = { formula: `SUBTOTAL(109,E2:E${righe.length + 1})`, result: righe.reduce((s, r) => s + r.ore, 0) };
-    tot.getCell(5).numFmt = "0.00";
-    tot.getCell(4).font = tot.getCell(5).font = { bold: true, size: 10 };
-    tot.getCell(5).alignment = { horizontal: "right" };
+    tot.getCell(5).value = "Totale";
+    tot.getCell(6).value = { formula: `SUBTOTAL(109,F2:F${righe.length + 1})`, result: righe.reduce((s, r) => s + r.ore, 0) };
+    tot.getCell(6).numFmt = "0.00";
+    tot.getCell(5).font = tot.getCell(6).font = { bold: true, size: 10 };
+    tot.getCell(6).alignment = { horizontal: "right" };
   }
 
   // Foglio di sintesi per Commessa/Operatore, utile per fatturare/riconciliare senza pivot
