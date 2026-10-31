@@ -159,6 +159,14 @@ export async function getSchedaById(id: string): Promise<Scheda> {
   return (await mapRows(rows))[0];
 }
 
+// Schede nell'ordine degli id passati (es. la vista filtrata di /schede); gli id inesistenti sono ignorati.
+export async function getSchedeByIds(ids: string[]): Promise<Scheda[]> {
+  if (ids.length === 0) return [];
+  const { rows } = await pool.query(`${SELECT} WHERE s.id = ANY($1)`, [ids]);
+  const byId = new Map((await mapRows(rows)).map((s) => [s.id, s]));
+  return ids.map((id) => byId.get(id)).filter((s): s is Scheda => !!s);
+}
+
 // Sottoschede e rilavorazioni dirette di una scheda (pagina piena), le più vecchie prima.
 export async function getSchedeFiglie(parentId: string): Promise<Scheda[]> {
   const { rows } = await pool.query(`${SELECT} WHERE s.parent_id = $1 AND s.archiviata = false ORDER BY s.creato_il`, [parentId]);

@@ -473,6 +473,33 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
 
   function handleFilter(fn: () => void) { fn(); }
 
+  // Stampa con disegni: PDF generato lato server (tabella della vista + prima pagina del PDF allegato
+  // di ogni scheda). Scarica un disegno per scheda da Drive, quindi si apre la scheda subito (gesto
+  // utente, niente blocco popup) e la si porta al PDF a fine generazione — come in OdpPerCarico.
+  const [generandoPdf, setGenerandoPdf] = useState(false);
+  async function stampaConDisegni() {
+    if (filtered.length === 0) return;
+    if (filtered.length > 150 && !confirm(`La vista contiene ${filtered.length} schede: la generazione può richiedere qualche minuto. Procedere?`)) return;
+    const finestra = window.open("", "_blank");
+    setGenerandoPdf(true);
+    try {
+      const res = await fetch("/api/schede/stampa-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: filtered.map((s) => s.id), filtri: filtriAttiviLabel }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? "Errore generazione PDF");
+      const url = URL.createObjectURL(await res.blob());
+      if (finestra) finestra.location.href = url;
+      else window.open(url, "_blank");
+    } catch (e) {
+      finestra?.close();
+      alert(e instanceof Error ? e.message : "Errore generazione PDF");
+    } finally {
+      setGenerandoPdf(false);
+    }
+  }
+
 
   const inputCls = "border rounded px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300";
 
@@ -495,6 +522,15 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
           style={{ background: "var(--color-primary)", color: "white" }}
         >
           <span style={{ fontSize: 22 }}>🖨</span> Stampa vista corrente
+        </button>
+        <button
+          onClick={stampaConDisegni}
+          disabled={generandoPdf || filtered.length === 0}
+          title="Tabella della vista corrente + prima pagina del PDF allegato di ogni scheda"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-base font-semibold border transition-colors hover:bg-gray-50 disabled:opacity-50"
+          style={{ color: "var(--color-primary)", borderColor: "rgba(240,143,37,0.3)", background: "white" }}
+        >
+          <span style={{ fontSize: 22 }}>📐</span> {generandoPdf ? "Generazione…" : "Stampa con disegni"}
         </button>
       </div>
 
