@@ -136,6 +136,7 @@ tr:last-child td{border-bottom:0}
 /* ── schermate ricostruite ── */
 figure{margin:0;display:flex;flex-direction:column;gap:8px;min-width:0}
 figcaption{font-size:12px;color:var(--grey-2)}
+.flow-video{display:block;width:100%;max-width:100%;aspect-ratio:16/9;border-radius:10px;border:1px solid var(--rule);background:var(--paper)}
 figcaption strong{color:var(--grey)}
 .screen{background:var(--s-bg);color:var(--s-ink);font-family:var(--s-font);border:1px solid var(--rule);border-radius:10px;overflow:hidden;box-shadow:0 1px 0 var(--rule)}
 .screen-bar{display:flex;align-items:center;gap:6px;background:var(--s-band);border-bottom:1px solid var(--s-line);padding:7px 12px;font-size:11px;color:var(--s-soft)}
@@ -231,6 +232,12 @@ figcaption strong{color:var(--grey)}
       <span>Aggiornato al 31 ottobre 2026</span>
     </div>
   </header>
+
+  <!-- VIDEO -->
+  <figure>
+    <video class="flow-video" controls preload="metadata" playsinline poster="img/ritiri-stop-motion-poster.jpg" src="img/ritiri-stop-motion.mp4"></video>
+    <figcaption><strong>Il ciclo completo in 40 secondi.</strong> Consegna, giro dal fornitore, rientro dal QR e notifica alla Produzione, con i dati di esempio di questa guida.</figcaption>
+  </figure>
 
   <!-- A · CONCETTI -->
   <section class="sec">
