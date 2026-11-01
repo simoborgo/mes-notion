@@ -5,6 +5,8 @@ import { getSessionFromRequest } from "@/lib/auth";
 import { getNextOdp, createSchedaPage } from "@/lib/schedeRepository";
 import { findCommessaByNumber } from "@/lib/commesseRepository";
 import { findFornitoreIdByNomePdf } from "@/lib/fornitoriRepository";
+import { getGiroAttivoId } from "@/lib/giriRepository";
+import { creaMovimentiGiro } from "@/lib/ritiriRepository";
 import { generaQrCodice } from "@/lib/schedaQrRepository";
 import { timbraQr } from "@/lib/pdfQrStamp";
 import { timbraOdp } from "@/lib/pdfOdpStamp";
@@ -23,6 +25,7 @@ interface ParsedItem {
   quantita?: number | null;
   stato?: string;
   dataRientroPrevista?: string | null;
+  inviamoNoi?: boolean; // casella in anteprima: il materiale parte da Modar → anche la Consegna, oltre al Ritiro
   pageIndex: number;
   gruppo?: number | null;
   otherFields?: Record<string, string>;
@@ -126,6 +129,19 @@ export async function POST(req: NextRequest) {
     return { pdf: out, senzaQr };
   };
 
+  // Una scheda che nasce in lavorazione esterna ha già il giro 1 (createSchedaPage): qui gli si
+  // aggiungono i trasporti in Ritiri e Consegne. Un errore non blocca l'import, i movimenti si
+  // possono pianificare a mano dalla tab Fornitore.
+  const creaMovimentiImport = async (schedaId: string, stato: string, inviamoNoi: boolean) => {
+    if (stato !== "In lavorazione Esterna") return;
+    try {
+      const giroId = await getGiroAttivoId(schedaId);
+      if (giroId) await creaMovimentiGiro(giroId, { inviamoNoi });
+    } catch (e) {
+      console.error("[import-scheda] movimenti del giro non creati:", e instanceof Error ? e.message : String(e));
+    }
+  };
+
   const parentCodice = generaQrCodice();
   const parentTimbrato = await timbra(pdfBuffer, parentCodice, qrPos ?? [], odpPos ?? []);
   const qrPagineSenzaQr = parentTimbrato.senzaQr;
@@ -141,12 +157,13 @@ export async function POST(req: NextRequest) {
   const parentInModar = !fornitoreIds[0] && (!parent.fornitore || parent.fornitore.toUpperCase() === "MODAR");
   const parentInAttesa = parentInModar && (!parent.stato || parent.stato === "In lavorazione") && sottoschede.length > 0 && sottoschede.every(subEsterna);
 
+  const parentStato = parentInAttesa ? "In attesa materiale" : parent.stato || "In lavorazione";
   const parentPage = await createSchedaPage({
     numeroScheda: parent.numeroScheda,
     commessaId: commessa.id,
     odp,
     tipologia: "Scheda",
-    stato: parentInAttesa ? "In attesa materiale" : parent.stato || "In lavorazione",
+    stato: parentStato,
     codiceArticolo: parent.codiceArticolo,
     posizione: parent.posizione,
     fornitore: parent.fornitore,
@@ -163,6 +180,7 @@ export async function POST(req: NextRequest) {
     thumbnailFilename,
   });
   console.log(`[import-scheda] Scheda principale creata: ${parentPage.id} (dataProduzionePrevista=${parent.termineDiConsegna})`);
+  await creaMovimentiImport(parentPage.id, parentStato, parent.inviamoNoi === true);
 
   const created = [
     { odp, pageId: parentPage.id, numeroScheda: parentPage.numeroScheda, tipologia: "Scheda" },
@@ -233,6 +251,7 @@ export async function POST(req: NextRequest) {
       thumbnailBuffer: subThumbBuffer,
       thumbnailFilename: subThumbBuffer ? `copertina-${odp}-sub-${g + 1}.jpg` : undefined,
     });
+    await creaMovimentiImport(subPage.id, subStato, group.some((s) => s.item.inviamoNoi === true));
     created.push({ odp, pageId: subPage.id, numeroScheda: subPage.numeroScheda, tipologia: "Sottoscheda" });
     console.log(`[import-scheda] Sottoscheda ${g + 1}/${orderedGroups.length} creata: ${subPage.id} (pagine ${pageIndices.map((p) => p + 1).join(",")}, dataProduzionePrevista=${parent.termineDiConsegna}, dataRientroPrevista=${sub.dataRientroPrevista})`);
   }
@@ -265,6 +284,7 @@ export async function POST(req: NextRequest) {
   }
 
   revalidatePath("/schede");
+  revalidatePath("/ritiri");
 
   console.log(`[import-scheda] import completato — ODP ${odp}, ${created.length} pagine create`);
   return NextResponse.json({ ok: true, odp, created, n8nError, qrPagineSenzaQr });

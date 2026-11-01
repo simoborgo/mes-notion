@@ -21,6 +21,8 @@ interface ParsedItem {
   quantita?: number | null;
   stato?: string;
   dataRientroPrevista?: string | null;
+  // il materiale parte da Modar: oltre al Ritiro del giro nasce anche la Consegna, da programmare
+  inviamoNoi?: boolean;
   includeAsSubitem?: boolean;
   gruppo?: number | null;
   otherFields?: Record<string, string>;
@@ -664,6 +666,29 @@ export default function ImportSchedaPdf() {
                       (v) => updateItem(idx, "dataRientroPrevista", v || null),
                       "date",
                     )}
+
+                  {item.stato === "In lavorazione Esterna" && (
+                    <label className="flex gap-2 items-start cursor-pointer">
+                      <span className="text-xs shrink-0 font-medium pt-0.5" style={{ color: "#6b6966", width: 180 }}>
+                        Ritiri e Consegne
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={item.inviamoNoi === true}
+                        onChange={(e) => updateItem(idx, "inviamoNoi", e.target.checked)}
+                        className="mt-0.5"
+                        style={{ accentColor: "var(--color-primary)" }}
+                      />
+                      <span className="text-xs">
+                        <span className="font-semibold" style={{ color: "var(--color-black)" }}>Inviamo noi il materiale</span>
+                        <span className="block" style={{ color: "#6b6966" }}>
+                          {item.inviamoNoi
+                            ? "Nasce una Consegna da programmare e il Ritiro al rientro previsto."
+                            : "Nasce solo il Ritiro al rientro previsto: il materiale è già dal fornitore."}
+                        </span>
+                      </span>
+                    </label>
+                  )}
 
                   {item.otherFields && Object.keys(item.otherFields).length > 0 && (
                     <details className="mt-2">
