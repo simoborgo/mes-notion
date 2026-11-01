@@ -789,6 +789,7 @@ export interface CommessaPianta {
   driveFileId: string;
   caricatoDa: string;
   aggiornatoIl: string;
+  haAnteprima: boolean;
 }
 
 export const CATEGORIE_STORICO = ["Note", "Specifiche", "Documenti", "Campionature", "Produzione", "Logistica", "Commessa"] as const;

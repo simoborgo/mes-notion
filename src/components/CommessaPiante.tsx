@@ -8,6 +8,7 @@ import { getPdfjsLib } from "@/lib/pdfjsClient";
 
 const ETICHETTE_COMUNI = ["Piano terra", "Piano 1", "Piano 2", "Interrato", "Soppalco"];
 const ALTEZZA_ANTEPRIMA = 200;
+const ALTEZZA_MINIATURA = 400; // 2× per gli schermi ad alta densità
 const inputCls = "border rounded px-2 py-1 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300";
 
 function leggiBase64(file: File): Promise<string> {
@@ -19,43 +20,58 @@ function leggiBase64(file: File): Promise<string> {
   });
 }
 
-// Anteprima della prima pagina: canvas per i PDF, img per le immagini. Il file passa dal proxy
-// /api/drive-file, quindi si riscarica quando cambia il driveFileId (sostituzione).
+// Disegna la prima pagina (PDF o immagine) su un canvas alto ALTEZZA_MINIATURA px.
+async function renderMiniatura(pianta: CommessaPianta, canvas: HTMLCanvasElement): Promise<void> {
+  const res = await fetch(`/api/drive-file/${pianta.driveFileId}`);
+  if (!res.ok) throw new Error("File non disponibile");
+  if (pianta.mimeType === "application/pdf") {
+    const pdfjsLib = await getPdfjsLib();
+    const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await res.arrayBuffer()) }).promise;
+    const page = await pdf.getPage(1);
+    const vp0 = page.getViewport({ scale: 1 });
+    const vp = page.getViewport({ scale: ALTEZZA_MINIATURA / vp0.height });
+    canvas.width = Math.round(vp.width); canvas.height = Math.round(vp.height);
+    await page.render({ canvas, viewport: vp }).promise;
+  } else {
+    const bmp = await createImageBitmap(await res.blob());
+    const k = ALTEZZA_MINIATURA / bmp.height;
+    canvas.width = Math.round(bmp.width * k); canvas.height = ALTEZZA_MINIATURA;
+    canvas.getContext("2d")!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+  }
+}
+
+// Miniatura leggera salvata nel database: la Panoramica non scarica né legge il PDF. Se manca
+// (pianta appena caricata o sostituita) la genera una volta nel browser e la salva.
 function AnteprimaPianta({ pianta }: { pianta: CommessaPianta }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [errore, setErrore] = useState(false);
-  const url = `/api/drive-file/${pianta.driveFileId}`;
-  const isPdf = pianta.mimeType === "application/pdf";
+  const [pronta, setPronta] = useState(pianta.haAnteprima);
 
   useEffect(() => {
-    if (!isPdf) return;
+    if (pianta.haAnteprima) return;
     let cancelled = false;
     (async () => {
       try {
-        const pdfjsLib = await getPdfjsLib();
-        const res = await fetch(url);
-        if (!res.ok) throw new Error();
-        const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await res.arrayBuffer()) }).promise;
-        const page = await pdf.getPage(1);
         const canvas = canvasRef.current;
-        if (cancelled || !canvas) return;
-        const dpr = window.devicePixelRatio || 1;
-        const vp0 = page.getViewport({ scale: 1 });
-        const vp = page.getViewport({ scale: (ALTEZZA_ANTEPRIMA / vp0.height) * dpr });
-        canvas.width = Math.round(vp.width); canvas.height = Math.round(vp.height);
-        canvas.style.height = `${ALTEZZA_ANTEPRIMA}px`; canvas.style.width = "auto";
-        await page.render({ canvas, viewport: vp }).promise;
+        if (!canvas) return;
+        await renderMiniatura(pianta, canvas);
+        if (cancelled) return;
+        const blob = await new Promise<Blob | null>((ok) => canvas.toBlob(ok, "image/jpeg", 0.8));
+        if (blob) {
+          const r = await fetch(`/api/commesse/${pianta.commessaId}/piante/${pianta.id}/anteprima`, { method: "PUT", body: blob });
+          if (r.ok && !cancelled) setPronta(true);
+        }
       } catch {
         if (!cancelled) setErrore(true);
       }
     })();
     return () => { cancelled = true; };
-  }, [url, isPdf]);
+  }, [pianta]);
 
-  if (errore) return <p className="p-6 text-sm" style={{ color: "#991B1B" }}>Anteprima non disponibile. Apri il file con il pulsante qui sotto.</p>;
-  if (isPdf) return <canvas ref={canvasRef} className="block mx-auto" />;
+  if (errore) return <p className="p-6 text-sm" style={{ color: "#991B1B" }}>Anteprima non disponibile. Apri la pianta con il pulsante qui sotto.</p>;
+  if (!pronta) return <canvas ref={canvasRef} className="block mx-auto" style={{ height: ALTEZZA_ANTEPRIMA, width: "auto" }} />;
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={url} alt={pianta.etichetta || pianta.nomeFile} className="block mx-auto w-auto" style={{ height: ALTEZZA_ANTEPRIMA }} />;
+  return <img src={`/api/commesse/${pianta.commessaId}/piante/${pianta.id}/anteprima?v=${encodeURIComponent(pianta.aggiornatoIl)}`} alt={pianta.etichetta || pianta.nomeFile} className="block mx-auto w-auto" style={{ height: ALTEZZA_ANTEPRIMA }} />;
 }
 
 // Copertina della scheda commessa: una pianta per piano, con linguette quando sono più d'una.
@@ -150,7 +166,7 @@ export default function CommessaPiante({ commessaId, piante, canEdit }: { commes
       {attiva ? (
         <>
           <Link href={`/commesse/${commessaId}/piante/${attiva.id}`} className="block bg-gray-50 py-2 hover:bg-gray-100" aria-label="Apri la pianta">
-            <AnteprimaPianta key={attiva.driveFileId} pianta={attiva} />
+            <AnteprimaPianta key={attiva.driveFileId + attiva.haAnteprima} pianta={attiva} />
           </Link>
           <div className="flex items-center gap-4 px-4 py-2 border-t border-gray-100 text-xs flex-wrap" style={{ color: "var(--color-grey-mid)" }}>
             <Link href={`/commesse/${commessaId}/piante/${attiva.id}`} className="font-medium underline" style={{ color: "var(--color-primary)" }}>Apri pianta</Link>
