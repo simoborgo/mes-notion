@@ -164,7 +164,6 @@ export default function CommessaPiante({ commessaId, piante, canEdit }: { commes
           </Link>
           <div className="flex items-center gap-4 px-4 py-2 border-t border-gray-100 text-xs flex-wrap" style={{ color: "var(--color-grey-mid)" }}>
             <Link href={`/commesse/${commessaId}/piante/${attiva.id}`} className="font-medium underline" style={{ color: "var(--color-primary)" }}>Apri pianta</Link>
-            <a href={`/commesse/${commessaId}/piante/${attiva.id}`} target="_blank" rel="noopener" className="underline" style={{ color: "var(--color-primary)" }}>Apri in nuova finestra ↗</a>
             <span className="truncate">{attiva.nomeFile} · aggiornata il {new Date(attiva.aggiornatoIl).toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })} da {attiva.caricatoDa || "—"}</span>
             {canEdit && (
               <span className="ml-auto flex items-center gap-3">

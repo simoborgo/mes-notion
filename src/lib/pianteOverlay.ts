@@ -12,6 +12,7 @@ export interface ZonaRender {
   selezionata: boolean;
   tratteggio?: boolean;
   spuntata?: boolean; // lavoro completato: segno di spunta al centro
+  href?: string; // solo esportazione PDF: indirizzo a cui punta la zona (link cliccabile)
 }
 // segni = disegno a mano libera e bolli (default, come la spedizione); zone = si trascina un
 // rettangolo; vista = i tocchi servono solo a cliccare le zone e il dito può scorrere la pagina.

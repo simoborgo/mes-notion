@@ -1,4 +1,4 @@
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, PDFString } from "pdf-lib";
 import { caricaDocumento } from "./documentoRender";
 import { disegnaOverlay, type Point, type Stamp, type ZonaRender } from "./pianteOverlay";
 
@@ -9,7 +9,7 @@ const toJpeg = (c: HTMLCanvasElement, q: number) => new Promise<Blob>((ok, ko) =
 
 // PDF "cotto" della pianta: ogni pagina diventa un'immagine con zone, tratti e bolli già sopra,
 // disegnati dallo stesso codice dello schermo. Il file è leggero, si apre ovunque e non richiede
-// elaborazioni, ma le zone non sono cliccabili e riflette lo stato degli ODP al momento dell'esportazione.
+// elaborazioni; le zone con un ODP sono link cliccabili alla scheda. Riflette lo stato degli ODP al momento dell'esportazione.
 export async function esportaPiantaPdf(o: {
   url: string;
   mimeType: string;
@@ -36,7 +36,18 @@ export async function esportaPiantaPdf(o: {
 
     const jpg = await out.embedJpg(new Uint8Array(await (await toJpeg(canvas, 0.9)).arrayBuffer()));
     const w = canvas.width * 0.5, h = canvas.height * 0.5; // dimensione di pagina arbitraria, proporzioni invariate
-    out.addPage([w, h]).drawImage(jpg, { x: 0, y: 0, width: w, height: h });
+    const pdfPage = out.addPage([w, h]);
+    pdfPage.drawImage(jpg, { x: 0, y: 0, width: w, height: h });
+    // ogni zona con un indirizzo diventa un link cliccabile sopra la sua area
+    for (const z of zone) {
+      if (z.pagina !== n || !z.href) continue;
+      const annot = out.context.register(out.context.obj({
+        Type: "Annot", Subtype: "Link", Border: [0, 0, 0],
+        Rect: [z.x * w, h - (z.y + z.h) * h, (z.x + z.w) * w, h - z.y * h],
+        A: { Type: "Action", S: "URI", URI: PDFString.of(z.href) },
+      }));
+      pdfPage.node.addAnnot(annot);
+    }
   }
 
   const bytes = await out.save();

@@ -40,7 +40,9 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaI
   const router = useRouter();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ultimoRef = useRef<Annotazioni | null>(null);
-  const [stato, setStato] = useState<"" | "salvo" | "salvato" | "errore">("");
+  // da salvare = modifica fatta, in attesa dei 2s di debounce; salvato porta l'ora dell'ultimo salvataggio riuscito
+  const [stato, setStato] = useState<"" | "daSalvare" | "salvo" | "salvato" | "errore">("");
+  const [salvatoAlle, setSalvatoAlle] = useState<Date | null>(null);
   // La pianta si apre sempre in sola visione; chi può modificarla preme "Modifica" per avere gli strumenti.
   const [inModifica, setInModifica] = useState(false);
   const [modo, setModo] = useState<ModoPianta>("zone");
@@ -66,7 +68,7 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaI
       const res = await fetch(`/api/commesse/${pianta.commessaId}/piante/${pianta.id}/annotazioni`, {
         method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ strokes: a.strokes, stamps: a.stamps }),
       });
-      setStato(res.ok ? "salvato" : "errore");
+      if (res.ok) { setStato("salvato"); setSalvatoAlle(new Date()); } else setStato("errore");
     } catch {
       setStato("errore");
     }
@@ -74,8 +76,9 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaI
 
   const onChange = useCallback((a: Annotazioni) => {
     ultimoRef.current = a;
+    setStato("daSalvare");
     if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(salva, 2000);
+    timerRef.current = setTimeout(() => { timerRef.current = null; void salva(); }, 2000);
   }, [salva]);
 
   // Chiudendo la pagina con una modifica non ancora salvata, la salva subito.
@@ -99,6 +102,7 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaI
     const res = await fetch(urlZone, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...nuova, schedaId }) });
     const json = await res.json().catch(() => ({}));
     if (!res.ok) { setErrore(json.error ?? "Errore nel salvataggio della zona"); return; }
+    setStato("salvato"); setSalvatoAlle(new Date());
     setZone((z) => [...z, json as ZonaPianta]);
     setConZona((s) => new Set(s).add(schedaId));
     setSelId((json as ZonaPianta).id);
@@ -110,6 +114,7 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaI
     const res = await fetch(`${urlZone}/${z.id}`, { method: "DELETE" });
     if (!res.ok) { setErrore("Errore nell'eliminazione della zona"); return; }
     const resto = zone.filter((x) => x.id !== z.id);
+    setStato("salvato"); setSalvatoAlle(new Date());
     setZone(resto);
     setConZona(new Set(resto.map((x) => x.schedaId).filter((x): x is string => !!x)));
     setSelId(null);
@@ -118,6 +123,7 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaI
   async function cambiaOdp(z: ZonaPianta, schedaId: string) {
     const res = await fetch(`${urlZone}/${z.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ schedaId }) });
     if (!res.ok) { setErrore("Errore nel cambio di ODP"); return; }
+    setStato("salvato"); setSalvatoAlle(new Date());
     setZone((lista) => lista.map((x) => (x.id === z.id ? { ...x, schedaId } : x)));
     setConZona((s) => new Set(s).add(schedaId));
   }
@@ -130,12 +136,14 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaI
   const urlVisione = pianta.haVista ? `/api/commesse/${pianta.commessaId}/piante/${pianta.id}/vista?v=${pianta.driveFileId}` : `/api/commesse/${pianta.commessaId}/piante/${pianta.id}/file?v=${pianta.driveFileId}`;
   const mimeVisione = pianta.haVista ? "image/jpeg" : pianta.mimeType;
 
+  const schedaDi = new Map(zone.map((z) => [z.id, z.schedaId]));
+
   async function esporta() {
     setEsportando(true); setErrore("");
     try {
       const a = ultimoRef.current;
       const base = (pianta.etichetta || pianta.nomeFile.replace(/\.[^.]+$/, "")).replace(/[\\/:*?"<>|]/g, "_");
-      await esportaPiantaPdf({ url: urlVisione, mimeType: mimeVisione, strokes: a?.strokes ?? iniziali.strokes ?? {}, stamps: a?.stamps ?? iniziali.stamps ?? {}, zone: zoneRender, nomeFile: `${base} - segnata.pdf` });
+      await esportaPiantaPdf({ url: urlVisione, mimeType: mimeVisione, strokes: a?.strokes ?? iniziali.strokes ?? {}, stamps: a?.stamps ?? iniziali.stamps ?? {}, zone: zoneRender.map((z) => ({ ...z, href: schedaDi.get(z.id) ? `${window.location.origin}/schede/${schedaDi.get(z.id)}` : undefined })), nomeFile: `${base} - segnata.pdf` });
     } catch (e) {
       console.error("[piante] esporta:", e);
       setErrore("Esportazione non riuscita: riprova");
@@ -156,11 +164,24 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaI
     >{label}</button>
   );
   const btnBase = { padding: "5px 10px", borderRadius: 4, fontSize: 12, cursor: "pointer", border: "1px solid #E5E4E0" } as const;
+  const ora = salvatoAlle?.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const badge = {
+    daSalvare: { testo: "● Modifiche da salvare…", bg: "#FEF3C7", fg: "#92400E" },
+    salvo: { testo: "⟳ Salvataggio in corso…", bg: "#FEF3C7", fg: "#92400E" },
+    salvato: { testo: `✓ Salvato alle ${ora}`, bg: "#DCFCE7", fg: "#166534" },
+    errore: { testo: "⚠ NON salvato: errore", bg: "#FEE2E2", fg: "#991B1B" },
+  }[stato as "daSalvare" | "salvo" | "salvato" | "errore"];
+  const indicatore = inModifica && badge ? (
+    <span role="status" aria-live="polite" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: badge.bg, color: badge.fg }}>
+      {badge.testo}
+      {(stato === "errore" || stato === "daSalvare") && <button onClick={() => { if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; } void salva(); }} style={{ textDecoration: "underline", fontWeight: 700, cursor: "pointer", background: "none", border: "none", color: "inherit", padding: 0 }}>{stato === "errore" ? "Riprova" : "Salva ora"}</button>}
+    </span>
+  ) : null;
   const barraModi = canEdit ? (
     inModifica ? (
       <span style={{ display: "inline-flex", gap: 4 }}>
         {btnModo("segni", "Segna")}{btnModo("zone", "Zone")}
-        <button onClick={() => { setInModifica(false); setNuova(null); setSelId(null); }} style={{ ...btnBase, background: "#F08F25", color: "white", fontWeight: 700, borderColor: "#F08F25" }}>Fine modifica</button>
+        <button onClick={async () => { if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; await salva(); } setInModifica(false); setNuova(null); setSelId(null); }} style={{ ...btnBase, background: "#F08F25", color: "white", fontWeight: 700, borderColor: "#F08F25" }}>Fine modifica</button>
       </span>
     ) : (
       <button onClick={() => setInModifica(true)} style={{ ...btnBase, background: "#F5F2EE", color: "#1A1918", fontWeight: 600 }}>✎ Modifica</button>
@@ -183,6 +204,7 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaI
             onZonaClick={onZonaClick}
             barraExtra={<>
               {barraModi}
+              {indicatore}
               <button onClick={esporta} disabled={esportando} title="Scarica un PDF con zone, tratti e bolli già disegnati" style={{ ...btnBase, background: "#F5F2EE", color: "#1A1918", opacity: esportando ? 0.6 : 1 }}>
                 {esportando ? "Preparo il PDF…" : "⤓ Esporta PDF"}
               </button>
@@ -247,11 +269,6 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaI
             <NuovaZona odp={odp} conZona={conZona} errore={errore} onConferma={confermaNuova} onAnnulla={() => { setNuova(null); setErrore(""); }} />
           </div>
         </div>
-      )}
-      {canEdit && (
-        <p className="text-[11px] h-4" style={{ color: stato === "errore" ? "#991B1B" : "var(--color-grey-mid)" }}>
-          {stato === "salvo" && "Salvataggio…"}{stato === "salvato" && "Segni salvati"}{stato === "errore" && "Errore nel salvataggio dei segni: riprova a modificare"}
-        </p>
       )}
     </div>
   );
