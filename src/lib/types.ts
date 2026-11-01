@@ -779,6 +779,18 @@ export interface CommessaAllegato {
   creatoIl: string;
 }
 
+export interface CommessaPianta {
+  id: string;
+  commessaId: string;
+  etichetta: string;
+  ordine: number;
+  nomeFile: string;
+  mimeType: string;
+  driveFileId: string;
+  caricatoDa: string;
+  aggiornatoIl: string;
+}
+
 export const CATEGORIE_STORICO = ["Note", "Specifiche", "Documenti", "Campionature", "Produzione", "Logistica", "Commessa"] as const;
 export type CategoriaStorico = (typeof CATEGORIE_STORICO)[number];
 

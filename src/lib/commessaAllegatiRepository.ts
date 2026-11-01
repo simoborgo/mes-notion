@@ -34,7 +34,7 @@ export async function getAllegatoById(id: string): Promise<CommessaAllegato | nu
 
 // Cartella Commessa già nota (colonna drive_folder_id) oppure creata e persistita al primo upload,
 // poi sottocartella "Documenti".
-async function cartellaDocumenti(commessaId: string): Promise<string> {
+export async function cartellaDocumenti(commessaId: string): Promise<string> {
   let commessaFolderId = await getCommessaFolderId(commessaId);
   if (!commessaFolderId) {
     const c = await getCommessaById(commessaId);

@@ -7,6 +7,7 @@ import { getAreeByCommessa } from "@/lib/areeRepository";
 import { getSession, VERNICIATURA_ROLES, COMMESSA_CONTENUTO_ROLES } from "@/lib/auth";
 import { getSpecificheByCommessa } from "@/lib/commessaSpecificheRepository";
 import { getAllegatiByCommessa } from "@/lib/commessaAllegatiRepository";
+import { getPianteByCommessa } from "@/lib/commessePianteRepository";
 import { getStoricoCommessa } from "@/lib/commessaStoricoRepository";
 import CommessaIntestazione from "@/components/CommessaIntestazione";
 import CommessaTabs from "@/components/CommessaTabs";
@@ -29,11 +30,11 @@ export default async function CommessaPage({ params, searchParams }: { params: P
   const [{ id }, { tab }] = await Promise.all([params, searchParams]);
   const tabAttiva: TabCommessa = TAB_VALIDE.find((t) => t === tab) ?? "panoramica";
 
-  let commessa, aree, schede, carichi, riepilogo, campionature, specifiche, allegati, storico;
+  let commessa, aree, schede, carichi, riepilogo, campionature, specifiche, allegati, storico, piante;
   try {
-    [commessa, aree, schede, carichi, riepilogo, campionature, specifiche, allegati, storico] = await Promise.all([
+    [commessa, aree, schede, carichi, riepilogo, campionature, specifiche, allegati, storico, piante] = await Promise.all([
       getCommessaById(id), getAreeByCommessa(id), getSchedeByCommessa(id), getCarichiByCommessa(id), getRiepilogoCommessa(id),
-      getSchedeConFotoByCommessa(id), getSpecificheByCommessa(id), getAllegatiByCommessa(id), getStoricoCommessa(id),
+      getSchedeConFotoByCommessa(id), getSpecificheByCommessa(id), getAllegatiByCommessa(id), getStoricoCommessa(id), getPianteByCommessa(id),
     ]);
   } catch {
     notFound();
@@ -58,7 +59,7 @@ export default async function CommessaPage({ params, searchParams }: { params: P
         ]}
       />
 
-      {tabAttiva === "panoramica" && <CommessaPanoramica commessa={commessa} schede={schede} carichi={carichi} riepilogo={riepilogo} />}
+      {tabAttiva === "panoramica" && <CommessaPanoramica commessa={commessa} schede={schede} carichi={carichi} riepilogo={riepilogo} piante={piante} canEditPiante={canContenuto} />}
       {tabAttiva === "aree" && (
         <div className="space-y-6">
           <AreeSection commessaId={commessa.id} areeIniziali={aree} schede={schede} userRole={session?.role} />
