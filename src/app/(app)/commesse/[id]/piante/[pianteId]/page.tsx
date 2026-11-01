@@ -1,16 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCommessaById } from "@/lib/commesseRepository";
-import { getPianteByCommessa, getAnnotazioniPianta, getZoneByPianta, getAreeConZona } from "@/lib/commessePianteRepository";
-import { getAreeByCommessa } from "@/lib/areeRepository";
+import { getPianteByCommessa, getAnnotazioniPianta, getZoneByPianta, getSchedeConZona } from "@/lib/commessePianteRepository";
 import { getSchedeByCommessa } from "@/lib/schedeRepository";
-import { COMMESSE_ROLES } from "@/lib/roles";
-import { getSession, COMMESSA_CONTENUTO_ROLES } from "@/lib/auth";
+import { getSession, PIANTE_ROLES } from "@/lib/auth";
 import PiantaAnnotatore from "@/components/PiantaAnnotatore";
 
 export const dynamic = "force-dynamic";
 
-// Pagina dedicata alla pianta: stesso motore delle verifiche di spedizione (zoom, segni, bolli) più le zone cliccabili agganciate alle Aree.
+// Pagina dedicata alla pianta: stesso motore delle verifiche di spedizione (zoom, segni, bolli) più le zone cliccabili agganciate agli ODP.
 export default async function PiantaPage({ params }: { params: Promise<{ id: string; pianteId: string }> }) {
   const { id, pianteId } = await params;
   let commessa, piante;
@@ -21,10 +19,10 @@ export default async function PiantaPage({ params }: { params: Promise<{ id: str
   }
   const pianta = piante.find((p) => p.id === pianteId);
   if (!pianta) notFound();
-  const [annotazioni, zone, aree, schede, areeConZona, session] = await Promise.all([
-    getAnnotazioniPianta(pianta.id), getZoneByPianta(pianta.id), getAreeByCommessa(id), getSchedeByCommessa(id), getAreeConZona(id), getSession(),
+  const [annotazioni, zone, schede, schedeConZona, session] = await Promise.all([
+    getAnnotazioniPianta(pianta.id), getZoneByPianta(pianta.id), getSchedeByCommessa(id), getSchedeConZona(id), getSession(),
   ]);
-  const canEdit = !!session && COMMESSA_CONTENUTO_ROLES.includes(session.role);
+  const canEdit = !!session && PIANTE_ROLES.includes(session.role);
 
   return (
     <div className="space-y-3 max-w-[1800px] mx-auto">
@@ -54,11 +52,9 @@ export default async function PiantaPage({ params }: { params: Promise<{ id: str
       </div>
       <PiantaAnnotatore key={pianta.id} pianta={pianta} iniziali={annotazioni as never}
         zoneIniziali={zone}
-        aree={aree}
-        odp={schede.map((x) => ({ id: x.id, odp: x.odp, numeroScheda: x.numeroScheda, statoProduzione: x.statoProduzione ?? "", faseCorrente: x.faseCorrente ?? "", areaId: x.areaId }))}
-        areeConZona={areeConZona}
+        odp={schede.map((x) => ({ id: x.id, odp: x.odp, numeroScheda: x.numeroScheda, statoProduzione: x.statoProduzione ?? "", faseCorrente: x.faseCorrente ?? "" }))}
+        schedeConZona={schedeConZona}
         canEdit={canEdit}
-        canCreaArea={!!session && COMMESSE_ROLES.includes(session.role)}
       />
     </div>
   );

@@ -62,4 +62,7 @@ export const IMPOSTAZIONI_ROLES: Role[] = ["admin"];
 // 2026-08-13): Ufficio Tecnico non ha più questo permesso, solo admin e produzione.
 export const COMMESSE_ROLES: Role[] = ["admin", "produzione"];
 // Specifiche, documenti e note della scheda commessa: tutti tranne l'utente base (operatore).
+// Chi carica/sostituisce le piante e disegna zone e segni (la visualizzazione è per tutti i ruoli
+// che vedono la commessa). Ufficio Tecnico riceve le piante; assegnarlo richiede USERS_JSON sulla VPS.
+export const PIANTE_ROLES: Role[] = ["admin", "ufficio_tecnico", "produzione"];
 export const COMMESSA_CONTENUTO_ROLES: Role[] = ALL_ROLES.filter((r) => r !== "operatore");

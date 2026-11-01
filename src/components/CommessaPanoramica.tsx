@@ -1,8 +1,7 @@
 import Link from "next/link";
-import type { Commessa, Scheda, Carico, CommessaPianta } from "@/lib/types";
+import type { Commessa, Scheda, Carico } from "@/lib/types";
 import type { RiepilogoCommessa } from "@/lib/commesseRepository";
 import BadgeStato from "./BadgeStato";
-import CommessaPiante from "./CommessaPiante";
 
 function fmt(d: string | null) {
   if (!d) return "—";
@@ -18,8 +17,8 @@ function coloreAvanzamento(pct: number): string {
   return "#16A34A";
 }
 
-export default function CommessaPanoramica({ commessa, schede, carichi, riepilogo, piante, canEditPiante }: {
-  commessa: Commessa; schede: Scheda[]; carichi: Carico[]; riepilogo: RiepilogoCommessa; piante: CommessaPianta[]; canEditPiante: boolean;
+export default function CommessaPanoramica({ commessa, schede, carichi, riepilogo }: {
+  commessa: Commessa; schede: Scheda[]; carichi: Carico[]; riepilogo: RiepilogoCommessa;
 }) {
   const completati = schede.filter((s) => s.statoProduzione === "Completato").length;
   const inLavorazione = schede.filter((s) => !["Completato", "Annullata", "Da Iniziare"].includes(s.statoProduzione ?? "")).length;
@@ -28,8 +27,6 @@ export default function CommessaPanoramica({ commessa, schede, carichi, riepilog
 
   return (
     <div className="space-y-5">
-      <CommessaPiante commessaId={commessa.id} piante={piante} canEdit={canEditPiante} />
-
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 rounded-lg border border-gray-200 bg-white p-4">
         {[
           { label: "Responsabile", value: commessa.responsabile || "—" },

@@ -800,7 +800,7 @@ export interface ZonaPianta {
   y: number;
   w: number;
   h: number;
-  areaId: string | null;
+  schedaId: string | null;
 }
 
 export const CATEGORIE_STORICO = ["Note", "Specifiche", "Documenti", "Campionature", "Produzione", "Logistica", "Commessa"] as const;

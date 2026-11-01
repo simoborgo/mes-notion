@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPiantaById, getAnteprima, setAnteprima } from "@/lib/commessePianteRepository";
-import { getSessionFromRequest, COMMESSA_CONTENUTO_ROLES } from "@/lib/auth";
+import { getSessionFromRequest, PIANTE_ROLES } from "@/lib/auth";
 
 type Ctx = { params: Promise<{ id: string; pianteId: string }> };
 
@@ -19,7 +19,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 // Salvata dal browser, che ha già renderizzato la prima pagina; body = JPEG grezzo.
 export async function PUT(req: NextRequest, { params }: Ctx) {
   const session = await getSessionFromRequest(req);
-  if (!session || !COMMESSA_CONTENUTO_ROLES.includes(session.role)) {
+  if (!session || !PIANTE_ROLES.includes(session.role)) {
     return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
   }
   const { id, pianteId } = await params;

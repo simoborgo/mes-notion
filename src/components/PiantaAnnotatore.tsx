@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { Area, CommessaPianta, ZonaPianta } from "@/lib/types";
+import type { CommessaPianta, ZonaPianta } from "@/lib/types";
 import PdfAnnotabile, { type Annotazioni, type ModoPianta, type ZonaRender } from "./PdfAnnotabile";
 import BadgeStato from "./BadgeStato";
 
@@ -13,29 +13,28 @@ export interface OdpPianta {
   numeroScheda: string;
   statoProduzione: string;
   faseCorrente: string;
-  areaId: string | null;
 }
 
 const COLORI = { nessuno: "#9CA3AF", daIniziare: "#3B82F6", inLavorazione: "#F59E0B", completato: "#16A34A" };
 
-// Stato della zona = riassunto degli ODP dell'area: tutti completati → verde, almeno uno avviato
-// → arancio, tutti da iniziare → blu, nessun ODP → grigio tratteggiato.
-function coloreZona(odp: OdpPianta[]): { colore: string; tratteggio: boolean } {
-  const attivi = odp.filter((o) => o.statoProduzione !== "Annullata");
-  if (attivi.length === 0) return { colore: COLORI.nessuno, tratteggio: true };
-  if (attivi.every((o) => o.statoProduzione === "Completato")) return { colore: COLORI.completato, tratteggio: false };
-  if (attivi.every((o) => !o.statoProduzione || o.statoProduzione === "Da Iniziare")) return { colore: COLORI.daIniziare, tratteggio: false };
-  return { colore: COLORI.inLavorazione, tratteggio: false };
+// Stato della zona = stato dell'ODP agganciato: completato → verde con spunta, avviato → arancio,
+// da iniziare → blu, annullato o zona senza ODP → grigio tratteggiato.
+function statoZona(o: OdpPianta | undefined): { colore: string; tratteggio: boolean; spuntata: boolean } {
+  if (!o || o.statoProduzione === "Annullata") return { colore: COLORI.nessuno, tratteggio: true, spuntata: false };
+  if (o.statoProduzione === "Completato") return { colore: COLORI.completato, tratteggio: false, spuntata: true };
+  if (!o.statoProduzione || o.statoProduzione === "Da Iniziare") return { colore: COLORI.daIniziare, tratteggio: false, spuntata: false };
+  return { colore: COLORI.inLavorazione, tratteggio: false, spuntata: false };
 }
 
-const etichettaArea = (a: Area) => a.posizione || a.nomeArredo || "Area senza nome";
+const etichettaOdp = (o: OdpPianta) => o.odp || o.numeroScheda || "—";
 const inputCls = "border rounded px-2 py-1 text-sm bg-white w-full focus:outline-none focus:ring-2 focus:ring-orange-300";
 
-// Pianta annotabile (stesso motore delle spedizioni) con le zone cliccabili agganciate alle Aree.
+// Pianta annotabile (stesso motore delle spedizioni) con le zone cliccabili agganciate agli ODP.
+// Chi non modifica la vede in sola lettura: un clic su una zona apre subito la scheda ODP.
 // I segni si salvano da soli 2s dopo l'ultima modifica; le zone si salvano subito.
-export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, aree, odp, areeConZona, canEdit, canCreaArea }: {
-  pianta: CommessaPianta; iniziali: Partial<Annotazioni>; zoneIniziali: ZonaPianta[]; aree: Area[]; odp: OdpPianta[];
-  areeConZona: string[]; canEdit: boolean; canCreaArea: boolean;
+export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, odp, schedeConZona, canEdit }: {
+  pianta: CommessaPianta; iniziali: Partial<Annotazioni>; zoneIniziali: ZonaPianta[]; odp: OdpPianta[];
+  schedeConZona: string[]; canEdit: boolean;
 }) {
   const router = useRouter();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -43,24 +42,17 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, aree,
   const [stato, setStato] = useState<"" | "salvo" | "salvato" | "errore">("");
   const [modo, setModo] = useState<ModoPianta>("vista");
   const [zone, setZone] = useState<ZonaPianta[]>(zoneIniziali);
-  const [conZona, setConZona] = useState<Set<string>>(new Set(areeConZona));
+  const [conZona, setConZona] = useState<Set<string>>(new Set(schedeConZona));
   const [selId, setSelId] = useState<string | null>(null);
   const [nuova, setNuova] = useState<{ pagina: number; x: number; y: number; w: number; h: number } | null>(null);
   const [errore, setErrore] = useState("");
 
-  const areaPerId = useMemo(() => new Map(aree.map((a) => [a.id, a])), [aree]);
-  const odpPerArea = useMemo(() => {
-    const m = new Map<string, OdpPianta[]>();
-    for (const o of odp) if (o.areaId) m.set(o.areaId, [...(m.get(o.areaId) ?? []), o]);
-    return m;
-  }, [odp]);
+  const odpPerId = useMemo(() => new Map(odp.map((o) => [o.id, o])), [odp]);
 
   const zoneRender: ZonaRender[] = useMemo(() => zone.map((z) => {
-    const area = z.areaId ? areaPerId.get(z.areaId) : undefined;
-    const lista = z.areaId ? odpPerArea.get(z.areaId) ?? [] : [];
-    const { colore, tratteggio } = area ? coloreZona(lista) : { colore: COLORI.nessuno, tratteggio: true };
-    return { id: z.id, pagina: z.pagina, x: z.x, y: z.y, w: z.w, h: z.h, colore, tratteggio, etichetta: area ? etichettaArea(area) : "?", conteggio: lista.length || null, selezionata: z.id === selId };
-  }), [zone, areaPerId, odpPerArea, selId]);
+    const o = z.schedaId ? odpPerId.get(z.schedaId) : undefined;
+    return { id: z.id, pagina: z.pagina, x: z.x, y: z.y, w: z.w, h: z.h, ...statoZona(o), etichetta: o ? etichettaOdp(o) : "?", conteggio: null, selezionata: z.id === selId };
+  }), [zone, odpPerId, selId]);
 
   const salva = useCallback(async () => {
     const a = ultimoRef.current;
@@ -89,43 +81,51 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, aree,
 
   const urlZone = `/api/commesse/${pianta.commessaId}/piante/${pianta.id}/zone`;
 
-  async function confermaNuova(areaId: string) {
+  // In Vista (anche in sola lettura) il clic su una zona va dritto alla scheda; in Zone la seleziona.
+  function onZonaClick(id: string | null) {
+    const z = zone.find((x) => x.id === id);
+    if (modo === "zone" && canEdit) { setSelId(id); return; }
+    if (z?.schedaId) router.push(`/schede/${z.schedaId}`);
+    else setSelId(id);
+  }
+
+  async function confermaNuova(schedaId: string) {
     if (!nuova) return;
     setErrore("");
-    const res = await fetch(urlZone, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...nuova, areaId }) });
+    const res = await fetch(urlZone, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...nuova, schedaId }) });
     const json = await res.json().catch(() => ({}));
     if (!res.ok) { setErrore(json.error ?? "Errore nel salvataggio della zona"); return; }
     setZone((z) => [...z, json as ZonaPianta]);
-    setConZona((s) => new Set(s).add(areaId));
+    setConZona((s) => new Set(s).add(schedaId));
     setSelId((json as ZonaPianta).id);
     setNuova(null);
   }
 
   async function eliminaZona(z: ZonaPianta) {
-    if (!window.confirm("Eliminare questa zona dalla pianta? L'area e i suoi ODP non vengono toccati.")) return;
+    if (!window.confirm("Eliminare questa zona dalla pianta? L'ODP non viene toccato.")) return;
     const res = await fetch(`${urlZone}/${z.id}`, { method: "DELETE" });
     if (!res.ok) { setErrore("Errore nell'eliminazione della zona"); return; }
-    setZone((lista) => lista.filter((x) => x.id !== z.id));
+    const resto = zone.filter((x) => x.id !== z.id);
+    setZone(resto);
+    setConZona(new Set(resto.map((x) => x.schedaId).filter((x): x is string => !!x)));
     setSelId(null);
-    router.refresh();
   }
 
-  async function cambiaArea(z: ZonaPianta, areaId: string) {
-    const res = await fetch(`${urlZone}/${z.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ areaId }) });
-    if (!res.ok) { setErrore("Errore nel cambio di area"); return; }
-    setZone((lista) => lista.map((x) => (x.id === z.id ? { ...x, areaId } : x)));
-    setConZona((s) => new Set(s).add(areaId));
+  async function cambiaOdp(z: ZonaPianta, schedaId: string) {
+    const res = await fetch(`${urlZone}/${z.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ schedaId }) });
+    if (!res.ok) { setErrore("Errore nel cambio di ODP"); return; }
+    setZone((lista) => lista.map((x) => (x.id === z.id ? { ...x, schedaId } : x)));
+    setConZona((s) => new Set(s).add(schedaId));
   }
 
   const sel = zone.find((z) => z.id === selId) ?? null;
-  const selArea = sel?.areaId ? areaPerId.get(sel.areaId) : undefined;
-  const selOdp = sel?.areaId ? odpPerArea.get(sel.areaId) ?? [] : [];
-  const senzaZona = aree.filter((a) => !conZona.has(a.id));
+  const selOdp = sel?.schedaId ? odpPerId.get(sel.schedaId) : undefined;
+  const senzaZona = odp.filter((o) => !conZona.has(o.id) && o.statoProduzione !== "Annullata");
 
   const btnModo = (m: ModoPianta, label: string) => (
     <button
       key={m}
-      onClick={() => { setModo(m); setNuova(null); }}
+      onClick={() => { setModo(m); setNuova(null); setSelId(null); }}
       style={{ padding: "5px 10px", borderRadius: 4, fontSize: 12, cursor: "pointer", border: "1px solid #E5E4E0", background: modo === m ? "#1A1918" : "#F5F2EE", color: modo === m ? "white" : "#1A1918", fontWeight: modo === m ? 700 : 400 }}
     >{label}</button>
   );
@@ -144,42 +144,34 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, aree,
             modo={canEdit ? modo : "vista"}
             zone={zoneRender}
             onZonaCreata={(r) => { setNuova(r); setSelId(null); }}
-            onZonaClick={setSelId}
+            onZonaClick={onZonaClick}
             barraExtra={barraModi}
           />
         </div>
 
-        <aside className="lg:w-80 shrink-0 rounded-lg border border-gray-200 bg-white p-3 space-y-3 overflow-y-auto" style={{ maxHeight: "calc(100vh - 220px)" }}>
+        <aside className="lg:w-72 shrink-0 rounded-lg border border-gray-200 bg-white p-3 space-y-3 overflow-y-auto" style={{ maxHeight: "calc(100vh - 220px)" }}>
           {nuova ? (
-            <NuovaZona aree={aree} conZona={conZona} commessaId={pianta.commessaId} canCreaArea={canCreaArea} onConferma={confermaNuova} onAnnulla={() => setNuova(null)} />
+            <NuovaZona odp={odp} conZona={conZona} onConferma={confermaNuova} onAnnulla={() => setNuova(null)} />
           ) : sel ? (
             <div className="space-y-2">
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-grey-mid)" }}>Zona</p>
-                  <p className="font-semibold">{selArea ? etichettaArea(selArea) : "Area non agganciata"}</p>
-                  {selArea && selArea.posizione && selArea.nomeArredo && <p className="text-xs" style={{ color: "var(--color-grey-mid)" }}>{selArea.nomeArredo}</p>}
+                  {selOdp ? (
+                    <Link href={`/schede/${selOdp.id}`} className="font-semibold underline tabular-nums" style={{ color: "var(--color-primary)" }}>{etichettaOdp(selOdp)}</Link>
+                  ) : <p className="font-semibold">ODP non agganciato</p>}
                 </div>
                 <button type="button" className="text-xs underline" onClick={() => setSelId(null)}>Chiudi</button>
               </div>
-              {selOdp.length === 0 ? (
-                <p className="text-sm" style={{ color: "var(--color-grey-mid)" }}>{selArea ? "Nessun ODP su questa area." : "Scegli l'area a cui agganciarla."}</p>
-              ) : (
-                <ul className="divide-y divide-gray-100 border rounded" style={{ borderColor: "#E4E0DA" }}>
-                  {selOdp.map((o) => (
-                    <li key={o.id} className="flex items-center justify-between gap-2 px-2 py-1.5 text-sm">
-                      <Link href={`/schede/${o.id}`} className="underline font-medium tabular-nums" style={{ color: "var(--color-primary)" }}>{o.odp || o.numeroScheda || "—"}</Link>
-                      <span className="flex items-center gap-1">{o.faseCorrente && <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>{o.faseCorrente}</span>}{o.statoProduzione && <BadgeStato stato={o.statoProduzione} />}</span>
-                    </li>
-                  ))}
-                </ul>
+              {selOdp && (
+                <p className="flex items-center gap-2 text-sm">
+                  {selOdp.statoProduzione && <BadgeStato stato={selOdp.statoProduzione} />}
+                  {selOdp.faseCorrente && <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>{selOdp.faseCorrente}</span>}
+                </p>
               )}
               {canEdit && (
                 <div className="space-y-2 pt-1">
-                  <select className={inputCls} value={sel.areaId ?? ""} onChange={(e) => e.target.value && cambiaArea(sel, e.target.value)} aria-label="Area della zona">
-                    <option value="">— Scegli area —</option>
-                    {aree.map((a) => <option key={a.id} value={a.id}>{etichettaArea(a)}{a.posizione && a.nomeArredo ? ` — ${a.nomeArredo}` : ""}</option>)}
-                  </select>
+                  <OdpSelect odp={odp} conZona={conZona} value={sel.schedaId ?? ""} onChange={(id) => cambiaOdp(sel, id)} />
                   <button type="button" className="text-xs underline" style={{ color: "#991B1B" }} onClick={() => eliminaZona(sel)}>Elimina zona</button>
                 </div>
               )}
@@ -188,19 +180,20 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, aree,
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-grey-mid)" }}>Legenda</p>
               <ul className="text-xs space-y-1">
-                {([["Nessun ODP", COLORI.nessuno], ["Da iniziare", COLORI.daIniziare], ["In lavorazione", COLORI.inLavorazione], ["Completato", COLORI.completato]] as const).map(([t, c]) => (
+                {([["Nessun ODP", COLORI.nessuno], ["Da iniziare", COLORI.daIniziare], ["In lavorazione", COLORI.inLavorazione], ["Completato ✓", COLORI.completato]] as const).map(([t, c]) => (
                   <li key={t} className="flex items-center gap-2"><span style={{ width: 12, height: 12, background: c, borderRadius: 2, display: "inline-block" }} />{t}</li>
                 ))}
               </ul>
-              <p className="text-xs font-semibold uppercase tracking-wide pt-2" style={{ color: "var(--color-grey-mid)" }}>Aree senza zona ({senzaZona.length}/{aree.length})</p>
+              <p className="text-xs pt-1" style={{ color: "var(--color-grey-mid)" }}>Clicca una zona per aprire la scheda ODP.</p>
+              <p className="text-xs font-semibold uppercase tracking-wide pt-2" style={{ color: "var(--color-grey-mid)" }}>ODP senza zona ({senzaZona.length}/{odp.length})</p>
               {senzaZona.length === 0 ? (
-                <p className="text-sm" style={{ color: "var(--color-grey-mid)" }}>{aree.length === 0 ? "Questa commessa non ha ancora aree." : "Tutte le aree hanno una zona."}</p>
+                <p className="text-sm" style={{ color: "var(--color-grey-mid)" }}>{odp.length === 0 ? "Questa commessa non ha ancora ODP." : "Tutti gli ODP hanno una zona."}</p>
               ) : (
                 <ul className="text-sm space-y-0.5">
-                  {senzaZona.map((a) => <li key={a.id}>{etichettaArea(a)}{a.posizione && a.nomeArredo ? <span style={{ color: "var(--color-grey-mid)" }}> — {a.nomeArredo}</span> : null}</li>)}
+                  {senzaZona.map((o) => <li key={o.id}><Link href={`/schede/${o.id}`} className="underline tabular-nums">{etichettaOdp(o)}</Link>{o.numeroScheda && o.odp ? <span style={{ color: "var(--color-grey-mid)" }}> · {o.numeroScheda}</span> : null}</li>)}
                 </ul>
               )}
-              {canEdit && <p className="text-xs pt-2" style={{ color: "var(--color-grey-mid)" }}>Modalità <b>Zone</b>: trascina un rettangolo sull&apos;ingombro dell&apos;arredo. <b>Segna</b>: evidenziatore e bolli. <b>Vista</b>: clicca le zone.</p>}
+              {canEdit && <p className="text-xs pt-2" style={{ color: "var(--color-grey-mid)" }}><b>Zone</b>: trascina un rettangolo sull&apos;ingombro e scegli l&apos;ODP. <b>Segna</b>: evidenziatore e bolli. <b>Vista</b>: clic sulle zone.</p>}
             </div>
           )}
           {errore && <p className="text-xs" style={{ color: "#991B1B" }}>{errore}</p>}
@@ -215,62 +208,32 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, aree,
   );
 }
 
-// Dopo aver disegnato il rettangolo: scegli l'area esistente oppure creane una con il codice del keyplan.
-function NuovaZona({ aree, conZona, commessaId, canCreaArea, onConferma, onAnnulla }: {
-  aree: Area[]; conZona: Set<string>; commessaId: string; canCreaArea: boolean; onConferma: (areaId: string) => void; onAnnulla: () => void;
-}) {
-  const router = useRouter();
-  const [areaId, setAreaId] = useState("");
-  const [creaNuova, setCreaNuova] = useState(false);
-  const [codice, setCodice] = useState("");
-  const [nome, setNome] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [errore, setErrore] = useState("");
+// Elenco ODP con filtro testuale (le commesse grandi ne hanno decine); ✓ = già sulla pianta.
+function OdpSelect({ odp, conZona, value, onChange }: { odp: OdpPianta[]; conZona: Set<string>; value: string; onChange: (id: string) => void }) {
+  const [filtro, setFiltro] = useState("");
+  const visibili = odp.filter((o) => o.statoProduzione !== "Annullata" && (!filtro || `${o.odp} ${o.numeroScheda}`.toLowerCase().includes(filtro.toLowerCase())));
+  return (
+    <div className="space-y-1">
+      <input className={inputCls} value={filtro} onChange={(e) => setFiltro(e.target.value)} placeholder="Cerca ODP o n° scheda" aria-label="Cerca ODP" />
+      <select className={inputCls} size={Math.min(7, Math.max(3, visibili.length))} value={value} onChange={(e) => e.target.value && onChange(e.target.value)} aria-label="ODP della zona">
+        {visibili.map((o) => <option key={o.id} value={o.id}>{conZona.has(o.id) ? "✓ " : ""}{etichettaOdp(o)}{o.numeroScheda && o.odp ? ` · ${o.numeroScheda}` : ""}{o.statoProduzione ? ` · ${o.statoProduzione}` : ""}</option>)}
+      </select>
+    </div>
+  );
+}
 
-  async function creaEConferma() {
-    if (!codice.trim() && !nome.trim()) { setErrore("Inserisci almeno il codice keyplan o il nome"); return; }
-    setBusy(true); setErrore("");
-    try {
-      const res = await fetch("/api/aree", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ commessaId, nomeArredo: nome, posizione: codice }) });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json.error ?? "Errore creazione area");
-      router.refresh();
-      onConferma((json as Area).id);
-    } catch (e) {
-      setErrore(e instanceof Error ? e.message : "Errore");
-    } finally {
-      setBusy(false);
-    }
-  }
-
+// Dopo aver disegnato il rettangolo: scegli l'ODP da agganciare.
+function NuovaZona({ odp, conZona, onConferma, onAnnulla }: { odp: OdpPianta[]; conZona: Set<string>; onConferma: (schedaId: string) => void; onAnnulla: () => void }) {
+  const [schedaId, setSchedaId] = useState("");
   return (
     <div className="space-y-2">
-      <p className="font-semibold">Nuova zona</p>
-      {!creaNuova ? (
-        <>
-          <select className={inputCls} value={areaId} onChange={(e) => setAreaId(e.target.value)} aria-label="Area da agganciare">
-            <option value="">— Scegli area —</option>
-            {aree.map((a) => <option key={a.id} value={a.id}>{conZona.has(a.id) ? "✓ " : ""}{etichettaArea(a)}{a.posizione && a.nomeArredo ? ` — ${a.nomeArredo}` : ""}</option>)}
-          </select>
-          <p className="text-[11px]" style={{ color: "var(--color-grey-mid)" }}>✓ = già presente sulla pianta (puoi comunque agganciarne un&apos;altra zona).</p>
-          <div className="flex items-center gap-3">
-            <button type="button" disabled={!areaId} onClick={() => onConferma(areaId)} className="text-sm px-3 py-1.5 rounded font-medium text-white disabled:opacity-40" style={{ background: "var(--color-primary)" }}>Aggancia</button>
-            {canCreaArea && <button type="button" className="text-xs underline" onClick={() => setCreaNuova(true)}>+ Nuova area</button>}
-            <button type="button" className="text-xs underline ml-auto" onClick={onAnnulla}>Annulla</button>
-          </div>
-        </>
-      ) : (
-        <>
-          <input className={inputCls} value={codice} onChange={(e) => setCodice(e.target.value)} placeholder="Codice keyplan (es. A12)" aria-label="Codice keyplan" />
-          <input className={inputCls} value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome arredo (facoltativo)" aria-label="Nome arredo" />
-          <div className="flex items-center gap-3">
-            <button type="button" disabled={busy} onClick={creaEConferma} className="text-sm px-3 py-1.5 rounded font-medium text-white disabled:opacity-40" style={{ background: "var(--color-primary)" }}>{busy ? "Creo…" : "Crea e aggancia"}</button>
-            <button type="button" className="text-xs underline" onClick={() => setCreaNuova(false)}>Indietro</button>
-            <button type="button" className="text-xs underline ml-auto" onClick={onAnnulla}>Annulla</button>
-          </div>
-        </>
-      )}
-      {errore && <p className="text-xs" style={{ color: "#991B1B" }}>{errore}</p>}
+      <p className="font-semibold">Nuova zona: scegli l&apos;ODP</p>
+      <OdpSelect odp={odp} conZona={conZona} value={schedaId} onChange={setSchedaId} />
+      <p className="text-[11px]" style={{ color: "var(--color-grey-mid)" }}>✓ = ODP già presente sulla pianta (puoi agganciarlo anche a un&apos;altra zona).</p>
+      <div className="flex items-center gap-3">
+        <button type="button" disabled={!schedaId} onClick={() => onConferma(schedaId)} className="text-sm px-3 py-1.5 rounded font-medium text-white disabled:opacity-40" style={{ background: "var(--color-primary)" }}>Aggancia</button>
+        <button type="button" className="text-xs underline ml-auto" onClick={onAnnulla}>Annulla</button>
+      </div>
     </div>
   );
 }

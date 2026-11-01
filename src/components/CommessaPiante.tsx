@@ -50,7 +50,8 @@ function AnteprimaPianta({ pianta }: { pianta: CommessaPianta }) {
   useEffect(() => {
     if (pianta.haAnteprima) return;
     let cancelled = false;
-    (async () => {
+    // dopo il primo paint: il rendering pdf.js non deve bloccare l'apertura della tab
+    const avvio = setTimeout(() => { (async () => {
       try {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -64,8 +65,8 @@ function AnteprimaPianta({ pianta }: { pianta: CommessaPianta }) {
       } catch {
         if (!cancelled) setErrore(true);
       }
-    })();
-    return () => { cancelled = true; };
+    })(); }, 400);
+    return () => { cancelled = true; clearTimeout(avvio); };
   }, [pianta]);
 
   if (errore) return <p className="p-6 text-sm" style={{ color: "#991B1B" }}>Anteprima non disponibile. Apri la pianta con il pulsante qui sotto.</p>;

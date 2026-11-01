@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getPiantaById, rinominaPianta, sostituisciFilePianta, deletePianta } from "@/lib/commessePianteRepository";
-import { getSessionFromRequest, COMMESSA_CONTENUTO_ROLES } from "@/lib/auth";
+import { getSessionFromRequest, PIANTE_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
 type Ctx = { params: Promise<{ id: string; pianteId: string }> };
@@ -9,7 +9,7 @@ type Ctx = { params: Promise<{ id: string; pianteId: string }> };
 // Rinomina (etichetta) e/o sostituisce il file di una pianta, senza perderne posizione e zone.
 export async function PATCH(req: NextRequest, { params }: Ctx) {
   const session = await getSessionFromRequest(req);
-  if (!session || !COMMESSA_CONTENUTO_ROLES.includes(session.role)) {
+  if (!session || !PIANTE_ROLES.includes(session.role)) {
     return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
   }
   const { id, pianteId } = await params;
@@ -42,7 +42,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 export async function DELETE(req: NextRequest, { params }: Ctx) {
   try {
     const session = await getSessionFromRequest(req);
-    if (!session || !COMMESSA_CONTENUTO_ROLES.includes(session.role)) {
+    if (!session || !PIANTE_ROLES.includes(session.role)) {
       return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
     }
     const { id, pianteId } = await params;

@@ -4,7 +4,7 @@ import { getCommessaById, getRiepilogoCommessa } from "@/lib/commesseRepository"
 import { getCarichiByCommessa } from "@/lib/carichiRepository";
 import { getSchedeConFotoByCommessa } from "@/lib/schedeVerniciaturaRepository";
 import { getAreeByCommessa } from "@/lib/areeRepository";
-import { getSession, VERNICIATURA_ROLES, COMMESSA_CONTENUTO_ROLES } from "@/lib/auth";
+import { getSession, VERNICIATURA_ROLES, COMMESSA_CONTENUTO_ROLES, PIANTE_ROLES } from "@/lib/auth";
 import { getSpecificheByCommessa } from "@/lib/commessaSpecificheRepository";
 import { getAllegatiByCommessa } from "@/lib/commessaAllegatiRepository";
 import { getPianteByCommessa } from "@/lib/commessePianteRepository";
@@ -15,13 +15,14 @@ import CommessaPanoramica from "@/components/CommessaPanoramica";
 import CommessaOdp from "@/components/CommessaOdp";
 import CommessaSpecifiche from "@/components/CommessaSpecifiche";
 import CommessaCampionature from "@/components/CommessaCampionature";
+import CommessaPiante from "@/components/CommessaPiante";
 import CommessaDocumenti from "@/components/CommessaDocumenti";
 import CommessaStorico from "@/components/CommessaStorico";
 import AreeSection from "@/components/AreeSection";
 
 export const dynamic = "force-dynamic";
 
-const TAB_VALIDE = ["panoramica", "aree", "specifiche", "campionature", "documenti", "storico"] as const;
+const TAB_VALIDE = ["panoramica", "piante", "aree", "specifiche", "campionature", "documenti", "storico"] as const;
 type TabCommessa = (typeof TAB_VALIDE)[number];
 
 // Scheda commessa a pagina piena: unico dettaglio della commessa (l'elenco apre questa pagina dal
@@ -51,6 +52,7 @@ export default async function CommessaPage({ params, searchParams }: { params: P
         attiva={tabAttiva}
         tabs={[
           { key: "panoramica", label: "Panoramica" },
+          { key: "piante", label: "Pianta", count: piante.length },
           { key: "aree", label: "Aree e ODP", count: schede.length },
           { key: "specifiche", label: "Specifiche", count: specifiche.length },
           { key: "campionature", label: "Campionature", count: riepilogo.campionature },
@@ -59,7 +61,8 @@ export default async function CommessaPage({ params, searchParams }: { params: P
         ]}
       />
 
-      {tabAttiva === "panoramica" && <CommessaPanoramica commessa={commessa} schede={schede} carichi={carichi} riepilogo={riepilogo} piante={piante} canEditPiante={canContenuto} />}
+      {tabAttiva === "panoramica" && <CommessaPanoramica commessa={commessa} schede={schede} carichi={carichi} riepilogo={riepilogo} />}
+      {tabAttiva === "piante" && <CommessaPiante commessaId={commessa.id} piante={piante} canEdit={!!session && PIANTE_ROLES.includes(session.role)} />}
       {tabAttiva === "aree" && (
         <div className="space-y-6">
           <AreeSection commessaId={commessa.id} areeIniziali={aree} schede={schede} userRole={session?.role} />

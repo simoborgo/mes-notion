@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPiantaById, addZona } from "@/lib/commessePianteRepository";
-import { getSessionFromRequest, COMMESSA_CONTENUTO_ROLES } from "@/lib/auth";
+import { getSessionFromRequest, PIANTE_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
 const unitario = (n: unknown) => typeof n === "number" && Number.isFinite(n) && n >= 0 && n <= 1;
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string; pianteId: string }> }) {
   const session = await getSessionFromRequest(req);
-  if (!session || !COMMESSA_CONTENUTO_ROLES.includes(session.role)) {
+  if (!session || !PIANTE_ROLES.includes(session.role)) {
     return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
   }
   const { id, pianteId } = await params;
@@ -20,9 +20,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const zona = await addZona({
       piantaId: pianteId, pagina: Number.isInteger(b.pagina) && b.pagina > 0 ? b.pagina : 1,
-      x: b.x, y: b.y, w: b.w, h: b.h, areaId: typeof b.areaId === "string" && b.areaId ? b.areaId : null, creatoDa: session.name,
+      x: b.x, y: b.y, w: b.w, h: b.h, schedaId: typeof b.schedaId === "string" && b.schedaId ? b.schedaId : null, creatoDa: session.name,
     });
-    void logOperation(session.name, "CREATE", "pianta_zona", zona.id, { piantaId: pianteId, areaId: zona.areaId });
+    void logOperation(session.name, "CREATE", "pianta_zona", zona.id, { piantaId: pianteId, schedaId: zona.schedaId });
     return NextResponse.json(zona, { status: 201 });
   } catch (e) {
     console.error(e);

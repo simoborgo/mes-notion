@@ -67,6 +67,7 @@ export interface ZonaRender {
   conteggio: number | null;
   selezionata: boolean;
   tratteggio?: boolean;
+  spuntata?: boolean; // lavoro completato: segno di spunta al centro
 }
 // segni = disegno a mano libera e bolli (default, come la spedizione); zone = si trascina un
 // rettangolo; vista = i tocchi servono solo a cliccare le zone e il dito può scorrere la pagina.
@@ -167,6 +168,19 @@ export default function PdfAnnotabile({ url, mimeType, iniziali, onChange, readO
       ctx.setLineDash(z.tratteggio ? [6, 4] : []);
       ctx.strokeRect(zx, zy, zw, zh);
       ctx.setLineDash([]);
+      if (z.spuntata) {
+        const cs = Math.min(zw, zh, W * 0.05) * 0.5;
+        const cx = zx + zw / 2, cy = zy + zh / 2;
+        ctx.globalAlpha = 0.95;
+        ctx.strokeStyle = z.colore;
+        ctx.lineWidth = Math.max(3, cs * 0.28);
+        ctx.lineCap = "round"; ctx.lineJoin = "round";
+        ctx.beginPath();
+        ctx.moveTo(cx - cs * 0.6, cy);
+        ctx.lineTo(cx - cs * 0.15, cy + cs * 0.45);
+        ctx.lineTo(cx + cs * 0.65, cy - cs * 0.45);
+        ctx.stroke();
+      }
       if (z.etichetta || z.conteggio) {
         ctx.font = `bold ${Math.round(fs)}px sans-serif`;
         ctx.textAlign = "left";

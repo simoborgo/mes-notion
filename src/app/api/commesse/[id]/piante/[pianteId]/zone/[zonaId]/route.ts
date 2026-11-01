@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPiantaById, getZonaById, updateZona, deleteZona } from "@/lib/commessePianteRepository";
-import { getSessionFromRequest, COMMESSA_CONTENUTO_ROLES } from "@/lib/auth";
+import { getSessionFromRequest, PIANTE_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
 type Ctx = { params: Promise<{ id: string; pianteId: string; zonaId: string }> };
 
 async function verifica(req: NextRequest, { params }: Ctx) {
   const session = await getSessionFromRequest(req);
-  if (!session || !COMMESSA_CONTENUTO_ROLES.includes(session.role)) {
+  if (!session || !PIANTE_ROLES.includes(session.role)) {
     return { errore: NextResponse.json({ error: "Permesso negato" }, { status: 403 }) };
   }
   const { id, pianteId, zonaId } = await params;
@@ -25,9 +25,9 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   const b = await req.json().catch(() => ({}));
   try {
     const zona = await updateZona(v.zonaId, {
-      areaId: b.areaId === undefined ? undefined : (typeof b.areaId === "string" && b.areaId ? b.areaId : null),
+      schedaId: b.schedaId === undefined ? undefined : (typeof b.schedaId === "string" && b.schedaId ? b.schedaId : null),
     });
-    void logOperation(v.session.name, "UPDATE", "pianta_zona", v.zonaId, { areaId: zona.areaId });
+    void logOperation(v.session.name, "UPDATE", "pianta_zona", v.zonaId, { schedaId: zona.schedaId });
     return NextResponse.json(zona);
   } catch (e) {
     console.error(e);

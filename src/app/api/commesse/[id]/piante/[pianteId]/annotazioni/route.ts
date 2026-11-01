@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPiantaById, saveAnnotazioniPianta } from "@/lib/commessePianteRepository";
-import { getSessionFromRequest, COMMESSA_CONTENUTO_ROLES } from "@/lib/auth";
+import { getSessionFromRequest, PIANTE_ROLES } from "@/lib/auth";
 
 // Salvataggio automatico dei segni (sostituisce tutto: l'ultimo che salva vince).
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string; pianteId: string }> }) {
   const session = await getSessionFromRequest(req);
-  if (!session || !COMMESSA_CONTENUTO_ROLES.includes(session.role)) {
+  if (!session || !PIANTE_ROLES.includes(session.role)) {
     return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
   }
   const { id, pianteId } = await params;
