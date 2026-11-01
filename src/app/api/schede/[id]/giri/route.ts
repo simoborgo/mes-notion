@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getGiriByScheda, createGiro } from "@/lib/giriRepository";
-import type { GiroInput } from "@/lib/types";
+import { creaMovimentiGiro } from "@/lib/ritiriRepository";
+import type { NuovoGiroInput } from "@/lib/types";
 import { getSessionFromRequest, MODIFICA_SCHEDA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 
@@ -24,10 +25,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
   try {
     const { id } = await params;
-    const body: GiroInput = await req.json();
-    const giro = await createGiro(id, body);
+    const { inviamoNoi, trasportoRitorno, ...dati }: NuovoGiroInput = await req.json();
+    const giro = await createGiro(id, dati);
+    // Il giro nasce con i suoi trasporti già in Ritiri e Consegne. Se fallisce il giro resta:
+    // i movimenti si possono sempre pianificare a mano dalla tab Fornitore.
+    try {
+      await creaMovimentiGiro(giro.id, { inviamoNoi, trasportoRitorno });
+    } catch (e) {
+      console.error("[POST /api/schede/[id]/giri] creaMovimentiGiro:", e);
+    }
     revalidatePath("/schede");
-    void logOperation(session.name, "CREATE", "scheda_giro", giro.id, { schedaId: id, ...body } as Record<string, unknown>);
+    revalidatePath("/ritiri");
+    void logOperation(session.name, "CREATE", "scheda_giro", giro.id, { schedaId: id, inviamoNoi, trasportoRitorno, ...dati } as Record<string, unknown>);
     return NextResponse.json(giro, { status: 201 });
   } catch (e) {
     console.error("[POST /api/schede/[id]/giri]", e);

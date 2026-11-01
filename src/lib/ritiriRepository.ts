@@ -1,10 +1,10 @@
 import { pool, dateToStr } from "./db";
-import type { Ritiro, RitiroUpdate, Scheda } from "./types";
+import type { Ritiro, RitiroUpdate, Scheda, TrasportoMovimento } from "./types";
 import { resolveSchedaFolder, getSchedaById, createSchedaPage, updateSchedaStato, getNextRilavorazioneOdp } from "./schedeRepository";
 import { uploadFotoRitiro as driveUploadFotoRitiro, getOrCreateCommessaFolder } from "./googleDriveSchede";
 import { getCommessaFolderId, setCommessaFolderId, getCommessaById } from "./commesseRepository";
 import { findFornitoreIdByName } from "./fornitoriRepository";
-import { getGiroAttivoId } from "./giriRepository";
+import { getGiroAttivoId, getGiroById } from "./giriRepository";
 
 // "ODP"/"Nr Commessa"/"Ordine Fornitore" su Ritiro erano rollup Notion dalla Scheda collegata
 // (relation "Scheda", verificato via schema Notion reale) — mai colonne proprie, quindi qui sono
@@ -85,6 +85,7 @@ function mapRow(r: any, allegati: Awaited<ReturnType<typeof caricaAllegati>>): R
     totColli: r.tot_colli,
     fornitore: r.fornitore_nome ?? "",
     fornitoreId: r.fornitore_id,
+    trasporto: r.trasporto ?? "Modar",
     ordineFornitore,
     note: r.descrizione,
     documentiAllegati: [],
@@ -133,6 +134,7 @@ export async function createRitiro({
   rilavorazioneId,
   commessaId,
   giroId,
+  trasporto,
 }: {
   causale: string;
   tipoMovimento?: string;
@@ -146,15 +148,17 @@ export async function createRitiro({
   rilavorazioneId?: string | null;
   commessaId?: string | null;
   giroId?: string | null; // se omesso, il giro attivo della scheda collegata
+  trasporto?: TrasportoMovimento;
 }): Promise<Ritiro> {
   const giroEffettivo = giroId !== undefined ? giroId : (schedaId ? await getGiroAttivoId(schedaId, true) : null);
   const { rows } = await pool.query(
     `INSERT INTO ritiri (id, descrizione, tipo_movimento, data_trasporto, urgenza, nc, nr_collo, tot_colli,
-       scheda_id, fornitore_id, rilavorazione_id, commessa_id, giro_id)
-     VALUES (gen_random_uuid(), $1, COALESCE($2,''), $3, COALESCE($4,false), COALESCE($5,false), $6, $7, $8, $9, $10, $11, $12)
+       scheda_id, fornitore_id, rilavorazione_id, commessa_id, giro_id, trasporto)
+     VALUES (gen_random_uuid(), $1, COALESCE($2,''), $3, COALESCE($4,false), COALESCE($5,false), $6, $7, $8, $9, $10, $11, $12, $13)
      RETURNING id`,
     [causale, tipoMovimento || null, dataTrasporto || null, urgenza ?? false, nc ?? false, nrCollo ?? null,
-     totColli ?? null, schedaId || null, fornitoreId || null, rilavorazioneId || null, commessaId || null, giroEffettivo || null],
+     totColli ?? null, schedaId || null, fornitoreId || null, rilavorazioneId || null, commessaId || null, giroEffettivo || null,
+     trasporto ?? "Modar"],
   );
   return getRitiroById(rows[0].id as string);
 }
@@ -258,12 +262,47 @@ export async function updateRitiro(id: string, data: RitiroUpdate): Promise<Riti
   if (data.commessaId !== undefined) { sets.push(`commessa_id = $${i++}`); values.push(data.commessaId || null); }
   if (data.rilavorazioneId !== undefined) { sets.push(`rilavorazione_id = $${i++}`); values.push(data.rilavorazioneId || null); }
   if (data.giroId !== undefined) { sets.push(`giro_id = $${i++}`); values.push(data.giroId || null); }
+  if (data.trasporto !== undefined) { sets.push(`trasporto = $${i++}`); values.push(data.trasporto); }
   sets.push(`aggiornato_il = now()`);
 
   values.push(id);
   const { rows } = await pool.query(`UPDATE ritiri SET ${sets.join(", ")} WHERE id = $${i} RETURNING id`, values);
   if (rows.length === 0) throw new Error(`Ritiro non trovato: ${id}`);
   return getRitiroById(id);
+}
+
+// Movimenti che un giro nuovo porta con sé in Ritiri e Consegne: il Ritiro c'è sempre (il pezzo
+// deve tornare), datato al rientro previsto se già noto; la Consegna solo se il materiale parte da
+// Modar, e nasce senza data perché la programma la logistica. Chiamata solo alla creazione di un
+// giro dalla scheda o dall'import, non da createSchedaPage: le Rilavorazioni hanno già la loro
+// Consegna (createRilavorazione) e qui si duplicherebbe.
+export async function creaMovimentiGiro(
+  giroId: string,
+  { inviamoNoi = false, trasportoRitorno = "Modar" }: { inviamoNoi?: boolean; trasportoRitorno?: TrasportoMovimento } = {},
+): Promise<Ritiro[]> {
+  const giro = await getGiroById(giroId);
+  const scheda = await getSchedaById(giro.schedaId);
+  // Causale senza il nome del fornitore: il fornitore ha la sua colonna e può cambiare sul giro
+  // (si propaga ai movimenti aperti), la causale invece resterebbe vecchia.
+  const rif = `giro ${giro.ordine} — ${scheda.odp || scheda.numeroScheda || ""}`;
+  const comune = { schedaId: giro.schedaId, fornitoreId: giro.fornitoreId, giroId };
+  const movimenti: Ritiro[] = [];
+  if (inviamoNoi) {
+    movimenti.push(await createRitiro({
+      ...comune,
+      causale: `Consegna ${rif}`,
+      tipoMovimento: "Consegna",
+      dataTrasporto: null,
+    }));
+  }
+  movimenti.push(await createRitiro({
+    ...comune,
+    causale: `Ritiro ${rif}`,
+    tipoMovimento: "Ritiro",
+    dataTrasporto: giro.dataRientroPrevista,
+    trasporto: trasportoRitorno,
+  }));
+  return movimenti;
 }
 
 // Movimenti di un giro ancora da chiudere, del tipo legato all'azione sul giro (uscita → Consegna,

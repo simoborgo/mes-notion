@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
     }
     const body = await req.json();
-    const { causale, tipoMovimento, dataTrasporto, urgenza, nc, nrCollo, totColli, schedaId, fornitoreId, commessaId, giroId, foto_base64 } = body;
+    const { causale, tipoMovimento, dataTrasporto, urgenza, nc, nrCollo, totColli, schedaId, fornitoreId, commessaId, giroId, trasporto, foto_base64 } = body;
     if (!causale?.trim()) {
       return NextResponse.json({ error: "Descrizione obbligatoria" }, { status: 400 });
     }
@@ -102,6 +102,7 @@ export async function POST(req: NextRequest) {
       // Giro scelto nel form; se omesso createRitiro usa il giro attivo della scheda (anche per
       // la rilavorazione appena creata: il suo giro 1 è già stato aperto da createRilavorazione).
       giroId: giroId === undefined ? undefined : (giroId || null), // null = nessun giro, scelto esplicitamente
+      trasporto: trasporto === "Fornitore" ? "Fornitore" : "Modar",
     });
 
     const fotoArray: string[] = Array.isArray(foto_base64) ? foto_base64 : foto_base64 ? [foto_base64] : [];

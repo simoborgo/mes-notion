@@ -128,6 +128,25 @@ const COLONNE: Record<keyof GiroInput, string> = {
   dataRientroPrevista: "data_rientro_prevista", dataRientroEffettiva: "data_rientro_effettiva", note: "note",
 };
 
+// I movimenti di Ritiri e Consegne ancora aperti seguono il giro: il fornitore sempre, il rientro
+// previsto solo sul Ritiro che non ha ancora una data (una data già scelta dalla logistica resta).
+async function allineaMovimentiAperti(client: PoolClient, giroId: string, data: GiroInput): Promise<void> {
+  if (data.fornitoreId !== undefined) {
+    await client.query(
+      `UPDATE ritiri SET fornitore_id = $2, aggiornato_il = now()
+       WHERE giro_id = $1 AND stato <> 'Fatto' AND archiviato = false AND fornitore_id IS DISTINCT FROM $2`,
+      [giroId, vuoto(data.fornitoreId)],
+    );
+  }
+  if (data.dataRientroPrevista) {
+    await client.query(
+      `UPDATE ritiri SET data_trasporto = $2, aggiornato_il = now()
+       WHERE giro_id = $1 AND tipo_movimento = 'Ritiro' AND data_trasporto IS NULL AND stato <> 'Fatto' AND archiviato = false`,
+      [giroId, data.dataRientroPrevista],
+    );
+  }
+}
+
 async function aggiornaGiro(client: PoolClient, id: string, data: GiroInput): Promise<string> {
   const sets: string[] = [];
   const values: unknown[] = [];
@@ -146,6 +165,7 @@ async function aggiornaGiro(client: PoolClient, id: string, data: GiroInput): Pr
   );
   if (rows.length === 0) throw new Error(`Giro non trovato: ${id}`);
   const schedaId = rows[0].scheda_id as string;
+  await allineaMovimentiAperti(client, id, data);
   await sincronizzaRiepilogo(client, schedaId);
   return schedaId;
 }
@@ -162,9 +182,16 @@ export async function updateGiro(id: string, data: GiroInput): Promise<Giro> {
   return getGiroById(id);
 }
 
-// Il movimento in Ritiri e Consegne collegato resta, solo senza giro (ON DELETE SET NULL).
+// I movimenti del giro ancora "Da Fare" spariscono con lui (archiviati, come l'eliminazione da
+// Ritiri e Consegne): erano il suo viaggio, senza giro resterebbero in lista come lavoro fantasma.
+// Quelli già avviati o fatti restano, solo senza giro (ON DELETE SET NULL).
 export async function deleteGiro(id: string): Promise<string> {
   return inTransazione(async (client) => {
+    await client.query(
+      `UPDATE ritiri SET archiviato = true, aggiornato_il = now()
+       WHERE giro_id = $1 AND stato = 'Da Fare' AND archiviato = false`,
+      [id],
+    );
     const { rows } = await client.query(`DELETE FROM schede_giri WHERE id = $1 RETURNING scheda_id`, [id]);
     if (rows.length === 0) throw new Error(`Giro non trovato: ${id}`);
     const schedaId = rows[0].scheda_id as string;

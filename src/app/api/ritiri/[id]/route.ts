@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getSchedaById, updateSchedaRientrato, updateSchedaConsegnaFatta, updateRilavorazioneRientrata } from "@/lib/schedeRepository";
 import { updateRitiro, deleteRitiro, getRitiriByScheda, getRitiroById, createRilavorazione } from "@/lib/ritiriRepository";
-import type { RitiroUpdate } from "@/lib/types";
-import { getSessionFromRequest, WRITE_ROLES } from "@/lib/auth";
+import { TRASPORTI_MOVIMENTO, type RitiroUpdate } from "@/lib/types";
+import { getSessionFromRequest, WRITE_ROLES, MODIFICA_SCHEDA_ROLES } from "@/lib/auth";
 import { logOperation } from "@/lib/audit";
 import { notificaRientroGiro } from "@/lib/notificheGiri";
 import { getGiroAttivoId } from "@/lib/giriRepository";
@@ -14,11 +14,23 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const { id } = await params;
     const session = await getSessionFromRequest(req);
-    if (!session || !WRITE_ROLES.includes(session.role)) {
-      return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
-    }
+    if (!session) return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
     body = await req.json();
     console.log("[PATCH /api/ritiri/%s] operatore:%s payload:", id, session?.name, JSON.stringify(body));
+    // "Fatto dal fornitore" = { stato: "Fatto", trasporto: "Fornitore" }: passa dalla stessa logica
+    // "Fatto → giro" sotto, il giro avanza come per un trasporto Modar. Chi muove il giro dalla
+    // scheda (Produzione) può fare solo questo, e solo su un movimento di un giro: come per la
+    // chiusura dei movimenti dopo uscita/rientro (movimenti-aperti).
+    if (body!.trasporto !== undefined && !TRASPORTI_MOVIMENTO.includes(body!.trasporto)) {
+      return NextResponse.json({ error: "Trasporto non valido" }, { status: 400 });
+    }
+    const soloFattoDalFornitore = Object.keys(body!).sort().join() === "stato,trasporto"
+      && body!.stato === "Fatto" && body!.trasporto === "Fornitore";
+    if (!WRITE_ROLES.includes(session.role)) {
+      const ammesso = soloFattoDalFornitore && MODIFICA_SCHEDA_ROLES.includes(session.role)
+        && !!(await getRitiroById(id).catch(() => null))?.giroId;
+      if (!ammesso) return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
+    }
 
     // NC appena attivato + Consegna + Scheda collegata + nessuna Rilavorazione già
     // presente → crea la Rilavorazione e ricollega questo movimento (come in creazione).

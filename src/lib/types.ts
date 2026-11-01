@@ -101,6 +101,8 @@ export interface Ritiro {
   totColli: number | null;
   fornitore: string;
   fornitoreId: string | null;
+  // Chi fa il trasporto: il camion Modar (default) o il fornitore stesso
+  trasporto: TrasportoMovimento;
   ordineFornitore: { name: string; url: string }[];
   note: string;
   documentiAllegati: { name: string; url: string }[];
@@ -126,7 +128,11 @@ export interface RitiroUpdate {
   fornitoreId?: string | null;
   rilavorazioneId?: string | null;
   giroId?: string | null;
+  trasporto?: TrasportoMovimento;
 }
+
+export const TRASPORTI_MOVIMENTO = ["Modar", "Fornitore"] as const;
+export type TrasportoMovimento = (typeof TRASPORTI_MOVIMENTO)[number];
 
 export interface Commessa {
   id: string;
@@ -729,6 +735,13 @@ export interface GiroInput {
   dataRientroPrevista?: string | null;
   dataRientroEffettiva?: string | null;
   note?: string;
+}
+
+// Creazione di un giro: oltre ai dati del giro, se il materiale parte da Modar (serve anche la
+// Consegna oltre al Ritiro) e chi fa il trasporto di ritorno.
+export interface NuovoGiroInput extends GiroInput {
+  inviamoNoi?: boolean;
+  trasportoRitorno?: TrasportoMovimento;
 }
 
 // ── Specifiche di commessa (finiture, materiali, ignifugo) ───────────────────────────────────
