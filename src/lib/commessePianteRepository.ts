@@ -89,3 +89,21 @@ export async function getAnteprima(id: string): Promise<Buffer | null> {
 export async function setAnteprima(id: string, jpeg: Buffer): Promise<void> {
   await pool.query(`UPDATE commessa_piante SET anteprima = $2 WHERE id = $1`, [id, jpeg]);
 }
+
+export interface AnnotazioniPianta {
+  strokes: Record<string, unknown>;
+  stamps: Record<string, unknown>;
+}
+
+export async function getAnnotazioniPianta(piantaId: string): Promise<AnnotazioniPianta> {
+  const { rows } = await pool.query(`SELECT strokes, stamps FROM pianta_annotazioni WHERE pianta_id = $1`, [piantaId]);
+  return rows[0] ?? { strokes: {}, stamps: {} };
+}
+
+export async function saveAnnotazioniPianta(piantaId: string, a: AnnotazioniPianta, utente: string): Promise<void> {
+  await pool.query(
+    `INSERT INTO pianta_annotazioni (pianta_id, strokes, stamps, aggiornato_da) VALUES ($1,$2,$3,$4)
+     ON CONFLICT (pianta_id) DO UPDATE SET strokes = EXCLUDED.strokes, stamps = EXCLUDED.stamps, aggiornato_da = EXCLUDED.aggiornato_da, aggiornato_il = now()`,
+    [piantaId, JSON.stringify(a.strokes), JSON.stringify(a.stamps), utente],
+  );
+}
