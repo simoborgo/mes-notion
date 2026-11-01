@@ -189,12 +189,13 @@ export async function salvaStimaRepartoOfferta(offertaId: string, righe: StimaRe
 
 // Append-only per design: ripreventivare un articolo aggiunge una nuova riga, non
 // modifica mai quella precedente — lo storico dei preventivi resta consultabile.
-// Righe aggiungibili solo mentre l'offerta è ancora in stato "Offerta": una volta
-// confermata rappresenta l'ordine definitivo, non va più toccata da qui.
+// Righe aggiungibili finché l'offerta è "Offerta" o "Confermata" (al kick-off si completa la
+// lista degli elementi da produrre, a cui poi si collegano le schede); non se è "Persa".
+// Attenzione: le ore delle righe aggiunte dopo la conferma entrano nel Previsionale come le altre.
 export async function aggiungiRigaOfferta(entry: { offertaId: string; codiceArticolo: string; quantita: number; orePreventivate: number }): Promise<OffertaRiga> {
   const { rows: offertaRows } = await pool.query(`SELECT stato FROM offerte WHERE id = $1`, [entry.offertaId]);
   if (offertaRows.length === 0) throw new Error("Offerta non trovata");
-  if (offertaRows[0].stato !== "Offerta") throw new Error("Non è più possibile aggiungere righe: l'offerta non è più in stato 'Offerta'");
+  if (offertaRows[0].stato === "Persa") throw new Error("Non è possibile aggiungere righe: l'offerta è stata persa");
 
   // Crea il codice al volo se non censito (deciso con l'utente 2026-08-08): articoli è un
   // catalogo che deve poter crescere, non un elenco fisso — vedi ensureArticoloEsiste.
@@ -263,4 +264,46 @@ export async function segnaOffertaPersa(id: string): Promise<Offerta | null> {
 export async function eliminaOfferta(id: string): Promise<boolean> {
   const { rowCount } = await pool.query(`DELETE FROM offerte WHERE id = $1`, [id]);
   return (rowCount ?? 0) > 0;
+}
+
+// Avanzamento per riga (lista di kick-off): le schede collegate con schede.offerta_riga_id.
+// Si contano Scheda/Sottoscheda non archiviate né annullate (le rilavorazioni non sono disegni nuovi).
+export interface RigaAvanzamento {
+  schedeTotali: number;
+  daIniziare: number;
+  inProduzione: number;
+  completate: number;
+}
+
+export async function getAvanzamentoRighe(offertaId: string): Promise<Record<string, RigaAvanzamento>> {
+  const { rows } = await pool.query(
+    `SELECT r.id,
+            count(s.id)::int AS totali,
+            (count(s.id) FILTER (WHERE s.stato = 'Da Iniziare'))::int AS da_iniziare,
+            (count(s.id) FILTER (WHERE s.stato = 'Completato'))::int AS completate
+       FROM offerte_righe r
+       LEFT JOIN schede s ON s.offerta_riga_id = r.id
+                         AND s.archiviata = false
+                         AND s.stato <> 'Annullata'
+                         AND s.tipologia IN ('Scheda', 'Sottoscheda')
+      WHERE r.offerta_id = $1
+      GROUP BY r.id`,
+    [offertaId],
+  );
+  return Object.fromEntries(rows.map(r => [r.id, {
+    schedeTotali: r.totali,
+    daIniziare: r.da_iniziare,
+    completate: r.completate,
+    inProduzione: r.totali - r.da_iniziare - r.completate,
+  }]));
+}
+
+// Righe dell'offerta Confermata di una commessa: alimenta il menu "Riga dell'offerta" nella scheda.
+export async function getRighePerCommessa(commessaId: string): Promise<OffertaRiga[]> {
+  const { rows } = await pool.query(
+    `${RIGHE_JOIN} JOIN offerte o ON o.id = r.offerta_id
+      WHERE o.commessa_id = $1 AND o.stato = 'Confermata' ORDER BY r.creato_il`,
+    [commessaId],
+  );
+  return rows.map(mapRiga);
 }

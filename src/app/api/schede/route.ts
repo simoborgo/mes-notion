@@ -45,6 +45,7 @@ export async function POST(req: NextRequest) {
       produzioneEsterna: body.produzioneEsterna ?? undefined,
       note: body.note || null,
       areaId: typeof body.areaId === "string" && body.areaId ? body.areaId : null,
+      offertaRigaId: typeof body.offertaRigaId === "string" && body.offertaRigaId ? body.offertaRigaId : null,
     });
 
     revalidatePath("/schede");

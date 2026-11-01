@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Offerta, OffertaRiga, StimaRepartoRiga } from "@/lib/offerteRepository";
+import type { Offerta, OffertaRiga, StimaRepartoRiga, RigaAvanzamento } from "@/lib/offerteRepository";
 import type { Articolo } from "@/lib/articoliRepository";
 import { REPARTI_PRODUZIONE } from "@/lib/types";
 import CodiceArticoloAutocomplete from "./CodiceArticoloAutocomplete";
@@ -21,6 +21,22 @@ function fmtData(d: string | null) {
   return new Date(y, m - 1, day).toLocaleDateString("it-IT");
 }
 
+function AvanzamentoRiga({ av }: { av?: RigaAvanzamento }) {
+  if (!av || av.schedeTotali === 0) {
+    return <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: "#FEE2E2", color: "#991B1B" }}>nessuna scheda</span>;
+  }
+  const completa = av.completate === av.schedeTotali;
+  return (
+    <span
+      className="text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap"
+      style={completa ? { background: "#DCFCE7", color: "#166534" } : { background: "#FEF3C7", color: "#92400E" }}
+      title={`${av.daIniziare} da iniziare · ${av.inProduzione} in lavorazione · ${av.completate} completate`}
+    >
+      {av.schedeTotali} {av.schedeTotali === 1 ? "scheda" : "schede"} · {av.completate} complete
+    </span>
+  );
+}
+
 interface CommessaOpzione {
   id: string;
   numeroCommessa: string;
@@ -28,10 +44,11 @@ interface CommessaOpzione {
 }
 
 export default function DettaglioOfferta({
-  offerta: offertaIniziale, righeIniziali, articoli, commesse, costoOrarioManodopera, stimaRepartoIniziale,
+  offerta: offertaIniziale, righeIniziali, avanzamento, articoli, commesse, costoOrarioManodopera, stimaRepartoIniziale,
 }: {
   offerta: Offerta;
   righeIniziali: OffertaRiga[];
+  avanzamento: Record<string, RigaAvanzamento>;
   articoli: Articolo[];
   commesse: CommessaOpzione[];
   costoOrarioManodopera: number;
@@ -152,6 +169,8 @@ export default function DettaglioOfferta({
     }
   }
 
+  const confermata = offerta.stato === "Confermata";
+  const righeSenzaSchede = righe.filter(r => !(avanzamento[r.id]?.schedeTotali > 0)).length;
   const totaleOre = useMemo(() => righe.reduce((s, r) => s + r.orePreventivate, 0), [righe]);
 
   const commesseFiltrate = useMemo(() => {
@@ -254,7 +273,7 @@ export default function DettaglioOfferta({
   }
 
   const badge = STATO_BADGE[offerta.stato];
-  const puoModificareRighe = offerta.stato === "Offerta";
+  const puoModificareRighe = offerta.stato !== "Persa";
 
   return (
     <div className="space-y-4">
@@ -384,6 +403,13 @@ export default function DettaglioOfferta({
           <h3 className="text-sm font-semibold" style={{ color: "var(--color-black)" }}>Righe (per articolo)</h3>
           <span className="text-xs font-semibold" style={{ color: "var(--color-grey-mid)" }}>{righe.length} righe · {totaleOre}h totali preventivate</span>
         </div>
+        {confermata && righe.length > 0 && (
+          <p className="text-xs font-medium" style={{ color: righeSenzaSchede > 0 ? "#991B1B" : "#166534" }}>
+            {righeSenzaSchede > 0
+              ? `${righe.length - righeSenzaSchede}/${righe.length} righe con schede di produzione — ${righeSenzaSchede} senza nessuna scheda`
+              : `Tutte le ${righe.length} righe hanno almeno una scheda di produzione`}
+          </p>
+        )}
         {righe.length === 0 ? (
           <p className="text-sm py-4 text-center" style={{ color: "var(--color-grey-mid)" }}>Nessuna riga ancora</p>
         ) : (
@@ -396,6 +422,7 @@ export default function DettaglioOfferta({
                 </div>
                 <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>×{r.quantita}</span>
                 <span className="text-sm font-semibold tabular-nums">{r.orePreventivate}h</span>
+                {confermata && <AvanzamentoRiga av={avanzamento[r.id]} />}
               </div>
             ))}
           </div>

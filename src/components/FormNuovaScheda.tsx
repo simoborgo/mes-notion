@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Scheda, Commessa, Area } from "@/lib/types";
+import ElementoOffertaSelect from "./ElementoOffertaSelect";
 import FormArea from "./FormArea";
 
 // Locale (mai toISOString/UTC-shift) — precompila "Data Scheda Ricevuta" a oggi, coerente con
@@ -33,6 +34,7 @@ export default function FormNuovaScheda({ commesse, onClose, onCreated }: Props)
 
   const [aree, setAree] = useState<Area[]>([]);
   const [areaId, setAreaId] = useState("");
+  const [offertaRigaId, setOffertaElementoId] = useState<string | null>(null);
   const [showFormArea, setShowFormArea] = useState(false);
 
   useEffect(() => {
@@ -48,6 +50,7 @@ export default function FormNuovaScheda({ commesse, onClose, onCreated }: Props)
   function handleCommessaChange(id: string) {
     setCommessaId(id);
     setAreaId("");
+    setOffertaElementoId(null);
     if (!id) setAree([]);
   }
 
@@ -77,6 +80,7 @@ export default function FormNuovaScheda({ commesse, onClose, onCreated }: Props)
           numeroScheda: numeroScheda.trim(),
           commessaId: commessaId || null,
           areaId: areaId || null,
+          offertaRigaId,
           codiceArticolo: codiceArticolo || null,
           posizione: posizione || null,
           quantita: quantita === "" ? null : Number(quantita),
@@ -143,6 +147,15 @@ export default function FormNuovaScheda({ commesse, onClose, onCreated }: Props)
               </div>
             </div>
           </div>
+
+          <ElementoOffertaSelect
+            commessaId={commessaId || null}
+            value={offertaRigaId}
+            onChange={setOffertaElementoId}
+            className={inputCls}
+            labelClassName={labelCls}
+            labelStyle={{ color: "var(--color-grey-mid)" }}
+          />
 
           <div className="grid grid-cols-2 gap-4">
             <div>

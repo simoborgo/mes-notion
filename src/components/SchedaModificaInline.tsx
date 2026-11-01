@@ -1,5 +1,6 @@
 "use client";
 
+import ElementoOffertaSelect from "./ElementoOffertaSelect";
 import { useEffect, useRef, useState } from "react";
 import type { Area, Commessa, Scheda, SchedaUpdate } from "@/lib/types";
 import FormArea from "./FormArea";
@@ -72,6 +73,7 @@ export default function SchedaModificaInline({ scheda, economia, puoModificareId
     quantita: scheda.quantita,
     noteStato: scheda.noteStato,
     areaId: scheda.areaId,
+    offertaRigaId: scheda.offertaRigaId,
     priorita: scheda.priorita,
     ...(economia ? { oreManodoperaPreviste: scheda.oreManodoperaPreviste } : {}),
     ...(economia?.admin ? { valoreVendita: economia.admin.valoreVendita } : {}),
@@ -100,6 +102,7 @@ export default function SchedaModificaInline({ scheda, economia, puoModificareId
   function cambiaCommessa(id: string) {
     set("commessaId", id || null);
     set("areaId", null);
+    set("offertaRigaId", null);
     setAree([]);
   }
 
@@ -280,6 +283,15 @@ export default function SchedaModificaInline({ scheda, economia, puoModificareId
             </div>
             {!form.commessaId && <p className="text-[12.1px] mt-1" style={{ color: "var(--color-grey-mid)" }}>Assegna prima una Commessa per collegare un&apos;Area.</p>}
           </Campo>
+          <ElementoOffertaSelect
+            commessaId={form.commessaId ?? null}
+            value={form.offertaRigaId ?? null}
+            onChange={(id) => set("offertaRigaId", id)}
+            className={inputCls}
+            style={inputStyle}
+            labelClassName="block text-[12.1px] font-semibold uppercase tracking-wide mb-1"
+            labelStyle={{ color: "var(--color-grey-mid)" }}
+          />
         </div>
       </section>
 

@@ -33,6 +33,7 @@ export interface Scheda {
   commessaId: string | null;
   commessaNr: string;
   areaId: string | null;
+  offertaRigaId: string | null; // riga articolo dell'offerta (offerte_righe), lista di kick-off
   areaLabel: string;
   parentId: string | null;
   notionUrl: string;
@@ -72,6 +73,7 @@ export interface SchedaUpdate {
   dataSchedaRicevuta?: string | null;
   noteStato?: string;
   areaId?: string | null;
+  offertaRigaId?: string | null;
   schedaVerniciaturaId?: string | null;
   oreManodoperaPreviste?: number | null;
   // Solo admin: non passa da updateScheda, lo smista la route PATCH (schedeEconomiaRepository.ts).

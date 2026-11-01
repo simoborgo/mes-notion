@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { getSession, OFFERTE_ROLES } from "@/lib/auth";
-import { getOffertaConRighe, getStimaRepartoOfferta } from "@/lib/offerteRepository";
+import { getOffertaConRighe, getStimaRepartoOfferta, getAvanzamentoRighe } from "@/lib/offerteRepository";
 import { getArticoli } from "@/lib/articoliRepository";
 import { getCommesse } from "@/lib/commesseRepository";
 import { getCostoOrarioManodopera } from "@/lib/parametriGeneraliRepository";
@@ -14,12 +14,13 @@ export default async function OffertaDettaglioPage({ params }: { params: Promise
   if (!OFFERTE_ROLES.includes(session.role)) redirect("/");
 
   const { id } = await params;
-  const [risultato, articoli, commesse, costoOrarioManodopera, stimaReparto] = await Promise.all([
+  const [risultato, articoli, commesse, costoOrarioManodopera, stimaReparto, avanzamento] = await Promise.all([
     getOffertaConRighe(id),
     getArticoli(),
     getCommesse(),
     getCostoOrarioManodopera(),
     getStimaRepartoOfferta(id),
+    getAvanzamentoRighe(id),
   ]);
   if (!risultato) notFound();
 
@@ -28,6 +29,7 @@ export default async function OffertaDettaglioPage({ params }: { params: Promise
       <DettaglioOfferta
         offerta={risultato.offerta}
         righeIniziali={risultato.righe}
+        avanzamento={avanzamento}
         articoli={articoli}
         commesse={commesse.map(c => ({ id: c.id, numeroCommessa: c.numeroCommessa, cliente: c.cliente }))}
         costoOrarioManodopera={costoOrarioManodopera}

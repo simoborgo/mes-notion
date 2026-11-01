@@ -118,6 +118,7 @@ function mapRow(r: any, allegati: Awaited<ReturnType<typeof caricaAllegati>>): S
     commessaId: r.commessa_id,
     commessaNr: r.commessa_nr ?? "",
     areaId: r.area_id,
+    offertaRigaId: r.offerta_riga_id ?? null,
     areaLabel: r.area_label ?? "",
     parentId: r.parent_id,
     notionUrl: "",
@@ -273,7 +274,7 @@ export async function getNextRilavorazioneOdp(_parentId: string, parentOdp: stri
 export async function createSchedaPage({
   numeroScheda, commessaId, odp, tipologia = "Scheda", stato, codiceArticolo, posizione,
   fornitoreId, quantita, dataProduzionePrevista, dataSchedaRicevuta, produzioneEsterna,
-  dataRientroPrevista, note, parentId, areaId, qrCodice,
+  dataRientroPrevista, note, parentId, areaId, offertaRigaId, qrCodice,
   pdfBuffer, pdfFilename, thumbnailBuffer, thumbnailFilename,
 }: {
   numeroScheda: string;
@@ -293,6 +294,7 @@ export async function createSchedaPage({
   note?: string | null;
   parentId?: string | null;
   areaId?: string | null;
+  offertaRigaId?: string | null;
   qrCodice?: string | null; // codice del QR già timbrato sul PDF allegato (vedi schedaQrRepository)
   pdfBuffer?: Buffer;
   pdfFilename?: string;
@@ -302,14 +304,14 @@ export async function createSchedaPage({
   const { rows } = await pool.query(
     `INSERT INTO schede (id, numero_scheda, commessa_id, odp, tipologia, stato, codice_articolo, posizione,
        fornitore_id, quantita, data_produzione_prevista, data_scheda_ricevuta, produzione_esterna,
-       data_rientro_prevista, descrizione_fasi, parent_id, area_id, qr_codice)
-     VALUES (gen_random_uuid(), $1,$2,$3,$4,COALESCE($5,'Da Iniziare'),$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+       data_rientro_prevista, descrizione_fasi, parent_id, area_id, qr_codice, offerta_riga_id)
+     VALUES (gen_random_uuid(), $1,$2,$3,$4,COALESCE($5,'Da Iniziare'),$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
      RETURNING id`,
     [
       numeroScheda, commessaId, odp, tipologia, stato || null, codiceArticolo || "", posizione || "",
       fornitoreId || null, quantita ?? null, dataProduzionePrevista || null, dataSchedaRicevuta || null,
       produzioneEsterna ?? false, dataRientroPrevista || null, note || "", parentId || null, areaId || null,
-      qrCodice || null,
+      qrCodice || null, offertaRigaId || null,
     ],
   );
   const id = rows[0].id as string;
@@ -435,6 +437,7 @@ export async function updateScheda(id: string, data: SchedaUpdate): Promise<Sche
   if (data.dataSchedaRicevuta !== undefined) { sets.push(`data_scheda_ricevuta = $${i++}`); values.push(data.dataSchedaRicevuta); }
   if (data.noteStato !== undefined) { sets.push(`note_stato = $${i++}`); values.push(data.noteStato); }
   if (data.areaId !== undefined) { sets.push(`area_id = $${i++}`); values.push(data.areaId); }
+  if (data.offertaRigaId !== undefined) { sets.push(`offerta_riga_id = $${i++}`); values.push(data.offertaRigaId); }
   if (data.priorita !== undefined) { sets.push(`priorita = $${i++}`); values.push(data.priorita); }
   // fornitore (testo) ignorato: "Nome Fornitore" non era mai scrivibile nemmeno su Notion (rollup).
   // Fornitore, stato esterno e le tre date non si scrivono più direttamente su `schede`: sono il
