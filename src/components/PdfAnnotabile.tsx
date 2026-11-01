@@ -55,6 +55,21 @@ async function caricaDocumento(url: string, mimeType: string): Promise<Documento
   };
 }
 
+// Zona rettangolare già calcolata dal chiamante (colore, etichetta, conteggio ODP): il motore la disegna e basta.
+export interface ZonaRender {
+  id: string;
+  pagina: number;
+  x: number; y: number; w: number; h: number;
+  colore: string;
+  etichetta: string;
+  conteggio: number | null;
+  selezionata: boolean;
+  tratteggio?: boolean;
+}
+// segni = disegno a mano libera e bolli (default, come la spedizione); zone = si trascina un
+// rettangolo; vista = i tocchi servono solo a cliccare le zone e il dito può scorrere la pagina.
+export type ModoPianta = "segni" | "zone" | "vista";
+
 interface Props {
   url: string;
   mimeType: string;
@@ -63,9 +78,14 @@ interface Props {
   onChange?: (a: Annotazioni & { currentPage: number }) => void;
   readOnly?: boolean;
   height?: string;
+  modo?: ModoPianta;
+  zone?: ZonaRender[];
+  onZonaCreata?: (r: { pagina: number; x: number; y: number; w: number; h: number }) => void;
+  onZonaClick?: (id: string | null) => void;
+  barraExtra?: React.ReactNode;
 }
 
-export default function PdfAnnotabile({ url, mimeType, iniziali, onChange, readOnly = false, height = "calc(100vh - 220px)" }: Props) {
+export default function PdfAnnotabile({ url, mimeType, iniziali, onChange, readOnly = false, height = "calc(100vh - 220px)", modo = "segni", zone, onZonaCreata, onZonaClick, barraExtra }: Props) {
   const [strokes, setStrokes] = useState<Record<number, Point[][]>>(iniziali?.strokes ?? {});
   const [stamps, setStamps] = useState<Record<number, Stamp[]>>(iniziali?.stamps ?? {});
   const [currentPage, setCurrentPage] = useState(1);
@@ -92,11 +112,20 @@ export default function PdfAnnotabile({ url, mimeType, iniziali, onChange, readO
   const currentPageRef = useRef(currentPage);
   const zoomRef = useRef(zoomFactor);
   const onChangeRef = useRef(onChange);
+  const modoRef = useRef<ModoPianta>(readOnly ? "vista" : modo);
+  const zoneRef = useRef(zone);
+  const onZonaCreataRef = useRef(onZonaCreata);
+  const onZonaClickRef = useRef(onZonaClick);
+  const rettangoloLiveRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
   useEffect(() => { strokesRef.current = strokes; }, [strokes]);
   useEffect(() => { stampsRef.current = stamps; }, [stamps]);
   useEffect(() => { currentPageRef.current = currentPage; }, [currentPage]);
   useEffect(() => { zoomRef.current = zoomFactor; }, [zoomFactor]);
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
+  // in sola lettura i segni non si disegnano mai: restano solo i clic sulle zone
+  useEffect(() => { modoRef.current = readOnly ? "vista" : modo; }, [modo, readOnly]);
+  useEffect(() => { zoneRef.current = zone; }, [zone]);
+  useEffect(() => { onZonaCreataRef.current = onZonaCreata; onZonaClickRef.current = onZonaClick; }, [onZonaCreata, onZonaClick]);
 
   useEffect(() => {
     if (primoGiroRef.current) { primoGiroRef.current = false; return; }
@@ -118,6 +147,47 @@ export default function PdfAnnotabile({ url, mimeType, iniziali, onChange, readO
     const lw = Math.max(14, W * 0.018);
     const pageStrokes = strokesRef.current[currentPageRef.current] ?? [];
     const allStrokes = liveStroke ? [...pageStrokes, liveStroke] : pageStrokes;
+
+    // zone (sotto ai segni)
+    ctx.globalCompositeOperation = "source-over";
+    const fs = Math.max(11, W * 0.011);
+    for (const z of zoneRef.current ?? []) {
+      if (z.pagina !== currentPageRef.current) continue;
+      const zx = z.x * W, zy = z.y * H, zw = z.w * W, zh = z.h * H;
+      ctx.globalAlpha = z.tratteggio ? 0.12 : 0.28;
+      ctx.fillStyle = z.colore;
+      ctx.fillRect(zx, zy, zw, zh);
+      ctx.globalAlpha = 0.95;
+      ctx.strokeStyle = z.colore;
+      ctx.lineWidth = z.selezionata ? 4 : 2;
+      ctx.setLineDash(z.tratteggio ? [6, 4] : []);
+      ctx.strokeRect(zx, zy, zw, zh);
+      ctx.setLineDash([]);
+      if (z.etichetta || z.conteggio) {
+        ctx.font = `bold ${Math.round(fs)}px sans-serif`;
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        const testo = [z.etichetta, z.conteggio ? `${z.conteggio} ODP` : ""].filter(Boolean).join(" · ");
+        const tw = Math.min(ctx.measureText(testo).width + 8, Math.max(zw, 40));
+        ctx.globalAlpha = 0.9;
+        ctx.fillStyle = z.colore;
+        ctx.fillRect(zx, zy, tw, fs + 6);
+        ctx.fillStyle = "white";
+        ctx.save();
+        ctx.beginPath(); ctx.rect(zx, zy, tw, fs + 6); ctx.clip();
+        ctx.fillText(testo, zx + 4, zy + 3);
+        ctx.restore();
+      }
+    }
+    const live = rettangoloLiveRef.current;
+    if (live) {
+      ctx.globalAlpha = 0.9;
+      ctx.strokeStyle = "#F08F25";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 4]);
+      ctx.strokeRect(live.x * W, live.y * H, live.w * W, live.h * H);
+      ctx.setLineDash([]);
+    }
 
     ctx.globalCompositeOperation = "multiply";
     ctx.globalAlpha = HIGHLIGHT_OPACITY;
@@ -200,11 +270,26 @@ export default function PdfAnnotabile({ url, mimeType, iniziali, onChange, readO
     function cancelLongPress() {
       if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
     }
+    // zona più piccola che contiene il punto (le zone dentro altre zone restano cliccabili)
+    function zonaSu(pt: Point): string | null {
+      let best: ZonaRender | null = null;
+      for (const z of zoneRef.current ?? []) {
+        if (z.pagina !== currentPageRef.current) continue;
+        if (pt.x < z.x || pt.x > z.x + z.w || pt.y < z.y || pt.y > z.y + z.h) continue;
+        if (!best || z.w * z.h < best.w * best.h) best = z;
+      }
+      return best?.id ?? null;
+    }
+    function rettangolo(a: Point, b: Point) {
+      return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y) };
+    }
+
     function onDown(e: PointerEvent) {
       e.preventDefault();
       canvas!.setPointerCapture(e.pointerId);
       const pt = norm(e);
       pointerStartRef.current = pt;
+      if (modoRef.current !== "segni") return;
       isDrawingRef.current = false;
       currentStrokeRef.current = [pt];
       longPressTimerRef.current = setTimeout(() => {
@@ -217,6 +302,13 @@ export default function PdfAnnotabile({ url, mimeType, iniziali, onChange, readO
     }
     function onMove(e: PointerEvent) {
       e.preventDefault();
+      if (modoRef.current === "zone") {
+        if (!pointerStartRef.current || e.buttons === 0) return;
+        rettangoloLiveRef.current = rettangolo(pointerStartRef.current, norm(e));
+        redrawAnnotations();
+        return;
+      }
+      if (modoRef.current === "vista") return;
       if (currentStrokeRef.current.length === 0) return;
       const pt = norm(e);
       const start = pointerStartRef.current!;
@@ -229,6 +321,22 @@ export default function PdfAnnotabile({ url, mimeType, iniziali, onChange, readO
     }
     function onUp(e: PointerEvent) {
       e.preventDefault();
+      const modoAttuale = modoRef.current;
+      if (modoAttuale !== "segni") {
+        const start = pointerStartRef.current;
+        pointerStartRef.current = null;
+        rettangoloLiveRef.current = null;
+        if (!start || e.type === "pointercancel") { redrawAnnotations(); return; }
+        const end = norm(e);
+        const r = rettangolo(start, end);
+        if (modoAttuale === "zone" && r.w >= 0.005 && r.h >= 0.005) {
+          onZonaCreataRef.current?.({ pagina: currentPageRef.current, ...r });
+        } else if (r.w < 0.01 && r.h < 0.01) {
+          onZonaClickRef.current?.(zonaSu(end));
+        }
+        redrawAnnotations();
+        return;
+      }
       cancelLongPress();
       const stroke = currentStrokeRef.current;
       currentStrokeRef.current = [];
@@ -297,11 +405,11 @@ export default function PdfAnnotabile({ url, mimeType, iniziali, onChange, readO
   }, [url, mimeType]);
 
   useEffect(() => { if (totalPages > 0) renderPage(currentPage); }, [currentPage, zoomFactor, totalPages, renderPage]);
-  useEffect(() => { if (totalPages > 0) redrawAnnotations(); }, [strokes, stamps, totalPages, redrawAnnotations]);
+  useEffect(() => { if (totalPages > 0) redrawAnnotations(); }, [strokes, stamps, zone, totalPages, redrawAnnotations]);
   useEffect(() => {
-    if (totalPages === 0 || readOnly) return;
+    if (totalPages === 0) return;
     return attachPointerHandlers();
-  }, [totalPages, readOnly, attachPointerHandlers]);
+  }, [totalPages, attachPointerHandlers]);
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
     function onResize() {
@@ -331,6 +439,8 @@ export default function PdfAnnotabile({ url, mimeType, iniziali, onChange, readO
   return (
     <div style={{ display: "flex", flexDirection: "column", height, overflow: "hidden", background: "#F5F2EE", borderRadius: 8, border: "1px solid #E5E4E0" }}>
       <div style={{ background: "#FAF9F7", borderBottom: "1px solid #E5E4E0", padding: "7px 12px", display: "flex", alignItems: "center", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
+        {barraExtra}
+        {barraExtra && sep}
         {totalPages > 1 && (
           <>
             <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage <= 1} style={btnStyle}>‹</button>
@@ -366,7 +476,7 @@ export default function PdfAnnotabile({ url, mimeType, iniziali, onChange, readO
         ) : (
           <div style={{ position: "relative", display: "inline-block", margin: "0 auto" }}>
             <canvas ref={pdfCanvasRef} style={{ display: "block", boxShadow: "0 2px 12px rgba(0,0,0,0.18)" }} />
-            <canvas ref={drawCanvasRef} style={{ position: "absolute", top: 0, left: 0, cursor: readOnly ? "default" : "crosshair", touchAction: "none", userSelect: "none" }} />
+            <canvas ref={drawCanvasRef} style={{ position: "absolute", top: 0, left: 0, cursor: modo === "vista" || readOnly ? "pointer" : readOnly ? "default" : "crosshair", touchAction: modo === "vista" || readOnly ? "auto" : "none", userSelect: "none" }} />
           </div>
         )}
       </div>

@@ -1,5 +1,5 @@
 import { pool } from "./db";
-import type { CommessaPianta } from "./types";
+import type { CommessaPianta, ZonaPianta } from "./types";
 import { decodeBase64File } from "./schedeRepository";
 import { cartellaDocumenti } from "./commessaAllegatiRepository";
 import { uploadAllegato as driveUploadAllegato, deleteDriveFile } from "./googleDriveSchede";
@@ -106,4 +106,53 @@ export async function saveAnnotazioniPianta(piantaId: string, a: AnnotazioniPian
      ON CONFLICT (pianta_id) DO UPDATE SET strokes = EXCLUDED.strokes, stamps = EXCLUDED.stamps, aggiornato_da = EXCLUDED.aggiornato_da, aggiornato_il = now()`,
     [piantaId, JSON.stringify(a.strokes), JSON.stringify(a.stamps), utente],
   );
+}
+
+// ── Zone cliccabili ───────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapZona(r: any): ZonaPianta {
+  return { id: r.id, piantaId: r.pianta_id, pagina: r.pagina, x: r.x, y: r.y, w: r.w, h: r.h, areaId: r.area_id };
+}
+
+export async function getZoneByPianta(piantaId: string): Promise<ZonaPianta[]> {
+  const { rows } = await pool.query(`SELECT * FROM pianta_zone WHERE pianta_id = $1 ORDER BY creato_il`, [piantaId]);
+  return rows.map(mapZona);
+}
+
+export async function getZonaById(id: string): Promise<ZonaPianta | null> {
+  const { rows } = await pool.query(`SELECT * FROM pianta_zone WHERE id = $1`, [id]);
+  return rows[0] ? mapZona(rows[0]) : null;
+}
+
+// Aree della commessa già presenti su almeno una pianta (qualsiasi piano): serve a vedere quali
+// mancano ancora.
+export async function getAreeConZona(commessaId: string): Promise<string[]> {
+  const { rows } = await pool.query(
+    `SELECT DISTINCT z.area_id FROM pianta_zone z JOIN commessa_piante p ON p.id = z.pianta_id
+     WHERE p.commessa_id = $1 AND z.area_id IS NOT NULL`, [commessaId]);
+  return rows.map((r) => r.area_id as string);
+}
+
+export async function addZona(data: { piantaId: string; pagina: number; x: number; y: number; w: number; h: number; areaId: string | null; creatoDa: string }): Promise<ZonaPianta> {
+  const { rows } = await pool.query(
+    `INSERT INTO pianta_zone (pianta_id, pagina, x, y, w, h, area_id, creato_da) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+    [data.piantaId, data.pagina, data.x, data.y, data.w, data.h, data.areaId, data.creatoDa],
+  );
+  return mapZona(rows[0]);
+}
+
+export async function updateZona(id: string, data: { areaId?: string | null; x?: number; y?: number; w?: number; h?: number }): Promise<ZonaPianta> {
+  const sets: string[] = []; const values: unknown[] = []; let i = 1;
+  if (data.areaId !== undefined) { sets.push(`area_id = $${i++}`); values.push(data.areaId); }
+  for (const k of ["x", "y", "w", "h"] as const) if (data[k] !== undefined) { sets.push(`${k} = $${i++}`); values.push(data[k]); }
+  if (sets.length === 0) { const z = await getZonaById(id); if (!z) throw new Error("Zona non trovata"); return z; }
+  values.push(id);
+  const { rows } = await pool.query(`UPDATE pianta_zone SET ${sets.join(", ")} WHERE id = $${i} RETURNING *`, values);
+  if (!rows[0]) throw new Error("Zona non trovata");
+  return mapZona(rows[0]);
+}
+
+export async function deleteZona(id: string): Promise<void> {
+  await pool.query(`DELETE FROM pianta_zone WHERE id = $1`, [id]);
 }

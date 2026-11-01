@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCommessaById } from "@/lib/commesseRepository";
-import { getPianteByCommessa, getAnnotazioniPianta } from "@/lib/commessePianteRepository";
+import { getPianteByCommessa, getAnnotazioniPianta, getZoneByPianta, getAreeConZona } from "@/lib/commessePianteRepository";
+import { getAreeByCommessa } from "@/lib/areeRepository";
+import { getSchedeByCommessa } from "@/lib/schedeRepository";
+import { COMMESSE_ROLES } from "@/lib/roles";
 import { getSession, COMMESSA_CONTENUTO_ROLES } from "@/lib/auth";
 import PiantaAnnotatore from "@/components/PiantaAnnotatore";
 
 export const dynamic = "force-dynamic";
 
-// Pagina dedicata alla pianta: stesso motore delle verifiche di spedizione (zoom, segni, bolli).
+// Pagina dedicata alla pianta: stesso motore delle verifiche di spedizione (zoom, segni, bolli) più le zone cliccabili agganciate alle Aree.
 export default async function PiantaPage({ params }: { params: Promise<{ id: string; pianteId: string }> }) {
   const { id, pianteId } = await params;
   let commessa, piante;
@@ -18,7 +21,9 @@ export default async function PiantaPage({ params }: { params: Promise<{ id: str
   }
   const pianta = piante.find((p) => p.id === pianteId);
   if (!pianta) notFound();
-  const [annotazioni, session] = await Promise.all([getAnnotazioniPianta(pianta.id), getSession()]);
+  const [annotazioni, zone, aree, schede, areeConZona, session] = await Promise.all([
+    getAnnotazioniPianta(pianta.id), getZoneByPianta(pianta.id), getAreeByCommessa(id), getSchedeByCommessa(id), getAreeConZona(id), getSession(),
+  ]);
   const canEdit = !!session && COMMESSA_CONTENUTO_ROLES.includes(session.role);
 
   return (
@@ -47,7 +52,14 @@ export default async function PiantaPage({ params }: { params: Promise<{ id: str
           </div>
         )}
       </div>
-      <PiantaAnnotatore key={pianta.id} pianta={pianta} iniziali={annotazioni as never} canEdit={canEdit} />
+      <PiantaAnnotatore key={pianta.id} pianta={pianta} iniziali={annotazioni as never}
+        zoneIniziali={zone}
+        aree={aree}
+        odp={schede.map((x) => ({ id: x.id, odp: x.odp, numeroScheda: x.numeroScheda, statoProduzione: x.statoProduzione ?? "", faseCorrente: x.faseCorrente ?? "", areaId: x.areaId }))}
+        areeConZona={areeConZona}
+        canEdit={canEdit}
+        canCreaArea={!!session && COMMESSE_ROLES.includes(session.role)}
+      />
     </div>
   );
 }

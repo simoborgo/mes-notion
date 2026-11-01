@@ -792,6 +792,17 @@ export interface CommessaPianta {
   haAnteprima: boolean;
 }
 
+export interface ZonaPianta {
+  id: string;
+  piantaId: string;
+  pagina: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  areaId: string | null;
+}
+
 export const CATEGORIE_STORICO = ["Note", "Specifiche", "Documenti", "Campionature", "Produzione", "Logistica", "Commessa"] as const;
 export type CategoriaStorico = (typeof CATEGORIE_STORICO)[number];
 
