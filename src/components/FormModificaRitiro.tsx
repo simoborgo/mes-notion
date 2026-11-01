@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import SelezioneGiro from "./SelezioneGiro";
-import type { Ritiro, RitiroUpdate, Scheda, Commessa } from "@/lib/types";
+import type { Ritiro, RitiroUpdate, Scheda, Commessa, TrasportoMovimento } from "@/lib/types";
 
 const STATI = ["Da Fare", "In corso", "Fatto"];
 const TIPI  = ["Ritiro", "Consegna"];
@@ -52,6 +52,7 @@ export default function FormModificaRitiro({ ritiro, schede = [], fornitori = []
     fornitoreId:     ritiro.fornitoreId,
     giroId:          ritiro.giroId,
     commessaId:      ritiro.commessaId,
+    trasporto:       ritiro.trasporto,
   });
   const [schedaSearch, setSchedaSearch] = useState(() => {
     if (!ritiro.numeroOrdineId) return "";
@@ -297,11 +298,18 @@ export default function FormModificaRitiro({ ritiro, schede = [], fornitori = []
             {form.schedaId && (
               <SelezioneGiro key={form.schedaId} schedaId={form.schedaId} value={form.giroId} onChange={g => set("giroId", g)} inputCls={inputCls} labelCls={labelCls} />
             )}
-            <div className="col-span-2">
+            <div>
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Fornitore</label>
               <select className={inputCls} value={form.fornitoreId ?? ""} onChange={e => set("fornitoreId", e.target.value || null)}>
                 <option value="">— nessuno —</option>
                 {fornitori.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Trasporto</label>
+              <select className={inputCls} value={form.trasporto} onChange={e => set("trasporto", e.target.value as TrasportoMovimento)}>
+                <option value="Modar">Camion Modar</option>
+                <option value="Fornitore">Lo fa il fornitore</option>
               </select>
             </div>
             <div className="flex items-center gap-3 pt-5">

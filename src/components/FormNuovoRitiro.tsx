@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import SelezioneGiro from "./SelezioneGiro";
-import type { Ritiro, Scheda, Commessa } from "@/lib/types";
+import type { Ritiro, Scheda, Commessa, TrasportoMovimento } from "@/lib/types";
 
 const TIPI = ["Ritiro", "Consegna"];
 
@@ -44,6 +44,7 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], commesse 
     fornitoreId: null as string | null,
     commessaId: null as string | null,
     giroId: initialGiroId,
+    trasporto: "Modar" as TrasportoMovimento,
   });
   const [schedaSearch, setSchedaSearch] = useState("");
   const [schedaOpen, setSchedaOpen] = useState(false);
@@ -178,6 +179,7 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], commesse 
           commessaId: form.commessaId,
           // null esplicito = nessun giro (non il default "giro attivo" del server)
           giroId: form.schedaId ? form.giroId : undefined,
+          trasporto: form.trasporto,
           foto_base64: foto.length ? foto : undefined,
         }),
       });
@@ -391,6 +393,13 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], commesse 
               <select className={inputCls} value={form.fornitoreId ?? ""} onChange={e => set("fornitoreId", e.target.value || null)}>
                 <option value="">— nessuno —</option>
                 {fornitori.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Trasporto</label>
+              <select className={inputCls} value={form.trasporto} onChange={e => set("trasporto", e.target.value as TrasportoMovimento)}>
+                <option value="Modar">Camion Modar</option>
+                <option value="Fornitore">Lo fa il fornitore</option>
               </select>
             </div>
             <div className="col-span-2">

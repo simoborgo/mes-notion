@@ -211,6 +211,28 @@ export default function TabellaRitiri({
     }
   }
 
+  // Il fornitore ha portato/ritirato lui il materiale: il movimento va direttamente in Fatto, segnato
+  // come trasporto del fornitore. Il giro avanza come per un Fatto normale (logica lato server).
+  async function fattoDalFornitore(r: Ritiro) {
+    const cosa = r.tipoMovimento === "Consegna" ? "è venuto a prendere il materiale" : "ha portato il materiale";
+    if (!confirm(`Il fornitore ${cosa}?\n\n${r.causale}\n\nIl movimento passa in Fatto, segnato come trasporto del fornitore.`)) return;
+    setLoadingIds((prev) => new Set(prev).add(r.id));
+    try {
+      const res = await fetch(`/api/ritiri/${r.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stato: "Fatto", trasporto: "Fornitore" }),
+      });
+      if (!res.ok) throw new Error("Errore aggiornamento");
+      const updated: Ritiro = await res.json();
+      setRitiri((prev) => prev.map((x) => (x.id === r.id ? updated : x)));
+    } catch {
+      setToast("Errore durante l'aggiornamento dello stato. Riprova.");
+    } finally {
+      setLoadingIds((prev) => { const next = new Set(prev); next.delete(r.id); return next; });
+    }
+  }
+
   function handleStatoChange(id: string, nuovoStato: string) {
     const r = ritiri.find(r => r.id === id);
     if (!r) return;
@@ -307,7 +329,7 @@ export default function TabellaRitiri({
       if (!groupMap.has(dateKey)) {
         let label: string;
         if (dateKey === "senza-data") {
-          label = "Senza data";
+          label = "Da programmare";
         } else {
           const raw = new Date(dateKey).toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
           label = raw.charAt(0).toUpperCase() + raw.slice(1);
@@ -546,6 +568,18 @@ export default function TabellaRitiri({
                                 </button>
                               );
                             })}
+                            {canWrite && r.stato !== "Fatto" && (
+                              <button
+                                disabled={isLoading}
+                                onClick={() => fattoDalFornitore(r)}
+                                className="inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold text-white shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-md active:scale-95"
+                                style={{ background: "#0E7490", minWidth: 80 }}
+                                title="Il fornitore ha portato o ritirato lui il materiale: segna Fatto"
+                              >
+                                <span className="text-[0.65rem] leading-none">⇄</span>
+                                Dal fornitore
+                              </button>
+                            )}
                           </div>
                         </td>
                         <td className="px-4 py-4">
@@ -600,6 +634,7 @@ export default function TabellaRitiri({
                             <div style={{ color: r.fornitore ? "var(--color-black)" : "var(--color-grey-icon)" }}>
                               {r.fornitore || "—"}
                             </div>
+                            {r.trasporto === "Fornitore" && <BadgeTrasportoFornitore />}
                           </div>
                         </td>
                         <td className="px-4 py-4">
@@ -746,7 +781,7 @@ export default function TabellaRitiri({
                   <td>{r.descrizioneMerce || "—"}</td>
                   <td>{r.tipoMovimento || "—"}{r.urgenza ? " (Urgente)" : ""}</td>
                   <td>{r.stato || "—"}</td>
-                  <td>{r.fornitore || "—"}</td>
+                  <td>{r.fornitore || "—"}{r.trasporto === "Fornitore" ? " (porta il fornitore)" : ""}</td>
                 </tr>
               );
             }),
@@ -884,6 +919,7 @@ export default function TabellaRitiri({
                         <td className="px-4 py-3 text-sm" style={{ color: r.fornitore ? "var(--color-black)" : "var(--color-grey-icon)" }}>
                           {r.urgenza && <span className="inline-flex items-center gap-0.5 text-xs font-bold mr-1 px-1.5 py-0.5 rounded" style={{ background: "#FEE2E2", color: "#DC2626" }}>⚠</span>}
                           {r.fornitore || "—"}
+                          {r.trasporto === "Fornitore" && <div><BadgeTrasportoFornitore /></div>}
                         </td>
                         <td className="px-4 py-3">
                           {r.foto.length > 0 ? (
@@ -1083,5 +1119,14 @@ export default function TabellaRitiri({
         />
       )}
     </div>
+  );
+}
+
+function BadgeTrasportoFornitore() {
+  return (
+    <span className="inline-block mt-1 text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap"
+      style={{ background: "#ECFEFF", color: "#155E75", border: "1px solid #A5F3FC" }}>
+      porta il fornitore
+    </span>
   );
 }
