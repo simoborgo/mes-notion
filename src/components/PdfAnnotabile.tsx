@@ -21,6 +21,8 @@ const LONG_PRESS_MS = 800;
 const HIGHLIGHT_OPACITY = 0.55;
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 2.5;
+const MAX_PIXEL = 16_000_000;
+const ATTESA_ZOOM_MS = 250;
 
 const btnStyle: React.CSSProperties = {
   padding: "5px 10px", borderRadius: 4, background: "#F5F2EE", color: "#1A1918",
@@ -99,6 +101,8 @@ export default function PdfAnnotabile({ url, mimeType, iniziali, onChange, readO
   const containerRef = useRef<HTMLDivElement>(null);
   const pdfDocRef = useRef<DocumentoRender | null>(null);
   const renderTaskRef = useRef<{ cancel?: () => void } | null>(null);
+  const baseDimRef = useRef<{ w: number; h: number } | null>(null);
+  const ultimaPaginaRef = useRef(0);
   const lastTapRef = useRef<{ time: number; x: number; y: number; page: number } | null>(null);
   const currentStrokeRef = useRef<Point[]>([]);
   const isDrawingRef = useRef(false);
@@ -236,25 +240,35 @@ export default function PdfAnnotabile({ url, mimeType, iniziali, onChange, readO
     const container = containerRef.current;
     if (!pdfCanvas || !drawCanvas || !container) return;
 
+    const zoom = zoomRef.current;
     const viewport0 = page.getViewport({ scale: 1 });
     const containerW = container.clientWidth || 360;
     const base = Math.min(3, containerW / viewport0.width);
-    const vp = page.getViewport({ scale: base * zoomRef.current });
+    baseDimRef.current = { w: viewport0.width * base, h: viewport0.height * base };
+    const cssW = baseDimRef.current.w * zoom;
+    const cssH = baseDimRef.current.h * zoom;
     const dpr = window.devicePixelRatio || 1;
+    // tetto ai pixel del canvas: a zoom alto una pianta grande supera i 16M di pixel e rallenta tutto
+    const k = Math.min(1, Math.sqrt(MAX_PIXEL / (cssW * dpr * cssH * dpr)));
+    const vp = page.getViewport({ scale: base * zoom * dpr * k });
 
-    // un solo rendering alla volta sullo stesso canvas (zoom ripetuti)
-    renderTaskRef.current?.cancel?.();
-    for (const c of [pdfCanvas, drawCanvas]) {
-      c.width = vp.width * dpr;
-      c.height = vp.height * dpr;
-      c.style.width = `${vp.width}px`;
-      c.style.height = `${vp.height}px`;
-    }
-    const ctx = pdfCanvas.getContext("2d")!;
-    ctx.scale(dpr, dpr);
-    const task = page.render({ canvasContext: ctx, viewport: vp });
+    // si disegna fuori schermo e si scambia a rendering finito: il canvas visibile non resta mai bianco
+    const off = document.createElement("canvas");
+    off.width = Math.round(vp.width); off.height = Math.round(vp.height);
+    renderTaskRef.current?.cancel?.(); // un solo rendering alla volta (zoom ripetuti)
+    const task = page.render({ canvasContext: off.getContext("2d")!, viewport: vp });
     renderTaskRef.current = task;
     try { await task.promise; } catch { return; /* annullato da un rendering più recente */ }
+    if (zoom !== zoomRef.current || pageNum !== currentPageRef.current) return;
+
+    pdfCanvas.width = off.width; pdfCanvas.height = off.height;
+    pdfCanvas.getContext("2d")!.drawImage(off, 0, 0);
+    drawCanvas.width = Math.round(cssW * dpr); drawCanvas.height = Math.round(cssH * dpr);
+    for (const c of [pdfCanvas, drawCanvas]) {
+      c.style.width = `${cssW}px`;
+      c.style.height = `${cssH}px`;
+    }
+    ultimaPaginaRef.current = pageNum;
     redrawAnnotations();
   }, [redrawAnnotations]);
 
@@ -404,7 +418,22 @@ export default function PdfAnnotabile({ url, mimeType, iniziali, onChange, readO
     return () => { cancelled = true; };
   }, [url, mimeType]);
 
-  useEffect(() => { if (totalPages > 0) renderPage(currentPage); }, [currentPage, zoomFactor, totalPages, renderPage]);
+  // Zoom: l'immagine già disegnata si ingrandisce subito via CSS, il rendering nitido parte solo
+  // quando l'utente smette di zoomare (le piante CAD sono pesanti da ridisegnare a ogni passo).
+  useEffect(() => {
+    if (totalPages === 0) return;
+    const b = baseDimRef.current;
+    const stessaPagina = ultimaPaginaRef.current === currentPage;
+    if (b && stessaPagina) {
+      for (const c of [pdfCanvasRef.current, drawCanvasRef.current]) {
+        if (!c) continue;
+        c.style.width = `${b.w * zoomFactor}px`;
+        c.style.height = `${b.h * zoomFactor}px`;
+      }
+    }
+    const t = setTimeout(() => renderPage(currentPage), b && stessaPagina ? ATTESA_ZOOM_MS : 0);
+    return () => clearTimeout(t);
+  }, [currentPage, zoomFactor, totalPages, renderPage]);
   useEffect(() => { if (totalPages > 0) redrawAnnotations(); }, [strokes, stamps, zone, totalPages, redrawAnnotations]);
   useEffect(() => {
     if (totalPages === 0) return;
