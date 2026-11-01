@@ -230,7 +230,7 @@ function GanttChart({ rows, range }: { rows: GanttRow[]; range: RangeVista }) {
               <span style={{ position: "absolute", right: 6, top: 28, fontSize: 10, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "#3B82F6", opacity: .8 }}>Montaggio</span>
               <span style={{ position: "absolute", right: 6, top: 48, fontSize: 10, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: COLORE_PRODUZIONE, opacity: .8 }}>Produzione</span>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontWeight: 700, fontSize: 15, color: "var(--color-black)" }}>{r.commessa.numeroCommessa}</span>
+                <Link href={`/commesse/${r.commessa.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline" style={{ fontWeight: 700, fontSize: 15, color: "var(--color-black)" }}>{r.commessa.numeroCommessa}</Link>
               </div>
               <div style={{ fontSize: 14, color: "#374151", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 170 }}>{r.commessa.cliente}</div>
               <div style={{ fontSize: 12, color: "#6b7280" }}>{r.commessa.localita}</div>
@@ -562,7 +562,7 @@ export default function Dashboard({ schede, ritiri, commesse, carichi }: Dashboa
               <tbody>
                 {commesseInMontaggio.map((c) => (
                   <tr key={c.id} className="border-b last:border-0 hover:bg-orange-50/30 transition-colors">
-                    <td className="px-6 py-3 font-semibold">{c.numeroCommessa || "—"}</td>
+                    <td className="px-6 py-3 font-semibold"><Link href={`/commesse/${c.id}`} className="hover:underline">{c.numeroCommessa || "—"}</Link></td>
                     <td className="px-4 py-3">{c.cliente || "—"}</td>
                     <td className="px-4 py-3 text-xs" style={{ color: "var(--color-grey-mid)" }}>{c.localita || "—"}</td>
                     <td className="px-4 py-3 tabular-nums">{c.inizioMontaggio ? new Date(c.inizioMontaggio).toLocaleDateString("it-IT") : "—"}</td>
