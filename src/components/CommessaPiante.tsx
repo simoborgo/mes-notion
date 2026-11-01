@@ -22,7 +22,7 @@ function leggiBase64(file: File): Promise<string> {
 
 // Disegna la prima pagina (PDF o immagine) su un canvas alto ALTEZZA_MINIATURA px.
 async function renderMiniatura(pianta: CommessaPianta, canvas: HTMLCanvasElement): Promise<void> {
-  const res = await fetch(`/api/drive-file/${pianta.driveFileId}`);
+  const res = await fetch(`/api/commesse/${pianta.commessaId}/piante/${pianta.id}/file?v=${pianta.driveFileId}`);
   if (!res.ok) throw new Error("File non disponibile");
   if (pianta.mimeType === "application/pdf") {
     const pdfjsLib = await getPdfjsLib();

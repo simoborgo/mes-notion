@@ -136,7 +136,7 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, aree,
       <div className="flex flex-col lg:flex-row gap-3">
         <div className="flex-1 min-w-0">
           <PdfAnnotabile
-            url={`/api/drive-file/${pianta.driveFileId}`}
+            url={`/api/commesse/${pianta.commessaId}/piante/${pianta.id}/file?v=${pianta.driveFileId}`}
             mimeType={pianta.mimeType}
             iniziali={iniziali}
             onChange={canEdit ? onChange : undefined}
