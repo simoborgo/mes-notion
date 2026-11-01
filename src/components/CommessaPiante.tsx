@@ -2,9 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { CommessaPianta } from "@/lib/types";
+import { getPdfjsLib } from "@/lib/pdfjsClient";
 
 const ETICHETTE_COMUNI = ["Piano terra", "Piano 1", "Piano 2", "Interrato", "Soppalco"];
+const ALTEZZA_ANTEPRIMA = 200;
 const inputCls = "border rounded px-2 py-1 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300";
 
 function leggiBase64(file: File): Promise<string> {
@@ -14,16 +17,6 @@ function leggiBase64(file: File): Promise<string> {
     r.onerror = () => reject(new Error("Lettura file non riuscita"));
     r.readAsDataURL(file);
   });
-}
-
-async function getPdfjsLib() {
-  // @ts-expect-error — cache globale condivisa con gli annotatori
-  if (window.__pdfjsLib) return window.__pdfjsLib as typeof import("pdfjs-dist");
-  const pdfjsLib = await import("pdfjs-dist");
-  pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-  // @ts-expect-error
-  window.__pdfjsLib = pdfjsLib;
-  return pdfjsLib;
 }
 
 // Anteprima della prima pagina: canvas per i PDF, img per le immagini. Il file passa dal proxy
@@ -37,7 +30,6 @@ function AnteprimaPianta({ pianta }: { pianta: CommessaPianta }) {
   useEffect(() => {
     if (!isPdf) return;
     let cancelled = false;
-    setErrore(false);
     (async () => {
       try {
         const pdfjsLib = await getPdfjsLib();
@@ -48,11 +40,10 @@ function AnteprimaPianta({ pianta }: { pianta: CommessaPianta }) {
         const canvas = canvasRef.current;
         if (cancelled || !canvas) return;
         const dpr = window.devicePixelRatio || 1;
-        const larghezza = canvas.parentElement?.clientWidth ?? 900;
         const vp0 = page.getViewport({ scale: 1 });
-        const vp = page.getViewport({ scale: (larghezza / vp0.width) * dpr });
+        const vp = page.getViewport({ scale: (ALTEZZA_ANTEPRIMA / vp0.height) * dpr });
         canvas.width = Math.round(vp.width); canvas.height = Math.round(vp.height);
-        canvas.style.width = "100%"; canvas.style.height = "auto";
+        canvas.style.height = `${ALTEZZA_ANTEPRIMA}px`; canvas.style.width = "auto";
         await page.render({ canvas, viewport: vp }).promise;
       } catch {
         if (!cancelled) setErrore(true);
@@ -62,10 +53,9 @@ function AnteprimaPianta({ pianta }: { pianta: CommessaPianta }) {
   }, [url, isPdf]);
 
   if (errore) return <p className="p-6 text-sm" style={{ color: "#991B1B" }}>Anteprima non disponibile. Apri il file con il pulsante qui sotto.</p>;
-  return isPdf
-    // eslint-disable-next-line @next/next/no-img-element
-    ? <canvas ref={canvasRef} className="block w-full" />
-    : <img src={url} alt={pianta.etichetta || pianta.nomeFile} className="block w-full h-auto" />;
+  if (isPdf) return <canvas ref={canvasRef} className="block mx-auto" />;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={url} alt={pianta.etichetta || pianta.nomeFile} className="block mx-auto w-auto" style={{ height: ALTEZZA_ANTEPRIMA }} />;
 }
 
 // Copertina della scheda commessa: una pianta per piano, con linguette quando sono più d'una.
@@ -159,11 +149,11 @@ export default function CommessaPiante({ commessaId, piante, canEdit }: { commes
 
       {attiva ? (
         <>
-          <div className="bg-gray-50 max-h-[70vh] overflow-auto">
+          <Link href={`/commesse/${commessaId}/piante/${attiva.id}`} className="block bg-gray-50 py-2 hover:bg-gray-100" aria-label="Apri la pianta">
             <AnteprimaPianta key={attiva.driveFileId} pianta={attiva} />
-          </div>
+          </Link>
           <div className="flex items-center gap-4 px-4 py-2 border-t border-gray-100 text-xs flex-wrap" style={{ color: "var(--color-grey-mid)" }}>
-            <a href={`/api/drive-file/${attiva.driveFileId}`} target="_blank" rel="noreferrer" className="underline" style={{ color: "var(--color-primary)" }}>Apri a tutto schermo</a>
+            <Link href={`/commesse/${commessaId}/piante/${attiva.id}`} className="font-medium underline" style={{ color: "var(--color-primary)" }}>Apri pianta</Link>
             <span className="truncate">{attiva.nomeFile} · aggiornata il {new Date(attiva.aggiornatoIl).toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })} da {attiva.caricatoDa || "—"}</span>
             {canEdit && (
               <span className="ml-auto flex items-center gap-3">
