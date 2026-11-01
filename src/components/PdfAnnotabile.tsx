@@ -36,15 +36,36 @@ interface PaginaRender {
 }
 interface DocumentoRender { numPages: number; getPage: (n: number) => Promise<PaginaRender> }
 
-async function caricaDocumento(url: string, mimeType: string): Promise<DocumentoRender> {
+// Scarica il file in streaming per mostrare l'avanzamento (progresso null se il server non
+// dichiara la lunghezza), poi lo prepara per il rendering.
+async function caricaDocumento(url: string, mimeType: string, onProgress: (p: number | null) => void): Promise<DocumentoRender> {
   const res = await fetch(url);
   if (!res.ok) throw new Error("File non trovato");
+  const totale = Number(res.headers.get("content-length")) || 0;
+  const pezzi: Uint8Array[] = [];
+  let letti = 0;
+  if (res.body) {
+    const reader = res.body.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      pezzi.push(value);
+      letti += value.length;
+      onProgress(totale ? Math.min(1, letti / totale) : null);
+    }
+  } else {
+    pezzi.push(new Uint8Array(await res.arrayBuffer()));
+  }
+  const dati = new Uint8Array(pezzi.reduce((n, p) => n + p.length, 0));
+  let off = 0;
+  for (const p of pezzi) { dati.set(p, off); off += p.length; }
+
   if (mimeType === "application/pdf") {
     const pdfjsLib = await getPdfjsLib();
-    const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await res.arrayBuffer()) }).promise;
+    const pdf = await pdfjsLib.getDocument({ data: dati }).promise;
     return pdf as unknown as DocumentoRender;
   }
-  const bmp = await createImageBitmap(await res.blob());
+  const bmp = await createImageBitmap(new Blob([dati], { type: mimeType }));
   return {
     numPages: 1,
     getPage: async () => ({
@@ -98,6 +119,8 @@ export default function PdfAnnotabile({ url, mimeType, iniziali, onChange, readO
   const [zoomFactor, setZoomFactor] = useState(centraSu ? 1.6 : 1);
   const [pdfLoading, setPdfLoading] = useState(true);
   const [errore, setErrore] = useState<string | null>(null);
+  const [progresso, setProgresso] = useState<number | null>(0);
+  const [pronta, setPronta] = useState(false); // primo rendering completato: da qui in poi si può interagire
 
   const pdfCanvasRef = useRef<HTMLCanvasElement>(null);
   const drawCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -287,6 +310,7 @@ export default function PdfAnnotabile({ url, mimeType, iniziali, onChange, readO
     }
     ultimaPaginaRef.current = pageNum;
     redrawAnnotations();
+    setPronta(true);
     const c = centraSuRef.current;
     if (c && c.pagina === pageNum) {
       centraSuRef.current = undefined; // una sola volta, al primo rendering
@@ -321,7 +345,10 @@ export default function PdfAnnotabile({ url, mimeType, iniziali, onChange, readO
       return best?.id ?? null;
     }
     function rettangolo(a: Point, b: Point) {
-      return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y) };
+      // il puntatore può uscire dal bordo mentre si trascina: le coordinate restano dentro 0–1
+      const c = (n: number) => Math.min(1, Math.max(0, n));
+      const x0 = c(Math.min(a.x, b.x)), y0 = c(Math.min(a.y, b.y));
+      return { x: x0, y: y0, w: c(Math.max(a.x, b.x)) - x0, h: c(Math.max(a.y, b.y)) - y0 };
     }
 
     function onDown(e: PointerEvent) {
@@ -432,7 +459,7 @@ export default function PdfAnnotabile({ url, mimeType, iniziali, onChange, readO
     let cancelled = false;
     (async () => {
       try {
-        const doc = await caricaDocumento(url, mimeType);
+        const doc = await caricaDocumento(url, mimeType, (p) => { if (!cancelled) setProgresso(p); });
         if (cancelled) return;
         pdfDocRef.current = doc;
         setTotalPages(doc.numPages);
@@ -492,7 +519,18 @@ export default function PdfAnnotabile({ url, mimeType, iniziali, onChange, readO
   const sep = <div style={{ width: 1, height: 18, background: "#E5E4E0" }} />;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height, overflow: "hidden", background: "#F5F2EE", borderRadius: 8, border: "1px solid #E5E4E0" }}>
+    <div style={{ position: "relative", display: "flex", flexDirection: "column", height, overflow: "hidden", background: "#F5F2EE", borderRadius: 8, border: "1px solid #E5E4E0" }}>
+      {!pronta && !errore && (
+        // copre anche la barra strumenti: finché la pianta non è pronta non si può cliccare nulla
+        <div style={{ position: "absolute", inset: 0, zIndex: 20, background: "rgba(250,249,247,0.95)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, cursor: "progress" }}>
+          <div style={{ width: "min(320px, 70%)", height: 8, borderRadius: 4, background: "#E5E4E0", overflow: "hidden" }}>
+            <div className={progresso === null && pdfLoading ? "animate-pulse" : undefined} style={{ height: "100%", borderRadius: 4, background: "#F08F25", width: progresso === null ? "40%" : `${Math.max(4, Math.round((pdfLoading ? progresso : 1) * 100))}%`, transition: "width .2s" }} />
+          </div>
+          <span style={{ fontSize: 13, color: "#6B6560" }}>
+            {pdfLoading ? `Caricamento pianta… ${progresso === null ? "" : `${Math.round(progresso * 100)}%`}` : "Preparazione della pianta…"}
+          </span>
+        </div>
+      )}
       <div style={{ background: "#FAF9F7", borderBottom: "1px solid #E5E4E0", padding: "7px 12px", display: "flex", alignItems: "center", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
         {barraExtra}
         {barraExtra && sep}
@@ -525,7 +563,7 @@ export default function PdfAnnotabile({ url, mimeType, iniziali, onChange, readO
         style={{ flex: 1, overflowY: "auto", overflowX: "auto", display: "flex", justifyContent: "flex-start", alignItems: "flex-start", padding: "16px 8px", background: "#E8E4E0" }}
       >
         {pdfLoading ? (
-          <div style={{ color: "#6B6560", fontSize: 14, margin: "60px auto 0" }}>Caricamento…</div>
+          <div style={{ color: "#6B6560", fontSize: 14, margin: "60px auto 0" }} />
         ) : errore ? (
           <div style={{ color: "#991B1B", fontSize: 14, margin: "60px auto 0" }}>{errore}</div>
         ) : (

@@ -138,7 +138,7 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaI
 
   return (
     <div className="space-y-1.5">
-      <div className="flex flex-col lg:flex-row gap-3">
+      <div className="flex flex-col md:flex-row gap-3">
         <div className="flex-1 min-w-0">
           <PdfAnnotabile
             url={`/api/commesse/${pianta.commessaId}/piante/${pianta.id}/file?v=${pianta.driveFileId}`}
@@ -155,10 +155,8 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaI
           />
         </div>
 
-        <aside className="lg:w-72 shrink-0 rounded-lg border border-gray-200 bg-white p-3 space-y-3 overflow-y-auto" style={{ maxHeight: "calc(100vh - 220px)" }}>
-          {nuova ? (
-            <NuovaZona odp={odp} conZona={conZona} onConferma={confermaNuova} onAnnulla={() => setNuova(null)} />
-          ) : sel ? (
+        <aside className="md:w-72 shrink-0 rounded-lg border border-gray-200 bg-white p-3 space-y-3 overflow-y-auto" style={{ maxHeight: "calc(100vh - 220px)" }}>
+          {sel ? (
             <div className="space-y-2">
               <div className="flex items-start justify-between gap-2">
                 <div>
@@ -205,6 +203,14 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaI
           {errore && <p className="text-xs" style={{ color: "#991B1B" }}>{errore}</p>}
         </aside>
       </div>
+      {nuova && (
+        // finestra sopra la pianta: il pannello laterale, sotto i 1024 px, finisce sotto la pagina e non si vede
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,.35)" }}>
+          <div className="w-full max-w-sm rounded-lg bg-white p-4 shadow-xl space-y-2">
+            <NuovaZona odp={odp} conZona={conZona} errore={errore} onConferma={confermaNuova} onAnnulla={() => { setNuova(null); setErrore(""); }} />
+          </div>
+        </div>
+      )}
       {canEdit && (
         <p className="text-[11px] h-4" style={{ color: stato === "errore" ? "#991B1B" : "var(--color-grey-mid)" }}>
           {stato === "salvo" && "Salvataggio…"}{stato === "salvato" && "Segni salvati"}{stato === "errore" && "Errore nel salvataggio dei segni: riprova a modificare"}
@@ -229,7 +235,7 @@ function OdpSelect({ odp, conZona, value, onChange }: { odp: OdpPianta[]; conZon
 }
 
 // Dopo aver disegnato il rettangolo: scegli l'ODP da agganciare.
-function NuovaZona({ odp, conZona, onConferma, onAnnulla }: { odp: OdpPianta[]; conZona: Set<string>; onConferma: (schedaId: string) => void; onAnnulla: () => void }) {
+function NuovaZona({ odp, conZona, errore, onConferma, onAnnulla }: { odp: OdpPianta[]; conZona: Set<string>; errore: string; onConferma: (schedaId: string) => void; onAnnulla: () => void }) {
   const [schedaId, setSchedaId] = useState("");
   return (
     <div className="space-y-2">
@@ -240,6 +246,7 @@ function NuovaZona({ odp, conZona, onConferma, onAnnulla }: { odp: OdpPianta[]; 
         <button type="button" disabled={!schedaId} onClick={() => onConferma(schedaId)} className="text-sm px-3 py-1.5 rounded font-medium text-white disabled:opacity-40" style={{ background: "var(--color-primary)" }}>Aggancia</button>
         <button type="button" className="text-xs underline ml-auto" onClick={onAnnulla}>Annulla</button>
       </div>
+      {errore && <p className="text-xs" style={{ color: "#991B1B" }}>{errore}</p>}
     </div>
   );
 }
