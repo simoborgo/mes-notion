@@ -790,6 +790,7 @@ export interface CommessaPianta {
   caricatoDa: string;
   aggiornatoIl: string;
   haAnteprima: boolean;
+  haVista: boolean;
 }
 
 export interface ZonaPianta {

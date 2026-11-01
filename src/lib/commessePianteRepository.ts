@@ -5,7 +5,7 @@ import { cartellaDocumenti } from "./commessaAllegatiRepository";
 import { uploadAllegato as driveUploadAllegato, deleteDriveFile } from "./googleDriveSchede";
 
 // Mai SELECT *: la miniatura (bytea) non deve viaggiare con ogni elenco.
-const COLONNE = `id, commessa_id, etichetta, ordine, nome_file, mime_type, drive_file_id, caricato_da, creato_il, aggiornato_il, (anteprima IS NOT NULL) AS ha_anteprima`;
+const COLONNE = `id, commessa_id, etichetta, ordine, nome_file, mime_type, drive_file_id, caricato_da, creato_il, aggiornato_il, (anteprima IS NOT NULL) AS ha_anteprima, (vista IS NOT NULL) AS ha_vista`;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapRow(r: any): CommessaPianta {
@@ -20,6 +20,7 @@ function mapRow(r: any): CommessaPianta {
     caricatoDa: r.caricato_da,
     aggiornatoIl: new Date(r.aggiornato_il).toISOString(),
     haAnteprima: r.ha_anteprima,
+    haVista: r.ha_vista,
   };
 }
 
@@ -59,7 +60,7 @@ export async function sostituisciFilePianta(id: string, data: { fileBase64: stri
   if (!attuale) throw new Error("Pianta non trovata");
   const { driveFileId, mimeType } = await caricaSuDrive(attuale.commessaId, data.fileBase64, data.filename);
   const { rows } = await pool.query(
-    `UPDATE commessa_piante SET nome_file = $2, mime_type = $3, drive_file_id = $4, caricato_da = $5, anteprima = NULL, aggiornato_il = now()
+    `UPDATE commessa_piante SET nome_file = $2, mime_type = $3, drive_file_id = $4, caricato_da = $5, anteprima = NULL, vista = NULL, aggiornato_il = now()
      WHERE id = $1 RETURNING ${COLONNE}`,
     [id, data.filename, mimeType, driveFileId, data.caricatoDa],
   );
@@ -83,6 +84,15 @@ export async function deletePianta(id: string): Promise<void> {
 export async function getAnteprima(id: string): Promise<Buffer | null> {
   const { rows } = await pool.query(`SELECT anteprima FROM commessa_piante WHERE id = $1`, [id]);
   return rows[0]?.anteprima ?? null;
+}
+
+export async function getVista(id: string): Promise<Buffer | null> {
+  const { rows } = await pool.query(`SELECT vista FROM commessa_piante WHERE id = $1`, [id]);
+  return rows[0]?.vista ?? null;
+}
+
+export async function setVista(id: string, jpeg: Buffer): Promise<void> {
+  await pool.query(`UPDATE commessa_piante SET vista = $2 WHERE id = $1`, [id, jpeg]);
 }
 
 // Non tocca aggiornato_il: la miniatura è un derivato del file, non una modifica della pianta.
