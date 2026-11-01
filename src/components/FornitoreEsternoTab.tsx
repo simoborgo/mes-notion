@@ -1,9 +1,9 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
-import type { Giro, Ritiro, Scheda } from "@/lib/types";
+import type { Giro, NuovoGiroInput, Ritiro, Scheda, TrasportoMovimento } from "@/lib/types";
 import { STATI_GIRO } from "@/lib/types";
-import { MODIFICA_SCHEDA_ROLES, RITIRI_CREATE_ROLES, type Role } from "@/lib/roles";
+import { MODIFICA_SCHEDA_ROLES, RITIRI_CREATE_ROLES, WRITE_ROLES, type Role } from "@/lib/roles";
 import { leggiMovimentiAperti, testoConferma, chiudiMovimenti, segnalaVerifica } from "@/lib/movimentiGiroClient";
 import BadgeStato from "./BadgeStato";
 import FormNuovoRitiro from "./FormNuovoRitiro";
@@ -69,6 +69,8 @@ interface Props {
 export default function FornitoreEsternoTab({ scheda, userRole, onSchedaAggiornata }: Props) {
   const canEdit = !!userRole && MODIFICA_SCHEDA_ROLES.includes(userRole);
   const canMovimenti = !!userRole && RITIRI_CREATE_ROLES.includes(userRole);
+  // "Fatto dal fornitore" sui movimenti del giro: chi gestisce Ritiri o chi muove il giro dalla scheda
+  const canFattoDalFornitore = !!userRole && (WRITE_ROLES.includes(userRole) || MODIFICA_SCHEDA_ROLES.includes(userRole));
   const [schedaLive, setSchedaLive] = useState(scheda);
 
   const [giri, setGiri] = useState<Giro[] | null>(null);
@@ -78,6 +80,7 @@ export default function FornitoreEsternoTab({ scheda, userRole, onSchedaAggiorna
   const [errore, setErrore] = useState("");
   const [occupato, setOccupato] = useState(false);
   const [showNuovoMovimento, setShowNuovoMovimento] = useState(false);
+  const [showNuovoGiro, setShowNuovoGiro] = useState(false);
 
   const giroSel = giri?.find((g) => g.id === selId) ?? null;
   const [form, setForm] = useState({
@@ -163,11 +166,23 @@ export default function FornitoreEsternoTab({ scheda, userRole, onSchedaAggiorna
   }
 
   const json = { "Content-Type": "application/json" };
-  const nuovoGiro = () => esegui(() => fetch(`/api/schede/${scheda.id}/giri`, { method: "POST", headers: json, body: JSON.stringify({ stato: "Da Ordinare" }) }));
+  // Il giro nasce con i suoi movimenti in Ritiri e Consegne (Ritiro, più la Consegna se il
+  // materiale parte da Modar): vedi creaMovimentiGiro.
+  const creaGiro = async (dati: NuovoGiroInput) => {
+    const ok = await esegui(() => fetch(`/api/schede/${scheda.id}/giri`, { method: "POST", headers: json, body: JSON.stringify({ ...dati, stato: "Da Ordinare" }) }));
+    if (ok) setShowNuovoGiro(false);
+  };
+  async function fattoDalFornitore(r: Ritiro) {
+    const cosa = r.tipoMovimento === "Consegna" ? "è venuto a prendere il materiale" : "ha portato il materiale";
+    if (!confirm(`Il fornitore ${cosa}?\n\n${r.causale}\n\nIl movimento passa in Fatto, segnato come trasporto del fornitore.`)) return;
+    await esegui(() => fetch(`/api/ritiri/${r.id}`, { method: "PATCH", headers: json, body: JSON.stringify({ stato: "Fatto", trasporto: "Fornitore" }) }), r.giroId);
+    // La logica "Fatto → giro" gira in background sul server: si rilegge dopo un attimo per vedere il giro aggiornato.
+    setTimeout(() => { void carica(r.giroId).then(aggiornaScheda).catch(() => {}); }, 1200);
+  }
   const salva = () => giroSel && esegui(() => fetch(`/api/schede/${scheda.id}/giri/${giroSel.id}`, { method: "PATCH", headers: json, body: JSON.stringify(form) }), giroSel.id);
   function elimina() {
     if (!giroSel) return;
-    if (!confirm(`Eliminare il giro ${giroSel.ordine}? I movimenti collegati restano in Ritiri e Consegne, senza giro.`)) return;
+    if (!confirm(`Eliminare il giro ${giroSel.ordine}? I suoi movimenti ancora "Da Fare" spariscono da Ritiri e Consegne; quelli già avviati o fatti restano, senza giro.`)) return;
     esegui(() => fetch(`/api/schede/${scheda.id}/giri/${giroSel.id}`, { method: "DELETE" }), null);
   }
   // Uscita e rientro si salvano subito (con conferma), senza passare da "Salva modifiche": le altre
@@ -319,10 +334,21 @@ export default function FornitoreEsternoTab({ scheda, userRole, onSchedaAggiorna
       {/* ── Striscia del ciclo: Modar → giro → Modar → giro … ── */}
       <div>
         <Titolo azione={canEdit && (
-          <button type="button" onClick={nuovoGiro} disabled={occupato} className={bottoneSecondario} style={stileSecondario}>+ Nuovo giro</button>
+          <button type="button" onClick={() => setShowNuovoGiro(true)} disabled={occupato || showNuovoGiro} className={bottoneSecondario} style={stileSecondario}>+ Nuovo giro</button>
         )}>
           Ciclo di lavorazione
         </Titolo>
+        {showNuovoGiro && (
+          <FormNuovoGiro
+            ordine={giri.length + 1}
+            fornitori={fornitori}
+            occupato={occupato}
+            inputCls={inputCls}
+            inputStyle={inputStyle}
+            onAnnulla={() => setShowNuovoGiro(false)}
+            onCrea={creaGiro}
+          />
+        )}
         {giri.length === 0 ? (
           <div className="rounded-xl px-4 py-6 text-center" style={{ border: "1px dashed #d6d3cd", color: "var(--color-grey-mid)" }}>
             <div className="text-[15.4px] font-semibold" style={{ color: "var(--color-black)" }}>Nessun giro esterno</div>
@@ -479,7 +505,8 @@ export default function FornitoreEsternoTab({ scheda, userRole, onSchedaAggiorna
             )}>
               Movimenti del giro
             </Titolo>
-            <TabellaMovimenti movimenti={movimentiGiro} vuoto="Nessun movimento pianificato per questo giro." />
+            <TabellaMovimenti movimenti={movimentiGiro} vuoto="Nessun movimento pianificato per questo giro."
+              onFattoDalFornitore={canFattoDalFornitore && !occupato ? fattoDalFornitore : undefined} />
           </div>
         </div>
       )}
@@ -518,14 +545,91 @@ function Nodo({ etichetta, tono }: { etichetta: string; tono: "modar" | "atteso"
   );
 }
 
-function TabellaMovimenti({ movimenti, vuoto }: { movimenti: Ritiro[]; vuoto: string }) {
+function FormNuovoGiro({ ordine, fornitori, occupato, inputCls, inputStyle, onAnnulla, onCrea }: {
+  ordine: number;
+  fornitori: Fornitore[];
+  occupato: boolean;
+  inputCls: string;
+  inputStyle: React.CSSProperties;
+  onAnnulla: () => void;
+  onCrea: (dati: NuovoGiroInput) => void;
+}) {
+  const [fornitoreId, setFornitoreId] = useState("");
+  const [lavorazione, setLavorazione] = useState("");
+  const [dataRientroPrevista, setDataRientroPrevista] = useState("");
+  const [trasportoRitorno, setTrasportoRitorno] = useState<TrasportoMovimento>("Modar");
+  const [inviamoNoi, setInviamoNoi] = useState(false);
+  const nome = fornitori.find((f) => f.id === fornitoreId)?.nome ?? "fornitore da definire";
+
+  return (
+    <div className="rounded-xl p-4 mb-3" style={{ border: "1px solid var(--color-primary)", background: "#FFFBF5" }}>
+      <div className="text-[15.4px] font-semibold mb-2.5">Nuovo giro · Giro {ordine}</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">
+        <Card label="Fornitore">
+          <select className={inputCls} style={inputStyle} value={fornitoreId} onChange={(e) => setFornitoreId(e.target.value)}>
+            <option value="">— da definire —</option>
+            {fornitori.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
+          </select>
+        </Card>
+        <Card label="Lavorazione">
+          <input className={inputCls} style={inputStyle} placeholder="es. Verniciatura" value={lavorazione} onChange={(e) => setLavorazione(e.target.value)} />
+        </Card>
+        <Card label="Rientro previsto">
+          <input type="date" className={inputCls} style={inputStyle} value={dataRientroPrevista} onChange={(e) => setDataRientroPrevista(e.target.value)} />
+        </Card>
+        <Card label="Ritorno">
+          <select className={inputCls} style={inputStyle} value={trasportoRitorno} onChange={(e) => setTrasportoRitorno(e.target.value as TrasportoMovimento)}>
+            <option value="Modar">Ritira il camion Modar</option>
+            <option value="Fornitore">Lo riporta il fornitore</option>
+          </select>
+        </Card>
+      </div>
+      <label className="mt-2.5 flex items-start gap-2.5 rounded-lg px-3 py-2.5 cursor-pointer" style={{ border: "1px solid #e5e4e0", background: "white" }}>
+        <input type="checkbox" className="mt-1 w-4 h-4" style={{ accentColor: "var(--color-primary)" }} checked={inviamoNoi} onChange={(e) => setInviamoNoi(e.target.checked)} />
+        <span>
+          <span className="block text-[15.4px] font-semibold">Inviamo noi il materiale</span>
+          <span className="text-[13.2px]" style={{ color: "var(--color-grey-mid)" }}>Lascia spento se il materiale è già dal fornitore (l&apos;ha ordinato lui).</span>
+        </span>
+      </label>
+      <div className="mt-2.5 rounded-lg px-3 py-2.5 text-[14.3px]" style={{ background: "#f8f7f5" }}>
+        <div className="text-[12.1px] font-bold uppercase tracking-widest mb-1" style={{ color: "#9c9894" }}>In Ritiri e Consegne verranno creati</div>
+        <ul className="list-disc pl-5 space-y-0.5">
+          {inviamoNoi && <li><b>Consegna</b> a {nome} · <i>da programmare</i></li>}
+          <li>
+            <b>Ritiro</b> da {nome} · {dataRientroPrevista ? fmt(dataRientroPrevista) : <i>da programmare</i>}
+            {trasportoRitorno === "Fornitore" && <> · <BadgeTrasportoFornitore /></>}
+          </li>
+        </ul>
+      </div>
+      <div className="mt-3 flex justify-end gap-2">
+        <button type="button" onClick={onAnnulla} disabled={occupato} className="text-[15.4px] px-3.5 py-1.5 rounded-lg border" style={{ borderColor: "#e5e4e0", background: "white" }}>Annulla</button>
+        <button type="button" disabled={occupato}
+          onClick={() => onCrea({ fornitoreId: fornitoreId || null, lavorazione, dataRientroPrevista: dataRientroPrevista || null, inviamoNoi, trasportoRitorno })}
+          className="text-[15.4px] px-4 py-1.5 rounded-lg font-semibold text-white disabled:opacity-50" style={{ background: "var(--color-primary)" }}>
+          {occupato ? "Creo…" : "Crea giro"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function BadgeTrasportoFornitore() {
+  return (
+    <span className="inline-block text-[12.1px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap"
+      style={{ background: "#ECFEFF", color: "#155E75", border: "1px solid #A5F3FC" }}>
+      porta il fornitore
+    </span>
+  );
+}
+
+function TabellaMovimenti({ movimenti, vuoto, onFattoDalFornitore }: { movimenti: Ritiro[]; vuoto: string; onFattoDalFornitore?: (r: Ritiro) => void }) {
   if (movimenti.length === 0) return vuoto ? <p className="text-[13.2px]" style={{ color: "var(--color-grey-mid)" }}>{vuoto}</p> : null;
   return (
     <div className="overflow-x-auto rounded-lg" style={{ border: "1px solid #ebe9e5" }}>
       <table className="w-full text-[15.4px]">
         <thead>
           <tr style={{ background: "#f8f7f5" }}>
-            {["Data", "Movimento", "Stato", "Colli", "Descrizione"].map((h) => (
+            {["Data", "Movimento", "Stato", "Colli", "Descrizione", ""].map((h) => (
               <th key={h} className="text-left px-3 py-2 text-[12.1px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>{h}</th>
             ))}
           </tr>
@@ -533,11 +637,24 @@ function TabellaMovimenti({ movimenti, vuoto }: { movimenti: Ritiro[]; vuoto: st
         <tbody>
           {movimenti.map((r) => (
             <tr key={r.id} style={{ borderTop: "1px solid #ebe9e5" }}>
-              <td className="px-3 py-2 tabular-nums">{fmt(r.dataTrasporto)}</td>
-              <td className="px-3 py-2 font-medium">{r.tipoMovimento || "—"}</td>
+              <td className="px-3 py-2 tabular-nums">
+                {r.dataTrasporto ? fmt(r.dataTrasporto) : <span style={{ color: "#9c9894" }}>da programmare</span>}
+              </td>
+              <td className="px-3 py-2 font-medium">
+                {r.tipoMovimento || "—"}
+                {r.trasporto === "Fornitore" && <> <BadgeTrasportoFornitore /></>}
+              </td>
               <td className="px-3 py-2"><BadgeStato stato={r.stato} /></td>
               <td className="px-3 py-2 tabular-nums">{r.nrCollo != null || r.totColli != null ? `${r.nrCollo ?? "—"}/${r.totColli ?? "—"}` : "—"}</td>
               <td className="px-3 py-2">{r.causale}</td>
+              <td className="px-3 py-2 text-right">
+                {onFattoDalFornitore && r.stato !== "Fatto" && (
+                  <button type="button" onClick={() => onFattoDalFornitore(r)}
+                    className="text-[13.2px] px-2.5 py-1 rounded-lg font-semibold border whitespace-nowrap" style={stileSecondario}>
+                    Fatto dal fornitore
+                  </button>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
