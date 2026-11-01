@@ -7,7 +7,7 @@ import { getAreeByCommessa } from "@/lib/areeRepository";
 import { getSession, VERNICIATURA_ROLES, COMMESSA_CONTENUTO_ROLES, PIANTE_ROLES } from "@/lib/auth";
 import { getSpecificheByCommessa } from "@/lib/commessaSpecificheRepository";
 import { getAllegatiByCommessa } from "@/lib/commessaAllegatiRepository";
-import { getPianteByCommessa } from "@/lib/commessePianteRepository";
+import { getPianteByCommessa, getZoneByCommessa } from "@/lib/commessePianteRepository";
 import { getStoricoCommessa } from "@/lib/commessaStoricoRepository";
 import CommessaIntestazione from "@/components/CommessaIntestazione";
 import CommessaTabs from "@/components/CommessaTabs";
@@ -15,7 +15,7 @@ import CommessaPanoramica from "@/components/CommessaPanoramica";
 import CommessaOdp from "@/components/CommessaOdp";
 import CommessaSpecifiche from "@/components/CommessaSpecifiche";
 import CommessaCampionature from "@/components/CommessaCampionature";
-import CommessaPiante from "@/components/CommessaPiante";
+import CommessaPiante, { type StatistichePianta } from "@/components/CommessaPiante";
 import CommessaDocumenti from "@/components/CommessaDocumenti";
 import CommessaStorico from "@/components/CommessaStorico";
 import AreeSection from "@/components/AreeSection";
@@ -41,6 +41,22 @@ export default async function CommessaPage({ params, searchParams }: { params: P
     notFound();
   }
   const session = await getSession();
+  // Statistiche delle card Pianta: stato degli ODP agganciati alle zone di ogni pianta.
+  const zoneCommessa = tabAttiva === "piante" ? await getZoneByCommessa(id) : [];
+  const statoOdp = new Map(schede.map((s) => [s.id, s.statoProduzione ?? ""]));
+  const statistiche: Record<string, StatistichePianta> = {};
+  for (const z of zoneCommessa) {
+    const st = (statistiche[z.piantaId] ??= { zone: 0, odp: 0, completati: 0, inLavorazione: 0, daIniziare: 0, senzaOdp: 0 });
+    st.zone++;
+    const stato = z.schedaId ? statoOdp.get(z.schedaId) : undefined;
+    if (stato === undefined || stato === "Annullata") st.senzaOdp++;
+    else if (stato === "Completato") st.completati++;
+    else if (stato === "" || stato === "Da Iniziare") st.daIniziare++;
+    else st.inLavorazione++;
+  }
+  for (const [piantaId, st] of Object.entries(statistiche)) {
+    st.odp = new Set(zoneCommessa.filter((z) => z.piantaId === piantaId && z.schedaId && statoOdp.has(z.schedaId) && statoOdp.get(z.schedaId) !== "Annullata").map((z) => z.schedaId)).size;
+  }
   const canContenuto = !!session && COMMESSA_CONTENUTO_ROLES.includes(session.role);
 
   return (
@@ -62,7 +78,7 @@ export default async function CommessaPage({ params, searchParams }: { params: P
       />
 
       {tabAttiva === "panoramica" && <CommessaPanoramica commessa={commessa} schede={schede} carichi={carichi} riepilogo={riepilogo} />}
-      {tabAttiva === "piante" && <CommessaPiante commessaId={commessa.id} piante={piante} canEdit={!!session && PIANTE_ROLES.includes(session.role)} />}
+      {tabAttiva === "piante" && <CommessaPiante commessaId={commessa.id} piante={piante} statistiche={statistiche} canEdit={!!session && PIANTE_ROLES.includes(session.role)} />}
       {tabAttiva === "aree" && (
         <div className="space-y-6">
           <AreeSection commessaId={commessa.id} areeIniziali={aree} schede={schede} userRole={session?.role} />

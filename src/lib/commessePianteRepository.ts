@@ -212,3 +212,16 @@ export async function getZonaPerScheda(schedaId: string): Promise<{ commessaId: 
      WHERE z.scheda_id = $1 ORDER BY p.ordine, z.creato_il LIMIT 1`, [schedaId]);
   return rows[0] ? { commessaId: rows[0].commessa_id, piantaId: rows[0].pianta_id, zonaId: rows[0].zona_id } : null;
 }
+
+// Tutte le zone delle piante di una commessa, per le statistiche sulle card della tab Pianta.
+// Difensivo: se la tabella o la colonna mancano (migration non applicata) la tab si apre comunque.
+export async function getZoneByCommessa(commessaId: string): Promise<ZonaPianta[]> {
+  try {
+    const { rows } = await pool.query(
+      `SELECT z.* FROM pianta_zone z JOIN commessa_piante p ON p.id = z.pianta_id WHERE p.commessa_id = $1`, [commessaId]);
+    return rows.map(mapZona);
+  } catch (e) {
+    console.error("[pianta_zone] zone commessa:", e instanceof Error ? e.message : e);
+    return [];
+  }
+}

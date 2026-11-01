@@ -33,9 +33,9 @@ const inputCls = "border rounded px-2 py-1 text-sm bg-white w-full focus:outline
 // Pianta annotabile (stesso motore delle spedizioni) con le zone cliccabili agganciate agli ODP.
 // Chi non modifica la vede in sola lettura: un clic su una zona apre subito la scheda ODP.
 // I segni si salvano da soli 2s dopo l'ultima modifica; le zone si salvano subito.
-export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaIniziale, odp, schedeConZona, canEdit }: {
+export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaIniziale, odp, schedeConZona, canEdit, modificaIniziale = false }: {
   pianta: CommessaPianta; iniziali: Partial<Annotazioni>; zoneIniziali: ZonaPianta[]; zonaIniziale?: string; odp: OdpPianta[];
-  schedeConZona: string[]; canEdit: boolean;
+  schedeConZona: string[]; canEdit: boolean; modificaIniziale?: boolean;
 }) {
   const router = useRouter();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -44,7 +44,7 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaI
   const [stato, setStato] = useState<"" | "daSalvare" | "salvo" | "salvato" | "errore">("");
   const [salvatoAlle, setSalvatoAlle] = useState<Date | null>(null);
   // La pianta si apre sempre in sola visione; chi può modificarla preme "Modifica" per avere gli strumenti.
-  const [inModifica, setInModifica] = useState(false);
+  const [inModifica, setInModifica] = useState(modificaIniziale);
   const [modo, setModo] = useState<ModoPianta>("zone");
   const [zone, setZone] = useState<ZonaPianta[]>(zoneIniziali);
   const [conZona, setConZona] = useState<Set<string>>(new Set(schedeConZona));
