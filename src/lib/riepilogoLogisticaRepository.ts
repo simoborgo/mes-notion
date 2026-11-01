@@ -8,7 +8,7 @@ import { escapeHtml, dataBreve } from "./notificheGiri";
 
 const MAX_RIGHE = 10;
 
-interface MovimentoRiepilogo { tipo: string; descrizione: string; odp: string; fornitore: string; data: string | null }
+interface MovimentoRiepilogo { tipo: string; descrizione: string; odp: string; fornitore: string; data: string | null; aCaricoFornitore: boolean }
 interface GiroInRitardo { odp: string; numeroScheda: string; fornitore: string; lavorazione: string; giorni: number }
 interface RilavorazioneSenzaRitiro { odp: string; numeroScheda: string; fornitore: string }
 
@@ -16,12 +16,15 @@ export interface RiepilogoLogistica {
   data: string;
   oggi: MovimentoRiepilogo[];
   ritardo: { totale: number; righe: MovimentoRiepilogo[] };
+  // Movimenti senza data a carico Modar: nati da un giro (es. la Consegna quando il materiale parte
+  // da noi), aspettano che la logistica li programmi.
+  daProgrammare: { totale: number; righe: MovimentoRiepilogo[] };
   giriInRitardo: { totale: number; righe: GiroInRitardo[] };
   rilavorazioniSenzaRitiro: RilavorazioneSenzaRitiro[];
 }
 
 const SELECT_MOVIMENTI = `
-  SELECT r.tipo_movimento, r.descrizione, r.data_trasporto, COALESCE(s.odp, c.numero_commessa, '') AS odp, COALESCE(f.nome, '') AS fornitore
+  SELECT r.tipo_movimento, r.descrizione, r.data_trasporto, r.trasporto, COALESCE(s.odp, c.numero_commessa, '') AS odp, COALESCE(f.nome, '') AS fornitore
   FROM ritiri r
   LEFT JOIN schede s ON s.id = r.scheda_id
   LEFT JOIN commesse c ON c.id = r.commessa_id
@@ -32,13 +35,16 @@ const SELECT_MOVIMENTI = `
 const mapMovimento = (r: any): MovimentoRiepilogo => ({
   tipo: r.tipo_movimento ?? "", descrizione: r.descrizione ?? "", odp: r.odp ?? "", fornitore: r.fornitore ?? "",
   data: r.data_trasporto ? dateToStr(r.data_trasporto) : null,
+  aCaricoFornitore: r.trasporto === "Fornitore",
 });
 
 export async function getRiepilogoLogistica(oggi: string = dataOggiRoma()): Promise<RiepilogoLogistica> {
-  const [movOggi, ritardoTot, ritardo, giriTot, giri, rilav] = await Promise.all([
+  const [movOggi, ritardoTot, ritardo, daProgTot, daProg, giriTot, giri, rilav] = await Promise.all([
     pool.query(`${SELECT_MOVIMENTI} AND r.data_trasporto = $1 ORDER BY r.tipo_movimento, r.creato_il`, [oggi]),
     pool.query(`SELECT count(*)::int AS n FROM ritiri WHERE archiviato = false AND stato <> 'Fatto' AND data_trasporto < $1`, [oggi]),
     pool.query(`${SELECT_MOVIMENTI} AND r.data_trasporto < $1 ORDER BY r.data_trasporto, r.creato_il LIMIT ${MAX_RIGHE}`, [oggi]),
+    pool.query(`SELECT count(*)::int AS n FROM ritiri WHERE archiviato = false AND stato <> 'Fatto' AND data_trasporto IS NULL AND trasporto = 'Modar'`),
+    pool.query(`${SELECT_MOVIMENTI} AND r.data_trasporto IS NULL AND r.trasporto = 'Modar' ORDER BY r.creato_il LIMIT ${MAX_RIGHE}`),
     // Solo giri col materiale davvero dal fornitore ("In Lavorazione"), su schede non chiuse: i giri
     // storici senza stato o ancora da ordinare/inviare non sono un sollecito per la logistica.
     pool.query(
@@ -63,6 +69,7 @@ export async function getRiepilogoLogistica(oggi: string = dataOggiRoma()): Prom
     data: oggi,
     oggi: movOggi.rows.map(mapMovimento),
     ritardo: { totale: ritardoTot.rows[0].n, righe: ritardo.rows.map(mapMovimento) },
+    daProgrammare: { totale: daProgTot.rows[0].n, righe: daProg.rows.map(mapMovimento) },
     giriInRitardo: {
       totale: giriTot.rows[0].n,
       righe: giri.rows.map((r) => ({ odp: r.odp ?? "", numeroScheda: r.numero_scheda ?? "", fornitore: r.fornitore, lavorazione: r.lavorazione ?? "", giorni: Number(r.giorni) })),
@@ -103,7 +110,7 @@ function altri(totale: number, mostrati: number): string {
 
 const tipoMov = (t: string) => (t === "Consegna" ? "↗ Consegna" : t === "Ritiro" ? "↙ Ritiro" : escapeHtml(t || "—"));
 const rigaMov = (m: MovimentoRiepilogo, conData: boolean) => [
-  ...(conData ? [dataBreve(m.data)] : []), tipoMov(m.tipo), `<b>${escapeHtml(m.odp || "—")}</b>`, escapeHtml(m.descrizione || "—"), escapeHtml(m.fornitore || "—"),
+  ...(conData ? [dataBreve(m.data)] : []), tipoMov(m.tipo) + (m.aCaricoFornitore ? `<br><span style="${ST.nota}">fa il fornitore</span>` : ""), `<b>${escapeHtml(m.odp || "—")}</b>`, escapeHtml(m.descrizione || "—"), escapeHtml(m.fornitore || "—"),
 ];
 
 export function emailRiepilogo(r: RiepilogoLogistica, baseUrl: string): { oggetto: string; html: string } {
@@ -111,6 +118,7 @@ export function emailRiepilogo(r: RiepilogoLogistica, baseUrl: string): { oggett
   const sintesi = [
     r.oggi.length ? `${r.oggi.length} trasport${r.oggi.length === 1 ? "o" : "i"} oggi` : "nessun trasporto oggi",
     ...(r.ritardo.totale ? [`${r.ritardo.totale} in ritardo`] : []),
+    ...(r.daProgrammare.totale ? [`${r.daProgrammare.totale} da programmare`] : []),
     ...(r.giriInRitardo.totale ? [`${r.giriInRitardo.totale} rientri scaduti`] : []),
     ...(r.rilavorazioniSenzaRitiro.length ? [`${r.rilavorazioniSenzaRitiro.length} rilavorazioni senza ritiro`] : []),
   ].join(", ");
@@ -125,6 +133,11 @@ export function emailRiepilogo(r: RiepilogoLogistica, baseUrl: string): { oggett
     parti.push(`<h2 style="${ST.sezione}">Movimenti in ritardo (${r.ritardo.totale})</h2>`,
       tabella(["Data", "Tipo", "ODP", "Descrizione", "Fornitore"], r.ritardo.righe.map((m) => rigaMov(m, true))),
       altri(r.ritardo.totale, r.ritardo.righe.length));
+  }
+  if (r.daProgrammare.totale > 0) {
+    parti.push(`<h2 style="${ST.sezione}">Da programmare (${r.daProgrammare.totale})</h2>`,
+      tabella(["Tipo", "ODP", "Descrizione", "Fornitore"], r.daProgrammare.righe.map((m) => rigaMov(m, false))),
+      altri(r.daProgrammare.totale, r.daProgrammare.righe.length));
   }
   if (r.giriInRitardo.totale > 0) {
     parti.push(`<h2 style="${ST.sezione}">Dal fornitore oltre il rientro previsto (${r.giriInRitardo.totale})</h2>`,
