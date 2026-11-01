@@ -175,6 +175,10 @@ tr:last-child td{border-bottom:0}
 .shot{margin:0;display:flex;flex-direction:column;gap:6px}
 .shot img{display:block;width:100%;height:auto;border:1px solid var(--rule);border-radius:10px;background:#fff}
 .shot figcaption{font-size:12px;color:var(--grey-2)}
+.flow-figure{margin:0 0 22px;display:flex;flex-direction:column;gap:8px;min-width:0;break-inside:avoid}
+.flow-figure figcaption{font-size:12px;color:var(--grey-2)}
+.flow-figure figcaption strong{color:var(--grey)}
+.flow-video{display:block;width:100%;max-width:100%;aspect-ratio:16/9;border-radius:10px;border:1px solid var(--rule);background:var(--paper)}
 table.codes{min-width:0}
 table.quick td:first-child{white-space:nowrap}
 @media (max-width:720px){
@@ -623,6 +627,12 @@ table.quick td:first-child{white-space:nowrap}
       <h2>Ore da Tablet</h2>
       <p class="sec-note">Pagina <span class="kv">/operatore</span> sul tablet di reparto. L'operatore non scrive ore: dice su cosa sta lavorando e il sistema conta il tempo. Le ore finiscono poi in Rilevamento Ore, che consulta il Resp. Produzione.</p>
     </div>
+
+    <!-- VIDEO -->
+    <figure class="flow-figure">
+      <video class="flow-video" controls preload="metadata" playsinline poster="img/ore-tablet-stop-motion-poster.jpg" src="img/ore-tablet-stop-motion.mp4"></video>
+      <figcaption><strong>Una giornata al tablet in 40 secondi.</strong> Nome e PIN, ODP e Conferma, cambio lavoro, Ho finito per oggi e ore in Rilevamento Ore, con i dati di esempio di questa guida.</figcaption>
+    </figure>
 
     <h3 class="sub-h"><span class="sub-num">F1</span>In breve: le cinque azioni dell'operatore</h3>
     <div class="scroll">
