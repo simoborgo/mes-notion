@@ -791,6 +791,8 @@ export interface CommessaPianta {
   aggiornatoIl: string;
   haAnteprima: boolean;
   haVista: boolean;
+  pdfSegnatoDriveId: string | null;
+  pdfSegnatoIl: string | null;
 }
 
 export interface ZonaPianta {

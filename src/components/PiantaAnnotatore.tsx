@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import type { CommessaPianta, ZonaPianta } from "@/lib/types";
 import PdfAnnotabile, { type Annotazioni, type ModoPianta, type ZonaRender } from "./PdfAnnotabile";
 import BadgeStato from "./BadgeStato";
-import { esportaPiantaPdf } from "@/lib/esportaPianta";
+import { generaPiantaPdf } from "@/lib/esportaPianta";
 
 export interface OdpPianta {
   id: string;
@@ -51,7 +51,10 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaI
   const [selId, setSelId] = useState<string | null>(zonaIniziale ?? null);
   const [nuova, setNuova] = useState<{ pagina: number; x: number; y: number; w: number; h: number } | null>(null);
   const [errore, setErrore] = useState("");
-  const [esportando, setEsportando] = useState(false);
+  // PDF segnato su Drive: si rigenera a "Fine modifica" se qualcosa è cambiato, o a mano
+  const [pdf, setPdf] = useState({ driveId: pianta.pdfSegnatoDriveId, il: pianta.pdfSegnatoIl });
+  const [generandoPdf, setGenerandoPdf] = useState(false);
+  const modificatoRef = useRef(false);
 
   const odpPerId = useMemo(() => new Map(odp.map((o) => [o.id, o])), [odp]);
 
@@ -76,6 +79,7 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaI
 
   const onChange = useCallback((a: Annotazioni) => {
     ultimoRef.current = a;
+    modificatoRef.current = true;
     setStato("daSalvare");
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => { timerRef.current = null; void salva(); }, 2000);
@@ -102,6 +106,8 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaI
     const res = await fetch(urlZone, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...nuova, schedaId }) });
     const json = await res.json().catch(() => ({}));
     if (!res.ok) { setErrore(json.error ?? "Errore nel salvataggio della zona"); return; }
+    modificatoRef.current = true;
+    modificatoRef.current = true;
     setStato("salvato"); setSalvatoAlle(new Date());
     setZone((z) => [...z, json as ZonaPianta]);
     setConZona((s) => new Set(s).add(schedaId));
@@ -114,6 +120,7 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaI
     const res = await fetch(`${urlZone}/${z.id}`, { method: "DELETE" });
     if (!res.ok) { setErrore("Errore nell'eliminazione della zona"); return; }
     const resto = zone.filter((x) => x.id !== z.id);
+    modificatoRef.current = true;
     setStato("salvato"); setSalvatoAlle(new Date());
     setZone(resto);
     setConZona(new Set(resto.map((x) => x.schedaId).filter((x): x is string => !!x)));
@@ -123,6 +130,7 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaI
   async function cambiaOdp(z: ZonaPianta, schedaId: string) {
     const res = await fetch(`${urlZone}/${z.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ schedaId }) });
     if (!res.ok) { setErrore("Errore nel cambio di ODP"); return; }
+    modificatoRef.current = true;
     setStato("salvato"); setSalvatoAlle(new Date());
     setZone((lista) => lista.map((x) => (x.id === z.id ? { ...x, schedaId } : x)));
     setConZona((s) => new Set(s).add(schedaId));
@@ -138,17 +146,29 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaI
 
   const schedaDi = new Map(zone.map((z) => [z.id, z.schedaId]));
 
-  async function esporta() {
-    setEsportando(true); setErrore("");
+  // Genera nel browser il PDF segnato (stesso disegno dello schermo, zone come link alle schede) e
+  // lo carica su Drive al posto del precedente. L'originale della pianta non viene toccato.
+  async function aggiornaPdf(): Promise<boolean> {
+    setGenerandoPdf(true); setErrore("");
     try {
       const a = ultimoRef.current;
-      const base = (pianta.etichetta || pianta.nomeFile.replace(/\.[^.]+$/, "")).replace(/[\\/:*?"<>|]/g, "_");
-      await esportaPiantaPdf({ url: urlVisione, mimeType: mimeVisione, strokes: a?.strokes ?? iniziali.strokes ?? {}, stamps: a?.stamps ?? iniziali.stamps ?? {}, zone: zoneRender.map((z) => ({ ...z, href: schedaDi.get(z.id) ? `${window.location.origin}/schede/${schedaDi.get(z.id)}` : undefined })), nomeFile: `${base} - segnata.pdf` });
+      const bytes = await generaPiantaPdf({
+        url: urlVisione, mimeType: mimeVisione,
+        strokes: a?.strokes ?? iniziali.strokes ?? {}, stamps: a?.stamps ?? iniziali.stamps ?? {},
+        zone: zoneRender.map((z) => ({ ...z, href: schedaDi.get(z.id) ? `${window.location.origin}/schede/${schedaDi.get(z.id)}` : undefined })),
+      });
+      const res = await fetch(`/api/commesse/${pianta.commessaId}/piante/${pianta.id}/pdf-segnato`, { method: "PUT", headers: { "Content-Type": "application/pdf" }, body: new Blob([bytes as BlobPart], { type: "application/pdf" }) });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error ?? "Errore");
+      setPdf({ driveId: json.pdfSegnatoDriveId, il: json.pdfSegnatoIl });
+      modificatoRef.current = false;
+      return true;
     } catch (e) {
-      console.error("[piante] esporta:", e);
-      setErrore("Esportazione non riuscita: riprova");
+      console.error("[piante] pdf segnato:", e);
+      setErrore("PDF segnato non aggiornato: usa «Rigenera PDF» per riprovare");
+      return false;
     } finally {
-      setEsportando(false);
+      setGenerandoPdf(false);
     }
   }
 
@@ -181,7 +201,7 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaI
     inModifica ? (
       <span style={{ display: "inline-flex", gap: 4 }}>
         {btnModo("segni", "Segna")}{btnModo("zone", "Zone")}
-        <button onClick={async () => { if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; await salva(); } setInModifica(false); setNuova(null); setSelId(null); }} style={{ ...btnBase, background: "#F08F25", color: "white", fontWeight: 700, borderColor: "#F08F25" }}>Fine modifica</button>
+        <button disabled={generandoPdf} onClick={async () => { if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; await salva(); } setNuova(null); setSelId(null); if (modificatoRef.current) await aggiornaPdf(); setInModifica(false); }} style={{ ...btnBase, background: "#F08F25", color: "white", fontWeight: 700, borderColor: "#F08F25", opacity: generandoPdf ? 0.6 : 1 }}>{generandoPdf ? "Aggiorno il PDF…" : "Fine modifica"}</button>
       </span>
     ) : (
       <button onClick={() => setInModifica(true)} style={{ ...btnBase, background: "#F5F2EE", color: "#1A1918", fontWeight: 600 }}>✎ Modifica</button>
@@ -205,9 +225,16 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaI
             barraExtra={<>
               {barraModi}
               {indicatore}
-              <button onClick={esporta} disabled={esportando} title="Scarica un PDF con zone, tratti e bolli già disegnati" style={{ ...btnBase, background: "#F5F2EE", color: "#1A1918", opacity: esportando ? 0.6 : 1 }}>
-                {esportando ? "Preparo il PDF…" : "⤓ Esporta PDF"}
-              </button>
+              {pdf.driveId && (
+                <a href={`/api/commesse/${pianta.commessaId}/piante/${pianta.id}/pdf-segnato?v=${pdf.driveId}`} target="_blank" rel="noreferrer"
+                  title={`Aggiornato il ${pdf.il ? new Date(pdf.il).toLocaleString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}: i colori riflettono lo stato degli ODP di quel momento`}
+                  style={{ ...btnBase, background: "#F5F2EE", color: "#1A1918", textDecoration: "none", fontWeight: 600 }}>📄 PDF segnato</a>
+              )}
+              {canEdit && (
+                <button onClick={() => void aggiornaPdf()} disabled={generandoPdf} title="Rigenera il PDF segnato con lo stato attuale di zone e ODP" style={{ ...btnBase, background: "#F5F2EE", color: "#1A1918", opacity: generandoPdf ? 0.6 : 1 }}>
+                  {generandoPdf ? "Preparo il PDF…" : pdf.driveId ? "↻ Rigenera PDF" : "Crea PDF segnato"}
+                </button>
+              )}
             </>}
             centraSu={centraSu}
           />

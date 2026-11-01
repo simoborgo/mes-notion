@@ -34,7 +34,7 @@ function MiniBar({ pct }: { pct: number }) {
   );
 }
 
-export default function TabellaCommesse({ commesse: commesseIniziali, schede = [], userRole }: { commesse: Commessa[]; schede?: Scheda[]; userRole?: Role }) {
+export default function TabellaCommesse({ commesse: commesseIniziali, schede = [], userRole, pdfPiante = {} }: { commesse: Commessa[]; schede?: Scheda[]; userRole?: Role; pdfPiante?: Record<string, { id: string; etichetta: string; versione: string }[]> }) {
   const router = useRouter();
   const canWrite = !!userRole && COMMESSE_ROLES.includes(userRole);
   const [commesse, setCommesse] = useState(commesseIniziali);
@@ -160,13 +160,14 @@ export default function TabellaCommesse({ commesse: commesseIniziali, schede = [
               <th className="px-4 py-3">Inizio Mont.</th>
               <th className="px-4 py-3">Fine Mont.</th>
               <th className="px-4 py-3">Completamento</th>
+              <th className="px-4 py-3">Pianta</th>
               <th className="px-4 py-3 w-32"></th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={11} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
+                <td colSpan={12} className="py-12 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
                   Nessuna commessa trovata
                 </td>
               </tr>
@@ -189,6 +190,17 @@ export default function TabellaCommesse({ commesse: commesseIniziali, schede = [
                       ? <MiniBar pct={completamentoMap.get(c.id)!.pct} />
                       : <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>—</span>
                     }
+                  </td>
+                  <td className="px-4 py-3 text-xs">
+                    {(pdfPiante[c.id] ?? []).length === 0 ? <span style={{ color: "var(--color-grey-mid)" }}>—</span> : (
+                      <div className="flex flex-col gap-0.5">
+                        {pdfPiante[c.id].map((p, i, tutte) => (
+                          <a key={p.id} href={`/api/commesse/${c.id}/piante/${p.id}/pdf-segnato?v=${p.versione}`} target="_blank" rel="noreferrer" className="underline whitespace-nowrap" style={{ color: "var(--color-primary)" }}>
+                            📄 {tutte.length > 1 ? (p.etichetta || `Piano ${i + 1}`) : "PDF"}
+                          </a>
+                        ))}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5">

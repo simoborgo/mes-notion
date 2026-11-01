@@ -5,7 +5,7 @@ import { cartellaDocumenti } from "./commessaAllegatiRepository";
 import { uploadAllegato as driveUploadAllegato, deleteDriveFile } from "./googleDriveSchede";
 
 // Mai SELECT *: la miniatura (bytea) non deve viaggiare con ogni elenco.
-const COLONNE = `id, commessa_id, etichetta, ordine, nome_file, mime_type, drive_file_id, caricato_da, creato_il, aggiornato_il, (anteprima IS NOT NULL) AS ha_anteprima, (vista IS NOT NULL) AS ha_vista`;
+const COLONNE = `id, commessa_id, etichetta, ordine, nome_file, mime_type, drive_file_id, caricato_da, creato_il, aggiornato_il, (anteprima IS NOT NULL) AS ha_anteprima, (vista IS NOT NULL) AS ha_vista, pdf_segnato_drive_id, pdf_segnato_il`;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapRow(r: any): CommessaPianta {
@@ -21,6 +21,8 @@ function mapRow(r: any): CommessaPianta {
     aggiornatoIl: new Date(r.aggiornato_il).toISOString(),
     haAnteprima: r.ha_anteprima,
     haVista: r.ha_vista,
+    pdfSegnatoDriveId: r.pdf_segnato_drive_id,
+    pdfSegnatoIl: r.pdf_segnato_il ? new Date(r.pdf_segnato_il).toISOString() : null,
   };
 }
 
@@ -78,7 +80,42 @@ export async function deletePianta(id: string): Promise<void> {
   const p = await getPiantaById(id);
   if (!p) return;
   await pool.query(`DELETE FROM commessa_piante WHERE id = $1`, [id]);
-  try { await deleteDriveFile(p.driveFileId); } catch (e) { console.error("[commessa_piante] delete drive:", e instanceof Error ? e.message : e); }
+  for (const fileId of [p.driveFileId, p.pdfSegnatoDriveId]) {
+    if (!fileId) continue;
+    try { await deleteDriveFile(fileId); } catch (e) { console.error("[commessa_piante] delete drive:", e instanceof Error ? e.message : e); }
+  }
+}
+
+// Carica il PDF segnato nella cartella Documenti della commessa e lo sostituisce al precedente
+// (rimosso solo dopo che la riga punta al nuovo).
+export async function salvaPdfSegnato(id: string, pdf: Buffer, nomeFile: string): Promise<CommessaPianta> {
+  const attuale = await getPiantaById(id);
+  if (!attuale) throw new Error("Pianta non trovata");
+  const folderId = await cartellaDocumenti(attuale.commessaId);
+  const uploaded = await driveUploadAllegato(folderId, pdf, nomeFile, "application/pdf");
+  const { rows } = await pool.query(
+    `UPDATE commessa_piante SET pdf_segnato_drive_id = $2, pdf_segnato_il = now() WHERE id = $1 RETURNING ${COLONNE}`,
+    [id, uploaded.id],
+  );
+  if (attuale.pdfSegnatoDriveId) {
+    try { await deleteDriveFile(attuale.pdfSegnatoDriveId); } catch (e) { console.error("[commessa_piante] delete pdf segnato:", e instanceof Error ? e.message : e); }
+  }
+  return mapRow(rows[0]);
+}
+
+// Per la tabella delle commesse: i PDF segnati disponibili, per commessa. Se la colonna non esiste
+// ancora (migration non applicata) l'elenco commesse deve comunque funzionare: restituisce vuoto.
+export async function getPdfSegnatiPerCommessa(): Promise<Record<string, { id: string; etichetta: string; versione: string }[]>> {
+  try {
+    const { rows } = await pool.query(
+      `SELECT commessa_id, id, etichetta, pdf_segnato_drive_id FROM commessa_piante WHERE pdf_segnato_drive_id IS NOT NULL ORDER BY ordine, creato_il`);
+    const out: Record<string, { id: string; etichetta: string; versione: string }[]> = {};
+    for (const r of rows) (out[r.commessa_id] ??= []).push({ id: r.id, etichetta: r.etichetta, versione: r.pdf_segnato_drive_id });
+    return out;
+  } catch (e) {
+    console.error("[commessa_piante] pdf segnati:", e instanceof Error ? e.message : e);
+    return {};
+  }
 }
 
 export async function getAnteprima(id: string): Promise<Buffer | null> {

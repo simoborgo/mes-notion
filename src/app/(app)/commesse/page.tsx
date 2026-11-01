@@ -1,5 +1,6 @@
 import { getSchede } from "@/lib/schedeRepository";
 import { getCommesse } from "@/lib/commesseRepository";
+import { getPdfSegnatiPerCommessa } from "@/lib/commessePianteRepository";
 import { getSession } from "@/lib/auth";
 import TabellaCommesse from "@/components/TabellaCommesse";
 import CommesseSubNav from "@/components/CommesseSubNav";
@@ -7,7 +8,7 @@ import CommesseSubNav from "@/components/CommesseSubNav";
 export const dynamic = "force-dynamic";
 
 export default async function CommessePage() {
-  const [commesse, schede, session] = await Promise.all([getCommesse(), getSchede(), getSession()]);
+  const [commesse, schede, session, pdfPiante] = await Promise.all([getCommesse(), getSchede(), getSession(), getPdfSegnatiPerCommessa()]);
 
   return (
     <div className="space-y-5">
@@ -58,7 +59,7 @@ export default async function CommessePage() {
           </a>
         </div>
       </div>
-      <TabellaCommesse commesse={commesse} schede={schede} userRole={session?.role} />
+      <TabellaCommesse commesse={commesse} schede={schede} userRole={session?.role} pdfPiante={pdfPiante} />
     </div>
   );
 }

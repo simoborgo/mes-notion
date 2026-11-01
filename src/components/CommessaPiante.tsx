@@ -164,6 +164,11 @@ export default function CommessaPiante({ commessaId, piante, canEdit }: { commes
           </Link>
           <div className="flex items-center gap-4 px-4 py-2 border-t border-gray-100 text-xs flex-wrap" style={{ color: "var(--color-grey-mid)" }}>
             <Link href={`/commesse/${commessaId}/piante/${attiva.id}`} className="font-medium underline" style={{ color: "var(--color-primary)" }}>Apri pianta</Link>
+            {attiva.pdfSegnatoDriveId && (
+              <a href={`/api/commesse/${commessaId}/piante/${attiva.id}/pdf-segnato?v=${attiva.pdfSegnatoDriveId}`} target="_blank" rel="noreferrer" className="font-medium underline" style={{ color: "var(--color-primary)" }}>
+                PDF segnato{attiva.pdfSegnatoIl ? ` (${new Date(attiva.pdfSegnatoIl).toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })})` : ""}
+              </a>
+            )}
             <span className="truncate">{attiva.nomeFile} · aggiornata il {new Date(attiva.aggiornatoIl).toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })} da {attiva.caricatoDa || "—"}</span>
             {canEdit && (
               <span className="ml-auto flex items-center gap-3">

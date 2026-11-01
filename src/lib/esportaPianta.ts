@@ -7,17 +7,16 @@ const PIXEL_MAX = 16_000_000;
 
 const toJpeg = (c: HTMLCanvasElement, q: number) => new Promise<Blob>((ok, ko) => c.toBlob((b) => (b ? ok(b) : ko(new Error("Immagine non generata"))), "image/jpeg", q));
 
-// PDF "cotto" della pianta: ogni pagina diventa un'immagine con zone, tratti e bolli già sopra,
+// PDF "cotto" della pianta (restituisce i byte: il chiamante lo salva sul server): ogni pagina diventa un'immagine con zone, tratti e bolli già sopra,
 // disegnati dallo stesso codice dello schermo. Il file è leggero, si apre ovunque e non richiede
 // elaborazioni; le zone con un ODP sono link cliccabili alla scheda. Riflette lo stato degli ODP al momento dell'esportazione.
-export async function esportaPiantaPdf(o: {
+export async function generaPiantaPdf(o: {
   url: string;
   mimeType: string;
   strokes: Record<number, Point[][]>;
   stamps: Record<number, Stamp[]>;
   zone: ZonaRender[];
-  nomeFile: string;
-}): Promise<void> {
+}): Promise<Uint8Array> {
   const doc = await caricaDocumento(o.url, o.mimeType, () => {});
   const out = await PDFDocument.create();
   const zone = o.zone.map((z) => ({ ...z, selezionata: false }));
@@ -50,10 +49,5 @@ export async function esportaPiantaPdf(o: {
     }
   }
 
-  const bytes = await out.save();
-  const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "application/pdf" }));
-  const a = document.createElement("a");
-  a.href = url; a.download = o.nomeFile;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  return out.save();
 }
