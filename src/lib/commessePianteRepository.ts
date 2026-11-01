@@ -156,3 +156,12 @@ export async function updateZona(id: string, data: { schedaId?: string | null; x
 export async function deleteZona(id: string): Promise<void> {
   await pool.query(`DELETE FROM pianta_zone WHERE id = $1`, [id]);
 }
+
+// Prima zona che mostra questo ODP su una pianta (dal piano più basso): per il link "Vedi sulla
+// pianta" nella scheda.
+export async function getZonaPerScheda(schedaId: string): Promise<{ commessaId: string; piantaId: string; zonaId: string } | null> {
+  const { rows } = await pool.query(
+    `SELECT z.id AS zona_id, z.pianta_id, p.commessa_id FROM pianta_zone z JOIN commessa_piante p ON p.id = z.pianta_id
+     WHERE z.scheda_id = $1 ORDER BY p.ordine, z.creato_il LIMIT 1`, [schedaId]);
+  return rows[0] ? { commessaId: rows[0].commessa_id, piantaId: rows[0].pianta_id, zonaId: rows[0].zona_id } : null;
+}

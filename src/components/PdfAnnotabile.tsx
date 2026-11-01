@@ -86,14 +86,16 @@ interface Props {
   onZonaCreata?: (r: { pagina: number; x: number; y: number; w: number; h: number }) => void;
   onZonaClick?: (id: string | null) => void;
   barraExtra?: React.ReactNode;
+  // Apre la pianta ingrandita con questo punto (coordinate 0–1) al centro.
+  centraSu?: { pagina: number; x: number; y: number };
 }
 
-export default function PdfAnnotabile({ url, mimeType, iniziali, onChange, readOnly = false, height = "calc(100vh - 220px)", modo = "segni", zone, onZonaCreata, onZonaClick, barraExtra }: Props) {
+export default function PdfAnnotabile({ url, mimeType, iniziali, onChange, readOnly = false, height = "calc(100vh - 220px)", modo = "segni", zone, onZonaCreata, onZonaClick, barraExtra, centraSu }: Props) {
   const [strokes, setStrokes] = useState<Record<number, Point[][]>>(iniziali?.strokes ?? {});
   const [stamps, setStamps] = useState<Record<number, Stamp[]>>(iniziali?.stamps ?? {});
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(centraSu?.pagina ?? 1);
   const [totalPages, setTotalPages] = useState(0);
-  const [zoomFactor, setZoomFactor] = useState(1);
+  const [zoomFactor, setZoomFactor] = useState(centraSu ? 1.6 : 1);
   const [pdfLoading, setPdfLoading] = useState(true);
   const [errore, setErrore] = useState<string | null>(null);
 
@@ -104,6 +106,7 @@ export default function PdfAnnotabile({ url, mimeType, iniziali, onChange, readO
   const renderTaskRef = useRef<{ cancel?: () => void } | null>(null);
   const baseDimRef = useRef<{ w: number; h: number } | null>(null);
   const ultimaPaginaRef = useRef(0);
+  const centraSuRef = useRef(centraSu);
   const lastTapRef = useRef<{ time: number; x: number; y: number; page: number } | null>(null);
   const currentStrokeRef = useRef<Point[]>([]);
   const isDrawingRef = useRef(false);
@@ -284,6 +287,15 @@ export default function PdfAnnotabile({ url, mimeType, iniziali, onChange, readO
     }
     ultimaPaginaRef.current = pageNum;
     redrawAnnotations();
+    const c = centraSuRef.current;
+    if (c && c.pagina === pageNum) {
+      centraSuRef.current = undefined; // una sola volta, al primo rendering
+      const cr = container.getBoundingClientRect(), pr = pdfCanvas.getBoundingClientRect();
+      container.scrollTo({
+        left: pr.left - cr.left + container.scrollLeft + c.x * cssW - container.clientWidth / 2,
+        top: pr.top - cr.top + container.scrollTop + c.y * cssH - container.clientHeight / 2,
+      });
+    }
   }, [redrawAnnotations]);
 
   // ── Gesti ─────────────────────────────────────────────────────────────────

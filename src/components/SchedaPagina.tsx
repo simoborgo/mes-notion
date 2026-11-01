@@ -10,9 +10,10 @@ import DettaglioSchedaModal from "./DettaglioSchedaModal";
 
 export type TabScheda = "info" | "fornitore" | "kit" | "aps" | "verniciatura";
 
-export default function SchedaPagina({ scheda: iniziale, figlie, attivita, padre, userRole, tabIniziale, modificaIniziale }: {
+export default function SchedaPagina({ scheda: iniziale, figlie, attivita, padre, hrefPianta, userRole, tabIniziale, modificaIniziale }: {
   scheda: Scheda;
   padre: Scheda | null;
+  hrefPianta?: string; // zona di questo ODP su una pianta di commessa
   figlie: Scheda[];
   attivita: VoceAttivita[];
   userRole?: Role;
@@ -56,6 +57,7 @@ export default function SchedaPagina({ scheda: iniziale, figlie, attivita, padre
           </>
         )}
         <span className="font-semibold" style={{ color: "var(--color-black)" }}>{scheda.odp || scheda.numeroScheda || "Scheda"}</span>
+        {hrefPianta && <Link href={hrefPianta} className="ml-3 underline" style={{ color: "var(--color-primary)" }}>Vedi sulla pianta</Link>}
         <span className="ml-auto hidden sm:inline">Esc {padre ? `torna a ${padre.odp || padre.numeroScheda}` : "torna all'elenco"}</span>
       </nav>
       <DettaglioSchedaModal

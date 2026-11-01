@@ -32,8 +32,8 @@ const inputCls = "border rounded px-2 py-1 text-sm bg-white w-full focus:outline
 // Pianta annotabile (stesso motore delle spedizioni) con le zone cliccabili agganciate agli ODP.
 // Chi non modifica la vede in sola lettura: un clic su una zona apre subito la scheda ODP.
 // I segni si salvano da soli 2s dopo l'ultima modifica; le zone si salvano subito.
-export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, odp, schedeConZona, canEdit }: {
-  pianta: CommessaPianta; iniziali: Partial<Annotazioni>; zoneIniziali: ZonaPianta[]; odp: OdpPianta[];
+export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaIniziale, odp, schedeConZona, canEdit }: {
+  pianta: CommessaPianta; iniziali: Partial<Annotazioni>; zoneIniziali: ZonaPianta[]; zonaIniziale?: string; odp: OdpPianta[];
   schedeConZona: string[]; canEdit: boolean;
 }) {
   const router = useRouter();
@@ -43,7 +43,7 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, odp, 
   const [modo, setModo] = useState<ModoPianta>("vista");
   const [zone, setZone] = useState<ZonaPianta[]>(zoneIniziali);
   const [conZona, setConZona] = useState<Set<string>>(new Set(schedeConZona));
-  const [selId, setSelId] = useState<string | null>(null);
+  const [selId, setSelId] = useState<string | null>(zonaIniziale ?? null);
   const [nuova, setNuova] = useState<{ pagina: number; x: number; y: number; w: number; h: number } | null>(null);
   const [errore, setErrore] = useState("");
 
@@ -118,6 +118,11 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, odp, 
     setConZona((s) => new Set(s).add(schedaId));
   }
 
+  // arrivando dalla scheda ODP ("Vedi sulla pianta") la pianta si apre ingrandita su quella zona
+  const [centraSu] = useState(() => {
+    const z = zoneIniziali.find((x) => x.id === zonaIniziale);
+    return z ? { pagina: z.pagina, x: z.x + z.w / 2, y: z.y + z.h / 2 } : undefined;
+  });
   const sel = zone.find((z) => z.id === selId) ?? null;
   const selOdp = sel?.schedaId ? odpPerId.get(sel.schedaId) : undefined;
   const senzaZona = odp.filter((o) => !conZona.has(o.id) && o.statoProduzione !== "Annullata");
@@ -146,6 +151,7 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, odp, 
             onZonaCreata={(r) => { setNuova(r); setSelId(null); }}
             onZonaClick={onZonaClick}
             barraExtra={barraModi}
+            centraSu={centraSu}
           />
         </div>
 

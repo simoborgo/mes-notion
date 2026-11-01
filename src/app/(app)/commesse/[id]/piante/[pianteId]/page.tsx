@@ -9,8 +9,8 @@ import PiantaAnnotatore from "@/components/PiantaAnnotatore";
 export const dynamic = "force-dynamic";
 
 // Pagina dedicata alla pianta: stesso motore delle verifiche di spedizione (zoom, segni, bolli) più le zone cliccabili agganciate agli ODP.
-export default async function PiantaPage({ params }: { params: Promise<{ id: string; pianteId: string }> }) {
-  const { id, pianteId } = await params;
+export default async function PiantaPage({ params, searchParams }: { params: Promise<{ id: string; pianteId: string }>; searchParams: Promise<{ zona?: string }> }) {
+  const [{ id, pianteId }, { zona }] = await Promise.all([params, searchParams]);
   let commessa, piante;
   try {
     [commessa, piante] = await Promise.all([getCommessaById(id), getPianteByCommessa(id)]);
@@ -52,6 +52,7 @@ export default async function PiantaPage({ params }: { params: Promise<{ id: str
       </div>
       <PiantaAnnotatore key={pianta.id} pianta={pianta} iniziali={annotazioni as never}
         zoneIniziali={zone}
+        zonaIniziale={zone.find((z) => z.id === zona)?.id}
         odp={schede.map((x) => ({ id: x.id, odp: x.odp, numeroScheda: x.numeroScheda, statoProduzione: x.statoProduzione ?? "", faseCorrente: x.faseCorrente ?? "" }))}
         schedeConZona={schedeConZona}
         canEdit={canEdit}
