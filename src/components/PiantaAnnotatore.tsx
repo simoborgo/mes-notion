@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { CommessaPianta, ZonaPianta } from "@/lib/types";
 import PdfAnnotabile, { type Annotazioni, type ModoPianta, type ZonaRender } from "./PdfAnnotabile";
 import BadgeStato from "./BadgeStato";
+import { esportaPiantaPdf } from "@/lib/esportaPianta";
 
 export interface OdpPianta {
   id: string;
@@ -48,6 +49,7 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaI
   const [selId, setSelId] = useState<string | null>(zonaIniziale ?? null);
   const [nuova, setNuova] = useState<{ pagina: number; x: number; y: number; w: number; h: number } | null>(null);
   const [errore, setErrore] = useState("");
+  const [esportando, setEsportando] = useState(false);
 
   const odpPerId = useMemo(() => new Map(odp.map((o) => [o.id, o])), [odp]);
 
@@ -125,6 +127,23 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaI
     const z = zoneIniziali.find((x) => x.id === zonaIniziale);
     return z ? { pagina: z.pagina, x: z.x + z.w / 2, y: z.y + z.h / 2 } : undefined;
   });
+  const urlVisione = pianta.haVista ? `/api/commesse/${pianta.commessaId}/piante/${pianta.id}/vista?v=${pianta.driveFileId}` : `/api/commesse/${pianta.commessaId}/piante/${pianta.id}/file?v=${pianta.driveFileId}`;
+  const mimeVisione = pianta.haVista ? "image/jpeg" : pianta.mimeType;
+
+  async function esporta() {
+    setEsportando(true); setErrore("");
+    try {
+      const a = ultimoRef.current;
+      const base = (pianta.etichetta || pianta.nomeFile.replace(/\.[^.]+$/, "")).replace(/[\\/:*?"<>|]/g, "_");
+      await esportaPiantaPdf({ url: urlVisione, mimeType: mimeVisione, strokes: a?.strokes ?? iniziali.strokes ?? {}, stamps: a?.stamps ?? iniziali.stamps ?? {}, zone: zoneRender, nomeFile: `${base} - segnata.pdf` });
+    } catch (e) {
+      console.error("[piante] esporta:", e);
+      setErrore("Esportazione non riuscita: riprova");
+    } finally {
+      setEsportando(false);
+    }
+  }
+
   const sel = zone.find((z) => z.id === selId) ?? null;
   const selOdp = sel?.schedaId ? odpPerId.get(sel.schedaId) : undefined;
   const senzaZona = odp.filter((o) => !conZona.has(o.id) && o.statoProduzione !== "Annullata");
@@ -153,8 +172,8 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaI
       <div className="flex flex-col md:flex-row gap-3">
         <div className="flex-1 min-w-0">
           <PdfAnnotabile
-            url={pianta.haVista ? `/api/commesse/${pianta.commessaId}/piante/${pianta.id}/vista?v=${pianta.driveFileId}` : `/api/commesse/${pianta.commessaId}/piante/${pianta.id}/file?v=${pianta.driveFileId}`}
-            mimeType={pianta.haVista ? "image/jpeg" : pianta.mimeType}
+            url={urlVisione}
+            mimeType={mimeVisione}
             iniziali={iniziali}
             onChange={inModifica ? onChange : undefined}
             readOnly={!inModifica}
@@ -162,7 +181,12 @@ export default function PiantaAnnotatore({ pianta, iniziali, zoneIniziali, zonaI
             zone={zoneRender}
             onZonaCreata={(r) => { setNuova(r); setSelId(null); }}
             onZonaClick={onZonaClick}
-            barraExtra={barraModi}
+            barraExtra={<>
+              {barraModi}
+              <button onClick={esporta} disabled={esportando} title="Scarica un PDF con zone, tratti e bolli già disegnati" style={{ ...btnBase, background: "#F5F2EE", color: "#1A1918", opacity: esportando ? 0.6 : 1 }}>
+                {esportando ? "Preparo il PDF…" : "⤓ Esporta PDF"}
+              </button>
+            </>}
             centraSu={centraSu}
           />
         </div>

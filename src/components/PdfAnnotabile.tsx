@@ -1,14 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getPdfjsLib } from "@/lib/pdfjsClient";
+import { caricaDocumento, type DocumentoRender } from "@/lib/documentoRender";
+import { disegnaOverlay, type Point, type Stamp, type ZonaRender, type ModoPianta } from "@/lib/pianteOverlay";
+
+export type { Point, Stamp, ZonaRender, ModoPianta } from "@/lib/pianteOverlay";
 
 // Motore di visualizzazione e annotazione PDF/immagine, portato da SpedizioneVerifica (stesso
 // rendering a due canvas, stessi gesti, stesso formato dati per pagina in coordinate 0–1).
 // Contiene solo la parte comune: lock, foto e finalizzazione restano della spedizione.
 
-export interface Point { x: number; y: number }
-export interface Stamp { x: number; y: number; tipo: "ok" | "manca" }
 export interface Annotazioni {
   strokes: Record<number, Point[][]>;
   stamps: Record<number, Stamp[]>;
@@ -18,7 +19,6 @@ const DOUBLE_TAP_MS = 400;
 const DOUBLE_TAP_DIST = 0.03;
 const TAP_MOVE_THRESHOLD = 0.01;
 const LONG_PRESS_MS = 800;
-const HIGHLIGHT_OPACITY = 0.55;
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 2.5;
 const MAX_PIXEL = 16_000_000;
@@ -28,71 +28,6 @@ const btnStyle: React.CSSProperties = {
   padding: "5px 10px", borderRadius: 4, background: "#F5F2EE", color: "#1A1918",
   border: "1px solid #E5E4E0", fontSize: 12, cursor: "pointer",
 };
-
-// Interfaccia minima di pdf.js usata dal rendering; le immagini la implementano con un adattatore.
-interface PaginaRender {
-  getViewport: (o: { scale: number }) => { width: number; height: number };
-  render: (o: { canvasContext: CanvasRenderingContext2D; viewport: { width: number; height: number } }) => { promise: Promise<void>; cancel?: () => void };
-}
-interface DocumentoRender { numPages: number; getPage: (n: number) => Promise<PaginaRender> }
-
-// Scarica il file in streaming per mostrare l'avanzamento (progresso null se il server non
-// dichiara la lunghezza), poi lo prepara per il rendering.
-async function caricaDocumento(url: string, mimeType: string, onProgress: (p: number | null) => void): Promise<DocumentoRender> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("File non trovato");
-  const totale = Number(res.headers.get("content-length")) || 0;
-  const pezzi: Uint8Array[] = [];
-  let letti = 0;
-  if (res.body) {
-    const reader = res.body.getReader();
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      pezzi.push(value);
-      letti += value.length;
-      onProgress(totale ? Math.min(1, letti / totale) : null);
-    }
-  } else {
-    pezzi.push(new Uint8Array(await res.arrayBuffer()));
-  }
-  const dati = new Uint8Array(pezzi.reduce((n, p) => n + p.length, 0));
-  let off = 0;
-  for (const p of pezzi) { dati.set(p, off); off += p.length; }
-
-  if (mimeType === "application/pdf") {
-    const pdfjsLib = await getPdfjsLib();
-    const pdf = await pdfjsLib.getDocument({ data: dati }).promise;
-    return pdf as unknown as DocumentoRender;
-  }
-  const bmp = await createImageBitmap(new Blob([dati], { type: mimeType }));
-  return {
-    numPages: 1,
-    getPage: async () => ({
-      getViewport: ({ scale }) => ({ width: bmp.width * scale, height: bmp.height * scale }),
-      render: ({ canvasContext, viewport }) => {
-        canvasContext.drawImage(bmp, 0, 0, viewport.width, viewport.height);
-        return { promise: Promise.resolve() };
-      },
-    }),
-  };
-}
-
-// Zona rettangolare già calcolata dal chiamante (colore, etichetta, conteggio ODP): il motore la disegna e basta.
-export interface ZonaRender {
-  id: string;
-  pagina: number;
-  x: number; y: number; w: number; h: number;
-  colore: string;
-  etichetta: string;
-  conteggio: number | null;
-  selezionata: boolean;
-  tratteggio?: boolean;
-  spuntata?: boolean; // lavoro completato: segno di spunta al centro
-}
-// segni = disegno a mano libera e bolli (default, come la spedizione); zone = si trascina un
-// rettangolo; vista = i tocchi servono solo a cliccare le zone e il dito può scorrere la pagina.
-export type ModoPianta = "segni" | "zone" | "vista";
 
 interface Props {
   url: string;
@@ -173,100 +108,10 @@ export default function PdfAnnotabile({ url, mimeType, iniziali, onChange, readO
     ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
     ctx.save();
     ctx.scale(dpr, dpr);
-    const W = drawCanvas.width / dpr;
-    const H = drawCanvas.height / dpr;
-    const lw = Math.max(14, W * 0.018);
-    const pageStrokes = strokesRef.current[currentPageRef.current] ?? [];
-    const allStrokes = liveStroke ? [...pageStrokes, liveStroke] : pageStrokes;
-
-    // zone (sotto ai segni)
-    ctx.globalCompositeOperation = "source-over";
-    const fs = Math.max(11, W * 0.011);
-    for (const z of zoneRef.current ?? []) {
-      if (z.pagina !== currentPageRef.current) continue;
-      const zx = z.x * W, zy = z.y * H, zw = z.w * W, zh = z.h * H;
-      ctx.globalAlpha = z.tratteggio ? 0.12 : 0.28;
-      ctx.fillStyle = z.colore;
-      ctx.fillRect(zx, zy, zw, zh);
-      ctx.globalAlpha = 0.95;
-      ctx.strokeStyle = z.colore;
-      ctx.lineWidth = z.selezionata ? 4 : 2;
-      ctx.setLineDash(z.tratteggio ? [6, 4] : []);
-      ctx.strokeRect(zx, zy, zw, zh);
-      ctx.setLineDash([]);
-      if (z.spuntata) {
-        const cs = Math.min(zw, zh, W * 0.05) * 0.5;
-        const cx = zx + zw / 2, cy = zy + zh / 2;
-        ctx.globalAlpha = 0.95;
-        ctx.strokeStyle = z.colore;
-        ctx.lineWidth = Math.max(3, cs * 0.28);
-        ctx.lineCap = "round"; ctx.lineJoin = "round";
-        ctx.beginPath();
-        ctx.moveTo(cx - cs * 0.6, cy);
-        ctx.lineTo(cx - cs * 0.15, cy + cs * 0.45);
-        ctx.lineTo(cx + cs * 0.65, cy - cs * 0.45);
-        ctx.stroke();
-      }
-      if (z.etichetta || z.conteggio) {
-        ctx.font = `bold ${Math.round(fs)}px sans-serif`;
-        ctx.textAlign = "left";
-        ctx.textBaseline = "top";
-        const testo = [z.etichetta, z.conteggio ? `${z.conteggio} ODP` : ""].filter(Boolean).join(" · ");
-        const tw = Math.min(ctx.measureText(testo).width + 8, Math.max(zw, 40));
-        ctx.globalAlpha = 0.9;
-        ctx.fillStyle = z.colore;
-        ctx.fillRect(zx, zy, tw, fs + 6);
-        ctx.fillStyle = "white";
-        ctx.save();
-        ctx.beginPath(); ctx.rect(zx, zy, tw, fs + 6); ctx.clip();
-        ctx.fillText(testo, zx + 4, zy + 3);
-        ctx.restore();
-      }
-    }
-    const live = rettangoloLiveRef.current;
-    if (live) {
-      ctx.globalAlpha = 0.9;
-      ctx.strokeStyle = "#F08F25";
-      ctx.lineWidth = 2;
-      ctx.setLineDash([6, 4]);
-      ctx.strokeRect(live.x * W, live.y * H, live.w * W, live.h * H);
-      ctx.setLineDash([]);
-    }
-
-    ctx.globalCompositeOperation = "multiply";
-    ctx.globalAlpha = HIGHLIGHT_OPACITY;
-    ctx.strokeStyle = "#FFE066";
-    ctx.lineWidth = lw;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    for (const stroke of allStrokes) {
-      if (stroke.length < 2) continue;
-      ctx.beginPath();
-      ctx.moveTo(stroke[0].x * W, stroke[0].y * H);
-      for (let i = 1; i < stroke.length; i++) ctx.lineTo(stroke[i].x * W, stroke[i].y * H);
-      ctx.stroke();
-    }
-
-    ctx.globalCompositeOperation = "source-over";
-    ctx.globalAlpha = 0.92;
-    const r = Math.max(20, W * 0.028);
-    for (const s of stampsRef.current[currentPageRef.current] ?? []) {
-      const cx = s.x * W;
-      const cy = s.y * H;
-      const isOk = s.tipo === "ok";
-      ctx.beginPath();
-      ctx.ellipse(cx, cy, r, r, 0, 0, 2 * Math.PI);
-      ctx.fillStyle = isOk ? "#2E8B4F" : "#CC3333";
-      ctx.fill();
-      ctx.lineWidth = 2.5;
-      ctx.strokeStyle = "white";
-      ctx.stroke();
-      ctx.font = `bold ${Math.round(r * 0.8)}px sans-serif`;
-      ctx.fillStyle = "white";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(isOk ? "OK" : "!", cx, cy);
-    }
+    disegnaOverlay(ctx, drawCanvas.width / dpr, drawCanvas.height / dpr, {
+      pagina: currentPageRef.current, strokes: strokesRef.current, stamps: stampsRef.current,
+      zone: zoneRef.current, liveStroke, liveRect: rettangoloLiveRef.current,
+    });
     ctx.restore();
   }, []);
 
@@ -375,7 +220,11 @@ export default function PdfAnnotabile({ url, mimeType, iniziali, onChange, readO
         redrawAnnotations();
         return;
       }
-      if (modoRef.current === "vista") return;
+      if (modoRef.current === "vista") {
+        // in sola visione il cursore diventa una mano solo sopra una zona cliccabile
+        canvas!.style.cursor = zonaSu(norm(e)) ? "pointer" : "default";
+        return;
+      }
       if (currentStrokeRef.current.length === 0) return;
       const pt = norm(e);
       const start = pointerStartRef.current!;
@@ -569,7 +418,7 @@ export default function PdfAnnotabile({ url, mimeType, iniziali, onChange, readO
         ) : (
           <div style={{ position: "relative", display: "inline-block", margin: "0 auto" }}>
             <canvas ref={pdfCanvasRef} style={{ display: "block", boxShadow: "0 2px 12px rgba(0,0,0,0.18)" }} />
-            <canvas ref={drawCanvasRef} style={{ position: "absolute", top: 0, left: 0, cursor: modo === "vista" || readOnly ? "pointer" : readOnly ? "default" : "crosshair", touchAction: modo === "vista" || readOnly ? "auto" : "none", userSelect: "none" }} />
+            <canvas ref={drawCanvasRef} style={{ position: "absolute", top: 0, left: 0, cursor: modo === "vista" || readOnly ? "default" : "crosshair", touchAction: modo === "vista" || readOnly ? "auto" : "none", userSelect: "none" }} />
           </div>
         )}
       </div>
