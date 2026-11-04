@@ -568,18 +568,6 @@ export default function TabellaRitiri({
                                 </button>
                               );
                             })}
-                            {canWrite && r.stato !== "Fatto" && (
-                              <button
-                                disabled={isLoading}
-                                onClick={() => fattoDalFornitore(r)}
-                                className="inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold text-white shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-md active:scale-95"
-                                style={{ background: "#0E7490", minWidth: 80 }}
-                                title="Il fornitore ha portato o ritirato lui il materiale: segna Fatto"
-                              >
-                                <span className="text-[0.65rem] leading-none">⇄</span>
-                                Dal fornitore
-                              </button>
-                            )}
                           </div>
                         </td>
                         <td className="px-4 py-4">
@@ -635,6 +623,18 @@ export default function TabellaRitiri({
                               {r.fornitore || "—"}
                             </div>
                             {r.trasporto === "Fornitore" && <BadgeTrasportoFornitore />}
+                            {canWrite && r.stato !== "Fatto" && (
+                              <button
+                                disabled={isLoading}
+                                onClick={() => fattoDalFornitore(r)}
+                                className="mt-1 inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold text-white shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-md active:scale-95"
+                                style={{ background: "#0E7490" }}
+                                title="Il fornitore ha portato o ritirato lui il materiale: segna Fatto"
+                              >
+                                <span className="text-[0.65rem] leading-none">⇄</span>
+                                Dal fornitore
+                              </button>
+                            )}
                           </div>
                         </td>
                         <td className="px-4 py-4">

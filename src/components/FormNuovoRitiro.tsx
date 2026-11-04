@@ -118,8 +118,8 @@ export default function FormNuovoRitiro({ schede = [], fornitori = [], commesse 
   function selectScheda(s: Scheda) {
     const fornitoreMatch = fornitori.find(f => f.nome === s.fornitore);
     const tipo = s.statoProdEsterna === "In Lavorazione" ? "Ritiro" : "Consegna";
-    const nomeForn = s.fornitore || fornitoreMatch?.nome;
-    const causaleAuto = nomeForn ? `${tipo} da ${nomeForn}` : tipo;
+    // Stesso formato dei movimenti generati dal giro, senza nome fornitore (ha la sua colonna).
+    const causaleAuto = `${tipo} — ${s.odp || s.numeroScheda || ""}`.replace(/ — $/, "");
     setTipoSuggerito(tipo);
     setForm(prev => ({
       ...prev,
