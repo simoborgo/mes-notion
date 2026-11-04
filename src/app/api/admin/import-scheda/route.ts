@@ -149,15 +149,9 @@ export async function POST(req: NextRequest) {
 
   const parent = items[0];
 
-  // Assieme di Modar con tutte le sottoschede in lavorazione esterna: resta fermo finché non rientrano
-  // i pezzi, quindi parte "In attesa materiale". Se anche solo una sottoscheda si fa in Modar, o la
-  // principale ha già un fornitore o uno stato scelto in anteprima, lo stato non si tocca.
-  const subEsterna = (it: ParsedItem) => (it.stato ?? (it.fornitore && it.fornitore.toUpperCase() !== "MODAR" ? "In lavorazione Esterna" : "In lavorazione")) === "In lavorazione Esterna";
-  const sottoschede = items.slice(1);
-  const parentInModar = !fornitoreIds[0] && (!parent.fornitore || parent.fornitore.toUpperCase() === "MODAR");
-  const parentInAttesa = parentInModar && (!parent.stato || parent.stato === "In lavorazione") && sottoschede.length > 0 && sottoschede.every(subEsterna);
-
-  const parentStato = parentInAttesa ? "In attesa materiale" : parent.stato || "In lavorazione";
+  // Lo stato della principale è quello scelto in anteprima ("In attesa materiale" è un'opzione manuale:
+  // il server non può dedurlo, perché riceve solo le sottoschede incluse nell'import).
+  const parentStato = parent.stato || "In lavorazione";
   const parentPage = await createSchedaPage({
     numeroScheda: parent.numeroScheda,
     commessaId: commessa.id,

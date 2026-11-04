@@ -656,6 +656,7 @@ export default function ImportSchedaPdf() {
                     >
                       <option value="In lavorazione">In lavorazione</option>
                       <option value="In lavorazione Esterna">In lavorazione Esterna</option>
+                      {idx === 0 && <option value="In attesa materiale">In attesa materiale</option>}
                     </select>
                   </div>
 
