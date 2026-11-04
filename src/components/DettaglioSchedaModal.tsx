@@ -588,14 +588,32 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
                     )}
                   </div>
                 )}
-                <div className="font-mono font-bold text-[26.4px] tracking-tight truncate" style={{ color: "var(--color-black)" }}>
-                  {s.odp || "—"}{s.numeroScheda ? ` - ${s.numeroScheda}` : ""}
-                </div>
-                {(s.commessaNr || s.clienteInfo) && (
-                  <div className="text-[17.6px] font-medium mt-0.5 truncate" style={{ color: "var(--color-grey-mid)" }}>
-                    {s.commessaNr}{s.commessaNr && s.clienteInfo ? " - " : ""}{s.clienteInfo}
+                <div className="flex items-baseline gap-4 min-w-0">
+                  <div className="font-mono font-bold text-[26.4px] tracking-tight truncate" style={{ color: "var(--color-black)" }}>
+                    {s.odp || "—"}{s.numeroScheda ? ` - ${s.numeroScheda}` : ""}
                   </div>
-                )}
+                  {s.codiceArticolo && (
+                    <div className="inline-flex items-center gap-1.5 font-mono font-bold text-[26.4px] tracking-tight shrink-0" style={{ color: bandTheme.accent }}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M21 8l-9-5-9 5v8l9 5 9-5V8z" />
+                        <path d="M3 8l9 5 9-5M12 13v8" />
+                      </svg>
+                      {s.codiceArticolo}
+                    </div>
+                  )}
+                </div>
+                {(s.commessaNr || s.clienteInfo) && (() => {
+                  // clienteInfo può già iniziare col numero commessa: non ripeterlo
+                  const nr = (s.commessaNr || "").trim();
+                  const cli = (s.clienteInfo || "").trim();
+                  const cliHaNr = nr && cli.toLowerCase().startsWith(nr.toLowerCase());
+                  const testo = cliHaNr ? cli : [nr, cli].filter(Boolean).join(" - ");
+                  return (
+                    <div className="text-[17.6px] font-medium mt-0.5 truncate" style={{ color: "var(--color-grey-mid)" }}>
+                      {testo}
+                    </div>
+                  );
+                })()}
               </div>
               {isPagina ? null : (
                 <div className="flex items-center gap-1 shrink-0">
