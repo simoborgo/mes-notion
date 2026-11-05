@@ -28,7 +28,7 @@ export default function CommessaCampionature({ schede, canVerniciatura }: { sche
       ) : (
         <div className="rounded-lg border border-gray-200 bg-white divide-y divide-gray-100">
           {schede.map((s) => (
-            <div key={s.id} className="flex items-start gap-3 p-4">
+            <div key={s.id} id={`riga-ca-${s.id}`} className="flex items-start gap-3 p-4">
               <span className="text-xs font-semibold w-8 shrink-0 pt-0.5" style={{ color: "var(--color-grey-mid)" }}>v{s.versione}</span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium">{s.nome || "Senza nome"}</p>

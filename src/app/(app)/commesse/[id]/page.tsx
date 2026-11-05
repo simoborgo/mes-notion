@@ -18,6 +18,8 @@ import CommessaCampionature from "@/components/CommessaCampionature";
 import CommessaPiante, { type StatistichePianta } from "@/components/CommessaPiante";
 import CommessaDocumenti from "@/components/CommessaDocumenti";
 import CommessaStorico from "@/components/CommessaStorico";
+import type { VoceRicerca } from "@/components/CommessaRicerca";
+import EvidenziaRiga from "@/components/EvidenziaRiga";
 import AreeSection from "@/components/AreeSection";
 
 export const dynamic = "force-dynamic";
@@ -57,11 +59,20 @@ export default async function CommessaPage({ params, searchParams }: { params: P
   for (const [piantaId, st] of Object.entries(statistiche)) {
     st.odp = new Set(zoneCommessa.filter((z) => z.piantaId === piantaId && z.schedaId && statoOdp.has(z.schedaId) && statoOdp.get(z.schedaId) !== "Annullata").map((z) => z.schedaId)).size;
   }
+  // Indice di ricerca della scheda: specifiche, storico (note ed eventi), campionature, documenti.
+  const indice: VoceRicerca[] = [
+    ...specifiche.map((x) => ({ id: `sp-${x.id}`, tab: "specifiche", sezione: "Specifiche", titolo: x.titolo, testo: [x.tipo, x.stato, x.descrizione].join(" · ") })),
+    ...storico.map((e) => ({ id: `st-${e.id}`, tab: "storico", sezione: e.notaId ? "Note" : "Storico", titolo: e.categoria, testo: [e.testo, e.autore, ...(e.allegati ?? []).map((a) => a.nomeFile)].filter(Boolean).join(" · ") })),
+    ...campionature.map((c) => ({ id: `ca-${c.id}`, tab: "campionature", sezione: "Campionature", titolo: c.nome || "Senza nome", testo: [c.codicePubblico, c.essenza].filter(Boolean).join(" · ") })),
+    ...allegati.map((a) => ({ id: `do-${a.id}`, tab: "documenti", sezione: "Documenti", titolo: a.nomeFile, testo: a.categoria })),
+  ];
   const canContenuto = !!session && COMMESSA_CONTENUTO_ROLES.includes(session.role);
 
   return (
     <div className="space-y-4 max-w-[1500px] mx-auto">
-      <CommessaIntestazione commessa={commessa} userRole={session?.role} />
+      <CommessaIntestazione commessa={commessa} userRole={session?.role} indice={indice} />
+
+      <EvidenziaRiga />
 
       <CommessaTabs
         commessaId={commessa.id}

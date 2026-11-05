@@ -118,7 +118,7 @@ export default function CommessaSpecifiche({ commessaId, specifiche, allegati, c
       ) : (
         <div className="rounded-lg border border-gray-200 bg-white divide-y divide-gray-100">
           {visibili.map((s) => (
-            <div key={s.id} className="flex items-start gap-3 p-4">
+            <div key={s.id} id={`riga-sp-${s.id}`} className="flex items-start gap-3 p-4">
               <span className="text-xs font-semibold uppercase tracking-wide w-20 shrink-0 pt-0.5" style={{ color: "var(--color-grey-mid)" }}>{s.tipo}</span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium">{s.titolo}</p>

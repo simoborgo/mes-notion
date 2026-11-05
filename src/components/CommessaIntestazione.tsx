@@ -7,10 +7,11 @@ import type { Commessa } from "@/lib/types";
 import { COMMESSE_ROLES, type Role } from "@/lib/roles";
 import BadgeStato from "./BadgeStato";
 import FormCommessa from "./FormCommessa";
+import CommessaRicerca, { type VoceRicerca } from "./CommessaRicerca";
 
 // Testata della scheda commessa a pagina piena: percorso, titolo, stato, Modifica. Esc torna
 // all'elenco come nella scheda ODP, tranne quando si scrive in un campo o un modale è aperto.
-export default function CommessaIntestazione({ commessa, userRole }: { commessa: Commessa; userRole?: Role }) {
+export default function CommessaIntestazione({ commessa, userRole, indice }: { commessa: Commessa; userRole?: Role; indice: VoceRicerca[] }) {
   const router = useRouter();
   const [modifica, setModifica] = useState(false);
   const canWrite = !!userRole && COMMESSE_ROLES.includes(userRole);
@@ -44,6 +45,7 @@ export default function CommessaIntestazione({ commessa, userRole }: { commessa:
             {[commessa.localita, commessa.responsabile && `Resp. ${commessa.responsabile}`].filter(Boolean).join(" · ")}
           </p>
         </div>
+        <CommessaRicerca commessaId={commessa.id} indice={indice} />
         <div className="flex items-center gap-3 shrink-0">
           <Link href={`/commesse/${commessa.id}/disegni`} className="text-sm underline" style={{ color: "var(--color-primary)" }}>
             Arrivo disegni

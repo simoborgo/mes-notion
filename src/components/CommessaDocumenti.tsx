@@ -62,7 +62,7 @@ export default function CommessaDocumenti({ commessaId, allegati, specifiche, ca
       ) : (
         <div className="rounded-lg border border-gray-200 bg-white divide-y divide-gray-100">
           {visibili.map((a) => (
-            <div key={a.id} className="flex items-start gap-3 p-4">
+            <div key={a.id} id={`riga-do-${a.id}`} className="flex items-start gap-3 p-4">
               <span className="text-xs font-semibold uppercase tracking-wide w-24 shrink-0 pt-0.5" style={{ color: "var(--color-grey-mid)" }}>{a.categoria}</span>
               <div className="flex-1 min-w-0">
                 <a href={`/api/drive-file/${a.driveFileId}`} target="_blank" rel="noreferrer" className="text-sm font-medium underline break-all">{a.nomeFile}</a>

@@ -100,7 +100,7 @@ export default function CommessaStorico({ commessaId, eventi, canEdit }: { comme
       ) : (
         <ul className="rounded-lg border border-gray-200 bg-white divide-y divide-gray-100">
           {visibili.map((e) => (
-            <li key={e.id} className="flex gap-3 p-4 flex-wrap sm:flex-nowrap">
+            <li key={e.id} id={`riga-st-${e.id}`} className="flex gap-3 p-4 flex-wrap sm:flex-nowrap">
               <span className="text-xs tabular-nums w-32 shrink-0 pt-0.5" style={{ color: "var(--color-grey-mid)" }}>{quando(e.quando)}</span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm whitespace-pre-line">
