@@ -136,10 +136,20 @@ export interface RitiroUpdate {
 export const TRASPORTI_MOVIMENTO = ["Modar", "Fornitore"] as const;
 export type TrasportoMovimento = (typeof TRASPORTI_MOVIMENTO)[number];
 
+export interface Brand {
+  id: string;
+  nome: string;
+  // Varianti di scrittura separate da virgola, usate solo per suggerire il brand dal testo cliente
+  alias: string;
+  haLogo: boolean;
+}
+
 export interface Commessa {
   id: string;
   numeroCommessa: string;
   cliente: string;
+  // Brand con logo per i documenti interni (facoltativo, il testo `cliente` resta com'è)
+  brandId: string | null;
   localita: string;
   info: string;
   responsabile: string;
@@ -226,6 +236,7 @@ export interface Area {
 export interface CommessaUpdate {
   numeroCommessa?: string;
   cliente?: string;
+  brandId?: string | null;
   localita?: string;
   info?: string;
   responsabile?: string;

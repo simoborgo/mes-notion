@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
     const commessa = await createCommessa({
       numeroCommessa,
       cliente: typeof body.cliente === "string" ? body.cliente.trim() : "",
+      brandId: typeof body.brandId === "string" && body.brandId ? body.brandId : null,
       localita: typeof body.localita === "string" ? body.localita.trim() : "",
       info: typeof body.info === "string" ? body.info.trim() : "",
       responsabile: typeof body.responsabile === "string" ? body.responsabile.trim() : "",

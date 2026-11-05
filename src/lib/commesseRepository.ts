@@ -7,6 +7,7 @@ function mapRow(r: any): Commessa {
     id: r.id,
     numeroCommessa: r.numero_commessa,
     cliente: r.cliente,
+    brandId: r.brand_id ?? null,
     localita: r.localita,
     info: r.info,
     responsabile: r.responsabile,
@@ -61,6 +62,7 @@ export async function findCommessaByNumber(numero: string): Promise<Commessa | n
 export async function createCommessa(data: {
   numeroCommessa: string;
   cliente?: string;
+  brandId?: string | null;
   localita?: string;
   info?: string;
   responsabile?: string;
@@ -72,8 +74,8 @@ export async function createCommessa(data: {
   fineProduzione?: string | null;
 }): Promise<Commessa> {
   const { rows } = await pool.query(
-    `INSERT INTO commesse (id, numero_commessa, cliente, localita, info, responsabile, stato, data_carico, inizio_montaggio, fine_montaggio, inizio_produzione, fine_produzione)
-     VALUES (gen_random_uuid(), $1,$2,$3,$4,$5,COALESCE($6,'ShopDrawing'),$7,$8,$9,$10,$11)
+    `INSERT INTO commesse (id, numero_commessa, cliente, localita, info, responsabile, stato, data_carico, inizio_montaggio, fine_montaggio, inizio_produzione, fine_produzione, brand_id)
+     VALUES (gen_random_uuid(), $1,$2,$3,$4,$5,COALESCE($6,'ShopDrawing'),$7,$8,$9,$10,$11,$12)
      RETURNING id`,
     [
       data.numeroCommessa,
@@ -87,6 +89,7 @@ export async function createCommessa(data: {
       data.fineMontaggio ?? null,
       data.inizioProduzione ?? null,
       data.fineProduzione ?? null,
+      data.brandId ?? null,
     ],
   );
   return getCommessaById(rows[0].id);
@@ -110,6 +113,7 @@ export async function updateCommessa(id: string, data: CommessaUpdate): Promise<
 
   if (data.numeroCommessa !== undefined) { sets.push(`numero_commessa = $${i++}`); values.push(data.numeroCommessa); }
   if (data.cliente !== undefined) { sets.push(`cliente = $${i++}`); values.push(data.cliente); }
+  if (data.brandId !== undefined) { sets.push(`brand_id = $${i++}`); values.push(data.brandId); }
   if (data.localita !== undefined) { sets.push(`localita = $${i++}`); values.push(data.localita); }
   if (data.info !== undefined) { sets.push(`info = $${i++}`); values.push(data.info); }
   if (data.responsabile !== undefined) { sets.push(`responsabile = $${i++}`); values.push(data.responsabile); }

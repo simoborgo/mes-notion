@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import type { Commessa } from "@/lib/types";
+import { useEffect, useState } from "react";
+import type { Brand, Commessa } from "@/lib/types";
 
 const inputCls = "w-full border rounded px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-orange-300";
 const labelCls = "block text-sm font-medium mb-1";
@@ -17,6 +17,8 @@ export default function FormCommessa({
 }) {
   const [numeroCommessa, setNumeroCommessa] = useState(commessa?.numeroCommessa ?? "");
   const [cliente, setCliente] = useState(commessa?.cliente ?? "");
+  const [brandId, setBrandId] = useState(commessa?.brandId ?? "");
+  const [brand, setBrand] = useState<Brand[]>([]);
   const [localita, setLocalita] = useState(commessa?.localita ?? "");
   const [responsabile, setResponsabile] = useState(commessa?.responsabile ?? "");
   const [stato, setStato] = useState(commessa?.stato ?? "ShopDrawing");
@@ -29,6 +31,15 @@ export default function FormCommessa({
   const [info, setInfo] = useState(commessa?.info ?? "");
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState("");
+
+  useEffect(() => {
+    fetch("/api/admin/brand").then((r) => (r.ok ? r.json() : [])).then(setBrand).catch(() => {});
+  }, []);
+
+  // Suggerimento (mai applicato da solo): brand il cui nome o alias coincide col testo cliente.
+  const suggerito = !brandId && cliente.trim()
+    ? brand.find((b) => [b.nome, ...b.alias.split(",")].some((v) => v.trim() && v.trim().toLowerCase() === cliente.trim().toLowerCase()))
+    : undefined;
 
   async function salva(e: React.FormEvent) {
     e.preventDefault();
@@ -43,6 +54,7 @@ export default function FormCommessa({
       const payload = {
         numeroCommessa: numeroCommessa.trim(),
         cliente: cliente.trim(),
+        brandId: brandId || null,
         localita: localita.trim(),
         responsabile: responsabile.trim(),
         stato,
@@ -103,6 +115,20 @@ export default function FormCommessa({
               <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Località</label>
               <input type="text" className={inputCls} value={localita} onChange={e => setLocalita(e.target.value)} />
             </div>
+          </div>
+
+          <div>
+            <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Brand (logo nelle stampe)</label>
+            <select className={inputCls} value={brandId} onChange={e => setBrandId(e.target.value)}>
+              <option value="">— Nessun brand —</option>
+              {brand.map(b => <option key={b.id} value={b.id}>{b.nome}{b.haLogo ? "" : " (senza logo)"}</option>)}
+            </select>
+            {suggerito && (
+              <p className="text-[11px] mt-1" style={{ color: "var(--color-grey-mid)" }}>
+                Suggerito: {suggerito.nome}{" "}
+                <button type="button" className="underline" style={{ color: "var(--color-primary)" }} onClick={() => setBrandId(suggerito.id)}>Usa</button>
+              </p>
+            )}
           </div>
 
           <div>

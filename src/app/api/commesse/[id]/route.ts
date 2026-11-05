@@ -23,7 +23,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 const CAMPI_TRACCIATI = [
-  "numeroCommessa", "cliente", "localita", "info", "responsabile", "stato", "dataCarico",
+  "numeroCommessa", "cliente", "brandId", "localita", "info", "responsabile", "stato", "dataCarico",
   "inizioMontaggio", "fineMontaggio", "inizioProduzione", "fineProduzione",
 ] as const;
 
@@ -44,6 +44,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const commessa = await updateCommessa(id, {
       numeroCommessa: typeof body.numeroCommessa === "string" ? body.numeroCommessa.trim() : undefined,
       cliente: typeof body.cliente === "string" ? body.cliente.trim() : undefined,
+      brandId: body.brandId !== undefined ? (typeof body.brandId === "string" && body.brandId ? body.brandId : null) : undefined,
       localita: typeof body.localita === "string" ? body.localita.trim() : undefined,
       info: typeof body.info === "string" ? body.info.trim() : undefined,
       responsabile: typeof body.responsabile === "string" ? body.responsabile.trim() : undefined,

@@ -24,9 +24,11 @@ export interface OpzioniRiepilogo {
   // scheda.id per cui la prima pagina del PDF allegato verrà accodata (solo stampa dettagliata)
   conPdf?: Set<string>;
   dettagliato: boolean;
+  // Logo del brand della commessa (data URI), mostrato accanto al titolo
+  logo?: string | null;
 }
 
-export function buildCarichiCommessaHtml({ commessa, gruppi, sottoschede }: CarichiCommessaReport, { copertine, conPdf, dettagliato }: OpzioniRiepilogo): string {
+export function buildCarichiCommessaHtml({ commessa, gruppi, sottoschede }: CarichiCommessaReport, { copertine, conPdf, dettagliato, logo }: OpzioniRiepilogo): string {
   const totOdp = gruppi.reduce((n, g) => n + g.odp.length, 0);
   const nSotto = (odp: { id: string }[]) => odp.reduce((n, s) => n + (sottoschede[s.id]?.length ?? 0), 0);
   const totSotto = gruppi.reduce((n, g) => n + nSotto(g.odp), 0);
@@ -87,6 +89,8 @@ body{font-family:'Jost',sans-serif;color:#1A1918;font-size:13px}
 .hd .lbl{font-size:9px;letter-spacing:.15em;color:#A4A4A6;text-transform:uppercase}
 .hd .title{font-size:26px;font-weight:700;margin-top:1mm}
 .hd .sub{font-size:12px;color:#6b6966;margin-top:1mm}
+.hd.conlogo{display:flex;align-items:center;gap:6mm}
+.hd .logo{max-height:18mm;max-width:45mm;object-fit:contain;flex-shrink:0}
 section{margin-bottom:7mm;break-before:page}
 section:first-of-type{break-before:auto}
 .ch{display:flex;align-items:center;gap:3mm;padding-bottom:2mm;border-bottom:1px solid #E4E0DA;margin-bottom:2mm;break-after:avoid}
@@ -115,10 +119,13 @@ tr{break-inside:avoid}
 </style>
 </head>
 <body>
-<div class="hd">
-  <div class="lbl">${dettagliato ? "Carichi — Stampa dettagliata" : "Carichi — Riepilogo"}</div>
-  <div class="title">${esc([commessa.numeroCommessa, commessa.cliente, commessa.localita, commessa.info].filter(Boolean).join(" - "))}</div>
-  <div class="sub">${esc([commessa.stato, `${gruppi.length} carichi`, `${totOdp} ODP`, totSotto ? `${totSotto} sottoschede` : ""].filter(Boolean).join(" · "))}</div>
+<div class="hd${logo ? " conlogo" : ""}">
+  ${logo ? `<img class="logo" src="${logo}" alt="">` : ""}
+  <div>
+    <div class="lbl">${dettagliato ? "Carichi — Stampa dettagliata" : "Carichi — Riepilogo"}</div>
+    <div class="title">${esc([commessa.numeroCommessa, commessa.cliente, commessa.localita, commessa.info].filter(Boolean).join(" - "))}</div>
+    <div class="sub">${esc([commessa.stato, `${gruppi.length} carichi`, `${totOdp} ODP`, totSotto ? `${totSotto} sottoschede` : ""].filter(Boolean).join(" · "))}</div>
+  </div>
 </div>
 ${gruppi.length === 0 ? `<p class="vuoto">Nessun carico per questa commessa</p>` : sezioni}
 <div class="ft"><span>MES MODAR · CARICHI</span><span>Stampato il ${new Date().toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })}</span></div>

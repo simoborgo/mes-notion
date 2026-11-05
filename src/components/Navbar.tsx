@@ -377,7 +377,8 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
                 pathname === "/previsionale" || pathname.startsWith("/offerte") ||
                 pathname === "/admin/import" || pathname.startsWith("/admin/ferramenta/kit") ||
                 pathname.startsWith("/admin/impostazioni") || pathname.startsWith("/admin/reparti") ||
-                pathname.startsWith("/admin/articoli") || pathname.startsWith("/admin/pattern-ciclo")
+                pathname.startsWith("/admin/articoli") || pathname.startsWith("/admin/pattern-ciclo") ||
+                pathname.startsWith("/admin/brand")
               }
               icon={
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -428,6 +429,17 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
                 }
               >
                 Pattern Ciclo (APS)
+              </NavDropdownItem>
+              <NavDropdownItem
+                href="/admin/brand"
+                active={pathname.startsWith("/admin/brand")}
+                icon={
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" />
+                  </svg>
+                }
+              >
+                Brand
               </NavDropdownItem>
               <NavDropdownItem
                 href="/admin/import"
@@ -617,6 +629,18 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
                 }
               >
                 Pattern Ciclo (APS)
+              </NavTab>
+              <NavTab
+                href="/admin/brand"
+                active={pathname.startsWith("/admin/brand")}
+                onClick={() => setMenuOpen(false)}
+                icon={
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" />
+                  </svg>
+                }
+              >
+                Brand
               </NavTab>
               <NavTab
                 href="/admin/import"

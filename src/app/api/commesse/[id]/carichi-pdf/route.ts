@@ -3,6 +3,7 @@ import puppeteer from "puppeteer";
 import { getSessionFromRequest } from "@/lib/auth";
 import { buildCarichiCommessaReport } from "@/lib/reportCarichiCommessa";
 import { buildCarichiCommessaHtml } from "@/lib/pdf/carichiCommessaHtml";
+import { getLogoDataUriByCommessa } from "@/lib/brandRepository";
 import { downloadDriveFile } from "@/lib/googleDriveSchede";
 import { accodaPrimePagine, caricaPrimePagine, inParallelo } from "@/lib/pdf/primePagineAllegati";
 
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // riepilogo così quest'ultimo può segnare quali ODP hanno davvero il disegno.
     const pagine = dettagliato ? (await caricaPrimePagine(voci.map((v) => ({ id: v.id, odp: v.odp || v.numeroScheda || "Sottoscheda" })), "carichi-pdf")).pagine : new Map();
 
-    const html = buildCarichiCommessaHtml(report, { copertine, conPdf: new Set(pagine.keys()), dettagliato });
+    const html = buildCarichiCommessaHtml(report, { copertine, conPdf: new Set(pagine.keys()), dettagliato, logo: await getLogoDataUriByCommessa(id).catch(() => null) });
 
     const browser = await puppeteer.launch({
       headless: true,
