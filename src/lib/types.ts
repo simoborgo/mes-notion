@@ -32,6 +32,8 @@ export interface Scheda {
   note: string;
   commessaId: string | null;
   commessaNr: string;
+  // Brand della commessa (per il logo in testata), derivato in lettura, non salvato sulla scheda
+  brandId?: string | null;
   areaId: string | null;
   offertaRigaId: string | null; // riga articolo dell'offerta (offerte_righe), lista di kick-off
   areaLabel: string;

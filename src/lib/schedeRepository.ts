@@ -21,6 +21,7 @@ import {
 const SELECT = `
   SELECT s.*,
     c.numero_commessa AS commessa_nr,
+    c.brand_id AS brand_id,
     CASE WHEN c.id IS NOT NULL THEN c.numero_commessa || ' ' || c.cliente || ' - ' || c.localita ELSE '' END AS cliente_info,
     COALESCE(a.nome_arredo, '') AS area_label,
     COALESCE(f.nome, '') AS fornitore_nome
@@ -117,6 +118,7 @@ function mapRow(r: any, allegati: Awaited<ReturnType<typeof caricaAllegati>>): S
     note: r.descrizione_fasi,
     commessaId: r.commessa_id,
     commessaNr: r.commessa_nr ?? "",
+    brandId: r.brand_id ?? null,
     areaId: r.area_id,
     offertaRigaId: r.offerta_riga_id ?? null,
     areaLabel: r.area_label ?? "",

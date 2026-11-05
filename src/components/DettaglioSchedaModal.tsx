@@ -18,6 +18,7 @@ import SchedaFasiApsTab from "./SchedaFasiApsTab";
 import FornitoreEsternoTab from "./FornitoreEsternoTab";
 import VerniciaturaOdpTab from "./VerniciaturaOdpTab";
 import ContatoriOreScheda from "./ContatoriOreScheda";
+import BrandLogo from "./BrandLogo";
 import type { EconomiaScheda } from "@/lib/valoriScheda";
 
 interface Props {
@@ -568,6 +569,7 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
                d'occhio anche aprendole direttamente (non solo dall'elenco delle schede figlie). ── */}
           <div className="px-6 pt-5 pb-4 border-b" style={{ background: bandTheme.bg, borderColor: bandTheme.border }}>
             <div className="flex items-start justify-between gap-3">
+              <BrandLogo brandId={s.brandId} altezza={52} className="shrink-0 mr-1 self-center" />
               <div className="flex-1 min-w-0">
                 {s.tipologia !== "Scheda" && (
                   <div className="flex items-center gap-2 mb-1.5 flex-wrap">

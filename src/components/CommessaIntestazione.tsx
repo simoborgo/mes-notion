@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { Commessa } from "@/lib/types";
 import { COMMESSE_ROLES, type Role } from "@/lib/roles";
 import BadgeStato from "./BadgeStato";
+import BrandLogo from "./BrandLogo";
 import FormCommessa from "./FormCommessa";
 import CommessaRicerca, { type VoceRicerca } from "./CommessaRicerca";
 
@@ -37,13 +38,16 @@ export default function CommessaIntestazione({ commessa, userRole, indice }: { c
         <span className="ml-auto hidden sm:inline">Esc torna all&apos;elenco</span>
       </nav>
       <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
-            {commessa.numeroCommessa} — {commessa.cliente}
-          </h1>
-          <p className="text-sm mt-1" style={{ color: "var(--color-grey-mid)" }}>
-            {[commessa.localita, commessa.responsabile && `Resp. ${commessa.responsabile}`].filter(Boolean).join(" · ")}
-          </p>
+        <div className="min-w-0 flex items-center gap-4">
+          <BrandLogo brandId={commessa.brandId} altezza={52} className="shrink-0" />
+          <div className="min-w-0">
+            <h1 className="text-2xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
+              {commessa.numeroCommessa} — {commessa.cliente}
+            </h1>
+            <p className="text-sm mt-1" style={{ color: "var(--color-grey-mid)" }}>
+              {[commessa.localita, commessa.responsabile && `Resp. ${commessa.responsabile}`].filter(Boolean).join(" · ")}
+            </p>
+          </div>
         </div>
         <CommessaRicerca commessaId={commessa.id} indice={indice} />
         <div className="flex items-center gap-3 shrink-0">
