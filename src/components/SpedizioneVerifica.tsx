@@ -81,6 +81,7 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
   const [filtroCommessa, setFiltroCommessa] = useState("");
   const [searchOdp, setSearchOdp] = useState("");
   const [soloMaterialePronto, setSoloMaterialePronto] = useState(true);
+  const [mostraCompletati, setMostraCompletati] = useState(false);
   const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
   const [finalizedIds, setFinalizedIds] = useState<Set<string>>(new Set());
   const [loadingLock, setLoadingLock] = useState(false);
@@ -700,6 +701,10 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
               <input type="checkbox" checked={soloMaterialePronto} onChange={e => setSoloMaterialePronto(e.target.checked)} style={{ accentColor: "#F08F25" }} />
               Solo "Materiale Pronto"
             </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#6B6560", cursor: "pointer" }}>
+              <input type="checkbox" checked={mostraCompletati} onChange={e => setMostraCompletati(e.target.checked)} style={{ accentColor: "#F08F25" }} />
+              Mostra completati
+            </label>
             {lockError && <span style={{ color: "#DC2626", fontSize: 13 }}>{lockError}</span>}
           </div>
 
@@ -708,7 +713,7 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ background: "#FAF9F7" }}>
-                  {(["ODP", "Commessa", "Cliente", "Tipologia", "Stato Verifica Componenti"] as const).map(h => (
+                  {(["ODP", "Commessa", "Cliente", "Tipologia", "Stato Scheda", "Stato Verifica Componenti"] as const).map(h => (
                     <th key={h} style={{ padding: "8px 14px", textAlign: "left", fontWeight: 600, color: "#6B6560", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #E5E4E0", whiteSpace: "nowrap" }}>{h}</th>
                   ))}
                   <th style={{ padding: "8px 14px", borderBottom: "1px solid #E5E4E0", minWidth: 110 }} />
@@ -717,6 +722,7 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
               <tbody>
                 {(() => {
                   const matchParent = (e: OdpEntry) => {
+                    if (!mostraCompletati && (e.statoProduzione === "Completato" || completatiIds.has(e.id))) return false;
                     if (soloMaterialePronto && e.statoProduzione !== "Materiale Pronto" && !finalizedIds.has(e.id) && !verificateSet.has(e.id)) return false;
                     if (filtroCommessa && e.commessaNr !== filtroCommessa) return false;
                     if (searchOdp && !`${e.odp} ${e.label} ${e.clienteInfo}`.toUpperCase().includes(searchOdp)) return false;
@@ -725,7 +731,8 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
                   const rows: React.ReactNode[] = [];
                   for (const parent of parentEntries) {
                     if (!matchParent(parent)) continue;
-                    const children = childrenByParent.get(parent.id) ?? [];
+                    const children = (childrenByParent.get(parent.id) ?? [])
+                      .filter(c => mostraCompletati || (c.statoProduzione !== "Completato" && !completatiIds.has(c.id)));
                     const expanded = expandedParents.has(parent.id);
                     const isInVerifica = inVerificaSet.has(parent.id);
                     const isVerificato = finalizedIds.has(parent.id) || verificateSet.has(parent.id);
@@ -765,14 +772,19 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
                           {parent.tipologia && <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 3, background: "#F3F4F6", color: "#6B7280" }}>{parent.tipologia}</span>}
                         </td>
                         <td style={{ padding: "9px 14px" }}>
-                          {isCompletatoProd ? (
-                            <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 3, fontWeight: 600, background: "#D1FAE5", color: "#065F46" }}>Completato</span>
-                          ) : isVerificato ? (
+                          <span style={isCompletatoProd
+                            ? { fontSize: 11, padding: "2px 8px", borderRadius: 3, fontWeight: 600, background: "#D1FAE5", color: "#065F46" }
+                            : { fontSize: 11, padding: "2px 6px", borderRadius: 3, background: "#F3F4F6", color: "#6B7280" }}>
+                            {isCompletatoProd ? "Completato" : (parent.statoProduzione || "—")}
+                          </span>
+                        </td>
+                        <td style={{ padding: "9px 14px" }}>
+                          {isVerificato ? (
                             <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 3, fontWeight: 600, background: "#DCFCE7", color: "#15803D" }}>Verificato</span>
                           ) : isInVerifica ? (
                             <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 3, fontWeight: 600, background: "#FEE2E2", color: "#DC2626" }}>In verifica</span>
                           ) : (
-                            <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 3, background: "#F0FDF4", color: "#166534" }}>{parent.statoProduzione}</span>
+                            <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 3, background: "#FEF3C7", color: "#92400E" }}>Da verificare</span>
                           )}
                         </td>
                         <td style={{ padding: "9px 14px", textAlign: "right" }}>
@@ -843,14 +855,19 @@ export default function SpedizioneVerifica({ userName, userRole, odpList: initia
                               {child.tipologia && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "#F3F4F6", color: "#9CA3AF" }}>{child.tipologia}</span>}
                             </td>
                             <td style={{ padding: "7px 14px" }}>
-                              {cCompletatoProd ? (
-                                <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, fontWeight: 600, background: "#D1FAE5", color: "#065F46" }}>Completato</span>
-                              ) : cVerificato ? (
+                              <span style={cCompletatoProd
+                                ? { fontSize: 10, padding: "2px 6px", borderRadius: 3, fontWeight: 600, background: "#D1FAE5", color: "#065F46" }
+                                : { fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "#F3F4F6", color: "#9CA3AF" }}>
+                                {cCompletatoProd ? "Completato" : (child.statoProduzione || "—")}
+                              </span>
+                            </td>
+                            <td style={{ padding: "7px 14px" }}>
+                              {cVerificato ? (
                                 <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, fontWeight: 600, background: "#DCFCE7", color: "#15803D" }}>Verificato</span>
                               ) : cInVerifica ? (
                                 <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, fontWeight: 600, background: "#FEE2E2", color: "#DC2626" }}>In verifica</span>
                               ) : (
-                                <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "#F0FDF4", color: "#166534" }}>{child.statoProduzione}</span>
+                                <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "#FEF3C7", color: "#92400E" }}>Da verificare</span>
                               )}
                             </td>
                             <td style={{ padding: "7px 14px", textAlign: "right" }}>
