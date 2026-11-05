@@ -72,6 +72,8 @@ export async function accodaPrimePagine(
   voci: VoceOdp[],
   pagine: Map<string, PDFDocument>,
   conPaginaErrore: (id: string) => boolean,
+  // id delle voci (sottoschede) di cui accodare il PDF intero invece della sola prima pagina
+  interi: Set<string> = new Set(),
 ): Promise<Uint8Array> {
   const finale = await PDFDocument.load(riepilogo);
   const font = await finale.embedFont(StandardFonts.HelveticaBold);
@@ -81,9 +83,11 @@ export async function accodaPrimePagine(
       if (conPaginaErrore(s.id)) paginaErrore(finale, font, s.odp);
       continue;
     }
-    const [prima] = await finale.copyPages(src, [0]);
-    finale.addPage(prima);
-    scriviOdpInAltoADestra(prima, font, s.odp);
+    const indici = interi.has(s.id) ? src.getPageIndices() : [0];
+    for (const pg of await finale.copyPages(src, indici)) {
+      finale.addPage(pg);
+      scriviOdpInAltoADestra(pg, font, s.odp);
+    }
   }
   return finale.save();
 }

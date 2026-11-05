@@ -23,11 +23,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const dettagliato = req.nextUrl.searchParams.get("tipo") === "dettagliato";
     const report = await buildCarichiCommessaReport(id);
     const odp = report.gruppi.flatMap((g) => g.odp);
+    // Ogni ODP è seguito dalle sue sottoschede, i cui PDF vanno accodati interi.
+    const voci = odp.flatMap((s) => [s, ...(report.sottoschede[s.id] ?? [])]);
+    const idSotto = new Set(odp.flatMap((s) => (report.sottoschede[s.id] ?? []).map((f) => f.id)));
 
     // Miniature copertina: l'URL a video (/api/drive-file/…) richiede la sessione, che puppeteer
     // non ha — si scarica da Drive e si incorpora come data URI. Best-effort, senza miniatura se fallisce.
     const copertine = new Map<string, string>();
-    await inParallelo(odp.filter((s) => s.copertina?.startsWith(PREFISSO_DRIVE)), async (s) => {
+    await inParallelo(voci.filter((s) => s.copertina?.startsWith(PREFISSO_DRIVE)), async (s) => {
       try {
         const buf = await downloadDriveFile(s.copertina!.slice(PREFISSO_DRIVE.length));
         copertine.set(s.id, `data:${mimeDaBuffer(buf)};base64,${buf.toString("base64")}`);
@@ -38,7 +41,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // Prima pagina del PDF allegato di ogni ODP (solo dettagliata), scaricata prima di generare il
     // riepilogo così quest'ultimo può segnare quali ODP hanno davvero il disegno.
-    const pagine = dettagliato ? (await caricaPrimePagine(odp, "carichi-pdf")).pagine : new Map();
+    const pagine = dettagliato ? (await caricaPrimePagine(voci.map((v) => ({ id: v.id, odp: v.odp || v.numeroScheda || "Sottoscheda" })), "carichi-pdf")).pagine : new Map();
 
     const html = buildCarichiCommessaHtml(report, { copertine, conPdf: new Set(pagine.keys()), dettagliato });
 
@@ -60,7 +63,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       let output: Uint8Array = riepilogo;
       if (dettagliato && odp.length > 0) {
         // Nei carichi ogni ODP deve avere il suo disegno: chi non ce l'ha riceve la pagina d'errore.
-        output = await accodaPrimePagine(output, odp, pagine, () => true);
+        output = await accodaPrimePagine(output, voci.map((v) => ({ id: v.id, odp: v.odp || v.numeroScheda || "Sottoscheda" })), pagine, () => true, idSotto);
       }
 
       const nome = report.commessa.numeroCommessa.replace(/[^\w.-]+/g, "_");

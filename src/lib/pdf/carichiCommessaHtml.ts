@@ -26,8 +26,10 @@ export interface OpzioniRiepilogo {
   dettagliato: boolean;
 }
 
-export function buildCarichiCommessaHtml({ commessa, gruppi }: CarichiCommessaReport, { copertine, conPdf, dettagliato }: OpzioniRiepilogo): string {
+export function buildCarichiCommessaHtml({ commessa, gruppi, sottoschede }: CarichiCommessaReport, { copertine, conPdf, dettagliato }: OpzioniRiepilogo): string {
   const totOdp = gruppi.reduce((n, g) => n + g.odp.length, 0);
+  const nSotto = (odp: { id: string }[]) => odp.reduce((n, s) => n + (sottoschede[s.id]?.length ?? 0), 0);
+  const totSotto = gruppi.reduce((n, g) => n + nSotto(g.odp), 0);
 
   const sezioni = gruppi.map(({ carico, odp }) => {
     const righe = odp.map((s) => {
@@ -43,7 +45,17 @@ export function buildCarichiCommessaHtml({ commessa, gruppi }: CarichiCommessaRe
         <td>${esc(s.statoProduzione || "—")}${s.faseCorrente ? `<div class="sub">${esc(s.faseCorrente)}</div>` : ""}</td>
         <td class="nw">${fmt(s.dataProduzionePrevista)}</td>
         ${dettagliato ? `<td class="${conPdf?.has(s.id) ? "ok" : "ko"}">${nota}</td>` : ""}
-      </tr>`;
+      </tr>${(sottoschede[s.id] ?? []).map((f) => `<tr class="figlia">
+        <td class="th"></td>
+        <td class="odp">↳ ${esc(f.numeroScheda || f.odp || "—")}<div class="sub">${esc(f.tipologia)}</div></td>
+        <td>${esc(f.descrizioneFasi || "—")}</td>
+        <td>${esc(f.codiceArticolo || "—")}</td>
+        <td>${esc(f.posizione || "—")}</td>
+        <td class="num">${f.quantita ?? "—"}</td>
+        <td>${esc(f.statoProduzione || "—")}${f.faseCorrente ? `<div class="sub">${esc(f.faseCorrente)}</div>` : ""}</td>
+        <td class="nw">${fmt(f.dataProduzionePrevista)}</td>
+        ${dettagliato ? `<td class="${conPdf?.has(f.id) ? "ok" : "ko"}">${conPdf?.has(f.id) ? "PDF intero allegato" : "Pagina vuota (errore PDF)"}</td>` : ""}
+      </tr>`).join("")}`;
     }).join("");
 
     return `<section>
@@ -52,7 +64,7 @@ export function buildCarichiCommessaHtml({ commessa, gruppi }: CarichiCommessaRe
         <span class="dt">${esc(fmtEsteso(carico.dataCarico))}</span>
         ${carico.modalita ? `<span class="tag">${esc(carico.modalita)}</span>` : ""}
         ${carico.stato ? `<span class="tag">${esc(carico.stato)}</span>` : ""}
-        <span class="cnt">${odp.length} ODP</span>
+        <span class="cnt">${odp.length} ODP${nSotto(odp) ? ` · ${nSotto(odp)} sottoschede` : ""}</span>
       </div>
       ${carico.descrizione ? `<p class="desc">${esc(carico.descrizione)}</p>` : ""}
       ${odp.length === 0 ? `<p class="vuoto">Nessun ODP collegato a questo carico</p>` : `<table>
@@ -88,6 +100,8 @@ table{width:100%;border-collapse:collapse}
 th{text-align:left;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#A4A4A6;padding:1.5mm 2mm;border-bottom:1px solid #E4E0DA}
 td{padding:1.5mm 2mm;border-bottom:1px solid #EFEDE9;vertical-align:middle}
 tr{break-inside:avoid}
+.figlia td{background:#FAF9F7;font-size:12px}
+.figlia .odp{padding-left:6mm}
 .num{text-align:right}
 .nw{white-space:nowrap}
 .odp{font-weight:700;white-space:nowrap}
@@ -104,7 +118,7 @@ tr{break-inside:avoid}
 <div class="hd">
   <div class="lbl">${dettagliato ? "Carichi — Stampa dettagliata" : "Carichi — Riepilogo"}</div>
   <div class="title">${esc([commessa.numeroCommessa, commessa.cliente, commessa.localita, commessa.info].filter(Boolean).join(" - "))}</div>
-  <div class="sub">${esc([commessa.stato, `${gruppi.length} carichi`, `${totOdp} ODP`].filter(Boolean).join(" · "))}</div>
+  <div class="sub">${esc([commessa.stato, `${gruppi.length} carichi`, `${totOdp} ODP`, totSotto ? `${totSotto} sottoschede` : ""].filter(Boolean).join(" · "))}</div>
 </div>
 ${gruppi.length === 0 ? `<p class="vuoto">Nessun carico per questa commessa</p>` : sezioni}
 <div class="ft"><span>MES MODAR · CARICHI</span><span>Stampato il ${new Date().toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })}</span></div>
