@@ -66,11 +66,16 @@ export async function getStoricoCommessa(commessaId: string): Promise<EventoStor
        UNION ALL
        SELECT 'audit-' || a.id, a.creato_il,
               CASE WHEN a.azione LIKE '% commessa_specifica' THEN 'Specifiche'
+                   WHEN a.azione LIKE '% commessa_scadenza' THEN 'Scadenze'
                    WHEN a.azione LIKE '% commessa_allegato' THEN 'Documenti' ELSE 'Commessa' END,
               CASE a.azione
                 WHEN 'CREATE commessa_specifica' THEN 'Aggiunta specifica: ' || COALESCE(a.modifiche::jsonb->>'titolo', '')
                 WHEN 'UPDATE commessa_specifica' THEN 'Modificata specifica' || COALESCE(': ' || (a.modifiche::jsonb->>'titolo'), '')
                 WHEN 'DELETE commessa_specifica' THEN 'Eliminata specifica: ' || COALESCE(a.modifiche::jsonb->>'titolo', '')
+                WHEN 'CREATE commessa_scadenza' THEN 'Scadenza aggiunta: ' || COALESCE(a.modifiche::jsonb->>'titolo', '') || COALESCE(' (entro ' || to_char((a.modifiche::jsonb->>'scadenza')::date, 'DD/MM/YYYY') || ')', '')
+                WHEN 'UPDATE commessa_scadenza' THEN
+                  CASE a.modifiche::jsonb->>'stato' WHEN 'fatta' THEN 'Scadenza chiusa: ' WHEN 'aperta' THEN 'Scadenza aggiornata: ' ELSE 'Scadenza modificata: ' END || COALESCE(a.modifiche::jsonb->>'titolo', '')
+                WHEN 'DELETE commessa_scadenza' THEN 'Scadenza eliminata: ' || COALESCE(a.modifiche::jsonb->>'titolo', '')
                 WHEN 'CREATE commessa_allegato' THEN 'Caricato documento: ' || COALESCE(a.modifiche::jsonb->>'filename', '')
                 WHEN 'DELETE commessa_allegato' THEN 'Eliminato documento: ' || COALESCE(a.modifiche::jsonb->>'filename', '')
                 WHEN 'CREATE commessa' THEN 'Commessa creata'
@@ -78,7 +83,7 @@ export async function getStoricoCommessa(commessaId: string): Promise<EventoStor
               a.operatore, NULL, CASE WHEN a.azione = 'UPDATE commessa' THEN a.modifiche END
          FROM audit_log a
         WHERE (a.azione IN ('CREATE commessa', 'UPDATE commessa') AND a.id_risorsa = $1::text)
-           OR (a.azione IN ('CREATE commessa_specifica', 'UPDATE commessa_specifica', 'DELETE commessa_specifica', 'CREATE commessa_allegato', 'DELETE commessa_allegato')
+           OR (a.azione IN ('CREATE commessa_specifica', 'UPDATE commessa_specifica', 'DELETE commessa_specifica', 'CREATE commessa_scadenza', 'UPDATE commessa_scadenza', 'DELETE commessa_scadenza', 'CREATE commessa_allegato', 'DELETE commessa_allegato')
                AND CASE WHEN a.azione LIKE '% commessa_%' THEN a.modifiche::jsonb->>'commessaId' END = $1::text)
        UNION ALL
        SELECT 'sv-' || sv.id, sv.created_at, 'Campionature',

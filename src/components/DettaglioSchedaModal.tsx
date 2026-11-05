@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Scheda } from "@/lib/types";
+import type { Scheda, CommessaScadenza } from "@/lib/types";
 import { FERRAMENTA_ROLES, type Role } from "@/lib/roles";
 import BadgeStato from "./BadgeStato";
 import GalleriaAllegatiScheda from "./GalleriaAllegatiScheda";
@@ -35,6 +35,7 @@ interface Props {
   modificaIniziale?: boolean; // pagina piena: apre subito la modifica sul posto (?modifica=1)
   onTabChange?: (tab: "info" | "fornitore" | "kit" | "aps" | "verniciatura") => void; // la pagina piena la riporta nell'indirizzo
   attivita?: VoceAttivita[];
+  scadenze?: CommessaScadenza[];
 }
 
 function fmt(d: string | null) {
@@ -310,7 +311,7 @@ function RilavorazioneWizard({
   );
 }
 
-export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, onRilavorazioneCreata, onViewScheda, userRole, onSchedaAggiornata, tabIniziale, modalita = "modale", attivita = [], onTabChange, modificaIniziale = false }: Props) {
+export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, onRilavorazioneCreata, onViewScheda, userRole, onSchedaAggiornata, tabIniziale, modalita = "modale", attivita = [], scadenze = [], onTabChange, modificaIniziale = false }: Props) {
   const isPagina = modalita === "pagina";
   const router = useRouter();
   // Modifica sul posto (solo pagina piena): la tab Info diventa un modulo, il resto della pagina resta.
@@ -885,7 +886,7 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
           </>}
 
         </div>
-        {isPagina && <SchedaColonnaLaterale scheda={s} attivita={attivita} />}
+        {isPagina && <SchedaColonnaLaterale scheda={s} attivita={attivita} scadenze={scadenze} />}
         </div>
       </div>
 

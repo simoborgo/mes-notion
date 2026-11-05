@@ -3,19 +3,20 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { Scheda } from "@/lib/types";
+import type { Scheda, CommessaScadenza } from "@/lib/types";
 import type { Role } from "@/lib/roles";
 import type { VoceAttivita } from "@/lib/audit";
 import DettaglioSchedaModal from "./DettaglioSchedaModal";
 
 export type TabScheda = "info" | "fornitore" | "kit" | "aps" | "verniciatura";
 
-export default function SchedaPagina({ scheda: iniziale, figlie, attivita, padre, hrefPianta, userRole, tabIniziale, modificaIniziale }: {
+export default function SchedaPagina({ scheda: iniziale, figlie, attivita, scadenze, padre, hrefPianta, userRole, tabIniziale, modificaIniziale }: {
   scheda: Scheda;
   padre: Scheda | null;
   hrefPianta?: string; // zona di questo ODP su una pianta di commessa
   figlie: Scheda[];
   attivita: VoceAttivita[];
+  scadenze: CommessaScadenza[]; // scadenze aperte di commessa legate a questo ODP
   userRole?: Role;
   tabIniziale?: TabScheda;
   modificaIniziale?: boolean;
@@ -65,6 +66,7 @@ export default function SchedaPagina({ scheda: iniziale, figlie, attivita, padre
         scheda={scheda}
         figlie={figlie}
         attivita={attivita}
+        scadenze={scadenze}
         userRole={userRole}
         tabIniziale={tabIniziale}
         modificaIniziale={modificaIniziale}

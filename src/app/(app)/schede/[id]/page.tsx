@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getSchedaById, getSchedeFiglie } from "@/lib/schedeRepository";
 import { getAttivitaScheda } from "@/lib/audit";
 import { getSession } from "@/lib/auth";
+import { getScadenzeApertePerScheda } from "@/lib/commessaScadenzeRepository";
 import { getZonaPerScheda } from "@/lib/commessePianteRepository";
 import SchedaPagina, { type TabScheda } from "@/components/SchedaPagina";
 
@@ -29,7 +30,9 @@ export default async function SchedaDettaglioPage({
   // La madre arriva dal server (non da un fetch del client) così il percorso in alto è completo
   // fin dal primo rendering, senza comparire in ritardo.
   const padre = scheda.parentId ? await getSchedaById(scheda.parentId).catch(() => null) : null;
-  const [session, zonaPianta] = await Promise.all([getSession(), getZonaPerScheda(id).catch(() => null)]);
+  const [session, zonaPianta, scadenze] = await Promise.all([
+    getSession(), getZonaPerScheda(id).catch(() => null), getScadenzeApertePerScheda(id).catch(() => []),
+  ]);
   const tabIniziale = TAB_VALIDE.find((t) => t === tab);
 
   return (
@@ -38,6 +41,7 @@ export default async function SchedaDettaglioPage({
       scheda={scheda}
       figlie={figlie}
       attivita={attivita}
+      scadenze={scadenze}
       padre={padre}
       hrefPianta={zonaPianta ? `/commesse/${zonaPianta.commessaId}/piante/${zonaPianta.piantaId}?zona=${zonaPianta.zonaId}` : undefined}
       userRole={session?.role}

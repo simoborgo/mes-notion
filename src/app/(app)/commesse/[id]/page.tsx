@@ -8,6 +8,8 @@ import { getSession, VERNICIATURA_ROLES, COMMESSA_CONTENUTO_ROLES, PIANTE_ROLES 
 import { getSpecificheByCommessa } from "@/lib/commessaSpecificheRepository";
 import { getAllegatiByCommessa } from "@/lib/commessaAllegatiRepository";
 import { getPianteByCommessa, getZoneByCommessa } from "@/lib/commessePianteRepository";
+import { getScadenzeByCommessa } from "@/lib/commessaScadenzeRepository";
+import { dataOggiRoma } from "@/lib/oraLocale";
 import { getStoricoCommessa } from "@/lib/commessaStoricoRepository";
 import CommessaIntestazione from "@/components/CommessaIntestazione";
 import CommessaTabs from "@/components/CommessaTabs";
@@ -17,6 +19,7 @@ import CommessaSpecifiche from "@/components/CommessaSpecifiche";
 import CommessaCampionature from "@/components/CommessaCampionature";
 import CommessaPiante, { type StatistichePianta } from "@/components/CommessaPiante";
 import CommessaDocumenti from "@/components/CommessaDocumenti";
+import CommessaScadenze from "@/components/CommessaScadenze";
 import CommessaStorico from "@/components/CommessaStorico";
 import type { VoceRicerca } from "@/components/CommessaRicerca";
 import EvidenziaRiga from "@/components/EvidenziaRiga";
@@ -24,7 +27,7 @@ import AreeSection from "@/components/AreeSection";
 
 export const dynamic = "force-dynamic";
 
-const TAB_VALIDE = ["panoramica", "piante", "aree", "specifiche", "campionature", "documenti", "storico"] as const;
+const TAB_VALIDE = ["panoramica", "piante", "aree", "specifiche", "campionature", "documenti", "scadenze", "storico"] as const;
 type TabCommessa = (typeof TAB_VALIDE)[number];
 
 // Scheda commessa a pagina piena: unico dettaglio della commessa (l'elenco apre questa pagina dal
@@ -33,11 +36,11 @@ export default async function CommessaPage({ params, searchParams }: { params: P
   const [{ id }, { tab }] = await Promise.all([params, searchParams]);
   const tabAttiva: TabCommessa = TAB_VALIDE.find((t) => t === tab) ?? "panoramica";
 
-  let commessa, aree, schede, carichi, riepilogo, campionature, specifiche, allegati, storico, piante;
+  let commessa, aree, schede, carichi, riepilogo, campionature, specifiche, allegati, storico, piante, scadenze;
   try {
-    [commessa, aree, schede, carichi, riepilogo, campionature, specifiche, allegati, storico, piante] = await Promise.all([
+    [commessa, aree, schede, carichi, riepilogo, campionature, specifiche, allegati, storico, piante, scadenze] = await Promise.all([
       getCommessaById(id), getAreeByCommessa(id), getSchedeByCommessa(id), getCarichiByCommessa(id), getRiepilogoCommessa(id),
-      getSchedeConFotoByCommessa(id), getSpecificheByCommessa(id), getAllegatiByCommessa(id), getStoricoCommessa(id), getPianteByCommessa(id),
+      getSchedeConFotoByCommessa(id), getSpecificheByCommessa(id), getAllegatiByCommessa(id), getStoricoCommessa(id), getPianteByCommessa(id), getScadenzeByCommessa(id).catch((e) => { console.error("[commessa] scadenze non leggibili (migrazione applicata?)", e); return []; }),
     ]);
   } catch {
     notFound();
@@ -63,6 +66,7 @@ export default async function CommessaPage({ params, searchParams }: { params: P
   const indice: VoceRicerca[] = [
     ...specifiche.map((x) => ({ id: `sp-${x.id}`, tab: "specifiche", sezione: "Specifiche", titolo: x.titolo, testo: [x.tipo, x.stato, x.descrizione].join(" · ") })),
     ...storico.map((e) => ({ id: `st-${e.id}`, tab: "storico", sezione: e.notaId ? "Note" : "Storico", titolo: e.categoria, testo: [e.testo, e.autore, ...(e.allegati ?? []).map((a) => a.nomeFile)].filter(Boolean).join(" · ") })),
+    ...scadenze.map((x) => ({ id: `sc-${x.id}`, tab: "scadenze", sezione: "Scadenze", titolo: x.titolo, testo: [`entro ${x.scadenza.split("-").reverse().join("/")}`, x.odp && `ODP ${x.odp}`, x.stato].filter(Boolean).join(" · ") })),
     ...campionature.map((c) => ({ id: `ca-${c.id}`, tab: "campionature", sezione: "Campionature", titolo: c.nome || "Senza nome", testo: [c.codicePubblico, c.essenza].filter(Boolean).join(" · ") })),
     ...allegati.map((a) => ({ id: `do-${a.id}`, tab: "documenti", sezione: "Documenti", titolo: a.nomeFile, testo: a.categoria })),
   ];
@@ -84,6 +88,7 @@ export default async function CommessaPage({ params, searchParams }: { params: P
           { key: "specifiche", label: "Specifiche", count: specifiche.length },
           { key: "campionature", label: "Campionature", count: riepilogo.campionature },
           { key: "documenti", label: "Documenti", count: allegati.length },
+          { key: "scadenze", label: "Scadenze", count: scadenze.filter((x) => x.stato === "aperta").length },
           { key: "storico", label: "Storico" },
         ]}
       />
@@ -101,6 +106,10 @@ export default async function CommessaPage({ params, searchParams }: { params: P
         <CommessaCampionature schede={campionature} canVerniciatura={!!session && VERNICIATURA_ROLES.includes(session.role)} />
       )}
       {tabAttiva === "documenti" && <CommessaDocumenti commessaId={commessa.id} allegati={allegati} specifiche={specifiche} canEdit={canContenuto} />}
+      {tabAttiva === "scadenze" && (
+        <CommessaScadenze commessaId={commessa.id} scadenze={scadenze} oggi={dataOggiRoma()} canEdit={canContenuto}
+          odp={schede.filter((x) => x.odp).map((x) => ({ id: x.id, odp: x.odp }))} />
+      )}
       {tabAttiva === "storico" && <CommessaStorico commessaId={commessa.id} eventi={storico} canEdit={canContenuto} />}
     </div>
   );

@@ -806,7 +806,7 @@ export interface ZonaPianta {
   schedaId: string | null;
 }
 
-export const CATEGORIE_STORICO = ["Note", "Specifiche", "Documenti", "Campionature", "Produzione", "Logistica", "Commessa"] as const;
+export const CATEGORIE_STORICO = ["Note", "Scadenze", "Specifiche", "Documenti", "Campionature", "Produzione", "Logistica", "Commessa"] as const;
 export type CategoriaStorico = (typeof CATEGORIE_STORICO)[number];
 
 export interface EventoStorico {
@@ -818,4 +818,20 @@ export interface EventoStorico {
   // Solo per le note: id per l'eliminazione e file allegati.
   notaId?: string;
   allegati?: { id: string; nomeFile: string; driveFileId: string }[];
+}
+
+export type StatoScadenza = "aperta" | "fatta";
+
+export interface CommessaScadenza {
+  id: string;
+  commessaId: string;
+  schedaId: string | null;
+  odp: string | null; // numero ODP, per mostrarlo senza altre letture
+  titolo: string;
+  scadenza: string; // YYYY-MM-DD
+  stato: StatoScadenza;
+  fattaIl: string | null;
+  fonte: "manuale" | "telegram";
+  creatoDa: string;
+  creatoIl: string;
 }

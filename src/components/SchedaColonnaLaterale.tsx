@@ -1,4 +1,5 @@
-import type { Scheda } from "@/lib/types";
+import Link from "next/link";
+import type { Scheda, CommessaScadenza } from "@/lib/types";
 import type { VoceAttivita } from "@/lib/audit";
 import BadgeStato from "./BadgeStato";
 
@@ -21,7 +22,7 @@ function Riga({ etichetta, children }: { etichetta: string; children: React.Reac
 }
 
 // Colonna fissa a destra della pagina piena: il riepilogo resta visibile qualunque tab sia aperta.
-export default function SchedaColonnaLaterale({ scheda: s, attivita }: { scheda: Scheda; attivita: VoceAttivita[] }) {
+export default function SchedaColonnaLaterale({ scheda: s, attivita, scadenze }: { scheda: Scheda; attivita: VoceAttivita[]; scadenze: CommessaScadenza[] }) {
   const today = new Date().toISOString().slice(0, 10);
   const aperta = !["Completato", "Annullata"].includes(s.statoProduzione);
   const inRitardoProd = aperta && !!s.dataProduzionePrevista && s.dataProduzionePrevista < today;
@@ -53,6 +54,22 @@ export default function SchedaColonnaLaterale({ scheda: s, attivita }: { scheda:
               {giorniRitardoRientro > 0 && <span className="font-bold" style={{ color: "#DC2626" }}>+{giorniRitardoRientro} gg</span>}
             </div>
           </div>
+        </div>
+      )}
+
+      {scadenze.length > 0 && (
+        <div>
+          <Titolo>Scadenze collegate</Titolo>
+          <ul className="space-y-1.5">
+            {scadenze.map((c) => (
+              <li key={c.id} className="text-[13.2px]">
+                <Link href={`/commesse/${c.commessaId}?tab=scadenze&r=sc-${c.id}`} className="font-medium hover:underline">{c.titolo}</Link>
+                <span className="block tabular-nums" style={{ color: c.scadenza < today ? "#DC2626" : "var(--color-grey-mid)" }}>
+                  Entro {c.scadenza.split("-").reverse().join("/")}{c.scadenza < today ? " · scaduta" : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
