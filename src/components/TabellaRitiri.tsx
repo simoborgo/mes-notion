@@ -130,12 +130,17 @@ export default function TabellaRitiri({
   fornitori = [],
   commesse = [],
   userRole,
+  cercaIniziale = "",
+  apriArchivio = false,
 }: {
   ritiri: Ritiro[];
   schede?: Scheda[];
   fornitori?: { id: string; nome: string }[];
   commesse?: Commessa[];
   userRole?: Role;
+  // Arrivo dalla ricerca globale: filtra sul testo; i movimenti Fatti stanno nell'archivio, che si apre da solo
+  cercaIniziale?: string;
+  apriArchivio?: boolean;
 }) {
   const canWrite = userRole === "admin" || userRole === "operatore" || userRole === "logistica";
   const canDelete = !!userRole && WRITE_ROLES.includes(userRole);
@@ -143,7 +148,7 @@ export default function TabellaRitiri({
   // correggere/aggiornare un Ritiro esistente ma non crearne uno nuovo (deciso con l'utente 2026-08-13).
   const canCreate = !!userRole && RITIRI_CREATE_ROLES.includes(userRole);
   const [ritiri, setRitiri] = useState(initial);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(apriArchivio ? "" : cercaIniziale);
   const [filtroStato, setFiltroStato] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("");
   const [filtroData, setFiltroData] = useState("");
@@ -160,12 +165,12 @@ export default function TabellaRitiri({
   const [confermaStato, setConfermaStato] = useState<{ id: string; nuovoStato: string; dataTrasportoOriginale: string | null } | null>(null);
 
   // Filtri archivio (separati)
-  const [archSearch, setArchSearch] = useState("");
+  const [archSearch, setArchSearch] = useState(apriArchivio ? cercaIniziale : "");
   const [archTipo, setArchTipo] = useState("");
   const [archFornitore, setArchFornitore] = useState("");
   const [archDa, setArchDa] = useState("");
   const [archA, setArchA] = useState("");
-  const [archivioAperto, setArchivioAperto] = useState(false);
+  const [archivioAperto, setArchivioAperto] = useState(apriArchivio);
 
   useEffect(() => {
     if (!toast) return;

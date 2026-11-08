@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Scheda, Ritiro, Commessa, Carico } from "@/lib/types";
 import Link from "next/link";
+import RicercaGlobale from "@/components/RicercaGlobale";
 
 const STATI_COMPLETATI = ["Completato", "Completata", "Chiusa", "Annullato"];
 const STATO_COLOR: Record<string, string> = {
@@ -469,6 +470,8 @@ export default function Dashboard({ schede, ritiri, commesse, carichi }: Dashboa
           </a>
         </div>
       </div>
+
+      <RicercaGlobale />
 
       {/* KPI */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

@@ -15,9 +15,11 @@ interface Props {
   commesse: Commessa[];
   schede: Scheda[];
   canWrite: boolean;
+  // Arrivo dalla ricerca globale: lista già filtrata sul testo, con tutti gli stati (anche Spedito)
+  cercaIniziale?: string;
 }
 
-export default function TabellaCarichi({ carichi: initial, commesse, schede, canWrite }: Props) {
+export default function TabellaCarichi({ carichi: initial, commesse, schede, canWrite, cercaIniziale = "" }: Props) {
   const [carichi, setCarichi] = useState(initial);
   const [creando, setCreando] = useState(false);
   const [editing, setEditing] = useState<Carico | null>(null);
@@ -39,9 +41,9 @@ export default function TabellaCarichi({ carichi: initial, commesse, schede, can
 
   const stati = useMemo(() => [...new Set(carichi.map(c => c.stato).filter(Boolean))].sort(), [carichi]);
   const [filtroStati, setFiltroStati] = useState<Set<string>>(
-    () => new Set(stati.filter(s => s !== "Spedito"))
+    () => new Set(cercaIniziale ? stati : stati.filter(s => s !== "Spedito"))
   );
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(cercaIniziale);
   const [sortCol, setSortCol] = useState<string>("dataCarico");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 

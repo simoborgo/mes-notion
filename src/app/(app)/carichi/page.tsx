@@ -7,7 +7,8 @@ import CommesseSubNav from "@/components/CommesseSubNav";
 
 export const dynamic = "force-dynamic";
 
-export default async function CarichiPage() {
+export default async function CarichiPage({ searchParams }: { searchParams: Promise<{ cerca?: string }> }) {
+  const { cerca } = await searchParams;
   const [carichi, commesse, schede, sottoschede, session] = await Promise.all([
     getCarichi(),
     getCommesse(),
@@ -28,7 +29,7 @@ export default async function CarichiPage() {
           {carichi.length} carichi · aggiornato {new Date().toLocaleTimeString("it-IT", { timeZone: "Europe/Rome", hour: "2-digit", minute: "2-digit" })}
         </p>
       </div>
-      <TabellaCarichi carichi={carichi} commesse={commesse} schede={[...schede, ...sottoschede]} canWrite={canWrite} />
+      <TabellaCarichi carichi={carichi} commesse={commesse} schede={[...schede, ...sottoschede]} canWrite={canWrite} cercaIniziale={cerca ?? ""} />
     </div>
   );
 }

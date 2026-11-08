@@ -8,7 +8,8 @@ import RitiriSubNav from "@/components/RitiriSubNav";
 
 export const dynamic = "force-dynamic";
 
-export default async function RitiriPage() {
+export default async function RitiriPage({ searchParams }: { searchParams: Promise<{ cerca?: string; arch?: string }> }) {
+  const { cerca, arch } = await searchParams;
   const [ritiri, schede, sottoschede, fornitori, commesse, session] = await Promise.all([
     getRitiri(), getSchede(), getSottoschede(), getFornitoriList(), getCommesse(), getSession(),
   ]);
@@ -36,7 +37,7 @@ export default async function RitiriPage() {
           {ritiri.length} movimenti totali
         </p>
       </div>
-      <TabellaRitiri ritiri={ritiri} schede={tutteLeSchede} fornitori={fornitori} commesse={commesse} userRole={session?.role} />
+      <TabellaRitiri ritiri={ritiri} schede={tutteLeSchede} fornitori={fornitori} commesse={commesse} userRole={session?.role} cercaIniziale={cerca ?? ""} apriArchivio={arch === "1"} />
     </div>
   );
 }
