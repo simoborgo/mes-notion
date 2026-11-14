@@ -8,8 +8,8 @@ import RitiriSubNav from "@/components/RitiriSubNav";
 
 export const dynamic = "force-dynamic";
 
-export default async function RitiriPage({ searchParams }: { searchParams: Promise<{ cerca?: string; arch?: string }> }) {
-  const { cerca, arch } = await searchParams;
+export default async function RitiriPage({ searchParams }: { searchParams: Promise<{ cerca?: string; arch?: string; vista?: string }> }) {
+  const { cerca, arch, vista } = await searchParams;
   const [ritiri, schede, sottoschede, fornitori, commesse, session] = await Promise.all([
     getRitiri(), getSchede(), getSottoschede(), getFornitoriList(), getCommesse(), getSession(),
   ]);
@@ -29,15 +29,7 @@ export default async function RitiriPage({ searchParams }: { searchParams: Promi
   return (
     <div className="space-y-5">
       <RitiriSubNav userRole={session?.role} />
-      <div>
-        <h1 className="text-2xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
-          Ritiri e Consegne
-        </h1>
-        <p className="text-sm mt-1" style={{ color: "var(--color-grey-mid)" }}>
-          {ritiri.length} movimenti totali
-        </p>
-      </div>
-      <TabellaRitiri ritiri={ritiri} schede={tutteLeSchede} fornitori={fornitori} commesse={commesse} userRole={session?.role} cercaIniziale={cerca ?? ""} apriArchivio={arch === "1"} />
+      <TabellaRitiri ritiri={ritiri} schede={tutteLeSchede} fornitori={fornitori} commesse={commesse} userRole={session?.role} cercaIniziale={cerca ?? ""} apriArchivio={arch === "1"} vistaIniziale={vista === "split" || vista === "kanban" ? vista : "tabella"} />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import type { Ritiro, Scheda, Commessa } from "@/lib/types";
 import { WRITE_ROLES, RITIRI_CREATE_ROLES, type Role } from "@/lib/roles";
 import BadgeStato from "./BadgeStato";
+import CopertinaTooltip, { type TooltipState } from "./CopertinaTooltip";
 import FormModificaRitiro from "./FormModificaRitiro";
 import FormNuovoRitiro from "./FormNuovoRitiro";
 
@@ -26,6 +27,14 @@ function DocLinks({ files, label }: { files: { name: string; url: string }[]; la
     </div>
   );
 }
+
+type Vista = "tabella" | "split" | "kanban";
+
+const COLONNE_KANBAN: { stato: string; titolo: string; band: string; drop: string; vuoto: string }[] = [
+  { stato: "Da Fare",  titolo: "Da Fare",    band: "#D97706", drop: "#FFFBEB", vuoto: "Niente da fare" },
+  { stato: "In corso", titolo: "In corso",   band: "#2563EB", drop: "#EFF6FF", vuoto: "Nessun movimento in corso" },
+  { stato: "Fatto",    titolo: "Fatto oggi", band: "#059669", drop: "#ECFDF5", vuoto: "Nessun movimento completato oggi" },
+];
 
 const TRANSIZIONI: Record<string, string[]> = {
   "Da Fare":  ["In corso", "Fatto"],
@@ -89,6 +98,14 @@ function pdfSchedaEffettivo(scheda: Scheda | null | undefined, schedeMap: Map<st
   return [];
 }
 
+// Stessa logica del PDF: le rilavorazioni senza copertina propria mostrano quella della scheda padre
+function copertinaEffettiva(scheda: Scheda | null | undefined, schedeMap: Map<string, Scheda>): string | null {
+  if (!scheda) return null;
+  if (scheda.copertina) return scheda.copertina;
+  if (scheda.parentId) return schedeMap.get(scheda.parentId)?.copertina ?? null;
+  return null;
+}
+
 function fmt(d: string | null, showTime = true) {
   if (!d) return "—";
   const dt = new Date(d);
@@ -132,6 +149,7 @@ export default function TabellaRitiri({
   userRole,
   cercaIniziale = "",
   apriArchivio = false,
+  vistaIniziale = "tabella",
 }: {
   ritiri: Ritiro[];
   schede?: Scheda[];
@@ -141,6 +159,7 @@ export default function TabellaRitiri({
   // Arrivo dalla ricerca globale: filtra sul testo; i movimenti Fatti stanno nell'archivio, che si apre da solo
   cercaIniziale?: string;
   apriArchivio?: boolean;
+  vistaIniziale?: Vista;
 }) {
   const canWrite = userRole === "admin" || userRole === "operatore" || userRole === "logistica";
   const canDelete = !!userRole && WRITE_ROLES.includes(userRole);
@@ -171,6 +190,39 @@ export default function TabellaRitiri({
   const [archDa, setArchDa] = useState("");
   const [archA, setArchA] = useState("");
   const [archivioAperto, setArchivioAperto] = useState(apriArchivio);
+
+  // Data di oggi in timezone locale — usata per riassegna e badge scaduti
+  // (useState con inizializzatore: valore fisso per la vita della pagina, compatibile con React Compiler)
+  const [todayStr] = useState(() => {
+    const d = new Date();
+    const p = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+  });
+
+  // Vista attivi: tabella unica, split Ritiri (sx) / Consegne (dx) o kanban per stato.
+  // Tenuta nell'URL (?vista=split|kanban) così sopravvive al reload ed è linkabile.
+  const [vista, setVista] = useState<Vista>(vistaIniziale);
+  function cambiaVista(v: Vista) {
+    setVista(v);
+    if (v === "split") setFiltroTipo("");   // in split il tipo è già la colonna
+    if (v === "kanban") setFiltroStato(""); // nel kanban lo stato è già la colonna
+    const url = new URL(window.location.href);
+    if (v === "tabella") url.searchParams.delete("vista");
+    else url.searchParams.set("vista", v);
+    window.history.replaceState(null, "", url);
+  }
+
+  // Kanban: card trascinata e colonna sotto il cursore
+  const [trascinata, setTrascinata] = useState<string | null>(null);
+  const [sopra, setSopra] = useState<string | null>(null);
+  function rilascia(stato: string) {
+    const id = trascinata;
+    setTrascinata(null);
+    setSopra(null);
+    if (!id) return;
+    const r = ritiri.find(x => x.id === id);
+    if (r && r.stato !== stato) handleStatoChange(id, stato);
+  }
 
   useEffect(() => {
     if (!toast) return;
@@ -249,13 +301,6 @@ export default function TabellaRitiri({
     doStatoChange(id, nuovoStato);
   }
 
-  // Data di oggi in timezone locale — usata per riassegna e badge scaduti
-  const todayStr = useMemo(() => {
-    const d = new Date();
-    const p = (n: number) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
-  }, []);
-
   // Ritiri attivi (non Fatto) con data trasporto precedente a oggi
   const scadutiAttivi = useMemo(() =>
     ritiri.filter(r => r.stato !== "Fatto" && r.dataTrasporto && getDatePart(r.dataTrasporto) < todayStr),
@@ -304,19 +349,39 @@ export default function TabellaRitiri({
   const statiUniq = ["Da Fare", "In corso", "Fatto"];
   const tipiUniq  = ["Ritiro", "Consegna"];
 
+  const schedeMap = useMemo(() => new Map(schede.map(s => [s.id, s])), [schede]);
+  const commesseMap = useMemo(() => new Map(commesse.map(c => [c.id, c])), [commesse]);
+
+  // Commessa del movimento: quella diretta del ritiro, altrimenti quella della scheda collegata
+  function commessaDi(r: Ritiro): Commessa | null {
+    const scheda = r.numeroOrdineId ? schedeMap.get(r.numeroOrdineId) : null;
+    const id = r.commessaId ?? scheda?.commessaId ?? null;
+    return id ? commesseMap.get(id) ?? null : null;
+  }
+
+  // Testo su cui gira la ricerca: dati del movimento + scheda (titolo, ODP, cliente/info) + commessa (numero, cliente, info)
+  function testoRicerca(r: Ritiro): string {
+    const scheda = r.numeroOrdineId ? schedeMap.get(r.numeroOrdineId) : null;
+    const c = commessaDi(r);
+    return [
+      r.causale, r.numeroOrdine, r.commessaNr, r.fornitore, r.descrizioneMerce,
+      scheda?.numeroScheda, scheda?.odp, scheda?.clienteInfo,
+      c?.numeroCommessa, c?.cliente, c?.localita, c?.info,
+    ].filter(Boolean).join(" ").toLowerCase();
+  }
+
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
+    const q = search.toLowerCase().trim();
     return ritiri.filter((r) => {
-      if (q && !`${r.causale} ${r.numeroOrdine} ${r.commessaNr} ${r.fornitore} ${r.descrizioneMerce}`.toLowerCase().includes(q)) return false;
+      if (q && !testoRicerca(r).includes(q)) return false;
       if (filtroStato && r.stato !== filtroStato) return false;
       if (filtroTipo && r.tipoMovimento !== filtroTipo) return false;
       if (filtroDataAbilitato && filtroData && getDatePart(r.dataTrasporto) !== filtroData) return false;
       if (filtroUrgente && !r.urgenza) return false;
       return true;
     });
-  }, [ritiri, search, filtroStato, filtroTipo, filtroData, filtroDataAbilitato, filtroUrgente]);
-
-  const schedeMap = useMemo(() => new Map(schede.map(s => [s.id, s])), [schede]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ritiri, search, filtroStato, filtroTipo, filtroData, filtroDataAbilitato, filtroUrgente, schedeMap, commesseMap]);
 
   const filteredAttivi = useMemo(() => filtered.filter(r => r.stato !== "Fatto"), [filtered]);
   const allFatti       = useMemo(() => ritiri.filter(r => r.stato === "Fatto"), [ritiri]);
@@ -362,16 +427,17 @@ export default function TabellaRitiri({
   }, [allFatti]);
 
   const archivioFatti = useMemo(() => {
-    const q = archSearch.toLowerCase();
+    const q = archSearch.toLowerCase().trim();
     return allFatti.filter(r => {
-      if (q && !`${r.causale} ${r.numeroOrdine} ${r.commessaNr} ${r.fornitore} ${r.descrizioneMerce}`.toLowerCase().includes(q)) return false;
+      if (q && !testoRicerca(r).includes(q)) return false;
       if (archTipo && r.tipoMovimento !== archTipo) return false;
       if (archFornitore && r.fornitore !== archFornitore) return false;
       if (archDa && getDatePart(r.dataTrasporto) < archDa) return false;
       if (archA && getDatePart(r.dataTrasporto) > archA) return false;
       return true;
     });
-  }, [allFatti, archSearch, archTipo, archFornitore, archDa, archA]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allFatti, archSearch, archTipo, archFornitore, archDa, archA, schedeMap, commesseMap]);
 
   function handleSave(updated: Ritiro) {
     setRitiri((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
@@ -397,7 +463,204 @@ export default function TabellaRitiri({
     }
   }
 
+  // Copertina della scheda in rollover (come in Schede di Produzione): handler da spalmare sull'area di hover
+  const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+  function hoverCopertina(scheda: Scheda | null | undefined) {
+    const url = copertinaEffettiva(scheda, schedeMap);
+    if (!url) return {};
+    return {
+      onMouseEnter: (e: React.MouseEvent) => setTooltip({ copertinaUrl: url, x: e.clientX, y: e.clientY }),
+      onMouseMove: (e: React.MouseEvent) => setTooltip((t) => t ? { ...t, x: e.clientX, y: e.clientY } : null),
+      onMouseLeave: () => setTooltip(null),
+    };
+  }
+
   const inputCls = "border rounded px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300";
+
+  // Card compatta di un movimento attivo — usata dalla vista split Ritiri | Consegne.
+  // Stesse azioni della tabella: transizioni di stato, "Dal fornitore", etichetta, modifica, elimina.
+  function renderCard(r: Ritiro, opz: { mostraTipo?: boolean; trascinabile?: boolean } = {}) {
+    const isLoading = loadingIds.has(r.id);
+    const transizioniPossibili = TRANSIZIONI[r.stato] ?? [];
+    const statoBadge = STATO_BADGE[r.stato];
+    const scheda = r.numeroOrdineId ? schedeMap.get(r.numeroOrdineId) : null;
+    const pdfScheda = pdfSchedaEffettivo(scheda, schedeMap);
+    const ora = (() => {
+      if (!r.dataTrasporto || !r.dataTrasporto.includes("T")) return null;
+      const dt = new Date(r.dataTrasporto);
+      const h = dt.getHours(), m = dt.getMinutes();
+      return (h !== 0 || m !== 0) ? `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}` : null;
+    })();
+    const commessa = commessaDi(r);
+    const titolo = scheda
+      ? [scheda.numeroScheda, scheda.odp || r.numeroOrdine].filter(Boolean).join(" - ")
+      : (r.numeroOrdine || (r.commessaNr ? `Commessa ${r.commessaNr}` : "—"));
+    const sottotitolo = commessa
+      ? [commessa.numeroCommessa || r.commessaNr, commessa.cliente, commessa.localita, commessa.info].filter(Boolean).join(" - ")
+      : (scheda?.clienteInfo || r.commessaNr || "");
+    const hasDocs = r.ordineFornitore.length > 0 || (scheda?.pdfOrdineFornitore?.length ?? 0) > 0 || pdfScheda.length > 0 || r.foto.length > 0;
+    return (
+      <div
+        key={r.id}
+        className={`rounded-lg border bg-white p-3 space-y-2 shadow-sm ${opz.trascinabile ? "cursor-grab active:cursor-grabbing" : ""}`}
+        style={{
+          borderColor: "#e5e7eb",
+          ...(r.nc ? { borderLeft: "3px solid #DC2626" } : {}),
+          ...(trascinata === r.id ? { opacity: 0.4 } : {}),
+        }}
+        draggable={opz.trascinabile}
+        onDragStart={opz.trascinabile ? (e) => {
+          setTooltip(null);
+          setTrascinata(r.id);
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", r.id);
+        } : undefined}
+        onDragEnd={opz.trascinabile ? () => { setTrascinata(null); setSopra(null); } : undefined}
+      >
+        {opz.mostraTipo && r.tipoMovimento && <TipoBadge tipo={r.tipoMovimento} />}
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0" {...hoverCopertina(scheda)}>
+            <div className="font-semibold leading-snug" style={{ color: "var(--color-black)" }}>{titolo}</div>
+            {sottotitolo && <div className="text-sm mt-0.5" style={{ color: "var(--color-grey-mid)" }}>{sottotitolo}</div>}
+          </div>
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            {statoBadge ? (
+              <span
+                className="inline-flex items-center px-2.5 py-0.5 rounded-full border font-semibold whitespace-nowrap text-xs"
+                style={{ background: statoBadge.bg, color: statoBadge.text, borderColor: statoBadge.border }}
+              >
+                <span className={statoBadge.blink ? "ritiro-blink" : ""}>{r.stato}</span>
+              </span>
+            ) : (
+              <BadgeStato stato={r.stato} />
+            )}
+            {r.urgenza && (
+              <span className="inline-flex items-center gap-0.5 text-xs font-bold px-1.5 py-0.5 rounded" style={{ background: "#FEE2E2", color: "#DC2626" }}>
+                ⚠ Urgente
+              </span>
+            )}
+          </div>
+        </div>
+
+        {(r.giroOrdine != null || ora) && (
+          <div className="text-xs font-medium flex flex-wrap gap-x-3">
+            {r.giroOrdine != null && (
+              <span style={{ color: "#4338CA" }}>Giro {r.giroOrdine}{r.giroLavorazione ? ` · ${r.giroLavorazione}` : ""}</span>
+            )}
+            {ora && <span className="tabular-nums" style={{ color: "#6B7280" }}>⏱ {ora}</span>}
+          </div>
+        )}
+        {r.descrizioneMerce && (
+          <div className="font-semibold" style={{ color: "var(--color-black)" }} {...hoverCopertina(scheda)}>{r.descrizioneMerce}</div>
+        )}
+        <div className="text-sm flex flex-wrap items-center gap-x-2">
+          <span style={{ color: r.fornitore ? "var(--color-black)" : "var(--color-grey-icon)" }}>{r.fornitore || "Nessun fornitore"}</span>
+          {r.trasporto === "Fornitore" && <BadgeTrasportoFornitore />}
+        </div>
+
+        {hasDocs && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <DocLinks files={r.ordineFornitore} label="OF" />
+            <DocLinks files={scheda?.pdfOrdineFornitore ?? []} label="PDF OF" />
+            <DocLinks files={pdfScheda} label="PDF Scheda" />
+            {r.foto.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {r.foto.map((f, i) => (
+                  <a key={i} href={f.url} target="_blank" rel="noopener noreferrer" title={f.name || `Foto ${i + 1}`}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={f.url} alt={f.name || `Foto ${i + 1}`} className="rounded object-cover hover:opacity-80" style={{ width: 32, height: 32, border: "1px solid #e5e4e0" }} />
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t" style={{ borderColor: "#f0efeb" }}>
+          {canWrite && transizioniPossibili.map((stato) => {
+            const btn = TRANSIZIONE_BTN[stato] ?? { bg: "#6B7280", icon: "→" };
+            return (
+              <button
+                key={stato}
+                disabled={isLoading}
+                onClick={() => handleStatoChange(r.id, stato)}
+                className="inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold text-white shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-md active:scale-95"
+                style={{ background: btn.bg }}
+                title={`Segna come ${stato}`}
+              >
+                {isLoading
+                  ? <span className="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  : <span className="text-[0.65rem] leading-none">{btn.icon}</span>}
+                {stato}
+              </button>
+            );
+          })}
+          {canWrite && r.stato !== "Fatto" && (
+            <button
+              disabled={isLoading}
+              onClick={() => fattoDalFornitore(r)}
+              className="inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold text-white shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-md active:scale-95"
+              style={{ background: "#0E7490" }}
+              title="Il fornitore ha portato o ritirato lui il materiale: segna Fatto"
+            >
+              <span className="text-[0.65rem] leading-none">⇄</span>
+              Dal fornitore
+            </button>
+          )}
+          <div className="ml-auto flex items-center gap-1.5">
+            <a
+              href={`/api/ritiri/${r.id}/etichetta`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold px-2 py-1 rounded transition-colors hover:opacity-80"
+              style={{ color: "#1D4ED8", background: "rgba(29,78,216,0.07)", fontSize: "0.75rem", borderRadius: "var(--radius-badge)" }}
+              title="Stampa etichetta PDF"
+            >
+              🖨️
+            </a>
+            {canWrite && (
+              <button
+                onClick={() => setEditing(r)}
+                className="font-semibold px-2.5 py-1 rounded transition-colors hover:opacity-80"
+                style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)", fontSize: "0.75rem", borderRadius: "var(--radius-badge)" }}
+              >
+                Modifica
+              </button>
+            )}
+            {canDelete && (
+              confirmDelete === r.id ? (
+                <span className="inline-flex items-center gap-1">
+                  <button
+                    onClick={() => handleDelete(r.id)}
+                    disabled={isLoading}
+                    className="font-semibold px-2.5 py-1 rounded text-white transition-colors disabled:opacity-40"
+                    style={{ background: "#DC2626", fontSize: "0.75rem", borderRadius: "var(--radius-badge)" }}
+                  >
+                    Conferma
+                  </button>
+                  <button
+                    onClick={() => setConfirmDelete(null)}
+                    className="font-semibold px-2 py-1 rounded transition-colors"
+                    style={{ color: "#6B7280", background: "#F3F4F6", fontSize: "0.75rem", borderRadius: "var(--radius-badge)" }}
+                  >
+                    ✕
+                  </button>
+                </span>
+              ) : (
+                <button
+                  onClick={() => setConfirmDelete(r.id)}
+                  className="font-semibold px-2.5 py-1 rounded transition-colors hover:opacity-80"
+                  style={{ color: "#DC2626", background: "rgba(220,38,38,0.07)", fontSize: "0.75rem", borderRadius: "var(--radius-badge)" }}
+                >
+                  Elimina
+                </button>
+              )
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -421,33 +684,99 @@ export default function TabellaRitiri({
         </div>
       )}
 
-      {/* Riga stampa */}
+      {/* Intestazione: titolo a sinistra, Nuovo ritiro a destra */}
+      <div className="no-print flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
+            Ritiri e Consegne
+          </h1>
+          <p className="text-sm mt-1" style={{ color: "var(--color-grey-mid)" }}>
+            {ritiri.length} movimenti totali
+          </p>
+        </div>
+        {canCreate && (
+          <button
+            onClick={() => setCreando(true)}
+            className="flex items-center gap-2 px-5 py-2.5 text-base font-semibold text-white transition-opacity hover:opacity-90"
+            style={{ background: "var(--color-primary)", borderRadius: "var(--radius-button)" }}
+          >
+            <span className="text-lg leading-none">+</span> Nuovo ritiro
+          </button>
+        )}
+      </div>
+
+      {/* Seconda riga: comandi secondari a destra */}
       <div className="no-print flex justify-end">
-        <button
-          onClick={() => window.print()}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-base font-semibold transition-opacity hover:opacity-90"
-          style={{ background: "var(--color-primary)", color: "white" }}
-        >
-          <span style={{ fontSize: 22 }}>🖨</span> Stampa vista corrente
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {canWrite && scadutiAttivi.length > 0 && (
+            <button
+              onClick={() => setShowRiassegnaModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold transition-colors hover:opacity-80 disabled:opacity-40 border"
+              style={{ color: "#92400E", background: "#FEF3C7", borderColor: "#F59E0B", borderRadius: "var(--radius-button)" }}
+              title={`${scadutiAttivi.length} movimenti con data passata`}
+            >
+              ⏰ Riassegna a oggi ({scadutiAttivi.length})
+            </button>
+          )}
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold transition-colors hover:opacity-80 disabled:opacity-40 border"
+            style={{ color: "var(--color-grey-mid)", background: "white", borderColor: "#E5E7EB", borderRadius: "var(--radius-button)" }}
+            title="Ricarica i dati"
+          >
+            <span className={refreshing ? "inline-block animate-spin" : ""}>↻</span>
+            {refreshing ? "Aggiornamento…" : "Aggiorna"}
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold transition-colors hover:opacity-80 disabled:opacity-40 border"
+            style={{ color: "var(--color-grey-mid)", background: "white", borderColor: "#E5E7EB", borderRadius: "var(--radius-button)" }}
+            title="Stampa i movimenti attivi con i filtri correnti"
+          >
+            🖨 Stampa Vista Corrente
+          </button>
+        </div>
+      </div>
+
+      {/* Terza riga: selettore vista, a destra sotto i comandi */}
+      <div className="no-print flex justify-end">
+        <div className="flex rounded-lg border overflow-hidden" style={{ borderColor: "#d1d5db" }}>
+          {([["tabella", "Tabella"], ["split", "Ritiri | Consegne"], ["kanban", "Kanban"]] as const).map(([v, label]) => (
+            <button
+              key={v}
+              onClick={() => cambiaVista(v)}
+              className="px-3 py-1.5 text-sm font-medium transition-colors"
+              style={vista === v
+                ? { background: "var(--color-primary)", color: "white" }
+                : { background: "white", color: "var(--color-grey-mid)" }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Filtri attivi */}
       <div className="flex flex-wrap gap-3 no-print">
         <input
           className={inputCls + " min-w-48"}
-          placeholder="Cerca descrizione, ODP, fornitore…"
+          placeholder="Cerca ODP, scheda, commessa, cliente, fornitore…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <select className={inputCls} value={filtroStato} onChange={(e) => setFiltroStato(e.target.value)}>
-          <option value="">Tutti gli stati</option>
-          {statiUniq.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select className={inputCls} value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)}>
-          <option value="">Tutti i tipi</option>
-          {tipiUniq.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
+        {vista !== "kanban" && (
+          <select className={inputCls} value={filtroStato} onChange={(e) => setFiltroStato(e.target.value)}>
+            <option value="">Tutti gli stati</option>
+            {statiUniq.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        )}
+        {vista !== "split" && (
+          <select className={inputCls} value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)}>
+            <option value="">Tutti i tipi</option>
+            {tipiUniq.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        )}
         <label className="flex items-center gap-2 text-sm cursor-pointer">
           <input
             type="checkbox"
@@ -471,52 +800,109 @@ export default function TabellaRitiri({
         <span className="text-sm self-center" style={{ color: "var(--color-grey-mid)" }}>
           {filteredAttivi.length} attivi · {allFatti.length} completati
         </span>
-        <div className="ml-auto flex items-center gap-2">
-          {canWrite && scadutiAttivi.length > 0 && (
-            <button
-              onClick={() => setShowRiassegnaModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded transition-colors hover:opacity-90 border"
-              style={{ color: "#92400E", background: "#FEF3C7", borderColor: "#F59E0B", borderRadius: "var(--radius-button)" }}
-              title={`${scadutiAttivi.length} movimenti con data passata`}
-            >
-              ⏰ Riassegna a oggi ({scadutiAttivi.length})
-            </button>
-          )}
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded transition-colors hover:opacity-80 disabled:opacity-40 border"
-            style={{ color: "var(--color-grey-mid)", background: "white", borderColor: "#E5E7EB", borderRadius: "var(--radius-button)" }}
-            title="Ricarica dati da Notion"
-          >
-            <span className={refreshing ? "inline-block animate-spin" : ""}>↻</span>
-            {refreshing ? "Aggiornamento…" : "Aggiorna"}
-          </button>
-          {canCreate && (
-            <button
-              onClick={() => setCreando(true)}
-              className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold text-white rounded transition-colors hover:opacity-90"
-              style={{ background: "var(--color-primary)", borderRadius: "var(--radius-button)" }}
-            >
-              <span className="text-base leading-none">+</span> Nuovo ritiro
-            </button>
-          )}
-        </div>
       </div>
 
+      {/* ── Vista split: Ritiri a sinistra, Consegne a destra ── */}
+      {vista === "split" && (
+        <div className="no-print grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+          {(["Ritiro", "Consegna"] as const).map((tipo) => {
+            const cfg = TIPO_CONFIG[tipo];
+            const gruppi = gruppiGiorno
+              .map(g => ({ ...g, items: g.items.filter(r => r.tipoMovimento === tipo) }))
+              .filter(g => g.items.length > 0);
+            const totale = gruppi.reduce((n, g) => n + g.items.length, 0);
+            return (
+              <div key={tipo} className="rounded-lg border overflow-hidden bg-[#faf9f7]" style={{ borderColor: "#e5e7eb" }}>
+                <div className="flex items-center justify-between px-4 py-3 border-b" style={{ background: cfg.bg, borderColor: cfg.border }}>
+                  <TipoBadge tipo={tipo} />
+                  <span className="text-sm font-bold tabular-nums" style={{ color: cfg.text }}>
+                    {totale} attiv{totale === 1 ? "o" : "i"}
+                  </span>
+                </div>
+                <div className="p-3 space-y-4">
+                  {gruppi.length === 0 ? (
+                    <p className="py-10 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
+                      Nessun{tipo === "Ritiro" ? " ritiro" : "a consegna"} attiv{tipo === "Ritiro" ? "o" : "a"}
+                    </p>
+                  ) : gruppi.map(({ dateKey, label, items }) => (
+                    <div key={dateKey} className="space-y-2">
+                      <GiornoHeader dateKey={dateKey} label={label} count={items.length} todayStr={todayStr} compatto />
+                      {items.map(r => renderCard(r))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Vista kanban per stato: si trascina una card su un'altra colonna per cambiarne lo stato ── */}
+      {vista === "kanban" && (
+        <div className="no-print grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+          {COLONNE_KANBAN.map((col) => {
+            // Da Fare / In corso: tutti gli attivi filtrati, raggruppati per giorno.
+            // Fatto: solo quelli completati oggi (lo storico resta nell'Archivio qui sotto).
+            const gruppi = col.stato === "Fatto"
+              ? (() => {
+                  const items = filtered.filter(r => r.stato === "Fatto" && getDatePart(r.dataFatto) === todayStr);
+                  return items.length ? [{ dateKey: "fatti-oggi", label: "", items }] : [];
+                })()
+              : gruppiGiorno
+                  .map(g => ({ ...g, items: g.items.filter(r => r.stato === col.stato) }))
+                  .filter(g => g.items.length > 0);
+            const totale = gruppi.reduce((n, g) => n + g.items.length, 0);
+            const evidenzia = sopra === col.stato && trascinata !== null;
+            return (
+              <div
+                key={col.stato}
+                className="rounded-lg border overflow-hidden transition-colors"
+                style={{
+                  borderColor: evidenzia ? col.band : "#e5e7eb",
+                  background: evidenzia ? col.drop : "#faf9f7",
+                  outline: evidenzia ? `2px dashed ${col.band}` : undefined,
+                }}
+                onDragOver={(e) => { if (trascinata && canWrite) { e.preventDefault(); setSopra(col.stato); } }}
+                onDragLeave={() => setSopra((v) => (v === col.stato ? null : v))}
+                onDrop={(e) => { e.preventDefault(); rilascia(col.stato); }}
+              >
+                <div className="flex items-center justify-between px-4 py-3" style={{ background: col.band }}>
+                  <h3 className="text-sm font-bold uppercase tracking-wide text-white">{col.titolo}</h3>
+                  <span className="inline-flex items-center justify-center rounded-full text-xs font-bold min-w-6 h-6 px-1.5 bg-white/90" style={{ color: col.band }}>
+                    {totale}
+                  </span>
+                </div>
+                <div className="p-3 space-y-4 min-h-32">
+                  {gruppi.length === 0 ? (
+                    <p className="py-8 text-center text-sm" style={{ color: "var(--color-grey-mid)" }}>
+                      {col.vuoto}
+                    </p>
+                  ) : gruppi.map(({ dateKey, label, items }) => (
+                    <div key={dateKey} className="space-y-2">
+                      {label && <GiornoHeader dateKey={dateKey} label={label} count={items.length} todayStr={todayStr} compatto />}
+                      {items.map(r => renderCard(r, { mostraTipo: true, trascinabile: canWrite }))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* ── Tabella attivi ── */}
+      {vista === "tabella" && (
       <div className="no-print overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table className="min-w-full" style={{ fontSize: "0.95rem" }}>
           <thead>
             <tr className="border-b text-left text-xs font-bold uppercase tracking-wide" style={{ color: "var(--color-grey-mid)", background: "#faf9f7" }}>
-              <th className="px-3 py-4"></th>
+              <th className="px-4 py-4">Tipo</th>
               <th className="px-4 py-4">ODP / Commessa</th>
               <th className="px-4 py-4">Scheda</th>
               <th className="px-4 py-4">Descrizione</th>
-              <th className="px-4 py-4">Tipo</th>
               <th className="px-4 py-4">Stato</th>
               <th className="px-4 py-4">Fornitore</th>
-              <th className="px-4 py-4">Ordine OF</th>
+              <th className="px-4 py-4">Ordine Fornitore</th>
               <th className="px-4 py-4">PDF Scheda</th>
               <th className="px-4 py-4">Foto</th>
               <th className="px-4 py-4">Azioni</th>
@@ -525,18 +911,16 @@ export default function TabellaRitiri({
           <tbody>
             {filteredAttivi.length === 0 ? (
               <tr>
-                <td colSpan={11} className="py-14 text-center" style={{ color: "var(--color-grey-mid)", fontSize: "0.95rem" }}>
+                <td colSpan={10} className="py-14 text-center" style={{ color: "var(--color-grey-mid)", fontSize: "0.95rem" }}>
                   Nessun movimento attivo
                 </td>
               </tr>
             ) : (
               (() => {
                 return gruppiGiorno.flatMap(({ dateKey, label, items }) => [
-                  <tr key={`day-${dateKey}`} style={{ background: "#f5f4f0" }}>
-                    <td colSpan={11} className="px-5 py-2">
-                      <span className="text-sm font-bold uppercase tracking-wide" style={{ color: "var(--color-grey-mid)" }}>
-                        {label}
-                      </span>
+                  <tr key={`day-${dateKey}`}>
+                    <td colSpan={10} className="px-3 pt-5 pb-2 bg-white">
+                      <GiornoHeader dateKey={dateKey} label={label} count={items.length} todayStr={todayStr} />
                     </td>
                   </tr>,
                   ...items.map((r) => {
@@ -546,29 +930,8 @@ export default function TabellaRitiri({
                     const scheda = r.numeroOrdineId ? schedeMap.get(r.numeroOrdineId) : null;
                     return (
                       <tr key={r.id} className="border-b last:border-0 hover:bg-orange-50/30 transition-colors" style={r.nc ? { borderLeft: "3px solid #DC2626" } : {}}>
-                        <td className="px-3 py-4">
-                          <div className="flex flex-col gap-1.5">
-                            {canWrite && transizioniPossibili.map((stato) => {
-                              const btn = TRANSIZIONE_BTN[stato] ?? { bg: "#6B7280", icon: "→" };
-                              return (
-                                <button
-                                  key={stato}
-                                  disabled={isLoading}
-                                  onClick={() => handleStatoChange(r.id, stato)}
-                                  className="inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold text-white shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-md active:scale-95"
-                                  style={{ background: btn.bg, minWidth: 80 }}
-                                  title={`Segna come ${stato}`}
-                                >
-                                  {isLoading ? (
-                                    <span className="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                  ) : (
-                                    <span className="text-[0.65rem] leading-none">{btn.icon}</span>
-                                  )}
-                                  {stato}
-                                </button>
-                              );
-                            })}
-                          </div>
+                        <td className="px-4 py-4">
+                          {r.tipoMovimento ? <TipoBadge tipo={r.tipoMovimento} /> : "—"}
                         </td>
                         <td className="px-4 py-4">
                           <div>
@@ -596,9 +959,6 @@ export default function TabellaRitiri({
                         </td>
                         <td className="px-4 py-4 font-semibold" style={{ color: "var(--color-black)" }}>{r.descrizioneMerce || "—"}</td>
                         <td className="px-4 py-4">
-                          {r.tipoMovimento ? <TipoBadge tipo={r.tipoMovimento} /> : "—"}
-                        </td>
-                        <td className="px-4 py-4">
                           {statoBadge ? (
                             <span
                               className="inline-flex items-center px-3 py-1 rounded-full border font-semibold whitespace-nowrap"
@@ -623,18 +983,6 @@ export default function TabellaRitiri({
                               {r.fornitore || "—"}
                             </div>
                             {r.trasporto === "Fornitore" && <BadgeTrasportoFornitore />}
-                            {canWrite && r.stato !== "Fatto" && (
-                              <button
-                                disabled={isLoading}
-                                onClick={() => fattoDalFornitore(r)}
-                                className="mt-1 inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold text-white shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-md active:scale-95"
-                                style={{ background: "#0E7490" }}
-                                title="Il fornitore ha portato o ritirato lui il materiale: segna Fatto"
-                              >
-                                <span className="text-[0.65rem] leading-none">⇄</span>
-                                Dal fornitore
-                              </button>
-                            )}
                           </div>
                         </td>
                         <td className="px-4 py-4">
@@ -646,7 +994,7 @@ export default function TabellaRitiri({
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-4" {...hoverCopertina(scheda)}>
                           <DocLinks files={pdfSchedaEffettivo(scheda, schedeMap)} label="PDF Scheda" />
                           {!pdfSchedaEffettivo(scheda, schedeMap).length && <span style={{ color: "var(--color-grey-icon)" }}>—</span>}
                         </td>
@@ -670,6 +1018,29 @@ export default function TabellaRitiri({
                           )}
                         </td>
                         <td className="px-4 py-4">
+                          {canWrite && (
+                            <div className="flex items-center gap-2 mb-2">
+                              {transizioniPossibili.map((stato) => (
+                                <BtnComando
+                                  key={stato}
+                                  colore={TRANSIZIONE_BTN[stato]?.bg ?? "#6B7280"}
+                                  icon={TRANSIZIONE_BTN[stato]?.icon ?? "→"}
+                                  label={stato}
+                                  loading={isLoading}
+                                  onClick={() => handleStatoChange(r.id, stato)}
+                                  title={`Segna come ${stato}`}
+                                />
+                              ))}
+                              <BtnComando
+                                colore="#0E7490"
+                                icon="⇄"
+                                label="Dal fornitore"
+                                loading={isLoading}
+                                onClick={() => fattoDalFornitore(r)}
+                                title="Il fornitore ha portato o ritirato lui il materiale: segna Fatto"
+                              />
+                            </div>
+                          )}
                           <div className="flex items-center gap-2">
                             <a
                               href={`/api/ritiri/${r.id}/etichetta`}
@@ -730,6 +1101,7 @@ export default function TabellaRitiri({
           </tbody>
         </table>
       </div>
+      )}
 
       {/* Intestazione di stampa — logo + titolo + filtri attivi */}
       <div className="print-header hidden">
@@ -899,10 +1271,10 @@ export default function TabellaRitiri({
                             <span style={{ color: "var(--color-grey-icon)" }}>—</span>
                           )}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3" {...hoverCopertina(scheda)}>
                           <RifCell r={r} schedeMap={schedeMap} />
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3" {...hoverCopertina(scheda)}>
                           {scheda ? (
                             <div>
                               <span className="font-semibold tabular-nums text-sm" style={{ color: "var(--color-black)" }}>
@@ -1095,6 +1467,8 @@ export default function TabellaRitiri({
         );
       })()}
 
+      <CopertinaTooltip tooltip={tooltip} />
+
       {creando && (
         <FormNuovoRitiro
           schede={schede}
@@ -1114,6 +1488,64 @@ export default function TabellaRitiri({
           onSave={handleSave}
         />
       )}
+    </div>
+  );
+}
+
+// Pulsante di comando nella colonna Azioni: rettangolo con bordo e fondo tenue, come Modifica/Etichetta,
+// così non si confonde con i badge di stato/tipo
+function BtnComando({ colore, icon, label, loading, onClick, title }: {
+  colore: string; icon: string; label: string; loading: boolean; onClick: () => void; title: string;
+}) {
+  return (
+    <button
+      disabled={loading}
+      onClick={onClick}
+      title={title}
+      className="inline-flex items-center gap-1 font-semibold px-3 py-1 border whitespace-nowrap transition-colors hover:brightness-95 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+      style={{ color: colore, background: `${colore}14`, borderColor: `${colore}66`, fontSize: "0.8rem", borderRadius: "var(--radius-badge)" }}
+    >
+      {loading
+        ? <span className="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+        : <span className="text-[0.7rem] leading-none">{icon}</span>}
+      {label}
+    </button>
+  );
+}
+
+// Intestazione di un gruppo-giorno: banda con data in evidenza, etichetta relativa (In ritardo / Oggi / Domani)
+// e conteggio, così nella lista lunga si capisce subito dove inizia ogni giorno
+function GiornoHeader({ dateKey, label, count, todayStr, compatto = false }: {
+  dateKey: string; label: string; count: number; todayStr: string; compatto?: boolean;
+}) {
+  const domani = (() => {
+    const d = new Date(`${todayStr}T12:00`);
+    d.setDate(d.getDate() + 1);
+    const p = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  })();
+  const rel =
+    dateKey === "senza-data" ? null
+    : dateKey < todayStr ? { txt: "In ritardo", bg: "#FEE2E2", fg: "#B91C1C", accent: "#DC2626" }
+    : dateKey === todayStr ? { txt: "Oggi", bg: "#FFEDD5", fg: "#C2410C", accent: "var(--color-primary)" }
+    : dateKey === domani ? { txt: "Domani", bg: "#DBEAFE", fg: "#1D4ED8", accent: "#3B82F6" }
+    : null;
+  const accent = rel?.accent ?? (dateKey === "senza-data" ? "#9CA3AF" : "#4B5563");
+  return (
+    <div
+      className={`flex items-center gap-3 rounded-md ${compatto ? "px-3 py-1.5" : "px-4 py-2.5"}`}
+      style={{ background: "#F3F2EE", borderLeft: `4px solid ${accent}` }}
+    >
+      <span className={compatto ? "text-sm" : "text-base"} aria-hidden="true">{dateKey === "senza-data" ? "🗂" : "📅"}</span>
+      <span className={`font-bold ${compatto ? "text-sm" : "text-base"}`} style={{ color: "var(--color-black)" }}>{label}</span>
+      {rel && (
+        <span className="text-xs font-bold uppercase tracking-wide px-2 py-0.5 rounded-full" style={{ background: rel.bg, color: rel.fg }}>
+          {rel.txt}
+        </span>
+      )}
+      <span className="ml-auto text-xs font-semibold tabular-nums" style={{ color: "var(--color-grey-mid)" }}>
+        {count} moviment{count === 1 ? "o" : "i"}
+      </span>
     </div>
   );
 }
