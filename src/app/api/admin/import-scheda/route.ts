@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Non autorizzato" }, { status: 403 });
   }
 
-  const body = (await req.json()) as {
+  const body = (await req.json().catch(() => null)) as null | {
     items: ParsedItem[];
     pdfBase64: string;
     thumbnailBase64?: string;
@@ -54,6 +54,9 @@ export async function POST(req: NextRequest) {
     odpPos?: Array<OdpPosizione | null>;
   };
 
+  if (!body) {
+    return NextResponse.json({ ok: false, error: "Richiesta illeggibile o troppo grande (PDF oltre il limite del server?)" }, { status: 413 });
+  }
   const { items, pdfBase64, thumbnailBase64, pageThumbnails, qrPos, odpPos } = body;
   if (!items?.length || !pdfBase64) {
     return NextResponse.json({ ok: false, error: "Dati mancanti (items o pdfBase64)" }, { status: 400 });

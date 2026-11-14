@@ -4,6 +4,21 @@ import { useRef, useState, useCallback, DragEvent, ChangeEvent } from "react";
 import type { Fornitore } from "@/lib/types";
 import { abbinaFornitore } from "@/lib/fornitoreMatch";
 
+// Legge la risposta JSON delle API di import; se il server risponde vuoto o non-JSON (crash, timeout,
+// proxy) restituisce un errore leggibile con lo status HTTP invece di "Unexpected end of JSON input".
+async function leggiJson<T extends { error?: string }>(res: Response): Promise<T> {
+  const text = await res.text();
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(
+      res.status === 413
+        ? "PDF troppo grande per il server (413)"
+        : `Risposta non valida dal server (HTTP ${res.status}${res.statusText ? " " + res.statusText : ""})`,
+    );
+  }
+}
+
 interface ParsedItem {
   pagina?: number;
   paginaMancante?: boolean;
@@ -189,7 +204,7 @@ export default function ImportSchedaPdf() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pageTexts, pageItems }),
       });
-      const data = (await res.json()) as { ok: boolean; items?: ParsedItem[]; paginePersi?: number[]; error?: string };
+      const data = await leggiJson<{ ok: boolean; items?: ParsedItem[]; paginePersi?: number[]; error?: string }>(res);
       if (!res.ok || !data.ok) throw new Error(data.error ?? "Errore parsing");
 
       setPaginePersi(data.paginePersi ?? []);
@@ -309,7 +324,7 @@ export default function ImportSchedaPdf() {
           odpPos: itemsWithIndex.map((it) => it.odpCartiglio ?? null),
         }),
       });
-      const data = (await res.json()) as { ok: boolean; odp?: string; created?: ImportResult["created"]; error?: string; n8nError?: string; qrPagineSenzaQr?: number[] };
+      const data = await leggiJson<{ ok: boolean; odp?: string; created?: ImportResult["created"]; error?: string; n8nError?: string; qrPagineSenzaQr?: number[] }>(res);
       if (!res.ok || !data.ok) throw new Error(data.error ?? "Errore import");
       setResult({ odp: data.odp!, created: data.created!, n8nError: data.n8nError, qrPagineSenzaQr: data.qrPagineSenzaQr });
       setStatus("done");

@@ -8,7 +8,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Non autorizzato" }, { status: 403 });
   }
 
-  const body = (await req.json()) as { pageTexts?: string[]; pdfText?: string; pageItems?: PdfPageData[] };
+  const body = (await req.json().catch(() => null)) as null | { pageTexts?: string[]; pdfText?: string; pageItems?: PdfPageData[] };
+  if (!body) {
+    return NextResponse.json({ ok: false, error: "Richiesta illeggibile o troppo grande (PDF oltre il limite del server?)" }, { status: 413 });
+  }
   const pageTexts: string[] = body.pageTexts ?? (body.pdfText ? [body.pdfText] : []);
 
   if (!pageTexts.length || !pageTexts.some((t) => t.trim())) {
