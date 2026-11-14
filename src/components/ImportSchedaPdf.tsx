@@ -3,6 +3,7 @@
 import { useRef, useState, useCallback, DragEvent, ChangeEvent } from "react";
 import type { Fornitore } from "@/lib/types";
 import { abbinaFornitore } from "@/lib/fornitoreMatch";
+import { trovaSpazioQrDaImmagine } from "@/lib/qrSpazioLibero";
 
 // Legge la risposta JSON delle API di import; se il server risponde vuoto o non-JSON (crash, timeout,
 // proxy) restituisce un errore leggibile con lo status HTTP invece di "Unexpected end of JSON input".
@@ -44,7 +45,8 @@ interface ParsedItem {
   // "layout" = letto dal cartiglio per posizione, "ai" = fallback LLM; i warnings segnalano campi da verificare
   source?: "layout" | "ai";
   warnings?: string[];
-  // dove timbrare il QR della scheda su questa pagina del PDF (coordinate viewport); null = nessuno spazio
+  // dove timbrare il QR della scheda su questa pagina del PDF (coordinate viewport): dal cartiglio o,
+  // se il cartiglio non è riconosciuto, dallo spazio bianco dell'immagine della pagina; null = nessuno spazio
   qr?: { x: number; y: number; size: number } | null;
   // dove scrivere l'ODP nella cella "ODP MODAR" del cartiglio (coordinate viewport); null = cella assente
   odpCartiglio?: { x: number; y: number; size: number } | null;
@@ -73,7 +75,9 @@ async function getPdfjsLib() {
 // serve al parser del cartiglio, che associa i valori alle etichette per posizione.
 interface PageTextItems { n: number; width: number; items: Array<{ s: string; x: number; y: number; w: number; h: number }> }
 
-async function extractPdfData(file: File): Promise<{ pageTexts: string[]; pageItems: PageTextItems[]; thumbnailBase64: string; pageThumbnails: string[] }> {
+type QrPos = { x: number; y: number; size: number };
+
+async function extractPdfData(file: File): Promise<{ pageTexts: string[]; pageItems: PageTextItems[]; thumbnailBase64: string; pageThumbnails: string[]; qrRipiego: Array<QrPos | null> }> {
   const pdfjs = await getPdfjsLib();
   const buf = await file.arrayBuffer();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -88,6 +92,9 @@ async function extractPdfData(file: File): Promise<{ pageTexts: string[]; pageIt
   // corrisponde ogni scheda/sottoscheda estratta, senza dover riaprire il PDF originale per
   // controllare (l'estrazione automatica a volte sbaglia la pagina di provenienza).
   const pageThumbnails: string[] = [];
+  // Posto per il QR cercato sull'immagine della pagina: serve solo dove il parser non riconosce il
+  // cartiglio (testo convertito in curve, scansioni, cartigli di altro formato).
+  const qrRipiego: Array<QrPos | null> = [];
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -114,6 +121,11 @@ async function extractPdfData(file: File): Promise<{ pageTexts: string[]; pageIt
     canvas.height = vpSmall.height;
     await page.render({ canvasContext: ctx, viewport: vpSmall }).promise;
     pageThumbnails.push(canvas.toDataURL("image/jpeg", 0.82));
+    try {
+      qrRipiego.push(trovaSpazioQrDaImmagine(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height, smallScale));
+    } catch {
+      qrRipiego.push(null);
+    }
   }
 
   // Render first page as (bigger) cover thumbnail
@@ -128,7 +140,7 @@ async function extractPdfData(file: File): Promise<{ pageTexts: string[]; pageIt
   await page1.render({ canvasContext: ctx, viewport: vp }).promise;
   const thumbnailBase64 = canvas.toDataURL("image/jpeg", 0.92);
 
-  return { pageTexts, pageItems, thumbnailBase64, pageThumbnails };
+  return { pageTexts, pageItems, thumbnailBase64, pageThumbnails, qrRipiego };
 }
 
 function fieldRow(
@@ -192,7 +204,7 @@ export default function ImportSchedaPdf() {
       setPdfBase64(base64);
 
       // Extract text + thumbnails via pdfjs
-      const { pageTexts, pageItems, thumbnailBase64: thumb, pageThumbnails: pageThumbs } = await extractPdfData(file);
+      const { pageTexts, pageItems, thumbnailBase64: thumb, pageThumbnails: pageThumbs, qrRipiego } = await extractPdfData(file);
       setThumbnailBase64(thumb);
       setPageThumbnails(pageThumbs);
 
@@ -231,8 +243,11 @@ export default function ImportSchedaPdf() {
           if (!gruppoFornitore.has(k)) gruppoFornitore.set(k, idx);
           gruppoAuto = gruppoFornitore.get(k)!;
         }
+        const qr = it.qr ?? qrRipiego[idx] ?? null;
         return {
           ...it,
+          qr,
+          warnings: it.qr || !qr ? it.warnings : (it.warnings ?? []).filter((w) => !w.startsWith("QR non inseribile")),
           fornitorePdf: it.fornitore ?? null,
           fornitore: match ? match.fornitore.nome : it.fornitore,
           fornitoreId: match ? match.fornitore.id : null,
@@ -385,7 +400,7 @@ export default function ImportSchedaPdf() {
         </div>
         {!!result.qrPagineSenzaQr?.length && (
           <p className="text-xs mb-3" style={{ color: "#92400e" }}>
-            QR non timbrato sulle pagine {result.qrPagineSenzaQr.join(", ")} del PDF (nessuno spazio libero nel cartiglio):
+            QR non timbrato sulle pagine {result.qrPagineSenzaQr.join(", ")} del PDF (nessuno spazio bianco trovato sulla pagina):
             si può stampare l&apos;etichetta dalla scheda.
           </p>
         )}
