@@ -270,15 +270,10 @@ export default function TabellaRitiri({
 
     const results = await Promise.allSettled(
       scadutiAttivi.map(r => {
-        // Mantieni l'ora se presente, cambia solo la data
-        let newDate: string;
-        if (r.dataTrasporto && r.dataTrasporto.includes("T")) {
-          const dt = new Date(r.dataTrasporto);
-          const h = dt.getHours(), m = dt.getMinutes();
-          newDate = new Date(`${todayPrefix}T${p(h)}:${p(m)}`).toISOString();
-        } else {
-          newDate = new Date(`${todayPrefix}T00:00`).toISOString();
-        }
+        // data_trasporto è una colonna DATE: si manda la data locale "YYYY-MM-DD". Un ISO della mezzanotte
+        // locale (…T23:00:00Z del giorno prima in UTC) veniva troncato da Postgres al giorno precedente
+        // e il movimento restava dov'era.
+        const newDate = todayPrefix;
         return fetch(`/api/ritiri/${r.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -1041,15 +1036,11 @@ export default function TabellaRitiri({
         const dataFmt = r?.dataTrasporto ? fmt(r.dataTrasporto) : "—";
         const todayFmt = new Date().toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
 
-        function buildTodayDate(orig: string | null): string {
+        function buildTodayDate(): string {
           const p = (n: number) => String(n).padStart(2, "0");
           const today = new Date();
           const prefix = `${today.getFullYear()}-${p(today.getMonth()+1)}-${p(today.getDate())}`;
-          if (orig && orig.includes("T")) {
-            const dt = new Date(orig);
-            const h = dt.getHours(), m = dt.getMinutes();
-            if (h !== 0 || m !== 0) return new Date(`${prefix}T${p(h)}:${p(m)}`).toISOString();
-          }
+          // Colonna DATE: solo la data locale, mai un ISO UTC (vedi handleRiassegnaOggi)
           return prefix;
         }
 
@@ -1072,7 +1063,7 @@ export default function TabellaRitiri({
               <div className="px-6 py-4 border-t flex flex-col gap-2">
                 <button
                   onClick={() => {
-                    const newDate = buildTodayDate(confermaStato.dataTrasportoOriginale);
+                    const newDate = buildTodayDate();
                     doStatoChange(confermaStato.id, confermaStato.nuovoStato, newDate);
                     setConfermaStato(null);
                   }}
