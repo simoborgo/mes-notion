@@ -5,9 +5,9 @@
 // auth.ts ri-esporta tutto da qui (`export * from "./roles"`) per restare l'unico punto
 // d'importazione lato server: questo file è l'unica fonte di verità, auth.ts non la duplica.
 
-export type Role = "admin" | "operatore" | "logistica" | "spedizioni" | "produzione" | "responsabile_produzione" | "magazziniere" | "magazziniere_vernici" | "magazziniere_bordi" | "magazziniere_legno" | "magazziniere_tranciati" | "magazziniere_profili_metallici" | "ufficio_tecnico";
+export type Role = "admin" | "operatore" | "logistica" | "spedizioni" | "produzione" | "responsabile_produzione" | "magazziniere" | "magazziniere_vernici" | "magazziniere_bordi" | "magazziniere_legno" | "magazziniere_tranciati" | "magazziniere_profili_metallici" | "magazziniere_materiale_elettrico" | "ufficio_tecnico";
 
-export const ALL_ROLES: Role[] = ["admin", "operatore", "logistica", "spedizioni", "produzione", "responsabile_produzione", "magazziniere", "magazziniere_vernici", "magazziniere_bordi", "magazziniere_legno", "magazziniere_tranciati", "magazziniere_profili_metallici", "ufficio_tecnico"];
+export const ALL_ROLES: Role[] = ["admin", "operatore", "logistica", "spedizioni", "produzione", "responsabile_produzione", "magazziniere", "magazziniere_vernici", "magazziniere_bordi", "magazziniere_legno", "magazziniere_tranciati", "magazziniere_profili_metallici", "magazziniere_materiale_elettrico", "ufficio_tecnico"];
 
 export const WRITE_ROLES: Role[] = ["admin", "logistica"];
 // Solo la creazione di un nuovo Ritiro/Consegna — non modifica/eliminazione (restano
@@ -38,6 +38,8 @@ export const MAGAZZINO_BORDI_ROLES: Role[] = ["admin", "magazziniere_bordi", "pr
 export const MAGAZZINO_LEGNO_ROLES: Role[] = ["admin", "magazziniere_legno", "produzione"];
 export const MAGAZZINO_TRANCIATI_ROLES: Role[] = ["admin", "magazziniere_tranciati", "produzione"];
 export const MAGAZZINO_PROFILI_METALLICI_ROLES: Role[] = ["admin", "magazziniere_profili_metallici", "produzione"];
+// Materiale Elettrico — stesso perimetro/motivazione delle categorie sopra.
+export const MAGAZZINO_MATERIALE_ELETTRICO_ROLES: Role[] = ["admin", "magazziniere_materiale_elettrico", "produzione"];
 export const MODIFICA_SCHEDA_ROLES: Role[] = ["admin", "produzione"];
 export const RIENTRO_QUALITA_ROLES: Role[] = ["admin", "operatore", "logistica", "spedizioni", "produzione", "responsabile_produzione"];
 // Chi, oltre a RITIRI_CREATE_ROLES, può organizzare il ritiro di una Rilavorazione già aperta dal

@@ -17,6 +17,7 @@ import {
   MAGAZZINO_LEGNO_ROLES,
   MAGAZZINO_TRANCIATI_ROLES,
   MAGAZZINO_PROFILI_METALLICI_ROLES,
+  MAGAZZINO_MATERIALE_ELETTRICO_ROLES,
   APS_GANTT_ROLES,
 } from "@/lib/roles";
 
@@ -270,7 +271,7 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
   const visibleLinks = links.filter(l => !userRole || l.roles.includes(userRole));
 
   // Magazzino ▾: dropdown per le categorie sul motore di magazzino generico condiviso (Bordi,
-  // Legname, Tranciati, Profili Metallici — Collanti restano dentro Ferramenta). Una singola voce
+  // Legname, Tranciati, Profili Metallici, Materiale Elettrico — Collanti restano dentro Ferramenta). Una singola voce
   // finché c'era solo Bordi (vedi PROSSIME_IMPLEMENTAZIONI.md), ora raggruppate come "Amministrazione ▾"
   // — ogni sottovoce filtrata dal proprio ruolo, così un magazziniere di una sola categoria vede
   // solo quella.
@@ -278,7 +279,8 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
   const canMagazzinoLegno = !!userRole && MAGAZZINO_LEGNO_ROLES.includes(userRole);
   const canMagazzinoTranciati = !!userRole && MAGAZZINO_TRANCIATI_ROLES.includes(userRole);
   const canMagazzinoProfiliMetallici = !!userRole && MAGAZZINO_PROFILI_METALLICI_ROLES.includes(userRole);
-  const canMagazzino = canMagazzinoBordi || canMagazzinoLegno || canMagazzinoTranciati || canMagazzinoProfiliMetallici;
+  const canMagazzinoMaterialeElettrico = !!userRole && MAGAZZINO_MATERIALE_ELETTRICO_ROLES.includes(userRole);
+  const canMagazzino = canMagazzinoBordi || canMagazzinoLegno || canMagazzinoTranciati || canMagazzinoProfiliMetallici || canMagazzinoMaterialeElettrico;
 
   return (
     <header className="sticky top-0 z-50 border-b" style={{ background: "var(--color-black)", borderColor: "#2a2724" }}>
@@ -366,6 +368,19 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
                   }
                 >
                   Profili Metallici
+                </NavDropdownItem>
+              )}
+              {canMagazzinoMaterialeElettrico && (
+                <NavDropdownItem
+                  href="/magazzino/materiale-elettrico"
+                  active={pathname.startsWith("/magazzino/materiale-elettrico")}
+                  icon={
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                    </svg>
+                  }
+                >
+                  Materiale Elettrico
                 </NavDropdownItem>
               )}
             </NavDropdown>
@@ -578,6 +593,20 @@ export default function Navbar({ userName, userRole }: NavbarProps) {
               }
             >
               Magazzino Profili Metallici
+            </NavTab>
+          )}
+          {canMagazzinoMaterialeElettrico && (
+            <NavTab
+              href="/magazzino/materiale-elettrico"
+              active={pathname.startsWith("/magazzino/materiale-elettrico")}
+              onClick={() => setMenuOpen(false)}
+              icon={
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                </svg>
+              }
+            >
+              Magazzino Materiale Elettrico
             </NavTab>
           )}
           {isAdmin && (

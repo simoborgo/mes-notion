@@ -663,6 +663,43 @@ export interface ProfiloMetallicoUpdate {
   attivo?: boolean;
 }
 
+export type UnitaMisuraArticoloElettrico = "NR" | "ML" | "CF";
+
+export interface ArticoloElettrico {
+  id: string;
+  codice: string | null;
+  tipoArticolo: string | null; // es. Cavo, Alimentatore, Strip LED, Faretto, Interruttore
+  marca: string | null;
+  caratteristiche: string | null; // testo libero, es. "24V 60W IP20", "3x1,5 mmq"
+  descrizione: string | null;
+  colore: string | null;
+  fornitore: string | null;
+  codiceFornitore: string | null;
+  codiceInventario: string | null;
+  giacenzaAttuale: number;
+  unitaMisura: UnitaMisuraArticoloElettrico | null;
+  clienteRiferimento: string | null;
+  attivo: boolean;
+  segnalataUsoIl: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ArticoloElettricoUpdate {
+  codice?: string | null;
+  tipoArticolo?: string | null;
+  marca?: string | null;
+  caratteristiche?: string | null;
+  descrizione?: string | null;
+  colore?: string | null;
+  fornitore?: string | null;
+  codiceFornitore?: string | null;
+  codiceInventario?: string | null;
+  unitaMisura?: UnitaMisuraArticoloElettrico | null;
+  clienteRiferimento?: string | null;
+  attivo?: boolean;
+}
+
 export interface SchedaFaseProdottoRiga {
   id: string;
   verniceId: string;
