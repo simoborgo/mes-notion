@@ -1,26 +1,6 @@
-import { getCarichi } from "@/lib/carichiRepository";
-import { getSchede } from "@/lib/schedeRepository";
-import { getCommesse } from "@/lib/commesseRepository";
-import OdpPerCarico from "@/components/OdpPerCarico";
-import CommesseSubNav from "@/components/CommesseSubNav";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-export default async function OdpPerCaricoPage() {
-  const [carichi, commesse, schede] = await Promise.all([getCarichi(), getCommesse(), getSchede()]);
-
-  return (
-    <div className="space-y-5">
-      <CommesseSubNav />
-      <div>
-        <h1 className="text-2xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
-          ODP per carico
-        </h1>
-        <p className="text-sm mt-1" style={{ color: "var(--color-grey-mid)" }}>
-          Seleziona una commessa per vedere i suoi carichi e gli ODP previsti, in galleria con le copertine o in tabella
-        </p>
-      </div>
-      <OdpPerCarico carichi={carichi} commesse={commesse} schede={schede} />
-    </div>
-  );
+// Vista assorbita dalla pagina unica Carichi (area di lavoro della commessa)
+export default function OdpPerCaricoPage() {
+  redirect("/carichi");
 }

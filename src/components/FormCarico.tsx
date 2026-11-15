@@ -1,8 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import type { Carico, Commessa, Scheda } from "@/lib/types";
-import SchedaCard from "./SchedaCard";
+import { useState } from "react";
+import type { Carico, Commessa } from "@/lib/types";
 
 const MODALITA = ["Gomma", "Aerea", "Nave"];
 const STATI = ["Pianificato", "Confermato", "Spedito"];
@@ -12,207 +11,40 @@ interface FormState {
   descrizione: string;
   dataCarico: string;
   commessaId: string | null;
-  odpIds: string[];
   modalita: string;
   stato: string;
-}
-
-// Griglia di selezione ODP (stessa card di carichi/odp). Si propongono solo gli ODP della commessa
-// del carico che non stanno in nessun altro carico (occupati) più quelli già in questo carico.
-// Le sottoschede restano nascoste finché non si attiva l'interruttore (quelle già selezionate si vedono sempre).
-function OdpGrid({ schede, value, onChange, occupati, commessaId }: { schede: Scheda[]; value: string[]; onChange: (ids: string[]) => void; occupati: Set<string>; commessaId: string | null }) {
-  const [search, setSearch] = useState("");
-  const [conSottoschede, setConSottoschede] = useState(false);
-  const schedeMap = useMemo(() => new Map(schede.map((s) => [s.id, s])), [schede]);
-
-  const selezionati = new Set(value);
-
-  const nellaCommessa = useMemo(
-    () => schede.filter((s) => s.odp && !occupati.has(s.id) && commessaDi(s, schedeMap) === commessaId),
-    [schede, schedeMap, occupati, commessaId],
-  );
-  const perOdp = (a: Scheda, b: Scheda) => a.odp.localeCompare(b.odp, "it", { numeric: true });
-
-  // Gli ODP già nel carico si vedono sempre (anche sottoschede, senza filtro di ricerca)
-  const inCarico = useMemo(() => nellaCommessa.filter((s) => value.includes(s.id)).sort(perOdp), [nellaCommessa, value]);
-
-  const visibili = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    return nellaCommessa
-      .filter((s) => !value.includes(s.id))
-      .filter((s) => conSottoschede || s.tipologia === "Scheda")
-      .filter((s) => !q || `${s.odp} ${s.numeroScheda} ${s.clienteInfo} ${s.codiceArticolo}`.toLowerCase().includes(q))
-      .sort(perOdp);
-  }, [nellaCommessa, search, conSottoschede, value]);
-
-  // Raggruppa per ODP principale: l'ODP (se presente) e poi le sue sottoschede
-  function raggruppa(lista: Scheda[]) {
-    const rootDi = (s: Scheda): Scheda => {
-      let cur = s;
-      while (cur.parentId && schedeMap.get(cur.parentId)) cur = schedeMap.get(cur.parentId)!;
-      return cur;
-    };
-    const map = new Map<string, { root: Scheda; items: Scheda[] }>();
-    for (const s of lista) {
-      const root = rootDi(s);
-      const g = map.get(root.id) ?? { root, items: [] };
-      g.items.push(s);
-      map.set(root.id, g);
-    }
-    for (const g of map.values()) g.items.sort((a, b) => (a.id === g.root.id ? -1 : b.id === g.root.id ? 1 : perOdp(a, b)));
-    return [...map.values()].sort((a, b) => perOdp(a.root, b.root));
-  }
-  const gruppiInCarico = useMemo(() => raggruppa(inCarico), [inCarico, schedeMap]); // eslint-disable-line react-hooks/exhaustive-deps
-  const gruppiDisponibili = useMemo(() => raggruppa(visibili), [visibili, schedeMap]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  function toggle(id: string) {
-    onChange(selezionati.has(id) ? value.filter((v) => v !== id) : [...value, id]);
-  }
-  function aggiungiVisibili() {
-    onChange([...value, ...visibili.map((s) => s.id)]);
-  }
-  function rimuoviTutti() {
-    const ids = new Set(inCarico.map((s) => s.id));
-    onChange(value.filter((v) => !ids.has(v)));
-  }
-
-  function renderGruppi(gruppi: { root: Scheda; items: Scheda[] }[], selected: boolean) {
-    return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-        {gruppi.map(({ root, items }) => {
-          if (items.length === 1 && items[0].id === root.id) {
-            return <SchedaCard key={root.id} s={root} selected={selected} onClick={() => toggle(root.id)} />;
-          }
-          // ODP con sottoschede: riquadro unico con l'ODP in testata, così si vede a chi appartengono
-          return (
-            <div key={root.id} className="col-span-full rounded-xl border-2 border-dashed p-3 space-y-2" style={{ borderColor: "#FCD34D", background: "#FFFBEB" }}>
-              <p className="text-xs font-semibold" style={{ color: "#92400E" }}>
-                {root.odp}{root.clienteInfo ? ` · ${root.clienteInfo}` : ""} — sottoschede
-              </p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {items.map((s) => (
-                  <SchedaCard key={s.id} s={s} sottoscheda={s.id !== root.id} selected={selected} onClick={() => toggle(s.id)} />
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
-
-  if (!commessaId) {
-    return (
-      <p className="text-sm text-center py-10 rounded-xl border border-dashed" style={{ color: "var(--color-grey-mid)", borderColor: "#e5e4e0" }}>
-        Seleziona prima la Commessa del carico: si possono aggiungere solo ODP di quella commessa.
-      </p>
-    );
-  }
-
-  return (
-    <div className="space-y-5">
-      <section className="space-y-2">
-        <div className="flex items-center gap-3">
-          <h3 className="text-sm font-semibold" style={{ color: "var(--color-primary)" }}>Nel carico ({inCarico.length})</h3>
-          {inCarico.length > 0 && (
-            <button type="button" onClick={rimuoviTutti} className="px-3 py-1 text-xs rounded border font-medium hover:bg-gray-50">
-              Rimuovi tutti
-            </button>
-          )}
-          <span className="text-xs" style={{ color: "var(--color-grey-mid)" }}>Clicca una card per toglierla dal carico</span>
-        </div>
-        {inCarico.length === 0 ? (
-          <p className="text-sm text-center py-6 rounded-xl border border-dashed" style={{ color: "var(--color-grey-mid)", borderColor: "#e5e4e0" }}>
-            Nessun ODP nel carico: sceglili tra i disponibili qui sotto.
-          </p>
-        ) : (
-          renderGruppi(gruppiInCarico, true)
-        )}
-      </section>
-
-      <section className="space-y-3 pt-4 border-t" style={{ borderColor: "#E4E0DA" }}>
-        <div className="flex flex-wrap items-center gap-3">
-          <h3 className="text-sm font-semibold">Disponibili ({visibili.length})</h3>
-          <input
-            type="text"
-            className="flex-1 min-w-[200px] border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-            placeholder="Cerca per ODP, scheda, cliente, articolo…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <label className="flex items-center gap-1.5 text-sm cursor-pointer">
-            <input type="checkbox" checked={conSottoschede} onChange={(e) => setConSottoschede(e.target.checked)} className="accent-orange-500" />
-            Mostra sottoschede
-          </label>
-          <button type="button" onClick={aggiungiVisibili} disabled={visibili.length === 0} className="px-3 py-2 text-sm rounded border font-medium hover:bg-gray-50 disabled:opacity-50">
-            Aggiungi tutti i visibili
-          </button>
-        </div>
-        {visibili.length === 0 ? (
-          <p className="text-sm text-center py-8 rounded-xl border border-dashed" style={{ color: "var(--color-grey-mid)", borderColor: "#e5e4e0" }}>
-            Nessun ODP disponibile: quelli della commessa sono già tutti in un carico.
-          </p>
-        ) : (
-          renderGruppi(gruppiDisponibili, false)
-        )}
-      </section>
-    </div>
-  );
-}
-
-// Le sottoschede spesso non hanno commessa propria: vale quella del padre
-function commessaDi(s: Scheda, schedeMap: Map<string, Scheda>): string | null {
-  for (let cur: Scheda | undefined = s; cur; cur = cur.parentId ? schedeMap.get(cur.parentId) : undefined) if (cur.commessaId) return cur.commessaId;
-  return null;
 }
 
 interface Props {
   carico?: Carico | null;
   commesse: Commessa[];
-  schede: Scheda[];
-  // Tutti i carichi, per sapere quali ODP sono già assegnati altrove
-  carichi: Carico[];
+  // Commessa già decisa (area di lavoro di una commessa): il campo non si può cambiare
+  commessaFissa?: string | null;
+  // "Nuovo carico con i selezionati": ODP da spostare nel carico appena creato
+  odpIniziali?: string[];
   onClose: () => void;
-  onSave: (carico: Carico) => void;
+  onSave: (carico: Carico, avviso?: string) => void;
 }
 
-export default function FormCarico({ carico, commesse, schede, carichi, onClose, onSave }: Props) {
+// Solo i dati di testata del carico: gli ODP si assegnano dalla pagina Carichi ("Sposta in").
+export default function FormCarico({ carico, commesse, commessaFissa, odpIniziali = [], onClose, onSave }: Props) {
   const isEdit = !!carico;
   const [initialForm] = useState<FormState>(() => ({
     titolo: carico?.titolo ?? "",
     descrizione: carico?.descrizione ?? "",
     dataCarico: carico?.dataCarico ?? "",
-    commessaId: carico?.commessaId ?? null,
-    odpIds: carico?.odpIds ?? [],
+    commessaId: carico?.commessaId ?? commessaFissa ?? null,
     modalita: carico?.modalita ?? "",
     stato: carico?.stato ?? "Pianificato",
   }));
   const [form, setForm] = useState<FormState>(initialForm);
   // Con modifiche in corso il click fuori dal modal (es. rilasciando il mouse dopo una selezione di testo) non lo chiude
   const isDirty = JSON.stringify(form) !== JSON.stringify(initialForm);
-  const [step, setStep] = useState<1 | 2>(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const occupati = useMemo(() => {
-    const m = new Set<string>();
-    for (const c of carichi) {
-      if (c.id === carico?.id) continue;
-      for (const id of c.odpIds) m.add(id);
-    }
-    return m;
-  }, [carichi, carico]);
-
-  const schedeMap = useMemo(() => new Map(schede.map((s) => [s.id, s])), [schede]);
-
-  // Cambiando commessa si tolgono gli ODP selezionati che non le appartengono
-  function cambiaCommessa(id: string | null) {
-    setForm((prev) => ({
-      ...prev,
-      commessaId: id,
-      odpIds: prev.odpIds.filter((odpId) => { const s = schedeMap.get(odpId); return !!s && commessaDi(s, schedeMap) === id; }),
-    }));
-  }
+  // La commessa di un carico che ha già ODP non si cambia: gli ODP appartengono a quella commessa
+  const commessaBloccata = !!commessaFissa || (isEdit && carico!.odpIds.length > 0);
 
   function set<K extends keyof FormState>(k: K, v: FormState[K]) {
     setForm((prev) => ({ ...prev, [k]: v }));
@@ -220,8 +52,9 @@ export default function FormCarico({ carico, commesse, schede, carichi, onClose,
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.titolo.trim()) { setStep(1); setError("Titolo obbligatorio"); return; }
-    if (!form.dataCarico) { setStep(1); setError("Data Carico obbligatoria"); return; }
+    if (!form.titolo.trim()) { setError("Titolo obbligatorio"); return; }
+    if (!form.dataCarico) { setError("Data Carico obbligatoria"); return; }
+    if (!form.commessaId) { setError("Commessa obbligatoria"); return; }
     setSaving(true);
     setError("");
     try {
@@ -230,7 +63,6 @@ export default function FormCarico({ carico, commesse, schede, carichi, onClose,
         descrizione: form.descrizione,
         dataCarico: form.dataCarico,
         commessaId: form.commessaId,
-        odpIds: form.odpIds,
         modalita: form.modalita || undefined,
         stato: form.stato || undefined,
       };
@@ -240,111 +72,102 @@ export default function FormCarico({ carico, commesse, schede, carichi, onClose,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) {
-        // 409: ODP già in un altro carico — il messaggio del server dice quale
-        if (res.status === 409) throw new Error((await res.json().catch(() => null))?.error ?? "ODP già assegnato a un altro carico");
-        throw new Error("Errore salvataggio");
-      }
+      if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? "Errore durante il salvataggio. Riprova.");
       const saved: Carico = await res.json();
-      onSave(saved);
+
+      if (!isEdit && odpIniziali.length > 0) {
+        const r = await fetch("/api/carichi/sposta", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ odpIds: odpIniziali, caricoId: saved.id }),
+        });
+        if (!r.ok) {
+          const msg = (await r.json().catch(() => null))?.error ?? "spostamento non riuscito";
+          onSave(saved, `Carico creato, ma gli ODP non sono stati spostati: ${msg}`);
+          return;
+        }
+        onSave({ ...saved, odpIds: odpIniziali }, `Carico «${saved.titolo}» creato con ${odpIniziali.length} ODP.`);
+        return;
+      }
+      onSave(saved, isEdit ? `Carico «${saved.titolo}» aggiornato.` : `Carico «${saved.titolo}» creato.`);
     } catch (e) {
-      setError(e instanceof Error && e.message !== "Errore salvataggio" ? e.message : "Errore durante il salvataggio. Riprova.");
+      setError(e instanceof Error ? e.message : "Errore durante il salvataggio. Riprova.");
     } finally {
       setSaving(false);
     }
   }
 
-  const inputCls = "w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300";
+  const inputCls = "w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:bg-gray-50 disabled:text-gray-500";
   const labelCls = "block text-xs font-medium mb-1";
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40" onClick={() => { if (!isDirty) onClose(); }}>
       <div
-        className={`w-full ${step === 2 ? "max-w-5xl" : "max-w-2xl"} bg-white rounded-lg shadow-2xl overflow-y-auto max-h-[90vh]`}
+        className="w-full max-w-2xl bg-white rounded-lg shadow-2xl overflow-y-auto max-h-[90vh]"
         style={{ borderRadius: "var(--radius-modal)" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-6 py-4 border-b flex items-start justify-between gap-4">
           <div>
-            <h2 className="font-semibold text-base">{isEdit ? "Modifica Carico" : "Nuovo Carico"}{step === 2 ? " · ODP" : ""}</h2>
-            {isEdit && (
-              <p className="text-xs mt-0.5" style={{ color: "var(--color-grey-mid)" }}>
-                {carico!.titolo}
-              </p>
+            <h2 className="font-semibold text-base">{isEdit ? "Modifica Carico" : "Nuovo Carico"}</h2>
+            {isEdit && <p className="text-xs mt-0.5" style={{ color: "var(--color-grey-mid)" }}>{carico!.titolo}</p>}
+            {!isEdit && odpIniziali.length > 0 && (
+              <p className="text-xs mt-0.5" style={{ color: "var(--color-grey-mid)" }}>Alla conferma ci entrano i {odpIniziali.length} ODP selezionati</p>
             )}
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none" aria-label="Chiudi">×</button>
         </div>
 
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
-          <div className={step === 1 ? "space-y-5" : "hidden"}>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Titolo</label>
-              <input type="text" className={inputCls} value={form.titolo} onChange={(e) => set("titolo", e.target.value)} required />
+              <label htmlFor="carico-titolo" className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Titolo</label>
+              <input id="carico-titolo" type="text" className={inputCls} value={form.titolo} onChange={(e) => set("titolo", e.target.value)} required />
             </div>
             <div>
-              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Data Carico</label>
-              <input type="date" className={inputCls} value={form.dataCarico} onChange={(e) => set("dataCarico", e.target.value)} required />
+              <label htmlFor="carico-data" className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Data Carico</label>
+              <input id="carico-data" type="date" className={inputCls} value={form.dataCarico} onChange={(e) => set("dataCarico", e.target.value)} required />
             </div>
           </div>
 
           <div>
-            <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Descrizione</label>
-            <textarea rows={2} className={inputCls + " resize-none"} value={form.descrizione} onChange={(e) => set("descrizione", e.target.value)} />
+            <label htmlFor="carico-descrizione" className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Descrizione</label>
+            <textarea id="carico-descrizione" rows={2} className={inputCls + " resize-none"} value={form.descrizione} onChange={(e) => set("descrizione", e.target.value)} />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Commessa</label>
-              <select className={inputCls} value={form.commessaId ?? ""} onChange={(e) => cambiaCommessa(e.target.value || null)}>
-                <option value="">— nessuna —</option>
+              <label htmlFor="carico-commessa" className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Commessa</label>
+              <select id="carico-commessa" className={inputCls} value={form.commessaId ?? ""} disabled={commessaBloccata} onChange={(e) => set("commessaId", e.target.value || null)}>
+                <option value="">— scegli —</option>
                 {commesse.map((c) => (
                   <option key={c.id} value={c.id}>{c.numeroCommessa} — {c.cliente}</option>
                 ))}
               </select>
+              {isEdit && carico!.odpIds.length > 0 && !commessaFissa && (
+                <p className="text-xs mt-1" style={{ color: "var(--color-grey-mid)" }}>Il carico ha già degli ODP: la commessa non si può cambiare.</p>
+              )}
             </div>
             <div>
-              <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Modalità</label>
-              <select className={inputCls} value={form.modalita} onChange={(e) => set("modalita", e.target.value)}>
+              <label htmlFor="carico-modalita" className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Modalità</label>
+              <select id="carico-modalita" className={inputCls} value={form.modalita} onChange={(e) => set("modalita", e.target.value)}>
                 <option value="">— nessuna —</option>
                 {MODALITA.map((m) => <option key={m} value={m}>{m}</option>)}
+                {form.modalita && !MODALITA.includes(form.modalita) && <option value={form.modalita}>{form.modalita}</option>}
               </select>
             </div>
           </div>
 
           <div>
-            <label className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Stato</label>
-            <select className={inputCls} value={form.stato} onChange={(e) => set("stato", e.target.value)}>
+            <label htmlFor="carico-stato" className={labelCls} style={{ color: "var(--color-grey-mid)" }}>Stato</label>
+            <select id="carico-stato" className={inputCls} value={form.stato} onChange={(e) => set("stato", e.target.value)}>
               {STATI.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
 
-          </div>
-
-          {step === 2 && (
-            <div className="space-y-3">
-              <div className="text-sm" style={{ color: "var(--color-grey-mid)" }}>
-                Commessa: <span className="font-semibold" style={{ color: "var(--color-black)" }}>
-                  {commesse.find((c) => c.id === form.commessaId)?.numeroCommessa ?? "—"}
-                </span>
-              </div>
-              <OdpGrid schede={schede} value={form.odpIds} onChange={(ids) => set("odpIds", ids)} occupati={occupati} commessaId={form.commessaId} />
-            </div>
-          )}
-
           {error && <p className="text-sm text-red-600">{error}</p>}
 
           <div className="flex justify-end gap-3 pt-2">
-            {step === 2 ? (
-              <button type="button" onClick={() => setStep(1)} className="mr-auto px-4 py-2 text-sm rounded border font-medium hover:bg-gray-50 transition-colors">
-                ← Dati carico
-              </button>
-            ) : (
-              <button type="button" onClick={() => setStep(2)} className="mr-auto px-4 py-2 text-sm rounded border font-medium hover:bg-gray-50 transition-colors">
-                Seleziona ODP ({form.odpIds.length}) →
-              </button>
-            )}
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm rounded border font-medium hover:bg-gray-50 transition-colors">
               Annulla
             </button>
