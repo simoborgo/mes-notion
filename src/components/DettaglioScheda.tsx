@@ -17,6 +17,7 @@ import VerniciaturaOdpTab from "./VerniciaturaOdpTab";
 import ContatoriOreScheda from "./ContatoriOreScheda";
 import BrandLogo from "./BrandLogo";
 import type { EconomiaScheda } from "@/lib/valoriScheda";
+import { calcolaCompletezza, descriviMancante } from "@/lib/completezzaSottoschede";
 
 interface Props {
   scheda: Scheda;
@@ -308,6 +309,8 @@ function RilavorazioneWizard({
 
 // Dettaglio della scheda di produzione, mostrato dalla pagina /schede/[id] (SchedaPagina).
 export default function DettaglioScheda({ scheda: s, figlie = [], onClose, onRilavorazioneCreata, onViewScheda, userRole, onSchedaAggiornata, tabIniziale, attivita = [], scadenze = [], onTabChange, modificaIniziale = false }: Props) {
+  const completezza = calcolaCompletezza(figlie);
+
   // Modifica sul posto: la tab Info diventa un modulo, il resto della pagina resta.
   const [inModifica, setInModifica] = useState(modificaIniziale && (userRole === "admin" || userRole === "produzione"));
   const [showWizard, setShowWizard] = useState(false);
@@ -764,6 +767,21 @@ export default function DettaglioScheda({ scheda: s, figlie = [], onClose, onRil
               <h3 className="text-[12.1px] font-bold uppercase tracking-widest" style={{ color: "#9c9894" }}>
                 {figlie.some(f => f.tipologia === "Rilavorazione") ? "Sottoschede / Rilavorazioni" : "Sottoschede"}
               </h3>
+              {completezza && (
+                <div className="rounded-lg px-3 py-2.5 space-y-1"
+                  style={completezza.completo
+                    ? { background: "#F0FDF4", border: "1px solid #86EFAC", color: "#14532D" }
+                    : { background: "#FFFBEB", border: "1px solid #FDE68A", color: "#92400E" }}>
+                  <p className="text-[15.4px] font-semibold">
+                    {completezza.completo
+                      ? `✓ Materiale completo — ${completezza.totale} sottoschede in sede`
+                      : `Materiale incompleto — ${completezza.inSede} di ${completezza.totale} sottoschede in sede`}
+                  </p>
+                  {completezza.mancanti.map((m) => (
+                    <p key={m.id} className="text-[13.2px]">Manca: {descriviMancante(m)}</p>
+                  ))}
+                </div>
+              )}
               <div className="space-y-1.5">
                 {figlie.map((f) => (
                   <div key={f.id} className="flex items-center justify-between gap-3 rounded-lg px-3 py-2.5"
