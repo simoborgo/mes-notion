@@ -1,3 +1,4 @@
+import type { PoolClient } from "pg";
 import { pool, dateToStr } from "./db";
 import type { Carico, CaricoUpdate } from "./types";
 import { STATI_CHIUSI_ODP } from "./types";
@@ -9,6 +10,11 @@ export const ANTICIPO_PRODUZIONE_GIORNI_LAVORATIVI = 5;
 
 // Un ODP può stare in un solo carico: l'API la traduce in 409.
 export class OdpGiaInCaricoError extends Error {}
+
+// Spostamento non ammesso (carico spedito/inesistente, ODP di un'altra commessa): l'API la traduce in 400.
+export class SpostamentoNonValidoError extends Error {}
+
+type Queryable = Pick<PoolClient, "query">;
 
 // "Documenti" era un allegato files genuino su Notion, ma senza alcun upload path nell'app
 // attuale (solo letto in export CSV, mai scritto) — nessuna colonna Drive dedicata qui, solo il
@@ -97,9 +103,9 @@ async function verificaOdpLiberi(odpIds: string[], caricoIdCorrente: string | nu
 
 // Data produzione prevista = data carico − 5 gg lavorativi, solo sugli ODP aperti (gli ODP
 // Completati/Annullati mantengono la data storica). Solo la colonna: nessun ricalcolo APS.
-async function riallineaDataProduzione(schedaIds: string[], dataCarico: string | null): Promise<void> {
+async function riallineaDataProduzione(schedaIds: string[], dataCarico: string | null, db: Queryable = pool): Promise<void> {
   if (schedaIds.length === 0 || !dataCarico) return;
-  await pool.query(
+  await db.query(
     `UPDATE schede SET data_produzione_prevista = $1, aggiornato_il = now()
      WHERE id = ANY($2) AND stato <> ALL($3)`,
     [sottraiGiorniLavorativi(dataCarico, ANTICIPO_PRODUZIONE_GIORNI_LAVORATIVI), schedaIds, STATI_CHIUSI_ODP],
@@ -209,6 +215,78 @@ export async function updateCarico(id: string, data: CaricoUpdate): Promise<Cari
   await riallineaDataProduzione(odpDaRiallineare, data.dataCarico ?? prima.dataCarico);
 
   return getCaricoById(id);
+}
+
+// Sposta delle schede (ODP o sottoschede) nel carico di destinazione, oppure le toglie da ogni
+// carico (caricoDestId = null). Tutto in una transazione: l'ODP esce da qualunque carico non
+// archiviato in cui si trova (doppioni storici compresi) ed entra nella destinazione, così non
+// resta mai a metà strada. Entrando in un carico la data di produzione prevista degli ODP aperti
+// si riallinea al carico; togliendolo la data resta quella che era (come updateCarico).
+export async function spostaOdp(schedaIds: string[], caricoDestId: string | null): Promise<{ spostati: number; carico: { id: string; titolo: string; dataCarico: string | null } | null }> {
+  const ids = [...new Set(schedaIds)];
+  if (ids.length === 0) throw new SpostamentoNonValidoError("Nessun ODP selezionato.");
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    let dest: { id: string; titolo: string; dataCarico: string | null; commessaId: string | null } | null = null;
+    if (caricoDestId) {
+      const { rows } = await client.query(
+        `SELECT id, titolo, data_carico, commessa_id, stato FROM carichi WHERE id = $1 AND archiviato = false FOR UPDATE`,
+        [caricoDestId],
+      );
+      if (rows.length === 0) throw new SpostamentoNonValidoError("Il carico di destinazione non esiste più: ricarica la pagina.");
+      if (rows[0].stato === "Spedito") throw new SpostamentoNonValidoError(`Il carico «${rows[0].titolo}» è già spedito: non si possono aggiungere ODP.`);
+      dest = { id: rows[0].id, titolo: rows[0].titolo, dataCarico: rows[0].data_carico ? dateToStr(rows[0].data_carico) : null, commessaId: rows[0].commessa_id };
+    }
+
+    // Commessa effettiva di ogni scheda: la propria o, per le sottoschede, quella del primo antenato che ce l'ha
+    const { rows: schede } = await client.query(
+      `WITH RECURSIVE catena AS (
+         SELECT s.id AS origine, s.id, s.parent_id, s.commessa_id, 0 AS livello FROM schede s WHERE s.id = ANY($1)
+         UNION ALL
+         SELECT c.origine, p.id, p.parent_id, p.commessa_id, c.livello + 1
+         FROM catena c JOIN schede p ON p.id = c.parent_id
+         WHERE c.commessa_id IS NULL AND c.livello < 10
+       )
+       SELECT s.id, s.odp, s.numero_scheda, s.stato,
+              (SELECT c.commessa_id FROM catena c WHERE c.origine = s.id AND c.commessa_id IS NOT NULL ORDER BY c.livello LIMIT 1) AS commessa_effettiva
+       FROM schede s WHERE s.id = ANY($1) AND s.archiviata = false`,
+      [ids],
+    );
+    if (schede.length !== ids.length) throw new SpostamentoNonValidoError("Alcuni ODP selezionati non esistono più: ricarica la pagina.");
+    const annullati = schede.filter(s => s.stato === "Annullata");
+    if (annullati.length) throw new SpostamentoNonValidoError(`${annullati.map(s => s.odp).join(", ")}: gli ODP annullati non vanno nei carichi.`);
+    if (dest) {
+      const altre = schede.filter(s => s.commessa_effettiva !== dest!.commessaId);
+      if (altre.length) {
+        throw new SpostamentoNonValidoError(`${altre.map(s => [s.odp, s.numero_scheda].filter(Boolean).join(" - ")).join(", ")}: ${altre.length === 1 ? "non appartiene" : "non appartengono"} alla commessa del carico «${dest.titolo}».`);
+      }
+    }
+
+    await client.query(
+      `DELETE FROM carichi_schede ks USING carichi k
+       WHERE ks.carico_id = k.id AND k.archiviato = false AND ks.scheda_id = ANY($1)`,
+      [ids],
+    );
+    if (dest) {
+      await client.query(
+        `INSERT INTO carichi_schede (carico_id, scheda_id) SELECT $1, unnest($2::uuid[]) ON CONFLICT DO NOTHING`,
+        [dest.id, ids],
+      );
+      await client.query(`UPDATE carichi SET aggiornato_il = now() WHERE id = $1`, [dest.id]);
+      await riallineaDataProduzione(ids, dest.dataCarico, client);
+    }
+
+    await client.query("COMMIT");
+    return { spostati: ids.length, carico: dest ? { id: dest.id, titolo: dest.titolo, dataCarico: dest.dataCarico } : null };
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 // Soft-delete, stesso pattern già in uso su Notion (archived: true): la riga resta recuperabile
