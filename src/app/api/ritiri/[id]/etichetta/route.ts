@@ -9,6 +9,7 @@ import { getRitiroById } from "@/lib/ritiriRepository";
 import { getCommessaById } from "@/lib/commesseRepository";
 import { getSessionFromRequest } from "@/lib/auth";
 import { getPublicBaseUrl } from "@/lib/url";
+import { getLogoDataUriByCommessa } from "@/lib/brandRepository";
 import { partiRoma } from "@/lib/oraLocale";
 
 function esc(s: string) {
@@ -58,12 +59,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     let clienteInfo = "";
     let clienteLocalita = "";
     let hasSchedaPdf = false;
+    let commessaBrandId: string | null = ritiro.commessaId || null;
 
     if (ritiro.numeroOrdineId) {
       try {
         const scheda = await getSchedaById(ritiro.numeroOrdineId);
         schedaOdp = scheda.odp || ritiro.numeroOrdine;
         nScheda = scheda.numeroScheda || "";
+        commessaBrandId = scheda.commessaId || commessaBrandId;
         clienteInfo = scheda.clienteInfo || "";
         hasSchedaPdf = (scheda.pdfAllegato?.length ?? 0) > 0;
         // Le rilavorazioni create dallo shortcut NC non hanno un proprio PDF Allegato:
@@ -128,6 +131,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     const logoUri = getLogoDataUri();
+    // Logo del brand della commessa all'estremo destro della riga del QR; se manca la stampa esce senza
+    const brandLogo = commessaBrandId ? await getLogoDataUriByCommessa(commessaBrandId).catch(() => null) : null;
     const codeStr = esc(schedaOdp || "—");
     const clienteDisplay = [clienteInfo, clienteLocalita].filter(Boolean).join(" — ");
 
@@ -240,6 +245,7 @@ body{font-family:'Jost',sans-serif;background:#fff;margin:0;padding:0;width:100%
 .qr-cap{text-align:center}
 .qr-apri{font-size:14px;font-weight:600;color:#1A1918}
 .qr-rif{font-size:11px;color:#A4A4A6;margin-top:2px}
+.qrwrap .brand{margin-left:auto;align-self:flex-start;height:112px;max-width:90mm;width:auto;object-fit:contain}
 .foto-col{flex:1;display:flex;gap:6px;height:140px;max-height:140px;overflow:hidden}
 .foto-col img{flex:1 1 0;min-width:0;width:100%;height:140px;max-height:140px;object-fit:contain;background:#F8F7F4;display:block;border-radius:6px;border:1px solid #E4E0DA}
 .ft{display:flex;justify-content:space-between;align-items:center;padding:4mm 10mm 5mm;border-top:1px solid #E4E0DA;margin-top:auto}
@@ -281,6 +287,7 @@ body{font-family:'Jost',sans-serif;background:#fff;margin:0;padding:0;width:100%
       </div>
     </div>` : ""}
     ${secondColHtml}
+    ${brandLogo ? `<img class="brand" src="${brandLogo}" alt="">` : ""}
   </div>
   <div class="ft">
     <span>MES MODAR · ${tipoLabel}</span>
