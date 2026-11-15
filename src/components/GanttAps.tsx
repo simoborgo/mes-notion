@@ -200,7 +200,7 @@ export default function GanttAps({ dati, userRole, oreStandard }: { dati: DatiGa
   });
   const [filtroA, setFiltroA] = useState(ultimoGiorno);
 
-  // Toast d'errore per il drag&drop (Fase 9) — stesso pattern già usato altrove (TabellaCarichi.tsx).
+  // Toast d'errore per il drag&drop (Fase 9) — stesso pattern già usato altrove (CarichiCommesse.tsx).
   const [toast, setToast] = useState<string | null>(null);
   useEffect(() => {
     if (!toast) return;

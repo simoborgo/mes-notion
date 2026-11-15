@@ -268,7 +268,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
   const [filtroSenzaCarico, setFiltroSenzaCarico] = useState(false);
 
   // ODP attivo che non è in nessun carico: la data produzione prevista resta quella manuale e
-  // nessuno la riallinea, quindi va reso visibile (vedi anche /carichi/senza-carico).
+  // nessuno la riallinea, quindi va reso visibile (vedi anche la pagina Carichi, sezione «Da assegnare»).
   const inCaricoSet = useMemo(() => new Set(schedeInCarico), [schedeInCarico]);
   // Data carico di una scheda: la propria se è in un carico, altrimenti quella del padre (le
   // sottoschede ereditano finché non vengono assegnate a un carico separato).
@@ -433,7 +433,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
 
   // Stampa con disegni: PDF generato lato server (tabella della vista + prima pagina del PDF allegato
   // di ogni scheda). Scarica un disegno per scheda da Drive, quindi si apre la scheda subito (gesto
-  // utente, niente blocco popup) e la si porta al PDF a fine generazione — come in OdpPerCarico.
+  // utente, niente blocco popup) e la si porta al PDF a fine generazione — come nella pagina Carichi (CarichiCommesse).
   const [generandoPdf, setGenerandoPdf] = useState(false);
   async function stampaConDisegni() {
     if (filtered.length === 0) return;

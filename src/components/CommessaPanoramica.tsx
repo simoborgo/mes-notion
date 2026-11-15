@@ -77,7 +77,10 @@ export default function CommessaPanoramica({ commessa, schede, carichi, riepilog
 
       {carichi.length > 0 && (
         <section className="space-y-2">
-          <h2 className="text-lg font-semibold" style={{ fontFamily: "var(--font-display)" }}>Carichi previsti ({carichi.length})</h2>
+          <div className="flex items-baseline gap-3">
+            <h2 className="text-lg font-semibold" style={{ fontFamily: "var(--font-display)" }}>Carichi previsti ({carichi.length})</h2>
+            <Link href={`/carichi?commessa=${commessa.id}`} className="text-sm font-semibold hover:underline" style={{ color: "var(--color-primary-dark)" }}>Gestisci carichi →</Link>
+          </div>
           {carichi
             .slice()
             .sort((a, b) => ((a.dataCarico ?? "") < (b.dataCarico ?? "") ? -1 : 1))

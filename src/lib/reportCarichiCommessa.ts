@@ -15,7 +15,7 @@ export interface CarichiCommessaReport {
   sottoschede: Record<string, Scheda[]>;
 }
 
-// Stessa logica della vista /carichi/odp: carichi per data, ODP per numero. Gli ODP collegati
+// Stessa logica dell'area di lavoro della commessa in /carichi: carichi per data, ODP per numero. Gli ODP collegati
 // che non sono schede principali (sottoschede, archiviate) non compaiono, come a video.
 export async function buildCarichiCommessaReport(commessaId: string): Promise<CarichiCommessaReport> {
   const [commessa, carichi, schede, sotto] = await Promise.all([getCommessaById(commessaId), getCarichiByCommessa(commessaId), getSchede(), getSottoschede()]);

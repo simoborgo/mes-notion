@@ -185,7 +185,7 @@ const CATEGORIE: Categoria[] = [
     ruoli: ALL_ROLES,
     cerca: async (r) => {
       const rows = await eseguiQuery(
-        `SELECT k.id, k.titolo, k.stato, k.modalita, k.data_carico, c.numero_commessa, c.cliente
+        `SELECT k.id, k.titolo, k.stato, k.modalita, k.data_carico, k.commessa_id, c.numero_commessa, c.cliente
            FROM carichi k
            LEFT JOIN commesse c ON c.id = k.commessa_id`,
         `k.titolo || ' ' || k.descrizione || ' ' || COALESCE(c.numero_commessa, '') || ' ' || COALESCE(c.cliente, '')`,
@@ -204,8 +204,8 @@ const CATEGORIE: Categoria[] = [
           x.data_carico ? new Date(x.data_carico).toLocaleDateString("it-IT", { day: "numeric", month: "short", year: "numeric" }) : "",
           x.modalita,
         ),
-        // Molti carichi si chiamano solo "Carico": il numero di commessa (cercato anche dalla tabella) isola quelli giusti
-        href: `/carichi?cerca=${encodeURIComponent(x.numero_commessa || x.titolo || "")}`,
+        // Il carico si apre nell'area di lavoro della sua commessa; senza commessa si filtra la panoramica sul titolo
+        href: x.commessa_id ? `/carichi?commessa=${x.commessa_id}` : `/carichi?cerca=${encodeURIComponent(x.titolo || "")}`,
         badge: x.stato,
         attivo: x.stato !== "Spedito",
       }));
