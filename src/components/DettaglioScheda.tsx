@@ -311,6 +311,15 @@ function RilavorazioneWizard({
 export default function DettaglioScheda({ scheda: s, figlie = [], onClose, onRilavorazioneCreata, onViewScheda, userRole, onSchedaAggiornata, tabIniziale, attivita = [], scadenze = [], onTabChange, modificaIniziale = false }: Props) {
   const completezza = calcolaCompletezza(figlie);
 
+  // Etichette bancale: quanti bancali e, se serve, cosa contengono (testo libero, non salvato).
+  function stampaBancali() {
+    const n = window.prompt("Quanti bancali? (1-20)", "1");
+    if (n === null) return;
+    const tot = Math.floor(Number(n));
+    if (!Number.isFinite(tot) || tot < 1 || tot > 20) { window.alert("Inserisci un numero da 1 a 20."); return; }
+    const contenuto = window.prompt("Contenuto (facoltativo, es. piani e gambe)", "") ?? "";
+    window.open(`/api/schede/${s.id}/etichetta-bancale?tot=${tot}&contenuto=${encodeURIComponent(contenuto.trim())}`, "_blank");
+  }
   // Modifica sul posto: la tab Info diventa un modulo, il resto della pagina resta.
   const [inModifica, setInModifica] = useState(modificaIniziale && (userRole === "admin" || userRole === "produzione"));
   const [showWizard, setShowWizard] = useState(false);
@@ -489,6 +498,20 @@ export default function DettaglioScheda({ scheda: s, figlie = [], onClose, onRil
               </svg>
               Etichetta QR
             </a>
+            {figlie.length > 0 && (
+              <a href={`/api/schede/${s.id}/foglio-produzione`} target="_blank" rel="noreferrer"
+                title="Foglio A4 per la produzione: sottoschede in sede e presso fornitore"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13.2px] font-medium transition-colors hover:bg-gray-100"
+                style={{ color: "var(--color-grey-mid)", border: "1px solid #d1d5db", background: "white" }}>
+                Foglio produzione
+              </a>
+            )}
+            <button onClick={stampaBancali}
+              title="Etichette A4 per identificare i bancali (1/3, 2/3, ...)"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13.2px] font-medium transition-colors hover:bg-gray-100"
+              style={{ color: "var(--color-grey-mid)", border: "1px solid #d1d5db", background: "white" }}>
+              Etichette bancali
+            </button>
             {(userRole === "admin" || userRole === "produzione") && (
               <button onClick={handleElimina} disabled={eliminando}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13.2px] font-medium transition-colors hover:bg-red-50 disabled:opacity-50"
