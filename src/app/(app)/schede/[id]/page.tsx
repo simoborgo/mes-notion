@@ -10,8 +10,8 @@ export const dynamic = "force-dynamic";
 
 const TAB_VALIDE: TabScheda[] = ["info", "fornitore", "kit", "aps", "verniciatura"];
 
-// Scheda di produzione a pagina piena (desktop). Il modale dell'elenco resta per la consultazione
-// veloce; entrambi mostrano gli stessi componenti (DettaglioSchedaModal con modalita="pagina").
+// Scheda di produzione a pagina piena: unico punto in cui si apre una scheda (elenco, lavorazioni
+// esterne, carichi e Gantt APS navigano qui, eventualmente con ?tab=).
 export default async function SchedaDettaglioPage({
   params,
   searchParams,

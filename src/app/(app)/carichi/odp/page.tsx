@@ -1,14 +1,13 @@
 import { getCarichi } from "@/lib/carichiRepository";
 import { getSchede } from "@/lib/schedeRepository";
 import { getCommesse } from "@/lib/commesseRepository";
-import { getSession } from "@/lib/auth";
 import OdpPerCarico from "@/components/OdpPerCarico";
 import CommesseSubNav from "@/components/CommesseSubNav";
 
 export const dynamic = "force-dynamic";
 
 export default async function OdpPerCaricoPage() {
-  const [carichi, commesse, schede, session] = await Promise.all([getCarichi(), getCommesse(), getSchede(), getSession()]);
+  const [carichi, commesse, schede] = await Promise.all([getCarichi(), getCommesse(), getSchede()]);
 
   return (
     <div className="space-y-5">
@@ -21,7 +20,7 @@ export default async function OdpPerCaricoPage() {
           Seleziona una commessa per vedere i suoi carichi e gli ODP previsti, in galleria con le copertine o in tabella
         </p>
       </div>
-      <OdpPerCarico carichi={carichi} commesse={commesse} schede={schede} userRole={session?.role} />
+      <OdpPerCarico carichi={carichi} commesse={commesse} schede={schede} />
     </div>
   );
 }

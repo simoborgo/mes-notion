@@ -6,7 +6,6 @@ import type { Scheda, Commessa } from "@/lib/types";
 import type { Role } from "@/lib/roles";
 import BadgeStato from "./BadgeStato";
 import CopertinaTooltip, { type TooltipState } from "./CopertinaTooltip";
-import DettaglioSchedaModal from "./DettaglioSchedaModal";
 import FormNuovaScheda from "./FormNuovaScheda";
 
 const STATI_COMPLETATI = new Set(["Completato", "Annullata"]);
@@ -206,9 +205,8 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
     startTransition(async () => { await revalidate(); router.refresh(); });
   }
 
-  function handleSchedaAggiornata(updated: Scheda) {
-    setViewing(updated);
-    handleReload();
+  function apriScheda(s: Scheda) {
+    router.push(`/schede/${s.id}`);
   }
 
   const [completandoId, setCompletandoId] = useState<string | null>(null);
@@ -248,7 +246,6 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
   const [dateField, setDateField] = useState<"dataProduzionePrevista" | "dataRientroPrevista">("dataProduzionePrevista");
   const [sortKey, setSortKey] = useState<SortKey>("odp");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
-  const [viewing, setViewing] = useState<Scheda | null>(null);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
 
   // Include anche gli stati presenti solo sulle sottoschede — stesso motivo di fornitoriUniq
@@ -716,7 +713,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                     <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">{s.codiceArticolo || "—"}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {s.numeroScheda ? (
-                        <button onClick={() => setViewing(s)} className="hover:underline font-medium text-left" style={{ color: "var(--color-black)" }}>
+                        <button onClick={() => apriScheda(s)} className="hover:underline font-medium text-left" style={{ color: "var(--color-black)" }}>
                           {s.numeroScheda}
                         </button>
                       ) : "—"}
@@ -746,7 +743,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                     <td className="px-4 py-3">
                       <div className="flex flex-col gap-1.5 items-start">
                         <button
-                          onClick={() => setViewing(s)}
+                          onClick={() => apriScheda(s)}
                           className="text-sm px-3 py-1.5 rounded-lg font-semibold transition-colors whitespace-nowrap border"
                           style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)", borderColor: "rgba(240,143,37,0.3)" }}
                         >
@@ -792,7 +789,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                         <td className="px-4 py-2 font-mono text-xs whitespace-nowrap">{f.codiceArticolo || "—"}</td>
                         <td className="px-4 py-2 text-xs whitespace-nowrap">
                           {f.numeroScheda ? (
-                            <button onClick={() => setViewing(f)} className="hover:underline font-medium text-left" style={{ color: "var(--color-black)" }}>
+                            <button onClick={() => apriScheda(f)} className="hover:underline font-medium text-left" style={{ color: "var(--color-black)" }}>
                               {f.numeroScheda}
                             </button>
                           ) : "—"}
@@ -812,7 +809,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                         <td className="px-4 py-2"><PdfLinks pdfAllegato={f.pdfAllegato} /></td>
                         <td className="px-4 py-2">
                           <button
-                            onClick={() => setViewing(f)}
+                            onClick={() => apriScheda(f)}
                             className="text-sm px-3 py-1.5 rounded-lg font-semibold transition-colors whitespace-nowrap border"
                             style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)", borderColor: "rgba(240,143,37,0.3)" }}
                           >
@@ -834,7 +831,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                             <td className="px-4 py-2 font-mono text-xs whitespace-nowrap">{n.codiceArticolo || "—"}</td>
                             <td className="px-4 py-2 text-xs whitespace-nowrap">
                               {n.numeroScheda ? (
-                                <button onClick={() => setViewing(n)} className="hover:underline font-medium text-left" style={{ color: "var(--color-black)" }}>
+                                <button onClick={() => apriScheda(n)} className="hover:underline font-medium text-left" style={{ color: "var(--color-black)" }}>
                                   {n.numeroScheda}
                                 </button>
                               ) : "—"}
@@ -848,7 +845,7 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
                             <td className="px-4 py-2"><DataCell date={n.dataRientroPrevista} inRitardo={nRitardo.rientro} /></td>
                             <td className="px-4 py-2"><PdfLinks pdfAllegato={n.pdfAllegato} /></td>
                             <td className="px-4 py-2">
-                              <button onClick={() => setViewing(n)}
+                              <button onClick={() => apriScheda(n)}
                                 className="text-sm px-3 py-1.5 rounded-lg font-semibold transition-colors whitespace-nowrap border"
                                 style={{ color: "var(--color-primary)", background: "rgba(240,143,37,0.08)", borderColor: "rgba(240,143,37,0.3)" }}>
                                 Vedi scheda
@@ -936,17 +933,6 @@ export default function TabellaSchede({ schede: initial, sottoschede = [], comme
         />
       )}
 
-      {viewing && (
-        <DettaglioSchedaModal
-          scheda={viewing}
-          figlie={sottoschedeByParent.get(viewing.id) ?? []}
-          onClose={() => setViewing(null)}
-          onRilavorazioneCreata={handleReload}
-          onViewScheda={(s) => setViewing(s)}
-          userRole={userRole}
-          onSchedaAggiornata={handleSchedaAggiornata}
-        />
-      )}
       <CopertinaTooltip tooltip={tooltip} />
     </div>
   );

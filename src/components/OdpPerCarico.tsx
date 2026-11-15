@@ -1,11 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Carico, Commessa, Scheda } from "@/lib/types";
-import type { Role } from "@/lib/roles";
 import BadgeStato from "./BadgeStato";
 import SchedaCard, { coloreDaTesto } from "./SchedaCard";
-import DettaglioSchedaModal from "./DettaglioSchedaModal";
 
 function fmt(d: string | null) {
   if (!d) return "—";
@@ -16,15 +15,14 @@ interface Props {
   carichi: Carico[];
   commesse: Commessa[];
   schede: Scheda[];
-  userRole?: Role;
 }
 
-export default function OdpPerCarico({ carichi, commesse, schede: initial, userRole }: Props) {
-  const [schede, setSchede] = useState(initial);
+export default function OdpPerCarico({ carichi, commesse, schede }: Props) {
   const [commessaId, setCommessaId] = useState<string>("");
   const [nascondiChiuse, setNascondiChiuse] = useState(true);
   const [vista, setVista] = useState<"tabella" | "galleria">("galleria");
-  const [viewing, setViewing] = useState<Scheda | null>(null);
+  const router = useRouter();
+  const apriScheda = (s: Scheda) => router.push(`/schede/${s.id}`);
   const [generando, setGenerando] = useState(false);
 
   const schedaMap = useMemo(() => new Map(schede.map(s => [s.id, s])), [schede]);
@@ -73,10 +71,6 @@ export default function OdpPerCarico({ carichi, commesse, schede: initial, userR
     }
   }
 
-  function handleAggiornata(updated: Scheda) {
-    setSchede(prev => prev.map(s => (s.id === updated.id ? updated : s)));
-    setViewing(updated);
-  }
 
   const toggleBtn = (v: "tabella" | "galleria", label: string) => (
     <button
@@ -173,23 +167,15 @@ export default function OdpPerCarico({ carichi, commesse, schede: initial, userR
               <p className="py-4 text-sm" style={{ color: "var(--color-grey-mid)" }}>Nessun ODP collegato a questo carico</p>
             ) : vista === "galleria" ? (
               <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
-                {odp.map(s => <SchedaCard key={s.id} s={s} onClick={() => setViewing(s)} />)}
+                {odp.map(s => <SchedaCard key={s.id} s={s} onClick={() => apriScheda(s)} />)}
               </div>
             ) : (
-              <TabellaOdp odp={odp} onSelect={setViewing} />
+              <TabellaOdp odp={odp} onSelect={apriScheda} />
             )}
           </section>
         ))
       )}
 
-      {viewing && (
-        <DettaglioSchedaModal
-          scheda={viewing}
-          onClose={() => setViewing(null)}
-          userRole={userRole}
-          onSchedaAggiornata={handleAggiornata}
-        />
-      )}
     </div>
   );
 }

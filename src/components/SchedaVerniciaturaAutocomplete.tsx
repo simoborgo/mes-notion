@@ -17,7 +17,7 @@ function label(s: SchedaVerniciatura): string {
 
 // Stesso pattern di CommessaAutocomplete.tsx, ma con dropdown position:fixed (coordinate da
 // getBoundingClientRect) invece di absolute — questa autocomplete vive dentro la tab
-// "Verniciatura" di DettaglioSchedaModal, un contenitore con overflow-y-auto: con absolute la
+// "Verniciatura" di DettaglioScheda, un contenitore con overflow-y-auto: con absolute la
 // lista veniva tagliata/nascosta, stesso problema già risolto in VerniceSelect.tsx.
 export default function SchedaVerniciaturaAutocomplete({ schedeList, value, onChange, placeholder }: Props) {
   const [search, setSearch] = useState("");

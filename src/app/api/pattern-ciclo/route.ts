@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPatternCicloAttivi } from "@/lib/patternCicloRepository";
 import { getSessionFromRequest, MODIFICA_SCHEDA_ROLES } from "@/lib/auth";
 
-// Elenco Pattern_Ciclo (sola lettura) — usato dal selettore inline in DettaglioSchedaModal
+// Elenco Pattern_Ciclo (sola lettura) — usato dal selettore inline in DettaglioScheda
 // quando il pattern di un articolo non si risolve da solo.
 export async function GET(req: NextRequest) {
   const session = await getSessionFromRequest(req);

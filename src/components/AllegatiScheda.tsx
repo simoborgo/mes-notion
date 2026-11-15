@@ -5,7 +5,7 @@ import type { Scheda } from "@/lib/types";
 
 // Allegati della scheda (PDF, foto, copertina, altri file) con caricamento ed eliminazione
 // immediati: ogni operazione è una chiamata API a sé, non passa dal "Salva" del form che li
-// contiene. Condiviso tra il modale di modifica (FormModificaScheda) e l'editor a pagina piena.
+// contiene. Usato dall'editor della scheda a pagina piena (SchedaModificaInline).
 
 function readAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {

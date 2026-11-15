@@ -4,10 +4,8 @@ import { useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent 
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import type { DatiGantt, FaseGantt, RepartoGantt } from "@/lib/apsGanttRepository";
-import type { Scheda } from "@/lib/types";
 import type { Role } from "@/lib/roles";
 import { giornoLavorativoAps } from "@/lib/calendarioLavorativo";
-import DettaglioSchedaModal from "./DettaglioSchedaModal";
 import RicalcolaPianoApsButton from "./RicalcolaPianoApsButton";
 
 const DAY_W = 62; // largo abbastanza da mostrare il numero ODP anche su una barra di un solo giorno
@@ -211,16 +209,9 @@ export default function GanttAps({ dati, userRole, oreStandard }: { dati: DatiGa
   }, [toast]);
   function onCambiato() { router.refresh(); }
 
-  // Apertura Scheda dal Gantt — modal già esistente in Schede di Produzione, aperto già sulla
-  // tab "Fasi APS": evita di duplicare la logica di visualizzazione/modifica in un modal nuovo.
-  const [schedaAperta, setSchedaAperta] = useState<Scheda | null>(null);
-  async function apriScheda(schedaId: string) {
-    try {
-      const res = await fetch(`/api/schede/${schedaId}`);
-      if (res.ok) setSchedaAperta(await res.json());
-    } catch {
-      setToast("Errore nell'apertura della Scheda");
-    }
+  // Apertura Scheda dal Gantt: pagina della scheda, già sulla tab "Fasi APS".
+  function apriScheda(schedaId: string) {
+    router.push(`/schede/${schedaId}?tab=aps`);
   }
 
   const giorniIso = useMemo(
@@ -366,16 +357,6 @@ export default function GanttAps({ dati, userRole, oreStandard }: { dati: DatiGa
         repartoCnc
           ? <VistaCnc reparto={repartoCnc} userRole={userRole} oreStandard={oreStandard} onCambiato={onCambiato} onErrore={setToast} onApriScheda={apriScheda} />
           : <p className="text-sm" style={{ color: "var(--color-grey-mid)" }}>Reparto CNC non trovato.</p>
-      )}
-
-      {schedaAperta && (
-        <DettaglioSchedaModal
-          scheda={schedaAperta}
-          tabIniziale="aps"
-          userRole={userRole}
-          onClose={() => setSchedaAperta(null)}
-          onSchedaAggiornata={() => { setSchedaAperta(null); router.refresh(); }}
-        />
       )}
     </div>
   );

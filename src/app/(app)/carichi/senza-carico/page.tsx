@@ -1,19 +1,17 @@
 import { getSchede } from "@/lib/schedeRepository";
 import { getCommesse } from "@/lib/commesseRepository";
 import { getSchedaIdsInCarico, getOdpInPiuCarichi } from "@/lib/carichiRepository";
-import { getSession } from "@/lib/auth";
 import OdpSenzaCarico from "@/components/OdpSenzaCarico";
 import CommesseSubNav from "@/components/CommesseSubNav";
 
 export const dynamic = "force-dynamic";
 
 export default async function OdpSenzaCaricoPage() {
-  const [schede, commesse, schedeInCarico, inPiuCarichi, session] = await Promise.all([
+  const [schede, commesse, schedeInCarico, inPiuCarichi] = await Promise.all([
     getSchede(),
     getCommesse(),
     getSchedaIdsInCarico(),
     getOdpInPiuCarichi(),
-    getSession(),
   ]);
 
   return (
@@ -27,7 +25,7 @@ export default async function OdpSenzaCaricoPage() {
           ODP attivi non assegnati a nessun carico: la loro data di produzione prevista non viene riallineata automaticamente
         </p>
       </div>
-      <OdpSenzaCarico schede={schede} commesse={commesse} schedeInCarico={schedeInCarico} inPiuCarichi={inPiuCarichi} userRole={session?.role} />
+      <OdpSenzaCarico schede={schede} commesse={commesse} schedeInCarico={schedeInCarico} inPiuCarichi={inPiuCarichi} />
     </div>
   );
 }

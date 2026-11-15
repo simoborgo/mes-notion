@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import type { Scheda, CommessaScadenza } from "@/lib/types";
 import type { Role } from "@/lib/roles";
 import type { VoceAttivita } from "@/lib/audit";
-import DettaglioSchedaModal from "./DettaglioSchedaModal";
+import DettaglioScheda from "./DettaglioScheda";
 
 export type TabScheda = "info" | "fornitore" | "kit" | "aps" | "verniciatura";
 
@@ -24,7 +24,7 @@ export default function SchedaPagina({ scheda: iniziale, figlie, attivita, scade
   const router = useRouter();
   const [scheda, setScheda] = useState(iniziale);
 
-  // Esc risale di un livello: dalla sottoscheda alla madre, dalla madre all'elenco, come chiude il modale. Non quando si sta scrivendo in un campo o un
+  // Esc risale di un livello: dalla sottoscheda alla madre, dalla madre all'elenco. Non quando si sta scrivendo in un campo o un
   // altro modale (modifica, nuova sottoscheda) è aperto sopra la pagina.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -61,8 +61,7 @@ export default function SchedaPagina({ scheda: iniziale, figlie, attivita, scade
         {hrefPianta && <Link href={hrefPianta} className="ml-3 underline" style={{ color: "var(--color-primary)" }}>Vedi sulla pianta</Link>}
         <span className="ml-auto hidden sm:inline">Esc {padre ? `torna a ${padre.odp || padre.numeroScheda}` : "torna all'elenco"}</span>
       </nav>
-      <DettaglioSchedaModal
-        modalita="pagina"
+      <DettaglioScheda
         scheda={scheda}
         figlie={figlie}
         attivita={attivita}

@@ -50,8 +50,8 @@ function Campo({ label, prima, modificato, larga, children }: {
   );
 }
 
-// Modifica della scheda direttamente nella tab Info della pagina piena, al posto del modale. I campi
-// sono quelli di FormModificaScheda; gli allegati si caricano subito (non passano dal Salva).
+// Modifica della scheda direttamente nella tab Info della pagina piena. Gli allegati si caricano
+// subito (non passano dal Salva).
 export default function SchedaModificaInline({ scheda, economia, puoModificareIdentita, onSalvata, onAnnulla, onAllegatiAggiornati }: {
   scheda: Scheda;
   economia?: EconomiaScheda | null; // presente per le Schede madre: abilita la sezione Valori

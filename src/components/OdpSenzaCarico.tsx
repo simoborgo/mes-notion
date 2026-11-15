@@ -1,11 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Commessa, Scheda } from "@/lib/types";
 import { STATI_CHIUSI_ODP } from "@/lib/types";
-import type { Role } from "@/lib/roles";
 import BadgeStato from "./BadgeStato";
-import DettaglioSchedaModal from "./DettaglioSchedaModal";
 
 function fmt(d: string | null) {
   if (!d) return "—";
@@ -22,7 +21,6 @@ interface Props {
   commesse: Commessa[];
   schedeInCarico: string[];
   inPiuCarichi: OdpInPiuCarichi[];
-  userRole?: Role;
 }
 
 function TabellaOdp({ odp, onSelect }: { odp: Scheda[]; onSelect: (s: Scheda) => void }) {
@@ -56,10 +54,10 @@ function TabellaOdp({ odp, onSelect }: { odp: Scheda[]; onSelect: (s: Scheda) =>
   );
 }
 
-export default function OdpSenzaCarico({ schede: initial, commesse, schedeInCarico, inPiuCarichi, userRole }: Props) {
-  const [schede, setSchede] = useState(initial);
+export default function OdpSenzaCarico({ schede, commesse, schedeInCarico, inPiuCarichi }: Props) {
   const [nascondiChiuse, setNascondiChiuse] = useState(true);
-  const [viewing, setViewing] = useState<Scheda | null>(null);
+  const router = useRouter();
+  const apriScheda = (s: Scheda) => router.push(`/schede/${s.id}`);
 
   const commesseChiuseNr = useMemo(() => new Set(commesse.filter((c) => c.stato === "Chiusa").map((c) => c.numeroCommessa)), [commesse]);
   const inCarico = useMemo(() => new Set(schedeInCarico), [schedeInCarico]);
@@ -99,7 +97,7 @@ export default function OdpSenzaCarico({ schede: initial, commesse, schedeInCari
               const s = schedaMap.get(d.schedaId)!;
               return (
                 <li key={d.schedaId}>
-                  <button type="button" className="font-semibold hover:underline" onClick={() => setViewing(s)}>{s.odp}</button>
+                  <button type="button" className="font-semibold hover:underline" onClick={() => apriScheda(s)}>{s.odp}</button>
                   <span className="ml-2" style={{ color: "var(--color-grey-mid)" }}>
                     {d.carichi.map((c) => `«${c.titolo}»${c.dataCarico ? ` ${fmt(c.dataCarico)}` : ""}`).join(" · ")}
                   </span>
@@ -132,19 +130,11 @@ export default function OdpSenzaCarico({ schede: initial, commesse, schedeInCari
               <h2 className="text-base font-semibold" style={{ fontFamily: "var(--font-display)" }}>{g.label}</h2>
               <span className="text-sm" style={{ color: "var(--color-grey-mid)" }}>{g.odp.length} ODP</span>
             </div>
-            <TabellaOdp odp={g.odp} onSelect={setViewing} />
+            <TabellaOdp odp={g.odp} onSelect={apriScheda} />
           </section>
         ))
       )}
 
-      {viewing && (
-        <DettaglioSchedaModal
-          scheda={viewing}
-          onClose={() => setViewing(null)}
-          userRole={userRole}
-          onSchedaAggiornata={(u) => { setSchede((prev) => prev.map((s) => (s.id === u.id ? u : s))); setViewing(u); }}
-        />
-      )}
     </div>
   );
 }

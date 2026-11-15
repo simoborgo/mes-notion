@@ -6,7 +6,6 @@ import type { Scheda } from "@/lib/types";
 import { MODIFICA_SCHEDA_ROLES, type Role } from "@/lib/roles";
 import { leggiMovimentiAperti, testoConferma, chiudiMovimenti, segnalaVerifica } from "@/lib/movimentiGiroClient";
 import BadgeStato from "./BadgeStato";
-import DettaglioSchedaModal from "./DettaglioSchedaModal";
 import ModaleOrdineFornitore from "./ModaleOrdineFornitore";
 import ModaleAnteprimaScheda from "./ModaleAnteprimaScheda";
 
@@ -170,7 +169,6 @@ export default function TabellaLavorazioniEsterne({
   const [soloRitardo, setSoloRitardo] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("dataRientroPrevista");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [viewing, setViewing] = useState<Scheda | null>(null);
   const [ordineId, setOrdineId] = useState<string | null>(null);
   const [anteprima, setAnteprima] = useState<Scheda | null>(null);
   const [errore, setErrore] = useState("");
@@ -220,10 +218,9 @@ export default function TabellaLavorazioniEsterne({
     startTransition(async () => { await revalidate(); router.refresh(); });
   }
 
-  function handleSchedaAggiornata(updated: Scheda) {
-    setViewing(updated);
-    setAgg((a) => ({ ...a, [updated.id]: updated }));
-    handleReload();
+  // Le lavorazioni esterne si aprono sulla tab Fornitore.
+  function apriScheda(s: Scheda) {
+    router.push(`/schede/${s.id}${s.produzioneEsterna ? "?tab=fornitore" : ""}`);
   }
 
   // PATCH sulla scheda: il server scrive la data sul giro attivo e ricopia il riepilogo sulla scheda.
@@ -396,7 +393,7 @@ export default function TabellaLavorazioniEsterne({
                     </td>
                     <td className="px-4 py-3.5 text-base whitespace-nowrap">
                       {s.numeroScheda ? (
-                        <button type="button" onClick={() => setViewing(s)} className="hover:underline font-medium text-left" style={{ color: "var(--color-black)" }}>
+                        <button type="button" onClick={() => apriScheda(s)} className="hover:underline font-medium text-left" style={{ color: "var(--color-black)" }}>
                           {s.numeroScheda}
                         </button>
                       ) : "—"}
@@ -462,23 +459,12 @@ export default function TabellaLavorazioniEsterne({
         />
       )}
 
-      {viewing && (
-        <DettaglioSchedaModal
-          key={viewing.id}
-          scheda={viewing}
-          onClose={() => setViewing(null)}
-          userRole={userRole}
-          onSchedaAggiornata={handleSchedaAggiornata}
-          onViewScheda={setViewing}
-          tabIniziale={viewing.produzioneEsterna ? "fornitore" : "info"}
-        />
-      )}
 
       {anteprima && (
         <ModaleAnteprimaScheda
           scheda={anteprima}
           onClose={() => setAnteprima(null)}
-          onApri={(sc) => { setAnteprima(null); setViewing(sc); }}
+          onApri={(sc) => { setAnteprima(null); apriScheda(sc); }}
         />
       )}
     </div>

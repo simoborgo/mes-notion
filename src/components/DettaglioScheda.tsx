@@ -6,10 +6,7 @@ import { FERRAMENTA_ROLES, type Role } from "@/lib/roles";
 import BadgeStato from "./BadgeStato";
 import GalleriaAllegatiScheda from "./GalleriaAllegatiScheda";
 import PdfAnnotatoreModal, { type AnnotazioneData } from "./PdfAnnotatoreModal";
-import FormModificaScheda from "./FormModificaScheda";
 import FormNuovaSottoscheda from "./FormNuovaSottoscheda";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import SchedaModificaInline from "./SchedaModificaInline";
 import KitFerramentaTab from "./KitFerramentaTab";
 import SchedaColonnaLaterale from "./SchedaColonnaLaterale";
@@ -24,17 +21,14 @@ import type { EconomiaScheda } from "@/lib/valoriScheda";
 interface Props {
   scheda: Scheda;
   figlie?: Scheda[];
-  onClose: () => void;
+  onClose: () => void; // dopo l'eliminazione: si torna alla madre o all'elenco
   onRilavorazioneCreata?: () => void;
   onViewScheda?: (s: Scheda) => void;
   userRole?: Role;
   onSchedaAggiornata?: (updated: Scheda) => void;
   tabIniziale?: "info" | "fornitore" | "kit" | "aps" | "verniciatura";
-  // "pagina" = scheda a tutta pagina (/schede/[id]): niente overlay, colonna laterale fissa a destra
-  // e anteprima PDF; "modale" (default) = la scheda veloce aperta dall'elenco.
-  modalita?: "modale" | "pagina";
-  modificaIniziale?: boolean; // pagina piena: apre subito la modifica sul posto (?modifica=1)
-  onTabChange?: (tab: "info" | "fornitore" | "kit" | "aps" | "verniciatura") => void; // la pagina piena la riporta nell'indirizzo
+  modificaIniziale?: boolean; // apre subito la modifica sul posto (?modifica=1)
+  onTabChange?: (tab: "info" | "fornitore" | "kit" | "aps" | "verniciatura") => void; // la pagina la riporta nell'indirizzo
   attivita?: VoceAttivita[];
   scadenze?: CommessaScadenza[];
 }
@@ -312,14 +306,11 @@ function RilavorazioneWizard({
   );
 }
 
-export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, onRilavorazioneCreata, onViewScheda, userRole, onSchedaAggiornata, tabIniziale, modalita = "modale", attivita = [], scadenze = [], onTabChange, modificaIniziale = false }: Props) {
-  const isPagina = modalita === "pagina";
-  const router = useRouter();
-  // Modifica sul posto (solo pagina piena): la tab Info diventa un modulo, il resto della pagina resta.
-  const [inModifica, setInModifica] = useState(isPagina && modificaIniziale && (userRole === "admin" || userRole === "produzione"));
-  const overlayRef = useRef<HTMLDivElement>(null);
+// Dettaglio della scheda di produzione, mostrato dalla pagina /schede/[id] (SchedaPagina).
+export default function DettaglioScheda({ scheda: s, figlie = [], onClose, onRilavorazioneCreata, onViewScheda, userRole, onSchedaAggiornata, tabIniziale, attivita = [], scadenze = [], onTabChange, modificaIniziale = false }: Props) {
+  // Modifica sul posto: la tab Info diventa un modulo, il resto della pagina resta.
+  const [inModifica, setInModifica] = useState(modificaIniziale && (userRole === "admin" || userRole === "produzione"));
   const [showWizard, setShowWizard] = useState(false);
-  const [showEditForm, setShowEditForm] = useState(false);
   const [rilavorazioneCreata, setRilavorazioneCreata] = useState<{ pageId: string; odp: string; ritiroCreato: boolean } | null>(null);
   const [rientrando, setRientrando] = useState(false);
   const [rientroError, setRientroError] = useState<string | null>(null);
@@ -335,7 +326,7 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
   // Sottoschede e Rilavorazioni sono record a sé: senza questo la loro scheda dettaglio è
   // visivamente identica a quella di una Scheda madre, e non si capisce di cosa si tratta né da
   // chi discende — risolto autonomamente qui (fetch diretta del padre) così funziona indipendente
-  // da quale pagina apre il modal, non solo da quelle che già hanno l'intera lista schede a mano.
+  // dai dati che la pagina ha già a disposizione.
   const [schedaPadre, setSchedaPadre] = useState<Scheda | null>(null);
 
   // Ore consumate/standard (tutti) e importi (solo admin) della scheda madre; li serve
@@ -396,17 +387,6 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
       ),
     }] : []),
   ];
-
-  useEffect(() => {
-    if (isPagina) return; // a pagina piena non c'è overlay: né Esc né blocco dello scroll
-    function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
-    document.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-    };
-  }, [onClose, isPagina]);
 
   const today = new Date().toISOString().slice(0, 10);
   const inLavorazione = !["Completato", "Annullata"].includes(s.statoProduzione);
@@ -476,18 +456,15 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
     }
   }
 
-  // Dalla pagina piena la modifica è sul posto. Dal modale, su schermo largo si passa alla pagina
-  // piena già in modifica (il modale resta di consultazione); su schermo stretto resta il vecchio modulo.
   function apriModifica() {
-    if (isPagina) { setActiveTab("info"); setInModifica(true); return; }
-    if (window.matchMedia("(min-width: 1024px)").matches) router.push(`/schede/${s.id}?modifica=1`);
-    else setShowEditForm(true);
+    setActiveTab("info");
+    setInModifica(true);
   }
 
   const comandi = (
     <>
             {/* ── Riga comandi ── */}
-            <div className={isPagina ? "flex items-center gap-2 flex-wrap" : "flex items-center gap-2 flex-wrap mt-4"}>
+            <div className="flex items-center gap-2 flex-wrap">
             {(userRole === "admin" || userRole === "produzione") && !inModifica && (
               <button onClick={apriModifica}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13.2px] font-medium transition-colors hover:bg-gray-100"
@@ -552,16 +529,8 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
   );
 
   return (
-    <div
-      ref={overlayRef}
-      className={isPagina ? undefined : "fixed inset-0 z-50 flex items-center justify-center p-4"}
-      style={isPagina ? undefined : { background: "rgba(0,0,0,0.45)", backdropFilter: "blur(2px)" }}
-      onClick={isPagina ? undefined : (e) => { if (e.target === overlayRef.current) onClose(); }}
-    >
-      <div
-        className={isPagina ? "relative flex flex-col rounded-xl border overflow-hidden" : "relative flex flex-col rounded-2xl shadow-2xl overflow-hidden"}
-        style={isPagina ? { background: "white", borderColor: "#e5e4e0" } : { width: "min(920px, 100%)", maxHeight: "92vh", background: "white" }}
-      >
+    <div>
+      <div className="relative flex flex-col rounded-xl border overflow-hidden" style={{ background: "white", borderColor: "#e5e4e0" }}>
         {/* ── Header ── */}
         <div className="shrink-0">
           {/* ── Banda titolo — colorata per tipologia: arancio per le Schede, gli stessi colori
@@ -618,26 +587,11 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
                   );
                 })()}
               </div>
-              {isPagina ? null : (
-                <div className="flex items-center gap-1 shrink-0">
-                  {/* Solo da desktop: la pagina piena serve a chi ha lo spazio per usarla */}
-                  <Link href={`/schede/${s.id}`}
-                    className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13.2px] font-semibold transition-colors hover:bg-black/10"
-                    style={{ color: bandTheme.accent }}>
-                    Apri a pagina piena ↗
-                  </Link>
-                  <button onClick={onClose}
-                    className="flex items-center justify-center w-8 h-8 rounded-full transition-colors hover:bg-black/10 shrink-0"
-                    style={{ color: bandTheme.accent }} aria-label="Chiudi">
-                    ✕
-                  </button>
-                </div>
-              )}
             </div>
           </div>
 
           {/* ── Info secondarie + comandi ── */}
-          <div className={isPagina ? "px-6 py-4 border-b flex items-start justify-between gap-x-8 gap-y-3 flex-wrap" : "px-6 pt-4 pb-4 border-b"}
+          <div className="px-6 py-4 border-b flex items-start justify-between gap-x-8 gap-y-3 flex-wrap"
             style={{ background: "#f3f2ef", borderColor: "#e5e4e0" }}>
             <div className="min-w-0">
             {giorniWip != null && (
@@ -674,7 +628,7 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
               >
                 {fmt(s.dataProduzionePrevista)}
               </span>
-              {isPagina && s.produzioneEsterna && (
+              {s.produzioneEsterna && (
                 <>
                   <span className="text-[12.1px] font-bold uppercase tracking-widest ml-4" style={{ color: "#9c9894" }}>Rientro previsto</span>
                   <span className="text-[15.4px] font-semibold" style={{ color: inRitardoRientro ? "#DC2626" : !s.dataRientroPrevista ? "var(--color-grey-mid)" : "#16A34A" }}>
@@ -728,7 +682,7 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
         )}
 
         {/* ── Body ── */}
-        <div className={isPagina ? "lg:grid lg:grid-cols-[minmax(0,1fr)_340px]" : "flex-1 overflow-y-auto"}>
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="px-6 py-5 space-y-5 min-w-0">
 
           {activeTab === "kit" && canFerramenta && <KitFerramentaTab scheda={s} />}
@@ -888,23 +842,9 @@ export default function DettaglioSchedaModal({ scheda: s, figlie = [], onClose, 
           </>}
 
         </div>
-        {isPagina && <SchedaColonnaLaterale scheda={s} attivita={attivita} scadenze={scadenze} />}
+        <SchedaColonnaLaterale scheda={s} attivita={attivita} scadenze={scadenze} />
         </div>
       </div>
-
-      {showEditForm && (!haEconomia || economia) && (
-        <FormModificaScheda
-          scheda={s}
-          economia={haEconomia ? economia : undefined}
-          puoModificareIdentita={userRole === "admin"}
-          onClose={() => setShowEditForm(false)}
-          onSave={(updated) => {
-            setShowEditForm(false);
-            caricaEconomia();
-            onSchedaAggiornata?.(updated);
-          }}
-        />
-      )}
 
       {showNuovaSottoscheda && (
         <FormNuovaSottoscheda
